@@ -1,0 +1,25 @@
+{
+  "name": "mailzen",
+  "version": "1.0.0",
+  "description": "MailZen - Email management platform",
+  "main": "start-dev.js",
+  "scripts": {
+    "start": "node start-dev.js",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "start:frontend": "cd frontend && npm run dev",
+    "start:backend": "cd backend && npm run start:dev",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build"
+  },
+  "keywords": [
+    "email",
+    "management",
+    "nextjs",
+    "nestjs"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "child_process": "^1.0.2"
+  }
+} 
