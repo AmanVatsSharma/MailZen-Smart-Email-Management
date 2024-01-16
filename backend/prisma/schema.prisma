@@ -1,0 +1,196 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("USER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  contacts  Contact[]
+  emails    Email[]
+  providers EmailProvider[]
+  filters   EmailFilter[]
+  folders   EmailFolder[]
+  labels    EmailLabel[]
+  templates Template[]
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  phone     String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Email {
+  id          String   @id @default(uuid())
+  subject     String
+  body        String
+  from        String
+  to          String[]
+  status      String   @default("DRAFT")
+  isImportant Boolean  @default(false)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  providerId  String?
+  provider    EmailProvider? @relation(fields: [providerId], references: [id])
+  folderId    String?
+  folder      EmailFolder? @relation(fields: [folderId], references: [id])
+  labels      EmailLabelAssignment[]
+  attachments Attachment[]
+  scheduledAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  analytics   EmailAnalytics?
+}
+
+model EmailProvider {
+  id          String   @id @default(uuid())
+  type        String   // GMAIL, OUTLOOK, CUSTOM_SMTP
+  email       String
+  host        String?
+  port        Int?
+  password    String?
+  accessToken String?
+  refreshToken String?
+  tokenExpiry DateTime?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  emails      Email[]
+  warmup      EmailWarmup?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EmailAnalytics {
+  id         String   @id @default(uuid())
+  emailId    String   @unique
+  email      Email    @relation(fields: [emailId], references: [id])
+  openCount  Int      @default(0)
+  clickCount Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model EmailFilter {
+  id        String   @id @default(uuid())
+  name      String
+  rules     Json     // Array of EmailFilterRule
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EmailFolder {
+  id        String   @id @default(uuid())
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  emails    Email[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EmailLabel {
+  id        String   @id @default(uuid())
+  name      String
+  color     String   @default("#4F46E5")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  emails    EmailLabelAssignment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EmailLabelAssignment {
+  id        String     @id @default(uuid())
+  emailId   String
+  email     Email      @relation(fields: [emailId], references: [id])
+  labelId   String
+  label     EmailLabel @relation(fields: [labelId], references: [id])
+  createdAt DateTime   @default(now())
+
+  @@unique([emailId, labelId])
+}
+
+model Template {
+  id        String   @id @default(uuid())
+  name      String
+  subject   String
+  body      String
+  metadata  Json?    @default("{}")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Feature {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Attachment {
+  id          String   @id @default(uuid())
+  filename    String
+  contentType String
+  size        Int?
+  url         String   // Cloud storage URL
+  emailId     String
+  email       Email    @relation(fields: [emailId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EmailWarmup {
+  id                String   @id @default(uuid())
+  providerId        String   @unique
+  provider         EmailProvider @relation(fields: [providerId], references: [id])
+  status           String   @default("PENDING") // PENDING, ACTIVE, PAUSED, COMPLETED
+  currentDailyLimit Int      @default(5)
+  dailyIncrement    Int      @default(5)
+  maxDailyEmails    Int      @default(100)
+  minimumInterval   Int      @default(15)
+  targetOpenRate    Int      @default(80)
+  startedAt         DateTime @default(now())
+  lastRunAt         DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  activities        WarmupActivity[]
+}
+
+model WarmupActivity {
+  id          String   @id @default(uuid())
+  warmupId    String
+  warmup      EmailWarmup @relation(fields: [warmupId], references: [id])
+  emailsSent  Int      @default(0)
+  openRate    Float    @default(0)
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([warmupId, date])
+}
