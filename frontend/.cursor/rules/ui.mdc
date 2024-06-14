@@ -1,0 +1,76 @@
+---
+description: the rules for generating ui/ux pages and components
+globs: 
+alwaysApply: true
+---
+## General Guidelines
+
+- Use Next.js 14 + TypeScript (with App Router for modern architecture)
+- Use TailwindCSS + ShadCN UI for highly customizable, elegant components
+- Use Framer Motion for smooth animations and transitions
+- Use Lucide Icons for clean and minimalistic icons
+- Ensure fully responsive design (Mobile-first, grid-based layouts)
+- Support Dark mode with seamless toggling
+- Maintain consistent typography (use Inter, Poppins, or system fonts)
+- Use proper spacing, padding, and contrast for better readability
+- Implement fluid animations, hover effects, and dynamic interactions
+
+## Code Structure & Best Practices
+
+- Follow ShadCN UI component guidelines for consistency
+- Keep code modular, reusable, and easily maintainable
+- Use server components for optimized performance
+- Ensure accessibility (a11y) and keyboard navigation support
+- Implement global theme configurations for easy customization
+
+## Styling & Design Principles
+
+- Minimalist and professional look (Apple-like aesthetics)
+- Card-based layouts for dashboards and data-heavy pages
+- Soft shadows, rounded corners (2xl), subtle gradients
+- Avoid excessive colors—stick to neutral tones with a primary accent
+- Use ShadCN themes to maintain a cohesive UI
+
+## Essential UI Components (ShadCN Focused)
+
+### Dashboard Layout
+- Sidebar: Expandable, includes icons and labels (ShadCN Sheet or NavigationMenu)
+- Navbar: Contains search bar, profile dropdown, notifications
+- Main Content: Dynamic grid layout, responsive card-based sections
+- Widgets: Sales insights, revenue trends, quick actions
+
+### Authentication Pages
+- Login & Signup Forms: Clean UI using Card, Input, Button
+- Magic Link / OAuth Support: Use Dialog for seamless authentication
+- Password Reset Page: Well-structured with email validation
+
+### Forms & Inputs
+- Validated Input Fields (Input, Label, Textarea, Checkbox, Select)
+- Dynamic Form Handling (Use useForm + zod validation)
+- Multi-Step Forms (Stepper UI with progress indicator)
+
+### Tables & Lists
+- Paginated Tables (Table, DataTable with sorting and filtering)
+- Collapsible List Items (Accordion for expandable content)
+- Inline Editing (EditableTable for quick data updates)
+
+### Cards & Widgets
+- Stat Cards (KPI metrics with Card, Badge, and Tooltip)
+- Recent Activity (List items with timestamps & avatars)
+- Interactive Charts (Using recharts or visx)
+
+## Advanced UI Features
+
+- Neumorphism-inspired components subtly integrated
+- Real-time updates via WebSockets or polling
+- ShadCN DropdownMenu, Popover, and Tooltip for UX improvements
+- Theme toggle using useTheme for light/dark switching
+
+## Code Refinement Process
+
+After generating the initial UI, refine it by:
+- Enhancing contrast, spacing, and responsiveness
+- Optimizing performance (lazy loading & server components)
+- Adding elegant hover effects and animations
+- Implementing consistent design patterns and global styles
+- Ensuring cross-browser compatibility and a11y compliance
