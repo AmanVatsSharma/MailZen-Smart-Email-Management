@@ -1,12 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { SmartReplyInput } from './dto/smart-reply.input';
 
 @Injectable()
 export class SmartReplyService {
   private readonly logger = new Logger(SmartReplyService.name);
   
-  constructor(private readonly prisma: PrismaService) {}
+  constructor() {}
 
   async generateReply(input: SmartReplyInput): Promise<string> {
     try {

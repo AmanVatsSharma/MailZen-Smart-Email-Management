@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+// Prisma removed
 import { CreateAttachmentInput, DeleteAttachmentInput } from './dto/attachment.input';
 import { Storage } from '@google-cloud/storage';
 import { ConfigService } from '@nestjs/config';

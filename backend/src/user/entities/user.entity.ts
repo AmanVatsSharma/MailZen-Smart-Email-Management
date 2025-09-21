@@ -1,22 +1,34 @@
 import { Field, ObjectType, ID, HideField } from '@nestjs/graphql';
-import { Email } from '../../email/entities/email.entity';
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 
 @ObjectType()
+@Entity('users')
 export class User {
   @Field(() => ID)
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Field()
+  @Column({ unique: true })
   email: string;
 
   @Field({ nullable: true })
-  name?: string;
-  
-  // Password is hidden from GraphQL responses
-  @HideField()
-  password?: string;
+  @Column({ type: 'varchar', nullable: true })
+  name?: string | null;
 
-  // Relation to sent emails – this field can later be resolved properly
-  @Field(() => [Email], { nullable: 'itemsAndList' })
-  emailsSent?: Email[];
+  @HideField()
+  @Column({ select: true })
+  password: string;
+
+  @Field({ defaultValue: 'USER' })
+  @Column({ default: 'USER' })
+  role: string;
+
+  @Field(() => Date)
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @Field(() => Date)
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

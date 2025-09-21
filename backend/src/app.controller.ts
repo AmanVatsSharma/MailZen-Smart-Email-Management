@@ -1,10 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
-import { PrismaService } from './prisma/prisma.service';
+import { DataSource } from 'typeorm';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService, private readonly prisma: PrismaService) {}
+  constructor(private readonly appService: AppService, private readonly dataSource: DataSource) {}
 
   @Get()
   getHello(): string {
@@ -13,7 +13,11 @@ export class AppController {
 
   @Get('health')
   async health(): Promise<{ status: string; db: boolean }> {
-    const dbOk = await this.prisma.checkConnection();
-    return { status: 'ok', db: dbOk };
+    try {
+      await this.dataSource.query('SELECT 1');
+      return { status: 'ok', db: true };
+    } catch {
+      return { status: 'ok', db: false };
+    }
   }
 }

@@ -4,7 +4,7 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
 import { ConfigModule } from '@nestjs/config';
 import * as Joi from 'joi';
-import { PrismaModule } from './prisma/prisma.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { AppController } from './app.controller';
@@ -20,7 +20,7 @@ import { AppService } from './app.service';
         FRONTEND_URL: Joi.string().uri().default('http://localhost:3000'),
         JWT_SECRET: Joi.string().min(16).required(),
         JWT_EXPIRATION: Joi.alternatives(Joi.number(), Joi.string()).default('86400'),
-        DATABASE_URL: Joi.string().uri().required(),
+        DATABASE_URL: Joi.string().required(),
       }),
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
@@ -29,7 +29,15 @@ import { AppService } from './app.service';
       context: ({ req, res }) => ({ req, res }),
       introspection: process.env.NODE_ENV !== 'production',
     }),
-    PrismaModule,
+    TypeOrmModule.forRootAsync({
+      useFactory: () => ({
+        type: 'postgres',
+        url: process.env.DATABASE_URL,
+        autoLoadEntities: true,
+        synchronize: process.env.NODE_ENV !== 'production',
+        logging: false,
+      }),
+    }),
     UserModule,
     AuthModule,
   ],

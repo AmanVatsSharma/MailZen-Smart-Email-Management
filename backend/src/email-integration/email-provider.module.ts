@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { EmailProviderService } from './email-provider.service';
 import { EmailProviderResolver } from './email-provider.resolver';
-import { PrismaModule } from '../prisma/prisma.module';
+// Prisma removed
 
 @Module({
-  imports: [PrismaModule],
+  imports: [],
   providers: [EmailProviderService, EmailProviderResolver],
   exports: [EmailProviderService],
 })

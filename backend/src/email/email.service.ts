@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+// Prisma removed
 import { EmailProviderService } from '../email-integration/email-provider.service';
 import { SendEmailInput } from './dto/send-email.input';
 import { MailerService } from '@nestjs-modules/mailer';

@@ -12,7 +12,7 @@ import { AttachmentResolver } from './email.attachment.resolver';
 import { EmailWarmupService } from './email.email-warmup.service';
 import { EmailWarmupResolver } from './email.email-warmup.resolver';
 import { EmailProviderModule } from '../email-integration/email-provider.module';
-import { PrismaModule } from '../prisma/prisma.module';
+// Prisma removed; email module may be refactored to TypeORM later
 import { MailerModule } from '@nestjs-modules/mailer';
 import { EjsAdapter } from '@nestjs-modules/mailer/dist/adapters/ejs.adapter';
 import { BullModule } from '@nestjs/bull';
@@ -23,7 +23,7 @@ import { ConfigModule } from '@nestjs/config';
 @Module({
   imports: [
     ConfigModule,
-    PrismaModule,
+    
     EmailProviderModule,
     ScheduleModule.forRoot(),
     BullModule.forRoot({

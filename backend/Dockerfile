@@ -15,7 +15,6 @@ COPY tsconfig*.json ./
 COPY src ./src
 
 # Generate Prisma client and build NestJS
-RUN npx prisma generate
 RUN npm run build
 
 
@@ -25,11 +24,10 @@ ENV NODE_ENV=production
 
 # Copy runtime artifacts
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 4000
 
-# Run migrations then start the server
-CMD sh -c "npx prisma migrate deploy && node dist/main.js"
+# Start the server (TypeORM will sync schema in non-production if enabled)
+CMD sh -c "node dist/main.js"
 
