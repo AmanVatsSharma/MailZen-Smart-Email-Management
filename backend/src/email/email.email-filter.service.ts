@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+// Prisma removed
 import { CreateEmailFilterInput, FilterCondition, FilterAction, EmailFilterRule } from './dto/email-filter.input';
 import { EmailService } from './email.service';
 import { Email, EmailFilter, EmailProvider } from '@prisma/client';

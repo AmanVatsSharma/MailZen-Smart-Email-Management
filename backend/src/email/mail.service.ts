@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { InjectTransport } from '@mobizerg/nest-nodemailer';
 import { SentMessageInfo } from 'nodemailer';
-import * as Mail from 'nodemailer/lib/mailer';
+import { MailerService } from '@nestjs-modules/mailer';
 import { CreateEmailInput } from './dto/create-email.input';
 
 @Injectable()
 export class MailService {
-  constructor(@InjectTransport() private readonly mailTransport: Mail) {}
+  constructor(private readonly mailerService: MailerService) {}
 
   async sendRealEmail(createEmailInput: CreateEmailInput): Promise<SentMessageInfo> {
     const mailOptions = {
@@ -16,6 +15,6 @@ export class MailService {
       text: createEmailInput.body,
       // You can add html content here if needed
     };
-    return await this.mailTransport.sendMail(mailOptions);
+    return await this.mailerService.sendMail(mailOptions);
   }
 } 

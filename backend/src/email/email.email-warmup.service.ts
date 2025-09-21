@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+// Prisma removed
 import { EmailService } from './email.service';
 import { StartWarmupInput, PauseWarmupInput, WarmupConfigInput } from './dto/warmup.input';
 import { Cron, CronExpression } from '@nestjs/schedule';

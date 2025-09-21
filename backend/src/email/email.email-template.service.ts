@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+// Prisma removed
 import { CreateEmailTemplateInput, UpdateEmailTemplateInput } from './dto/email-template.input';
 import { Template } from '@prisma/client';
 

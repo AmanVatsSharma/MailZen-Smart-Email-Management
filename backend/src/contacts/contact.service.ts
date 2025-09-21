@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+// Prisma removed
 import { Contact } from '@prisma/client';
 import { CreateContactInput } from './dto/create-contact.input';
 

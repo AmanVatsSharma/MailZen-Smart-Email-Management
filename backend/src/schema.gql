@@ -1,0 +1,58 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type Email {
+  id: ID!
+  subject: String!
+  body: String!
+  sender: User!
+  recipients: [User!]!
+  read: Boolean!
+  createdAt: DateTime!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type User {
+  id: ID!
+  email: String!
+  name: String
+  emailsSent: [Email]
+}
+
+type AuthResponse {
+  token: String!
+  user: User!
+}
+
+type Query {
+  users: [User!]!
+  user(id: ID!): User
+}
+
+type Mutation {
+  createUser(createUserInput: CreateUserInput!): User!
+  updateUser(updateUserInput: UpdateUserInput!): User!
+  login(loginInput: LoginInput!): AuthResponse!
+}
+
+input CreateUserInput {
+  email: String!
+  name: String
+  password: String!
+}
+
+input UpdateUserInput {
+  id: ID!
+  email: String
+  name: String
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
