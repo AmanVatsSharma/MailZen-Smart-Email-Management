@@ -12,8 +12,9 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
 });
 
 // HTTP link to the GraphQL server
+// Route through Next.js API route for stable networking in Docker
 const httpLink = new HttpLink({
-  uri: process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql',
+  uri: process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || '/api/graphql',
   credentials: 'include',
 });
 

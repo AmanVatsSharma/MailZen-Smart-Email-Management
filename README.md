@@ -93,18 +93,19 @@ The application uses JWT for authentication. To access protected routes, you nee
 ### Frontend (.env.local)
 
 ```
-NEXT_PUBLIC_GRAPHQL_ENDPOINT=http://localhost:4000/graphql
+NEXT_PUBLIC_GRAPHQL_ENDPOINT=/api/graphql
 NEXT_PUBLIC_AUTH_ENABLED=true
 NEXT_PUBLIC_ENABLE_EMAIL_WARMUP=true
 NEXT_PUBLIC_ENABLE_SMART_REPLIES=true
 NEXT_PUBLIC_ENABLE_EMAIL_TRACKING=true
 NEXT_PUBLIC_DEFAULT_THEME=system
+BACKEND_GRAPHQL_ORIGIN=http://localhost:4000/graphql
 ```
 
 ### Backend (.env)
 
 ```
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mailzen?schema=public
+DATABASE_URL=postgresql://mailzen:mailzen@localhost:5432/mailzen?schema=public
 PORT=4000
 NODE_ENV=development
 FRONTEND_URL=http://localhost:3000
@@ -113,4 +114,25 @@ JWT_EXPIRATION=86400
 ENABLE_EMAIL_WARMUP=true
 ENABLE_SMART_REPLIES=true
 ENABLE_EMAIL_TRACKING=true
-``` 
+```
+
+## Docker quickstart
+
+Requirements: Docker and Docker Compose v2
+
+1. Copy env examples and adjust if needed:
+   - backend/.env.example -> backend/.env
+   - frontend/.env.example -> frontend/.env
+
+2. Start all services:
+
+```
+docker compose up --build
+```
+
+Services:
+- Postgres: localhost:5432 (user: mailzen, pass: mailzen, db: mailzen)
+- Backend (Nest GraphQL): http://localhost:4000/graphql
+- Frontend (Next.js): http://localhost:3000
+
+The frontend proxies GraphQL to the backend via `/api/graphql` to avoid CORS issues.

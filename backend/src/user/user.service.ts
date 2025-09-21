@@ -1,88 +1,75 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { User } from './entities/user.entity';
 import { CreateUserInput } from './dto/create-user.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import * as bcrypt from 'bcrypt';
+import { PrismaService } from '../prisma/prisma.service';
+import { User as PrismaUser } from '@prisma/client';
 
 @Injectable()
 export class UserService {
-  private users: User[] = [];
-  private idCounter = 1;
+  constructor(private readonly prisma: PrismaService) {}
 
-  async createUser(createUserInput: CreateUserInput): Promise<User> {
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(createUserInput.password, 10);
-    
-    const user: User = {
-      id: String(this.idCounter++),
-      email: createUserInput.email,
-      name: createUserInput.name || '',
-      password: hashedPassword, // Store hashed password
+  private sanitizeUser(prismaUser: PrismaUser): User {
+    return {
+      id: prismaUser.id,
+      email: prismaUser.email,
+      name: prismaUser.name ?? undefined,
       emailsSent: [],
     };
-    
-    this.users.push(user);
-    
-    // Return user without password
-    const { password, ...result } = user;
-    return result as User;
+  }
+
+  async createUser(createUserInput: CreateUserInput): Promise<User> {
+    const existing = await this.prisma.user.findUnique({ where: { email: createUserInput.email } });
+    if (existing) {
+      throw new BadRequestException('Email is already registered');
+    }
+
+    const hashedPassword = await bcrypt.hash(createUserInput.password, 10);
+    const created = await this.prisma.user.create({
+      data: {
+        email: createUserInput.email,
+        name: createUserInput.name ?? null,
+        password: hashedPassword,
+      },
+    });
+    return this.sanitizeUser(created);
   }
 
   async validateUser(email: string, password: string): Promise<User | null> {
-    const user = this.users.find(u => u.email === email);
+    const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
       return null;
     }
-    
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return null;
     }
-    
-    // Return user without password
-    const { password: _, ...result } = user;
-    return result as User;
+    return this.sanitizeUser(user);
   }
 
-  getUser(id: string): User {
-    const user = this.users.find(u => u.id === id);
+  async getUser(id: string): Promise<User> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw new Error(`User with id ${id} not found.`);
     }
-    
-    // Return user without password
-    const { password, ...result } = user;
-    return result as User;
+    return this.sanitizeUser(user);
   }
 
-  getAllUsers(): User[] {
-    // Return users without passwords
-    return this.users.map(user => {
-      const { password, ...result } = user;
-      return result as User;
+  async getAllUsers(): Promise<User[]> {
+    const users = await this.prisma.user.findMany();
+    return users.map((u) => this.sanitizeUser(u));
+  }
+
+  async updateUser(updateUserInput: UpdateUserInput): Promise<User> {
+    const updated = await this.prisma.user.update({
+      where: { id: updateUserInput.id },
+      data: {
+        email: updateUserInput.email ?? undefined,
+        name: updateUserInput.name ?? undefined,
+      },
     });
-  }
-
-  updateUser(updateUserInput: UpdateUserInput): User {
-    const userIndex = this.users.findIndex(u => u.id === updateUserInput.id);
-    if (userIndex < 0) {
-      throw new Error(`User with id ${updateUserInput.id} not found.`);
-    }
-    
-    const user = this.users[userIndex];
-    
-    if (updateUserInput.email !== undefined) {
-      user.email = updateUserInput.email;
-    }
-    
-    if (updateUserInput.name !== undefined) {
-      user.name = updateUserInput.name;
-    }
-    
-    this.users[userIndex] = user;
-    
-    // Return user without password
-    const { password, ...result } = user;
-    return result as User;
+    return this.sanitizeUser(updated);
   }
 }

@@ -58,7 +58,11 @@ export default function LoginForm() {
       // Store the token and user data in localStorage
       localStorage.setItem('token', data.login.token);
       localStorage.setItem('user', JSON.stringify(data.login.user));
-      
+
+      // Also set an httpOnly-like cookie via client fallback (Next middleware checks cookie)
+      // Note: In production, prefer server-side Set-Cookie from the backend.
+      document.cookie = `token=${data.login.token}; path=/; max-age=86400`;
+
       // Redirect to dashboard
       router.push('/');
     },

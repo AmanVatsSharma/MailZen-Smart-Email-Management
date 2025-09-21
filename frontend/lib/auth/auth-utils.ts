@@ -50,6 +50,7 @@ export const RESET_PASSWORD_MUTATION = gql`
 export const setAuthToken = (token: string): void => {
   if (typeof window !== 'undefined') {
     localStorage.setItem('token', token);
+    document.cookie = `token=${token}; path=/; max-age=86400`;
   }
 };
 
@@ -63,6 +64,7 @@ export const getAuthToken = (): string | null => {
 export const removeAuthToken = (): void => {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('token');
+    document.cookie = 'token=; Max-Age=0; path=/';
   }
 };
 
