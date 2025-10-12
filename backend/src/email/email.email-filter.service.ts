@@ -16,10 +16,11 @@ export class EmailFilterService {
   ) {}
 
   async createFilter(input: CreateEmailFilterInput, userId: string): Promise<EmailFilter> {
+    // Persist as JSON array
     return this.prisma.emailFilter.create({
       data: {
         name: input.name,
-        rules: input.rules,
+        rules: (input.rules as unknown) as any,
         userId,
       },
     });
@@ -58,7 +59,8 @@ export class EmailFilterService {
     const filters = await this.getFilters(userId);
 
     for (const filter of filters) {
-      for (const rule of filter.rules as EmailFilterRule[]) {
+      const rules: EmailFilterRule[] = (filter.rules as unknown) as EmailFilterRule[];
+      for (const rule of rules) {
         if (this.matchesRule(email, rule)) {
           await this.executeAction(email, rule);
         }
@@ -119,7 +121,7 @@ export class EmailFilterService {
             body: email.body,
             from: email.provider.email,
             to: [rule.actionValue],
-            providerId: email.providerId,
+            providerId: email.providerId ?? undefined,
           },
           email.userId,
         );

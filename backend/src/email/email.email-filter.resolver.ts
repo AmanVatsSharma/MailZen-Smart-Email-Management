@@ -3,7 +3,7 @@ import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { EmailFilterService } from './email.email-filter.service';
 import { CreateEmailFilterInput } from './dto/email-filter.input';
-import { EmailFilter } from '@prisma/client';
+import { EmailFilter as PrismaEmailFilter } from '@prisma/client';
 
 interface RequestContext {
   req: {
@@ -27,10 +27,11 @@ export class EmailFilterResolver {
     return true;
   }
 
-  @Query(() => [EmailFilter])
+  @Query(() => [String], { description: 'Returns JSON stringified filters for now' })
   @UseGuards(JwtAuthGuard)
   async getEmailFilters(@Context() context: RequestContext) {
-    return this.emailFilterService.getFilters(context.req.user.id);
+    const filters = await this.emailFilterService.getFilters(context.req.user.id);
+    return filters.map((f: PrismaEmailFilter) => JSON.stringify({ id: f.id, name: f.name, rules: f.rules }));
   }
 
   @Mutation(() => Boolean)

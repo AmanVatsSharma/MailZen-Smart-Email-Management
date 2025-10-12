@@ -22,10 +22,10 @@ export class SendEmailInput {
   @IsEmail({}, { each: true })
   to: string[];
 
-  @Field()
-  @IsNotEmpty()
+  @Field({ nullable: true })
+  @IsOptional()
   @IsString()
-  providerId: string;
+  providerId?: string;
 
   @Field({ nullable: true })
   @IsOptional()

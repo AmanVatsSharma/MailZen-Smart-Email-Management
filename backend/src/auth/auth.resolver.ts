@@ -2,8 +2,9 @@ import { Resolver, Mutation, Args } from '@nestjs/graphql';
 import { AuthService } from './auth.service';
 import { LoginInput } from './dto/login.input';
 import { UserService } from '../user/user.service';
-import { UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { AuthResponse } from './dto/auth-response';
+import { CreateUserInput } from '../user/dto/create-user.input';
 
 @Resolver()
 export class AuthResolver {
@@ -29,5 +30,15 @@ export class AuthResolver {
       token: accessToken,
       user
     };
+  }
+
+  @Mutation(() => AuthResponse)
+  async register(@Args('registerInput') registerInput: CreateUserInput): Promise<AuthResponse> {
+    if (!registerInput.email || !registerInput.password) {
+      throw new BadRequestException('Email and password are required');
+    }
+    const user = await this.userService.createUser(registerInput);
+    const { accessToken } = this.authService.login(user);
+    return { token: accessToken, user };
   }
 } 

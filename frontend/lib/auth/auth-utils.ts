@@ -3,7 +3,7 @@ import { gql } from '@apollo/client';
 // GraphQL Mutations
 export const LOGIN_MUTATION = gql`
   mutation Login($email: String!, $password: String!) {
-    login(email: $email, password: $password) {
+    login(loginInput: { email: $email, password: $password }) {
       token
       user {
         id
@@ -15,8 +15,8 @@ export const LOGIN_MUTATION = gql`
 `;
 
 export const REGISTER_MUTATION = gql`
-  mutation Register($registerInput: RegisterInput!) {
-    register(registerInput: $registerInput) {
+  mutation Register($email: String!, $password: String!, $name: String) {
+    register(registerInput: { email: $email, password: $password, name: $name }) {
       token
       user {
         id
