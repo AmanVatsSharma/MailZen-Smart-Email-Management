@@ -5,6 +5,8 @@ import { UserService } from '../user/user.service';
 import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { AuthResponse } from './dto/auth-response';
 import { CreateUserInput } from '../user/dto/create-user.input';
+import { PrismaService } from '../prisma/prisma.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Resolver()
 export class AuthResolver {
@@ -41,4 +43,6 @@ export class AuthResolver {
     const { accessToken } = this.authService.login(user);
     return { token: accessToken, user };
   }
+
+  // TODO: add refresh, logout, forgot/reset password, email verify in follow-up edits
 } 
