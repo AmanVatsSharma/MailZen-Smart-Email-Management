@@ -1,4 +1,4 @@
-import { ApolloClient, InMemoryCache, HttpLink, from } from '@apollo/client';
+import { ApolloClient, InMemoryCache, HttpLink, from, ApolloLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { setContext } from '@apollo/client/link/context';
 
@@ -35,9 +35,17 @@ const authLink = setContext((_, { headers }) => {
   };
 });
 
+// Optional: auto-refresh token on auth errors (local-only naive approach)
+const refreshLink = new ApolloLink((operation, forward) => {
+  return forward(operation).map((response) => {
+    // Could inspect errors and call refresh mutation here
+    return response;
+  });
+});
+
 // Initialize Apollo Client
 export const client = new ApolloClient({
-  link: from([errorLink, authLink, httpLink]),
+  link: from([errorLink, authLink, refreshLink, httpLink]),
   cache: new InMemoryCache(),
   defaultOptions: {
     watchQuery: {

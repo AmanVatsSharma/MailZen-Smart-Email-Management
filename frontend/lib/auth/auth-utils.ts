@@ -34,15 +34,8 @@ export const FORGOT_PASSWORD_MUTATION = gql`
 `;
 
 export const RESET_PASSWORD_MUTATION = gql`
-  mutation ResetPassword($resetPasswordInput: ResetPasswordInput!) {
-    resetPassword(resetPasswordInput: $resetPasswordInput) {
-      token
-      user {
-        id
-        email
-        name
-      }
-    }
+  mutation ResetPassword($token: String!, $newPassword: String!) {
+    resetPassword(input: { token: $token, newPassword: $newPassword })
   }
 `;
 
@@ -63,6 +56,7 @@ export const getAuthToken = (): string | null => {
 export const removeAuthToken = (): void => {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
   }
 };
 
