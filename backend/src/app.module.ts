@@ -10,6 +10,8 @@ import { TemplateModule } from './template/template.module';
 import { ScheduledEmailModule } from './scheduled-email/scheduled-email.module';
 import { EmailAnalyticsModule } from './email-analytics/email-analytics.module';
 import { ContactModule } from './contacts/contact.module';
+import { MailboxModule } from './mailbox/mailbox.module';
+import { PhoneModule } from './phone/phone.module';
 
 @Module({
   imports: [
@@ -24,7 +26,9 @@ import { ContactModule } from './contacts/contact.module';
     TemplateModule,
     ScheduledEmailModule,
     EmailAnalyticsModule,
-    ContactModule
+    ContactModule,
+    MailboxModule,
+    PhoneModule
   ],
   controllers: [],
   providers: [],

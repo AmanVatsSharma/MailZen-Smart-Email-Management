@@ -20,6 +20,8 @@ model User {
   name      String?
   role      String   @default("USER")
   isEmailVerified  Boolean  @default(false)
+  phoneNumber       String?
+  isPhoneVerified   Boolean  @default(false)
   failedLoginAttempts Int   @default(0)
   lastLoginAt       DateTime?
   lastFailedLoginAt DateTime?
@@ -38,6 +40,8 @@ model User {
   sessions           UserSession[]
   verificationTokens VerificationToken[]
   auditLogs          AuditLog[]
+  mailboxes          Mailbox[]
+  phoneVerifications PhoneVerification[]
 }
 
 model Contact {
@@ -203,6 +207,39 @@ model WarmupActivity {
   updatedAt   DateTime @updatedAt
 
   @@unique([warmupId, date])
+}
+
+/// User-owned mailbox at mailzen.com
+model Mailbox {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  localPart     String
+  domain        String   @default("mailzen.com")
+  email         String   @unique
+  status        String   @default("ACTIVE") // ACTIVE, SUSPENDED
+  quotaLimitMb  Int      @default(51200) // 50 GB
+  usedBytes     BigInt   @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([localPart, domain])
+  @@index([userId])
+}
+
+/// Phone OTP verifications
+model PhoneVerification {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  phoneNumber String
+  code        String
+  attempts    Int      @default(0)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
 }
 
 /// Stores refresh token sessions for JWT rotation and logout
