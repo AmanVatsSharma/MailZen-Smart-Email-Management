@@ -37,15 +37,39 @@ export class UserService {
   async validateUser(email: string, password: string): Promise<User | null> {
     const normalizedEmail = email.trim().toLowerCase();
     const dbUser = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
-    if (!dbUser || !dbUser.password) return null;
+    const now = new Date();
+    if (!dbUser || !dbUser.password) {
+      // audit without user id
+      await this.prisma.auditLog.create({ data: { action: 'LOGIN_FAILED', metadata: { email: normalizedEmail } as any } });
+      return null;
+    }
+
+    // Check lockout
+    if (dbUser.lockoutUntil && dbUser.lockoutUntil > now) {
+      await this.prisma.auditLog.create({ data: { action: 'LOGIN_LOCKED', userId: dbUser.id, metadata: { until: dbUser.lockoutUntil } as any } });
+      return null;
+    }
 
     const isPasswordValid = await bcrypt.compare(password, dbUser.password);
-    if (!isPasswordValid) return null;
+    if (!isPasswordValid) {
+      const maxAttempts = parseInt(process.env.LOGIN_MAX_ATTEMPTS || '5', 10);
+      const lockoutMinutes = parseInt(process.env.LOGIN_LOCKOUT_MINUTES || '15', 10);
+      const newAttempts = (dbUser.failedLoginAttempts ?? 0) + 1;
+      const updates: any = { failedLoginAttempts: newAttempts, lastFailedLoginAt: now };
+      if (newAttempts >= maxAttempts) {
+        updates.lockoutUntil = new Date(now.getTime() + lockoutMinutes * 60 * 1000);
+        updates.failedLoginAttempts = 0;
+      }
+      await this.prisma.user.update({ where: { id: dbUser.id }, data: updates });
+      await this.prisma.auditLog.create({ data: { action: 'LOGIN_FAILED', userId: dbUser.id } });
+      return null;
+    }
 
     await this.prisma.user.update({
       where: { id: dbUser.id },
-      data: { lastLoginAt: new Date(), failedLoginAttempts: 0 },
+      data: { lastLoginAt: now, failedLoginAttempts: 0, lockoutUntil: null },
     });
+    await this.prisma.auditLog.create({ data: { action: 'LOGIN_SUCCESS', userId: dbUser.id } });
 
     return { id: dbUser.id, email: dbUser.email, name: dbUser.name ?? undefined } as User;
   }
