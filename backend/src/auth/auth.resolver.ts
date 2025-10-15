@@ -11,12 +11,16 @@ import { RefreshInput } from './dto/refresh.input';
 import { ForgotPasswordInput } from './dto/forgot-password.input';
 import { ResetPasswordInput } from './dto/reset-password.input';
 import { VerifyEmailInput } from './dto/verify-email.input';
+import { SignupPhoneInput } from './dto/signup-phone.input';
+import { VerifySignupInput } from './dto/verify-signup.input';
+import { MailboxService } from '../mailbox/mailbox.service';
 
 @Resolver()
 export class AuthResolver {
   constructor(
     private readonly authService: AuthService,
-    private readonly userService: UserService
+    private readonly userService: UserService,
+    private readonly mailboxService: MailboxService,
   ) {}
 
   @Mutation(() => AuthResponse)
@@ -91,5 +95,24 @@ export class AuthResolver {
     const userId = await this.authService.consumeVerificationToken(input.token, 'EMAIL_VERIFY');
     await (this as any).userService['prisma'].user.update({ where: { id: userId }, data: { isEmailVerified: true } });
     return true;
+  }
+
+  // Phone-only signup flow (no Gmail/Outlook required)
+  @Mutation(() => Boolean)
+  async signupSendOtp(@Args('input') input: SignupPhoneInput): Promise<boolean> {
+    return this.authService.createSignupOtp(input.phoneNumber);
+  }
+
+  @Mutation(() => AuthResponse)
+  async signupVerify(@Args('input') input: VerifySignupInput): Promise<AuthResponse> {
+    await this.authService.verifySignupOtp(input.phoneNumber, input.code);
+    // Create user account
+    const user = await this.userService.createUser({ email: input.email, password: input.password, name: input.name });
+    // Create mailbox (auto-suggest if not provided)
+    await this.mailboxService.createMailbox(user.id, input.desiredLocalPart);
+    // Issue tokens
+    const { accessToken } = this.authService.login(user);
+    const refreshToken = await this.authService.generateRefreshToken(user.id);
+    return { token: accessToken, refreshToken, user };
   }
 } 

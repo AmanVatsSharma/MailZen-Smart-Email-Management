@@ -102,4 +102,33 @@ export class AuthService {
     await this.prisma.verificationToken.update({ where: { token }, data: { consumedAt: new Date() } });
     return record.userId;
   }
+
+  async createSignupOtp(phoneNumber: string): Promise<boolean> {
+    const code = (Math.floor(100000 + Math.random() * 900000)).toString();
+    await this.prisma.signupVerification.create({
+      data: {
+        phoneNumber,
+        code,
+        expiresAt: addMinutes(new Date(), 10),
+      },
+    });
+    // TODO: integrate AWS SNS to send code
+    return true;
+  }
+
+  async verifySignupOtp(phoneNumber: string, code: string): Promise<boolean> {
+    const record = await this.prisma.signupVerification.findFirst({
+      where: { phoneNumber },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!record || record.consumedAt || isAfter(new Date(), record.expiresAt)) {
+      throw new Error('Invalid or expired code');
+    }
+    if (record.code !== code) {
+      await this.prisma.signupVerification.update({ where: { id: record.id }, data: { attempts: { increment: 1 } as any } });
+      throw new Error('Invalid code');
+    }
+    await this.prisma.signupVerification.update({ where: { id: record.id }, data: { consumedAt: new Date() } });
+    return true;
+  }
 } 
