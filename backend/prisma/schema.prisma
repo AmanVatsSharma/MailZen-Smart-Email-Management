@@ -242,6 +242,19 @@ model PhoneVerification {
   @@index([userId])
 }
 
+/// Signup OTPs prior to user creation
+model SignupVerification {
+  id          String   @id @default(uuid())
+  phoneNumber String
+  code        String
+  attempts    Int      @default(0)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([phoneNumber])
+}
+
 /// Stores refresh token sessions for JWT rotation and logout
 model UserSession {
   id               String   @id @default(uuid())
