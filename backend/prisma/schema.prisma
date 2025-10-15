@@ -220,6 +220,14 @@ model Mailbox {
   status        String   @default("ACTIVE") // ACTIVE, SUSPENDED
   quotaLimitMb  Int      @default(51200) // 50 GB
   usedBytes     BigInt   @default(0)
+  // Connection settings for self-hosted server
+  smtpHost      String?
+  smtpPort      Int?
+  imapHost      String?
+  imapPort      Int?
+  username      String?
+  passwordEnc   String?
+  passwordIv    String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

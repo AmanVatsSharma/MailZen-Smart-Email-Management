@@ -1,9 +1,10 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailServerService } from './mail-server.service';
 
 @Injectable()
 export class MailboxService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly mailServer: MailServerService) {}
 
   async suggestLocalPart(base: string): Promise<string> {
     const cleaned = base.toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.').replace(/^\.|\.$/g, '');
@@ -26,6 +27,8 @@ export class MailboxService {
     const created = await this.prisma.mailbox.create({
       data: { userId, localPart, domain: 'mailzen.com', email },
     });
+    // Provision on self-hosted server
+    await this.mailServer.provisionMailbox(userId, localPart);
     return { email: created.email, id: created.id };
   }
 
