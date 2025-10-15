@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import RegisterForm from '@/components/auth/RegisterForm';
+import SignupPhone from '@/components/auth/SignupPhone';
 
 export const metadata: Metadata = {
   title: 'Create an Account | MailZen',
@@ -7,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function RegisterPage() {
-  return <RegisterForm />;
-} 
+  return <SignupPhone />;
+}
