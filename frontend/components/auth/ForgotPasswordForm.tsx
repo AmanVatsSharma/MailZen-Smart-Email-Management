@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Mail, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
+import { gql, useMutation } from '@apollo/client';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +23,12 @@ const formSchema = z.object({
 // Form type from schema
 type FormValues = z.infer<typeof formSchema>;
 
+const FORGOT_PASSWORD = gql`
+  mutation ForgotPassword($email: String!) {
+    forgotPassword(input: { email: $email })
+  }
+`;
+
 export default function ForgotPasswordForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
@@ -34,21 +41,17 @@ export default function ForgotPasswordForm() {
     },
   });
 
-  // Mock password reset function - replace with actual API call when backend is connected
+  const [forgotPassword] = useMutation(FORGOT_PASSWORD, {
+    onCompleted: () => setSuccess(true),
+    onError: (e) => {
+      setError(e.message || 'Failed to send reset email. Please try again.');
+      console.error('Password reset error:', e);
+    },
+  });
+
   const handleResetPassword = async (values: FormValues) => {
-    try {
-      setError(null);
-      
-      // Simulate API call with a timeout
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Show success message
-      setSuccess(true);
-      
-    } catch (err) {
-      setError('Failed to send reset email. Please try again.');
-      console.error('Password reset error:', err);
-    }
+    setError(null);
+    await forgotPassword({ variables: { email: values.email } });
   };
 
   return (

@@ -3,7 +3,7 @@ import { gql } from '@apollo/client';
 // GraphQL Mutations
 export const LOGIN_MUTATION = gql`
   mutation Login($email: String!, $password: String!) {
-    login(email: $email, password: $password) {
+    login(loginInput: { email: $email, password: $password }) {
       token
       user {
         id
@@ -15,8 +15,8 @@ export const LOGIN_MUTATION = gql`
 `;
 
 export const REGISTER_MUTATION = gql`
-  mutation Register($registerInput: RegisterInput!) {
-    register(registerInput: $registerInput) {
+  mutation Register($email: String!, $password: String!, $name: String) {
+    register(registerInput: { email: $email, password: $password, name: $name }) {
       token
       user {
         id
@@ -34,15 +34,8 @@ export const FORGOT_PASSWORD_MUTATION = gql`
 `;
 
 export const RESET_PASSWORD_MUTATION = gql`
-  mutation ResetPassword($resetPasswordInput: ResetPasswordInput!) {
-    resetPassword(resetPasswordInput: $resetPasswordInput) {
-      token
-      user {
-        id
-        email
-        name
-      }
-    }
+  mutation ResetPassword($token: String!, $newPassword: String!) {
+    resetPassword(input: { token: $token, newPassword: $newPassword })
   }
 `;
 
@@ -63,6 +56,7 @@ export const getAuthToken = (): string | null => {
 export const removeAuthToken = (): void => {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
   }
 };
 

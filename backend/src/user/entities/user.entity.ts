@@ -11,6 +11,12 @@ export class User {
 
   @Field({ nullable: true })
   name?: string;
+
+  @Field({ nullable: true })
+  phoneNumber?: string;
+
+  @Field()
+  isPhoneVerified: boolean;
   
   // Password is hidden from GraphQL responses
   @HideField()

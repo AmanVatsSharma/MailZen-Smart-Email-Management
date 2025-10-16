@@ -15,6 +15,7 @@ import {
   UPDATE_PROVIDER_STATUS, 
   SYNC_PROVIDER 
 } from '@/lib/apollo/queries/providers';
+import { gql } from '@apollo/client';
 
 export function ProviderManagement() {
   const [isAddingProvider, setIsAddingProvider] = useState(false);
@@ -23,6 +24,10 @@ export function ProviderManagement() {
   // Fetch providers
   const { data, loading, error, refetch } = useQuery(GET_EMAIL_PROVIDERS);
   const providers = data?.getEmailProviders || [];
+
+  // Fetch MailZen mailbox list
+  const { data: mailboxData } = useQuery(gql`{ myMailboxes }`);
+  const mailzenBoxes: string[] = mailboxData?.myMailboxes || [];
 
   // Mutations
   const [disconnectProvider, { loading: disconnectLoading }] = useMutation(DISCONNECT_PROVIDER, {
@@ -120,7 +125,7 @@ export function ProviderManagement() {
         </Button>
       </div>
 
-      {providers.length === 0 ? (
+      {providers.length === 0 && mailzenBoxes.length === 0 ? (
         <Card className="border-dashed border-2 p-6">
           <div className="text-center py-8">
             <Mail className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -140,6 +145,28 @@ export function ProviderManagement() {
           animate="visible"
           className="grid grid-cols-1 gap-4"
         >
+          {mailzenBoxes.map((email: string) => (
+            <motion.div key={`mailzen-${email}`} variants={itemVariants}>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                        <Mail className="h-5 w-5 text-emerald-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium">MailZen Mailbox</h3>
+                        <p className="text-sm text-muted-foreground">{email}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Primary</Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
           {providers.map((provider: Provider) => (
             <motion.div key={provider.id} variants={itemVariants}>
               <Card>

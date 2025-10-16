@@ -9,22 +9,22 @@ export class UserResolver {
   constructor(private userService: UserService) {}
 
   @Query(() => [User])
-  users(): User[] {
+  async users(): Promise<User[]> {
     return this.userService.getAllUsers();
   }
 
   @Query(() => User, { nullable: true })
-  user(@Args('id', { type: () => ID }) id: string): User {
+  async user(@Args('id', { type: () => ID }) id: string): Promise<User> {
     return this.userService.getUser(id);
   }
 
   @Mutation(() => User)
-  createUser(@Args('createUserInput') createUserInput: CreateUserInput): User {
+  async createUser(@Args('createUserInput') createUserInput: CreateUserInput): Promise<User> {
     return this.userService.createUser(createUserInput);
   }
 
   @Mutation(() => User)
-  updateUser(@Args('updateUserInput') updateUserInput: UpdateUserInput): User {
+  async updateUser(@Args('updateUserInput') updateUserInput: UpdateUserInput): Promise<User> {
     return this.userService.updateUser(updateUserInput);
   }
 }

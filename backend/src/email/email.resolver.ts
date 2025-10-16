@@ -38,7 +38,7 @@ export class EmailResolver {
   }
 
   @Mutation(() => Email)
-  markEmailRead(@Args('markEmailReadInput') markEmailReadInput: MarkEmailReadInput): Email {
+  async markEmailRead(@Args('markEmailReadInput') markEmailReadInput: MarkEmailReadInput) {
     return this.emailService.markEmailRead(markEmailReadInput.emailId);
   }
 

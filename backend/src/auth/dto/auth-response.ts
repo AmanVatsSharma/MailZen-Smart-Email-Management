@@ -6,6 +6,9 @@ export class AuthResponse {
   @Field()
   token: string;
 
+  @Field({ nullable: true })
+  refreshToken?: string;
+
   @Field(() => User)
   user: User;
 } 

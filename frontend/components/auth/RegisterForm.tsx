@@ -17,13 +17,13 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 
-// GraphQL mutation for user registration
+// GraphQL mutation for user registration returning token
 const REGISTER_MUTATION = gql`
-  mutation CreateUser($createUserInput: CreateUserInput!) {
-    createUser(createUserInput: $createUserInput) {
-      id
-      email
-      name
+  mutation Register($email: String!, $password: String!, $name: String) {
+    register(registerInput: { email: $email, password: $password, name: $name }) {
+      token
+      refreshToken
+      user { id email name }
     }
   }
 `;
@@ -65,13 +65,11 @@ export default function RegisterForm() {
   // Use Apollo mutation for registration
   const [register, { loading }] = useMutation(REGISTER_MUTATION, {
     onCompleted: (data) => {
-      // Show success message
-      setSuccess(true);
-      
-      // Redirect to login after a short delay
-      setTimeout(() => {
-        router.push('/auth/login');
-      }, 2000);
+      // Store tokens and user, then redirect
+      localStorage.setItem('token', data.register.token);
+      if (data.register.refreshToken) localStorage.setItem('refreshToken', data.register.refreshToken);
+      localStorage.setItem('user', JSON.stringify(data.register.user));
+      router.push('/');
     },
     onError: (error) => {
       setError(error.message || 'Registration failed. Please try again.');
