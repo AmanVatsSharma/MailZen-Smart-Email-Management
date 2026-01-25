@@ -20,14 +20,49 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   }
 
   const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
+    setSidebarOpen((prev) => {
+      const next = !prev;
+      // Debug-only log to help trace UI state issues later.
+      if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.debug('[MainLayout] toggleSidebar', { prev, next });
+      }
+      return next;
+    });
+  };
+
+  const closeSidebar = () => {
+    setSidebarOpen((prev) => {
+      if (!prev) return prev;
+      // Debug-only log to help trace UI state issues later.
+      if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.debug('[MainLayout] closeSidebar');
+      }
+      return false;
+    });
   };
 
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+      {/* Mobile backdrop (click to close). Keeps interaction crisp and predictable on small screens. */}
+      <AnimatePresence>
+        {sidebarOpen ? (
+          <motion.button
+            type="button"
+            aria-label="Close sidebar"
+            className="fixed inset-0 z-30 bg-black/30 backdrop-blur-[2px] lg:hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeSidebar}
+          />
+        ) : null}
+      </AnimatePresence>
+
       {/* Sidebar */}
       <AnimatePresence mode="wait">
-        <Sidebar isOpen={sidebarOpen} />
+        <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
       </AnimatePresence>
 
       {/* Main Content */}
