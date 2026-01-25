@@ -6,6 +6,8 @@ MailZen is an email management platform built with Next.js (frontend) and NestJS
 
 - `frontend/`: Next.js application
 - `backend/`: NestJS application
+- `nx.json`: Nx workspace configuration (task orchestration)
+- `tools/`: workspace tooling scripts (env bootstrap, etc.)
 
 ## Prerequisites
 
@@ -27,10 +29,10 @@ MailZen is an email management platform built with Next.js (frontend) and NestJS
    ```
 
 3. Set up environment variables:
-   - Backend: Copy `backend/.env.example` to `backend/.env` and update the values
-   - Frontend: Copy `frontend/.env.example` to `frontend/.env.local` and update the values
+   - Backend: Copy `backend/env.example` to `backend/.env` and update the values
+   - Frontend: Copy `frontend/env.local.example` to `frontend/.env.local` and update the values
 
-   Note: The start script will create default environment files if they don't exist.
+   Note: Nx `serve` targets run `tools/ensure-env.js` first and will create default env files if they don't exist (it never overwrites).
 
 4. Set up the database:
    ```bash
@@ -45,27 +47,45 @@ MailZen is an email management platform built with Next.js (frontend) and NestJS
 To run both frontend and backend concurrently:
 
 ```bash
-npm start
+npm run dev
 ```
 
 To run them separately:
 
 ```bash
 # Frontend (http://localhost:3000)
-npm run start:frontend
+npm run dev:frontend
 
 # Backend (http://localhost:4000)
-npm run start:backend
+npm run dev:backend
+```
+
+You can also use Nx directly:
+
+```bash
+nx serve frontend
+nx serve backend
+nx run-many -t serve -p frontend backend --parallel=2
 ```
 
 ### Production Build
 
 ```bash
-# Build frontend
-npm run build:frontend
+# Build both
+npm run build
+```
 
-# Build backend
-npm run build:backend
+### Dev startup flow (Nx)
+
+```mermaid
+flowchart TD
+  userRunsDev[UserRunsNpmDev] --> nxRunMany[NxRunManyServeFrontendBackend]
+  nxRunMany --> frontendPrepare[frontend:prepare-env]
+  nxRunMany --> backendPrepare[backend:prepare-env]
+  frontendPrepare --> frontendServe[frontend:serve]
+  backendPrepare --> backendServe[backend:serve]
+  frontendPrepare --> envScript[toolsEnsureEnvScript]
+  backendPrepare --> envScript
 ```
 
 ## Features
