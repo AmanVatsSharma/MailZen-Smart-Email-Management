@@ -6,6 +6,22 @@
   "fileMap": {
     "nonProjectFiles": [
       {
+        "file": ".cursor/plans/enterprise_auth_wiring_a0cc3072.plan.md",
+        "hash": "52873686209490078"
+      },
+      {
+        "file": "tools/ensure-env.js",
+        "hash": "12230357502877404310"
+      },
+      {
+        "file": "package-lock.json",
+        "hash": "18034313394360248678"
+      },
+      {
+        "file": "package.json",
+        "hash": "10231268545196395494"
+      },
+      {
         "file": "nx.json",
         "hash": "4028464915613245907"
       },
@@ -18,28 +34,12 @@
         "hash": "15807666030118664436"
       },
       {
-        "file": "tools/ensure-env.js",
-        "hash": "12230357502877404310"
-      },
-      {
-        "file": "package-lock.json",
-        "hash": "18034313394360248678"
-      },
-      {
-        "file": ".cursor/plans/enterprise_auth_wiring_a0cc3072.plan.md",
-        "hash": "52873686209490078"
+        "file": ".gitignore",
+        "hash": "12228022178553669529"
       },
       {
         "file": ".cursor/plans/frontend_polish_pass_66602956.plan.md",
         "hash": "13021225082785102614"
-      },
-      {
-        "file": "package.json",
-        "hash": "10231268545196395494"
-      },
-      {
-        "file": ".gitignore",
-        "hash": "12228022178553669529"
       }
     ],
     "projectFileMap": {
@@ -406,7 +406,7 @@
         },
         {
           "file": "frontend/lib/apollo/client.ts",
-          "hash": "1436498706558041155"
+          "hash": "2638950754715001735"
         },
         {
           "file": "frontend/lib/apollo/queries/emails.ts",

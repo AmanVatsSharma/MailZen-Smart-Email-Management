@@ -1335,3 +1335,14 @@
 [NX Daemon Server] - 2026-01-25T13:27:38.819Z - [SYNC]: project graph hash is the same, not collecting task sync generators
 [NX Daemon Server] - 2026-01-25T13:27:38.820Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
 [NX Daemon Server] - 2026-01-25T13:27:38.822Z - Time taken for 'total execution time for createProjectGraph()' 7.5747159998863935ms
+[NX Daemon Server] - 2026-01-25T13:29:11.827Z - [WATCHER]: frontend/lib/apollo/client.ts was modified
+[NX Daemon Server] - 2026-01-25T13:29:11.828Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-25T13:29:18.229Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-25T13:29:18.229Z - [REQUEST]: frontend/lib/apollo/client.ts
+[NX Daemon Server] - 2026-01-25T13:29:18.229Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-25T13:29:18.236Z - Time taken for 'hash changed files from watcher' 0.5784759998787194ms
+[NX Daemon Server] - 2026-01-25T13:29:18.255Z - Time taken for 'build-project-configs' 13.85046000010334ms
+[NX Daemon Server] - 2026-01-25T13:29:18.271Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-25T13:29:18.272Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-25T13:29:18.272Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-25T13:29:18.272Z - Time taken for 'total execution time for createProjectGraph()' 14.555093000177294ms
