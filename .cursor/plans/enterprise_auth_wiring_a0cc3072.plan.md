@@ -7,22 +7,22 @@ todos:
     status: completed
   - id: backend-cookie-session
     content: Add cookie parsing + `SessionCookieService` to set/clear HttpOnly `token` cookie with secure defaults and logs.
-    status: in_progress
+    status: completed
     dependencies:
       - backend-graphql-context
   - id: backend-auth-resolver-cookie
     content: Set/clear `token` cookie in `login/register/logout` mutations (keep AuthResponse unchanged to avoid breakage).
-    status: pending
+    status: completed
     dependencies:
       - backend-cookie-session
   - id: backend-jwt-guard-cookie
     content: Update `JwtAuthGuard` to accept token from cookie (primary) or Authorization header (fallback) with robust errors/logging.
-    status: pending
+    status: completed
     dependencies:
       - backend-cookie-session
   - id: backend-env-hardening
     content: Remove `default-secret` fallback and add env validation so startup fails fast if JWT config is unsafe/missing.
-    status: pending
+    status: in_progress
   - id: frontend-remove-localstorage-token
     content: Stop writing token to localStorage; update Apollo auth link to not rely on localStorage and use cookie session via credentials.
     status: pending
