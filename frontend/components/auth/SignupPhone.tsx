@@ -59,9 +59,10 @@ export default function SignupPhone() {
   const [verifySignup, { loading: verifying }] = useMutation(VERIFY_SIGNUP, {
     onError: (e) => setError(e.message),
     onCompleted: (data) => {
-      localStorage.setItem('token', data.signupVerify.token);
-      if (data.signupVerify.refreshToken) localStorage.setItem('refreshToken', data.signupVerify.refreshToken);
+      // Enterprise-grade session: server sets HttpOnly `token` cookie.
+      // We DO NOT store access tokens in localStorage.
       localStorage.setItem('user', JSON.stringify(data.signupVerify.user));
+      console.log('[SignupPhone] success (token cookie should be set by backend)');
       router.push('/');
     },
   });

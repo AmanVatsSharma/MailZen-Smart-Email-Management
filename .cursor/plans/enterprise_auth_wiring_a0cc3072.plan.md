@@ -30,15 +30,15 @@ todos:
       - backend-auth-resolver-cookie
   - id: frontend-logout
     content: Add frontend logout flow calling backend logout (clears cookie) and redirect; keep middleware behavior consistent.
-    status: in_progress
+    status: completed
     dependencies:
       - frontend-remove-localstorage-token
   - id: fix-forgot-password-mutation
     content: Fix `FORGOT_PASSWORD_MUTATION` in `frontend/lib/auth/auth-utils.ts` to match backend input signature.
-    status: pending
+    status: completed
   - id: docs-flowcharts
     content: Add module-level docs + mermaid flowcharts for auth/session wiring and Cognito-ready boundaries.
-    status: pending
+    status: in_progress
     dependencies:
       - backend-jwt-guard-cookie
       - frontend-logout

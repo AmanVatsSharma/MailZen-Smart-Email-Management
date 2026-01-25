@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Menu, Bell, Search, User, LogOut, Settings } from 'lucide-react';
+import { gql, useMutation } from '@apollo/client';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -22,10 +23,23 @@ interface HeaderProps {
   onToggleSidebar: () => void;
 }
 
+// Cookie-based logout: backend clears HttpOnly token cookie.
+const LOGOUT_MUTATION = gql`
+  mutation Logout {
+    logout
+  }
+`;
+
 const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
+
+  const [logout, { loading: logoutLoading }] = useMutation(LOGOUT_MUTATION, {
+    onError: (e) => {
+      console.error('[Logout] GraphQL error', e);
+    },
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -47,9 +61,18 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       .substring(0, 2);
   };
 
-  const handleLogout = () => {
-    logoutUser();
-    router.push('/auth/login');
+  const handleLogout = async () => {
+    try {
+      console.log('[Logout] starting');
+      // Clears HttpOnly cookie on backend (session ends server-side).
+      await logout();
+    } catch (e) {
+      // Even if backend logout fails, clear local cache and move user to login.
+      console.error('[Logout] failed (continuing with local cleanup)', e);
+    } finally {
+      logoutUser();
+      router.push('/auth/login');
+    }
   };
 
   return (
@@ -105,14 +128,15 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       <div className="flex items-center gap-4">
         <div className="relative hidden md:flex items-center">
           <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
+          {/* Avoid animating width to prevent layout shift; keep subtle fade/scale instead. */}
           <motion.input
             type="search"
             placeholder="Search..."
             className="rounded-full bg-background border border-input h-9 w-[200px] lg:w-[300px] pl-8 text-sm outline-none focus:ring-2 focus:ring-primary/20"
             whileFocus={{ boxShadow: "0 0 0 3px rgba(124, 58, 237, 0.2)" }}
-            initial={{ opacity: 0, width: 0 }}
-            animate={{ opacity: 1, width: "300px" }}
-            transition={{ delay: 0.4, duration: 0.5 }}
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.25, duration: 0.35 }}
           />
         </div>
 
@@ -157,7 +181,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
+                <span>{logoutLoading ? 'Logging out...' : 'Log out'}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
