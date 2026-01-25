@@ -158,9 +158,12 @@ export class EmailService {
     });
   }
 
-  async getEmailsByUser(userId: string) {
+  async getEmailsByUser(userId: string, providerId?: string | null) {
     return this.prisma.email.findMany({
-      where: { userId },
+      where: {
+        userId,
+        ...(providerId ? { providerId } : {}),
+      },
       include: {
         provider: true,
         analytics: true,
