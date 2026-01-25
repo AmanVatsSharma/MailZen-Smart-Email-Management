@@ -25,12 +25,12 @@ todos:
     status: completed
   - id: frontend-remove-localstorage-token
     content: Stop writing token to localStorage; update Apollo auth link to not rely on localStorage and use cookie session via credentials.
-    status: in_progress
+    status: completed
     dependencies:
       - backend-auth-resolver-cookie
   - id: frontend-logout
     content: Add frontend logout flow calling backend logout (clears cookie) and redirect; keep middleware behavior consistent.
-    status: pending
+    status: in_progress
     dependencies:
       - frontend-remove-localstorage-token
   - id: fix-forgot-password-mutation

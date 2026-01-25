@@ -55,9 +55,11 @@ export default function LoginForm() {
   // Use Apollo mutation for login
   const [login, { loading }] = useMutation(LOGIN_MUTATION, {
     onCompleted: (data) => {
-      // Store the token and user data in localStorage
-      localStorage.setItem('token', data.login.token);
+      // Enterprise-grade session: server sets HttpOnly `token` cookie.
+      // We DO NOT store access tokens in localStorage.
       localStorage.setItem('user', JSON.stringify(data.login.user));
+
+      console.log('[Login] success (token cookie should be set by backend)');
       
       // Redirect to dashboard
       router.push('/');

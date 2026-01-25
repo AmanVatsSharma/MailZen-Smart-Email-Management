@@ -65,10 +65,10 @@ export default function RegisterForm() {
   // Use Apollo mutation for registration
   const [register, { loading }] = useMutation(REGISTER_MUTATION, {
     onCompleted: (data) => {
-      // Store tokens and user, then redirect
-      localStorage.setItem('token', data.register.token);
-      if (data.register.refreshToken) localStorage.setItem('refreshToken', data.register.refreshToken);
+      // Enterprise-grade session: server sets HttpOnly `token` cookie.
+      // We DO NOT store access tokens in localStorage.
       localStorage.setItem('user', JSON.stringify(data.register.user));
+      console.log('[Register] success (token cookie should be set by backend)');
       router.push('/');
     },
     onError: (error) => {
