@@ -5,8 +5,16 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /*
+    Typography tokens
+    - `app/layout.tsx` (Next.js font loader) sets `--font-sans` on <body>.
+    - We keep a safe fallback here so `font-sans` still works even if the font
+      variable is not present (e.g., during experiments or partial renders).
+  */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
 }
 
 :root {
@@ -255,7 +263,7 @@
 
 .premium-card:hover {
   @apply shadow-lg;
-  transform: translateY(-5px);
+  transform: translateY(-5px) scale(1.01);
 }
 
 .premium-card::before {
@@ -284,66 +292,9 @@
   transform-style: preserve-3d;
 }
 
-@keyframes float {
-  0% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-  100% {
-    transform: translateY(0px);
-  }
-}
-
-.animate-float {
-  animation: float 5s ease-in-out infinite;
-}
-
-@keyframes pulse-subtle {
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.8;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-.animate-pulse-subtle {
-  animation: pulse-subtle 2s ease-in-out infinite;
-}
-
-@keyframes gradient-shift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.animate-gradient-shift {
-  animation: gradient-shift 5s ease infinite;
-}
-
 .bg-gradient-premium {
   background: linear-gradient(45deg, var(--primary), var(--accent), var(--secondary), var(--primary));
   background-size: 400% 400%;
-}
-
-/* 3D Card Hover Effect */
-.premium-card {
-  transition: all 0.3s ease;
-}
-
-.premium-card:hover {
-  transform: translateY(-5px) scale(1.01);
 }
 
 /* Placeholder Text Animation */
