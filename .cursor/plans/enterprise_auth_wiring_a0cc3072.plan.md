@@ -22,10 +22,10 @@ todos:
       - backend-cookie-session
   - id: backend-env-hardening
     content: Remove `default-secret` fallback and add env validation so startup fails fast if JWT config is unsafe/missing.
-    status: in_progress
+    status: completed
   - id: frontend-remove-localstorage-token
     content: Stop writing token to localStorage; update Apollo auth link to not rely on localStorage and use cookie session via credentials.
-    status: pending
+    status: in_progress
     dependencies:
       - backend-auth-resolver-cookie
   - id: frontend-logout

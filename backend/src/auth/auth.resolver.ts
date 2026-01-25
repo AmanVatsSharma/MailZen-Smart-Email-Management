@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, Mutation, Args, Context } from '@nestjs/graphql';
 import { AuthService } from './auth.service';
 import { LoginInput } from './dto/login.input';
 import { UserService } from '../user/user.service';
@@ -14,6 +14,7 @@ import { VerifyEmailInput } from './dto/verify-email.input';
 import { SignupPhoneInput } from './dto/signup-phone.input';
 import { VerifySignupInput } from './dto/verify-signup.input';
 import { MailboxService } from '../mailbox/mailbox.service';
+import { SessionCookieService } from './session-cookie.service';
 
 @Resolver()
 export class AuthResolver {
@@ -21,10 +22,14 @@ export class AuthResolver {
     private readonly authService: AuthService,
     private readonly userService: UserService,
     private readonly mailboxService: MailboxService,
+    private readonly sessionCookie: SessionCookieService,
   ) {}
 
   @Mutation(() => AuthResponse)
-  async login(@Args('loginInput') loginInput: LoginInput): Promise<AuthResponse> {
+  async login(
+    @Args('loginInput') loginInput: LoginInput,
+    @Context() ctx: any
+  ): Promise<AuthResponse> {
     const user = await this.userService.validateUser(
       loginInput.email,
       loginInput.password
@@ -36,6 +41,11 @@ export class AuthResolver {
 
     const { accessToken } = this.authService.login(user);
     const refreshToken = await this.authService.generateRefreshToken(user.id);
+
+    // Enterprise-grade session: set HttpOnly cookie so Next middleware + browser requests remain consistent.
+    const res = ctx?.res;
+    if (res) this.sessionCookie.setTokenCookie(res, accessToken);
+    else if ((process.env.NODE_ENV || 'development') !== 'production') console.warn('[AuthResolver.login] Missing res in GraphQL context; cannot set cookie');
     
     return {
       token: accessToken,
@@ -45,7 +55,10 @@ export class AuthResolver {
   }
 
   @Mutation(() => AuthResponse)
-  async register(@Args('registerInput') registerInput: CreateUserInput): Promise<AuthResponse> {
+  async register(
+    @Args('registerInput') registerInput: CreateUserInput,
+    @Context() ctx: any
+  ): Promise<AuthResponse> {
     if (!registerInput.email || !registerInput.password) {
       throw new BadRequestException('Email and password are required');
     }
@@ -54,6 +67,11 @@ export class AuthResolver {
     const refreshToken = await this.authService.generateRefreshToken(user.id);
     // Issue email verification token (returning as part of response for local dev)
     const verifyToken = await this.authService.createVerificationToken(user.id, 'EMAIL_VERIFY');
+
+    const res = ctx?.res;
+    if (res) this.sessionCookie.setTokenCookie(res, accessToken);
+    else if ((process.env.NODE_ENV || 'development') !== 'production') console.warn('[AuthResolver.register] Missing res in GraphQL context; cannot set cookie');
+
     return { token: accessToken, refreshToken, user };
   }
 
@@ -65,8 +83,20 @@ export class AuthResolver {
   }
 
   @Mutation(() => Boolean)
-  async logout(@Args('input') input: RefreshInput): Promise<boolean> {
-    return this.authService.logout(input.refreshToken);
+  async logout(
+    @Args('input', { nullable: true }) input: RefreshInput | undefined,
+    @Context() ctx: any
+  ): Promise<boolean> {
+    // Always clear cookie so browser session ends.
+    const res = ctx?.res;
+    if (res) this.sessionCookie.clearTokenCookie(res);
+    else if ((process.env.NODE_ENV || 'development') !== 'production') console.warn('[AuthResolver.logout] Missing res in GraphQL context; cannot clear cookie');
+
+    // Refresh tokens are planned “later”; keep backward compatibility if clients still pass it.
+    if (input?.refreshToken) {
+      await this.authService.logout(input.refreshToken);
+    }
+    return true;
   }
 
   @Mutation(() => Boolean)
@@ -104,7 +134,10 @@ export class AuthResolver {
   }
 
   @Mutation(() => AuthResponse)
-  async signupVerify(@Args('input') input: VerifySignupInput): Promise<AuthResponse> {
+  async signupVerify(
+    @Args('input') input: VerifySignupInput,
+    @Context() ctx: any
+  ): Promise<AuthResponse> {
     await this.authService.verifySignupOtp(input.phoneNumber, input.code);
     // Create user account
     const user = await this.userService.createUser({ email: input.email, password: input.password, name: input.name });
@@ -113,6 +146,9 @@ export class AuthResolver {
     // Issue tokens
     const { accessToken } = this.authService.login(user);
     const refreshToken = await this.authService.generateRefreshToken(user.id);
+    const res = ctx?.res;
+    if (res) this.sessionCookie.setTokenCookie(res, accessToken);
+    else if ((process.env.NODE_ENV || 'development') !== 'production') console.warn('[AuthResolver.signupVerify] Missing res in GraphQL context; cannot set cookie');
     return { token: accessToken, refreshToken, user };
   }
 } 
