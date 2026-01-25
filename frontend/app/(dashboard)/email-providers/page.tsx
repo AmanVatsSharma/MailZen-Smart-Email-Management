@@ -34,8 +34,11 @@ export default function EmailProvidersPage({ searchParams }: EmailProvidersPageP
       </div>
       
       {showSuccess && (
-        <Alert variant="default" className="bg-green-50 border-green-200">
-          <CheckCircle className="h-4 w-4 text-green-600" />
+        <Alert
+          variant="default"
+          className="border-emerald-200/60 bg-emerald-50 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-50"
+        >
+          <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
           <AlertTitle>Success!</AlertTitle>
           <AlertDescription>
             Your {provider === 'gmail' ? 'Gmail' : provider === 'outlook' ? 'Outlook' : 'email'} account 

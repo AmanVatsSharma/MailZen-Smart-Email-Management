@@ -1,0 +1,60 @@
+{
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "name": "frontend",
+  "projectType": "application",
+  "sourceRoot": "frontend",
+  "targets": {
+    "prepare-env": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/ensure-env.js --project frontend"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["prepare-env"],
+      "options": {
+        "cwd": "frontend",
+        "command": "npm run dev"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["prepare-env"],
+      "options": {
+        "cwd": "frontend",
+        "command": "npm run build"
+      }
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["prepare-env"],
+      "options": {
+        "cwd": "frontend",
+        "command": "npm run start"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "frontend",
+        "command": "npm run lint"
+      }
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "frontend",
+        "command": "npm run format"
+      }
+    },
+    "format:check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "frontend",
+        "command": "npm run format:check"
+      }
+    }
+  }
+}
+

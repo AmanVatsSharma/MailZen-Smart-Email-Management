@@ -5,6 +5,7 @@ import { AuthResolver } from './auth.resolver';
 import { UserModule } from '../user/user.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MailboxModule } from '../mailbox/mailbox.module';
+import { GoogleOAuthController } from './oauth.controller';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { MailboxModule } from '../mailbox/mailbox.module';
       signOptions: { expiresIn: process.env.JWT_EXPIRATION ? `${process.env.JWT_EXPIRATION}s` : '24h' },
     }),
   ],
+  controllers: [GoogleOAuthController],
   providers: [AuthService, AuthResolver],
   exports: [AuthService],
 })

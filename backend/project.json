@@ -1,0 +1,52 @@
+{
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "name": "backend",
+  "projectType": "application",
+  "sourceRoot": "backend/src",
+  "targets": {
+    "prepare-env": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/ensure-env.js --project backend"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["prepare-env"],
+      "options": {
+        "cwd": "backend",
+        "command": "npm run start:dev"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["prepare-env"],
+      "options": {
+        "cwd": "backend",
+        "command": "npm run build"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "backend",
+        "command": "npm run lint"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "backend",
+        "command": "npm run test"
+      }
+    },
+    "test:e2e": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "backend",
+        "command": "npm run test:e2e"
+      }
+    }
+  }
+}
+
