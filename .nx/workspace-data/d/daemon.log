@@ -1,0 +1,11 @@
+[NX Daemon Server] - 2026-01-25T13:00:44.475Z - Started listening on: /tmp/9d5b312d2d1aa5eb8697/d.sock
+[NX Daemon Server] - 2026-01-25T13:00:44.481Z - [WATCHER]: Subscribed to changes within: /home/amansharma/Desktop/DevOPS/MailZen-Smart-Email-Management (native)
+[NX Daemon Server] - 2026-01-25T13:00:44.487Z - Established a connection. Number of open connections: 1
+[NX Daemon Server] - 2026-01-25T13:00:44.489Z - Established a connection. Number of open connections: 2
+[NX Daemon Server] - 2026-01-25T13:00:44.505Z - Closed a connection. Number of open connections: 1
+[NX Daemon Server] - 2026-01-25T13:00:44.514Z - [REQUEST]: Responding to the client. Shutdown initiated
+[NX Daemon Server] - 2026-01-25T13:00:44.515Z - Done responding to the client Shutdown initiated
+[NX Daemon Server] - 2026-01-25T13:00:44.515Z - Handled FORCE_SHUTDOWN. Handling time: 4. Response time: 1.
+[NX Daemon Server] - 2026-01-25T13:00:44.523Z - Closed a connection. Number of open connections: 0
+[NX Daemon Server] - 2026-01-25T13:00:44.524Z - [WATCHER]: Stopping the watcher for /home/amansharma/Desktop/DevOPS/MailZen-Smart-Email-Management (sources)
+[NX Daemon Server] - 2026-01-25T13:00:44.524Z - [WATCHER]: Stopping the watcher for /home/amansharma/Desktop/DevOPS/MailZen-Smart-Email-Management (outputs)

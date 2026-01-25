@@ -1,0 +1,16 @@
+{
+  "nodes": {},
+  "externalNodes": {
+    "npm:child_process": {
+      "type": "npm",
+      "name": "npm:child_process",
+      "data": {
+        "version": "1.0.2",
+        "packageName": "child_process",
+        "hash": "sha512-Wmza/JzL0SiWz7kl6MhIKT5ceIlnFPJX+lwUGj7Clhy5MMldsSoJR0+uvRzOS5Kv45Mq7t1PoE8TsOA9bzvb6g=="
+      }
+    }
+  },
+  "dependencies": {},
+  "version": "6.0"
+}
