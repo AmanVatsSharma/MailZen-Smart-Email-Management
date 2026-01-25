@@ -8,15 +8,31 @@ import { MailService } from './mail.service';
 import { SendRealEmailResponse } from './dto/send-real-email.response';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { SendEmailInput } from './dto/send-email.input';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Resolver(() => Email)
 export class EmailResolver {
-  constructor(private emailService: EmailService, private mailService: MailService) {}
+  constructor(
+    private emailService: EmailService,
+    private mailService: MailService,
+    private prisma: PrismaService,
+  ) {}
 
   @Query(() => [Email])
   @UseGuards(JwtAuthGuard)
-  async getMyEmails(@Context() context: { req: { user: { id: string } } }) {
-    return this.emailService.getEmailsByUser(context.req.user.id);
+  async getMyEmails(
+    @Context() context: { req: { user: { id: string } } },
+    @Args('providerId', { nullable: true }) providerId?: string | null,
+  ) {
+    // If providerId not provided, default to user's active inbox selection (when it's a provider).
+    let effectiveProviderId = providerId ?? null;
+    if (!effectiveProviderId) {
+      const user = await this.prisma.user.findUnique({ where: { id: context.req.user.id } });
+      if ((user as any)?.activeInboxType === 'PROVIDER' && (user as any)?.activeInboxId) {
+        effectiveProviderId = (user as any).activeInboxId;
+      }
+    }
+    return this.emailService.getEmailsByUser(context.req.user.id, effectiveProviderId);
   }
 
   @Query(() => Email)
