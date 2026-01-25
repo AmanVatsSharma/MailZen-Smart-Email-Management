@@ -19,6 +19,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 /**
  * Parse CLI args of the form `--key value` or `--flag`.
@@ -67,7 +68,16 @@ function ensureFile(filePath, content) {
 }
 
 // ---- Default templates (kept in sync with old start-dev.js) ----
-const backendEnvTemplate = `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mailzen?schema=public
+/**
+ * Generate backend env content.
+ *
+ * IMPORTANT:
+ * - We generate a strong JWT secret by default so the backend can boot safely.
+ * - You can rotate it any time; existing JWTs become invalid (expected).
+ */
+function buildBackendEnvTemplate() {
+  const generatedJwtSecret = crypto.randomBytes(48).toString('hex'); // 96 chars
+  return `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mailzen?schema=public
 
 # Server Configuration
 PORT=4000
@@ -77,7 +87,7 @@ NODE_ENV=development
 FRONTEND_URL=http://localhost:3000
 
 # JWT Secret for Authentication
-JWT_SECRET=YOUR_SECRET_KEY_HERE
+JWT_SECRET=${generatedJwtSecret}
 JWT_EXPIRATION=86400
 
 # Feature Flags (should match frontend)
@@ -85,6 +95,7 @@ ENABLE_EMAIL_WARMUP=true
 ENABLE_SMART_REPLIES=true
 ENABLE_EMAIL_TRACKING=true
 `;
+}
 
 const frontendEnvTemplate = `# API Endpoints
 NEXT_PUBLIC_GRAPHQL_ENDPOINT=http://localhost:4000/graphql
@@ -118,7 +129,7 @@ function main() {
   const frontendEnvPath = path.join(repoRoot, 'frontend', '.env.local');
 
   if (project === 'backend' || project === 'all') {
-    ensureFile(backendEnvPath, backendEnvTemplate);
+    ensureFile(backendEnvPath, buildBackendEnvTemplate());
   }
 
   if (project === 'frontend' || project === 'all') {
