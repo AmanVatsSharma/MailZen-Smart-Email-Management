@@ -179,7 +179,11 @@ export default function LoginForm() {
               </div>
               
               <div className="grid grid-cols-2 gap-4">
-                <Button variant="outline" type="button" className="bg-white hover:bg-slate-50">
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="bg-background hover:bg-accent/50"
+                >
                   <svg viewBox="0 0 24 24" className="h-5 w-5 mr-2" aria-hidden="true">
                     <path
                       d="M12.0003 4.75C13.7703 4.75 15.3553 5.36002 16.6053 6.54998L20.0303 3.125C17.9502 1.19 15.2353 0 12.0003 0C7.31028 0 3.25527 2.69 1.28027 6.60998L5.27028 9.70498C6.21525 6.86002 8.87028 4.75 12.0003 4.75Z"
@@ -200,7 +204,11 @@ export default function LoginForm() {
                   </svg>
                   Google
                 </Button>
-                <Button variant="outline" type="button" className="bg-white hover:bg-slate-50">
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="bg-background hover:bg-accent/50"
+                >
                   <svg viewBox="0 0 24 24" className="h-5 w-5 mr-2" aria-hidden="true">
                     <path
                       d="M21.3545 0H2.64545C1.18636 0 0 1.18636 0 2.64545V21.3545C0 22.8136 1.18636 24 2.64545 24H21.3545C22.8136 24 24 22.8136 24 21.3545V2.64545C24 1.18636 22.8136 0 21.3545 0Z"
