@@ -42,12 +42,37 @@ This module follows NestJS best practices and consists of:
 - `getProviderById(id: String!)`: Get a specific provider by ID
 - `getProviderEmails(providerId: String!)`: Get all emails for a specific provider
 - `validateProvider(id: String!)`: Validate connection to a provider
+- `providers`: Frontend-facing provider list (UI shape)
 
 ### Mutations
 
 - `configureEmailProvider(providerInput: EmailProviderInput!)`: Configure a new email provider
 - `updateProviderCredentials(id: String!, input: EmailProviderInput!)`: Update provider credentials
 - `deleteProvider(input: DeleteProviderInput!)`: Delete an email provider
+
+Frontend-facing (matches `frontend/lib/providers/provider-utils.ts`):
+- `connectGmail(code: String!): Provider`
+- `connectOutlook(code: String!): Provider`
+- `connectSmtp(settings: SmtpSettingsInput!): Provider`
+- `disconnectProvider(id: ID!): ProviderActionResult`
+- `updateProvider(id: ID!, isActive: Boolean): Provider`
+- `syncProvider(id: ID!): Provider`
+
+## OAuth Redirect URI notes (important)
+
+OAuth `code` exchange requires that the **redirect URI used during authorization** matches the one used during token exchange.
+
+- If your frontend uses a Next.js callback URL (e.g. `http://localhost:3000/api/auth/google/callback`), set:\n+  - `GOOGLE_PROVIDER_REDIRECT_URI=http://localhost:3000/api/auth/google/callback`\n+- Login OAuth (backend redirect) uses:\n+  - `GOOGLE_REDIRECT_URI=http://localhost:4000/auth/google/callback`\n+
+## Mermaid: connect provider via OAuth code
+
+```mermaid
+flowchart TD
+  frontend[Frontend] -->|redirect_to_provider| oauth[OAuthProvider]
+  oauth -->|code| frontendCb[FrontendCallback]
+  frontendCb -->|GraphQL connectGmail/connectOutlook(code)| api[BackendGraphQL]
+  api -->|exchange_code_for_tokens| oauth
+  api --> db[(Postgres/Prisma)]
+```
 
 ## Data Transfer Objects
 

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { EmailProviderInput } from './dto/email-provider.input';
+import { SmtpSettingsInput } from './dto/smtp-settings.input';
 import { PrismaService } from '../prisma/prisma.service';
 import { createTransport, Transporter } from 'nodemailer';
 import * as NodeCache from 'node-cache';
@@ -30,6 +31,228 @@ export class EmailProviderService {
     
     // Start connection pool cleanup interval
     setInterval(() => this.cleanupConnectionPool(), 15 * 60 * 1000); // Run every 15 minutes
+  }
+
+  /**
+   * Returns a valid access token for OAuth providers.
+   * If token is near expiry, refreshes it.
+   *
+   * This is used by inbox sync modules (Gmail/Outlook) that need API access.
+   */
+  async getValidAccessToken(providerId: string, userId: string): Promise<string | null> {
+    const provider = await this.prisma.emailProvider.findFirst({ where: { id: providerId, userId } });
+    if (!provider) throw new NotFoundException('Provider not found');
+    if (!['GMAIL', 'OUTLOOK'].includes(provider.type)) return null;
+
+    // Refresh if expiring soon (within 5 minutes)
+    if (provider.tokenExpiry) {
+      const now = Date.now();
+      const expiry = new Date(provider.tokenExpiry).getTime();
+      if (expiry <= now + 5 * 60 * 1000) {
+        await this.refreshOAuthToken(provider as any);
+      }
+    }
+
+    const updated = await this.prisma.emailProvider.findUnique({ where: { id: providerId } });
+    return updated?.accessToken || null;
+  }
+
+  /**
+   * OAuth code exchange for Gmail connect flow.
+   *
+   * IMPORTANT: The redirect URI used to obtain the authorization `code` must match
+   * the redirect URI configured on the OAuth client. If your frontend uses a Next.js
+   * callback URL, set `GOOGLE_PROVIDER_REDIRECT_URI` to that value.
+   */
+  async connectGmail(code: string, userId: string) {
+    try {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      const redirectUri = process.env.GOOGLE_PROVIDER_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URI;
+      if (!clientId || !clientSecret || !redirectUri) {
+        throw new BadRequestException('Google OAuth not configured');
+      }
+
+      const oauth = new OAuth2Client(clientId, clientSecret, redirectUri);
+      const { tokens } = await oauth.getToken(code);
+      if (!tokens.access_token) {
+        throw new BadRequestException('Google OAuth did not return an access token');
+      }
+
+      // Use UserInfo endpoint to derive the provider email (frontend includes userinfo.email scope).
+      const me = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      });
+      const email = (me.data?.email || '').toLowerCase();
+      if (!email) {
+        throw new BadRequestException('Could not resolve Gmail account email from OAuth token');
+      }
+
+      const input: EmailProviderInput = {
+        providerType: 'GMAIL',
+        email,
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token ?? undefined,
+        tokenExpiry: tokens.expiry_date ? Math.floor(tokens.expiry_date / 1000) : undefined,
+      };
+
+      const created = await this.configureProvider(input, userId);
+      // Set UI fields for provider management
+      const displayName = `Gmail - ${email}`;
+      await this.prisma.emailProvider.update({
+        where: { id: created.id },
+        data: { displayName, status: 'connected', lastSyncedAt: null },
+      });
+      return this.getProviderUi(created.id, userId);
+    } catch (error: any) {
+      this.logger.error(`Failed to connect Gmail: ${error.message}`, error.stack);
+      if (error instanceof BadRequestException || error instanceof ConflictException) throw error;
+      throw new InternalServerErrorException('Failed to connect Gmail');
+    }
+  }
+
+  async connectOutlook(code: string, userId: string) {
+    try {
+      const clientId = process.env.OUTLOOK_CLIENT_ID;
+      const clientSecret = process.env.OUTLOOK_CLIENT_SECRET;
+      const redirectUri = process.env.OUTLOOK_PROVIDER_REDIRECT_URI || process.env.OUTLOOK_REDIRECT_URI;
+      if (!clientId || !clientSecret || !redirectUri) {
+        throw new BadRequestException('Outlook OAuth not configured');
+      }
+
+      const tokenUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+      const params = new URLSearchParams();
+      params.append('client_id', clientId);
+      params.append('client_secret', clientSecret);
+      params.append('redirect_uri', redirectUri);
+      params.append('grant_type', 'authorization_code');
+      params.append('code', code);
+
+      const response = await axios.post(tokenUrl, params, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      });
+
+      const accessToken = response.data?.access_token;
+      const refreshToken = response.data?.refresh_token;
+      const expiresIn = response.data?.expires_in;
+      if (!accessToken) throw new BadRequestException('Outlook OAuth did not return access token');
+
+      // Get email from Microsoft Graph
+      const me = await axios.get('https://graph.microsoft.com/v1.0/me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const email = (me.data?.mail || me.data?.userPrincipalName || '').toLowerCase();
+      if (!email) throw new BadRequestException('Could not resolve Outlook account email from OAuth token');
+
+      const tokenExpiry = expiresIn ? Math.floor(Date.now() / 1000) + Number(expiresIn) : undefined;
+      const input: EmailProviderInput = {
+        providerType: 'OUTLOOK',
+        email,
+        accessToken,
+        refreshToken,
+        tokenExpiry,
+      };
+
+      const created = await this.configureProvider(input, userId);
+      const displayName = `Outlook - ${email}`;
+      await this.prisma.emailProvider.update({
+        where: { id: created.id },
+        data: { displayName, status: 'connected', lastSyncedAt: null },
+      });
+      return this.getProviderUi(created.id, userId);
+    } catch (error: any) {
+      this.logger.error(`Failed to connect Outlook: ${error.message}`, error.stack);
+      if (error instanceof BadRequestException || error instanceof ConflictException) throw error;
+      throw new InternalServerErrorException('Failed to connect Outlook');
+    }
+  }
+
+  async connectSmtp(settings: SmtpSettingsInput, userId: string) {
+    try {
+      const input: EmailProviderInput = {
+        providerType: 'CUSTOM_SMTP',
+        email: settings.email,
+        host: settings.host,
+        port: settings.port,
+        password: settings.password,
+      };
+
+      const created = await this.configureProvider(input, userId);
+      const displayName = `SMTP - ${settings.email}`;
+      await this.prisma.emailProvider.update({
+        where: { id: created.id },
+        data: { displayName, status: 'connected', lastSyncedAt: null },
+      });
+      return this.getProviderUi(created.id, userId);
+    } catch (error: any) {
+      this.logger.error(`Failed to connect SMTP: ${error.message}`, error.stack);
+      if (error instanceof BadRequestException || error instanceof ConflictException) throw error;
+      throw new InternalServerErrorException('Failed to connect SMTP');
+    }
+  }
+
+  async setActiveProvider(providerId: string, userId: string, isActive?: boolean) {
+    try {
+      const provider = await this.prisma.emailProvider.findFirst({ where: { id: providerId, userId } });
+      if (!provider) throw new NotFoundException('Provider not found');
+
+      // If enabling, disable all other providers for this user.
+      if (isActive) {
+        await this.prisma.emailProvider.updateMany({ where: { userId }, data: { isActive: false } });
+        await this.prisma.emailProvider.update({ where: { id: providerId }, data: { isActive: true } });
+      } else if (isActive === false) {
+        await this.prisma.emailProvider.update({ where: { id: providerId }, data: { isActive: false } });
+      }
+
+      return this.getProviderUi(providerId, userId);
+    } catch (error: any) {
+      this.logger.error(`Failed to update provider active state: ${error.message}`, error.stack);
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException('Failed to update provider');
+    }
+  }
+
+  async disconnectProvider(providerId: string, userId: string) {
+    // MVP behavior: delete provider entry (keeps semantics aligned with existing deleteProvider).
+    await this.deleteProvider(providerId, userId);
+    return { success: true, message: 'Provider disconnected' };
+  }
+
+  async syncProvider(providerId: string, userId: string) {
+    // MVP: mark as syncing; gmail-sync module will do real syncing later.
+    const provider = await this.prisma.emailProvider.findFirst({ where: { id: providerId, userId } });
+    if (!provider) throw new NotFoundException('Provider not found');
+    await this.prisma.emailProvider.update({ where: { id: providerId }, data: { status: 'syncing' } });
+    return this.getProviderUi(providerId, userId);
+  }
+
+  async listProvidersUi(userId: string) {
+    const providers = await this.prisma.emailProvider.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
+    return providers.map(p => this.mapToProviderUi(p));
+  }
+
+  private async getProviderUi(providerId: string, userId: string) {
+    const provider = await this.prisma.emailProvider.findFirst({ where: { id: providerId, userId } });
+    if (!provider) throw new NotFoundException('Provider not found');
+    return this.mapToProviderUi(provider);
+  }
+
+  private mapToProviderUi(provider: any) {
+    const typeLower =
+      provider.type === 'CUSTOM_SMTP' ? 'smtp' :
+      provider.type === 'GMAIL' ? 'gmail' :
+      provider.type === 'OUTLOOK' ? 'outlook' :
+      (provider.type || '').toLowerCase();
+
+    return {
+      id: provider.id,
+      type: typeLower,
+      name: provider.displayName || `${typeLower.toUpperCase()} - ${provider.email}`,
+      email: provider.email,
+      isActive: !!provider.isActive,
+      lastSynced: provider.lastSyncedAt ? provider.lastSyncedAt.toISOString() : null,
+      status: provider.status || 'connected',
+    };
   }
 
   async configureProvider(config: EmailProviderInput, userId: string) {
