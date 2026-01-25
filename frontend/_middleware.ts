@@ -34,8 +34,14 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('token')?.value;
   const isAuthenticated = !!token;
 
+  // Root route behavior: always send users to the right place.
+  // This avoids client-side token checks (HttpOnly cookie cannot be read by JS).
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL(isAuthenticated ? '/dashboard' : '/auth/login', request.url));
+  }
+
   // Handle authentication redirects
-  if (!isAuthenticated && !isPublicPath(pathname) && pathname !== '/') {
+  if (!isAuthenticated && !isPublicPath(pathname)) {
     // Redirect unauthenticated users to login when accessing protected routes
     const url = new URL('/auth/login', request.url);
     url.searchParams.set('redirect', encodeURIComponent(pathname));

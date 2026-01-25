@@ -38,3 +38,28 @@
    Prefer lazy loading and efficient state management.
    Ensure cross-browser compatibility and responsiveness.
    Optimize performance (reduce re-renders, use server components efficiently).
+
+---
+
+## Running the Frontend (Nx workspace)
+
+### Prerequisites
+- Node.js (v16+ recommended)
+
+### Environment variables
+- Copy `frontend/env.local.example` to `frontend/.env.local` and adjust values as needed.
+- If you run via Nx (`nx serve frontend`), the workspace will also auto-create `frontend/.env.local` if it's missing (it never overwrites).
+
+### Development
+
+From the repo root:
+
+```bash
+nx serve frontend
+```
+
+Or via npm script:
+
+```bash
+npm run dev:frontend
+```
