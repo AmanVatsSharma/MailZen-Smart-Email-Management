@@ -17,7 +17,9 @@ export class AuthService {
   }
 
   login(user: any): { accessToken: string } {
-    const payload = { id: user.id, email: user.email, roles: user.roles };
+    // Keep JWT payload minimal and stable across auth methods (password, OAuth, etc.)
+    // NOTE: Some older callers may pass `roles`; Prisma uses `role` (string).
+    const payload = { id: user.id, email: user.email, role: user.role ?? user.roles ?? 'USER' };
     const secret = process.env.JWT_SECRET;
     if (!secret || secret === 'default-secret') {
       throw new Error('JWT secret not configured');
