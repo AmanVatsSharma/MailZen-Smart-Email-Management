@@ -23,6 +23,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface SidebarProps {
   isOpen: boolean;
+  onClose?: () => void;
 }
 
 const sidebarVariants = {
@@ -44,7 +45,7 @@ const sidebarVariants = {
   },
 };
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const pathname = usePathname();
 
   const mainNavItems = [
@@ -129,7 +130,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
             MailZen
           </motion.span>
         </Link>
-        <Button variant="ghost" size="icon" className="lg:hidden">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden"
+          onClick={onClose}
+          aria-label="Close sidebar"
+          type="button"
+        >
           <ChevronLeft className="h-5 w-5" />
         </Button>
       </div>
@@ -154,6 +162,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
               >
                 <Link
                   href={item.href}
+                  onClick={onClose}
                   className={cn(
                     'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-all',
                     pathname === item.href
@@ -194,6 +203,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
               >
                 <Link
                   href={item.href}
+                  onClick={onClose}
                   className={cn(
                     'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-all',
                     pathname === item.href

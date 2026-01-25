@@ -1,3 +1,54 @@
+# Backend Auth (JWT + HttpOnly Cookie Session)
+
+MailZen backend auth is implemented as **JWT access tokens** issued by GraphQL mutations and stored in a **HttpOnly cookie** for browser sessions.
+
+## Goals (enterprise-grade baseline)
+- Keep auth **secure-by-default** for web clients (HttpOnly cookie).
+- Keep the app core **IdP-agnostic** (easy Cognito/JWKS swap later).
+- Provide predictable observability: clear errors + safe debug logs in non-prod.
+
+## Key components
+- **JWT issuing / verification**: `backend/src/auth/auth.service.ts`
+- **Cookie management**: `backend/src/auth/session-cookie.service.ts`
+- **GraphQL mutations** set/clear cookie:
+  - `login`
+  - `register`
+  - `signupVerify`
+  - `logout` (clears cookie; refresh-token revocation is optional/backward compatible)
+  - `backend/src/auth/auth.resolver.ts`
+- **Guard** reads token primarily from cookie, fallback from `Authorization: Bearer ...`:
+  - `backend/src/common/guards/jwt-auth.guard.ts`
+
+## Environment requirements (fail-fast)
+- `JWT_SECRET` must be configured and strong (>= 32 chars recommended).
+  - Enforced during bootstrap in `backend/src/main.ts`.
+
+## GraphQL context
+GraphQL is configured to expose `req/res`:
+- `backend/src/app.module.ts` includes `context: ({ req, res }) => ({ req, res })`
+
+This enables setting cookies inside resolvers.
+
+## Flow (login)
+
+```mermaid
+sequenceDiagram
+  participant Browser
+  participant FrontendApollo
+  participant BackendGraphQL
+  participant NextMiddleware
+
+  Browser->>FrontendApollo: login_mutation(email,password)
+  FrontendApollo->>BackendGraphQL: POST /graphql (credentials_include)
+  BackendGraphQL-->>Browser: Set-Cookie token=JWT (HttpOnly)
+  Browser->>NextMiddleware: GET /dashboard (cookie token sent)
+  NextMiddleware-->>Browser: allow
+```
+
+## Notes / limitations
+- There is refresh-token storage + rotation implemented (`UserSession` in Prisma), but the current frontend flow is **access-token-only** for simplicity.
+- Google OAuth controller currently returns tokens in query params as MVP; hardening would switch that flow to HttpOnly cookies too.
+
 # Auth Module (Backend)
 
 ## Google OAuth Login (code flow)
