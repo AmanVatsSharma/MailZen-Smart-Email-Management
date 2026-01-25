@@ -6,40 +6,40 @@
   "fileMap": {
     "nonProjectFiles": [
       {
-        "file": "README.md",
-        "hash": "1879082360715961710"
-      },
-      {
-        "file": ".cursor/plans/frontend_polish_pass_66602956.plan.md",
-        "hash": "4074615819616292820"
+        "file": "tools/ensure-env.js",
+        "hash": "12230357502877404310"
       },
       {
         "file": "nx.json",
         "hash": "4028464915613245907"
       },
       {
-        "file": "start-dev.js",
-        "hash": "5454764842813491300"
+        "file": "package.json",
+        "hash": "10231268545196395494"
       },
       {
-        "file": "tools/ensure-env.js",
-        "hash": "12230357502877404310"
+        "file": ".cursor/plans/enterprise_auth_wiring_a0cc3072.plan.md",
+        "hash": "968620179013987133"
+      },
+      {
+        "file": ".cursor/plans/gmailoauth+multiinbox_6db6517f.plan.md",
+        "hash": "15807666030118664436"
+      },
+      {
+        "file": "README.md",
+        "hash": "1879082360715961710"
       },
       {
         "file": ".gitignore",
         "hash": "12228022178553669529"
       },
       {
-        "file": ".cursor/plans/gmailoauth+multiinbox_6db6517f.plan.md",
-        "hash": "17347483664196218097"
-      },
-      {
         "file": "package-lock.json",
         "hash": "18034313394360248678"
       },
       {
-        "file": "package.json",
-        "hash": "10231268545196395494"
+        "file": ".cursor/plans/frontend_polish_pass_66602956.plan.md",
+        "hash": "13021225082785102614"
       }
     ],
     "projectFileMap": {
@@ -91,6 +91,10 @@
         {
           "file": "frontend/app/(auth)/register/page.tsx",
           "hash": "2887303419282660674"
+        },
+        {
+          "file": "frontend/app/(dashboard)/README.md",
+          "hash": "10091172041578421564"
         },
         {
           "file": "frontend/app/(dashboard)/archive/page.tsx",
@@ -234,15 +238,19 @@
         },
         {
           "file": "frontend/components/layout/Header.tsx",
-          "hash": "4256165276309321615"
+          "hash": "15327364847658988653"
         },
         {
           "file": "frontend/components/layout/MainLayout.tsx",
-          "hash": "1923472959614669259"
+          "hash": "13160851640217083382"
+        },
+        {
+          "file": "frontend/components/layout/README.md",
+          "hash": "6094574831732980206"
         },
         {
           "file": "frontend/components/layout/Sidebar.tsx",
-          "hash": "9212904004538720355"
+          "hash": "14952126214606128239"
         },
         {
           "file": "frontend/components/premium/Showcase.tsx",
@@ -250,7 +258,7 @@
         },
         {
           "file": "frontend/components/providers/ProviderManagement.tsx",
-          "hash": "5504967721056939214"
+          "hash": "6471332769766004729"
         },
         {
           "file": "frontend/components/providers/ProviderWizard.tsx",
@@ -258,7 +266,7 @@
         },
         {
           "file": "frontend/components/ui/README.md",
-          "hash": "11690712582310075056"
+          "hash": "119745970561565650"
         },
         {
           "file": "frontend/components/ui/accordion.tsx",
@@ -389,6 +397,10 @@
           "hash": "17923642948230681434"
         },
         {
+          "file": "frontend/env.local.example",
+          "hash": "12959348159439027241"
+        },
+        {
           "file": "frontend/eslint.config.mjs",
           "hash": "5434722182914571719"
         },
@@ -507,6 +519,10 @@
           "hash": "4123233171069474914"
         },
         {
+          "file": "backend/env.example",
+          "hash": "14770892715376463355"
+        },
+        {
           "file": "backend/eslint.config.mjs",
           "hash": "13183347058815926503"
         },
@@ -520,7 +536,7 @@
         },
         {
           "file": "backend/package.json",
-          "hash": "7694157223552390168",
+          "hash": "1210815597517925609",
           "deps": [
             "npm:tsconfig-paths",
             "npm:axios"
@@ -528,7 +544,7 @@
         },
         {
           "file": "backend/prisma/schema.prisma",
-          "hash": "13127485338672292162"
+          "hash": "10617510597507452341"
         },
         {
           "file": "backend/project.json",
@@ -548,7 +564,7 @@
         },
         {
           "file": "backend/src/app.module.ts",
-          "hash": "9075038049779758283"
+          "hash": "16164577755665759275"
         },
         {
           "file": "backend/src/app.service.ts",
@@ -609,6 +625,10 @@
         {
           "file": "backend/src/auth/oauth.controller.ts",
           "hash": "16395680511995805740"
+        },
+        {
+          "file": "backend/src/auth/session-cookie.service.ts",
+          "hash": "15609844800000567463"
         },
         {
           "file": "backend/src/common/guards/admin.guard.ts",
@@ -676,7 +696,7 @@
         },
         {
           "file": "backend/src/email-integration/README.md",
-          "hash": "5466904534903912519"
+          "hash": "16600775724519931464"
         },
         {
           "file": "backend/src/email-integration/dto/delete-provider.input.ts",
@@ -687,8 +707,16 @@
           "hash": "8830871556740348586"
         },
         {
+          "file": "backend/src/email-integration/dto/smtp-settings.input.ts",
+          "hash": "10093655053468933501"
+        },
+        {
+          "file": "backend/src/email-integration/email-provider.connect.resolver.ts",
+          "hash": "11276820695166590334"
+        },
+        {
           "file": "backend/src/email-integration/email-provider.module.ts",
-          "hash": "4371827384070325074"
+          "hash": "3604171087148710911"
         },
         {
           "file": "backend/src/email-integration/email-provider.resolver.spec.ts",
@@ -704,11 +732,19 @@
         },
         {
           "file": "backend/src/email-integration/email-provider.service.ts",
-          "hash": "1159509478493579082"
+          "hash": "9909333655859966102"
         },
         {
           "file": "backend/src/email-integration/entities/email-provider.entity.ts",
           "hash": "2357892068632177987"
+        },
+        {
+          "file": "backend/src/email-integration/entities/provider-action-result.entity.ts",
+          "hash": "731262814996200643"
+        },
+        {
+          "file": "backend/src/email-integration/entities/provider.entity.ts",
+          "hash": "15191064823811090287"
         },
         {
           "file": "backend/src/email/README.md",
@@ -808,11 +844,11 @@
         },
         {
           "file": "backend/src/email/email.resolver.ts",
-          "hash": "1064360530940751141"
+          "hash": "18251998116618666767"
         },
         {
           "file": "backend/src/email/email.service.ts",
-          "hash": "1742934738582696180"
+          "hash": "6432082608462219737"
         },
         {
           "file": "backend/src/email/entities/email.entity.ts",
@@ -871,6 +907,54 @@
           "hash": "13651183075714221142"
         },
         {
+          "file": "backend/src/gmail-sync/README.md",
+          "hash": "1649774171284577310"
+        },
+        {
+          "file": "backend/src/gmail-sync/entities/inbox-message.entity.ts",
+          "hash": "17224728252971906160"
+        },
+        {
+          "file": "backend/src/gmail-sync/gmail-sync.module.ts",
+          "hash": "17952919104894667361"
+        },
+        {
+          "file": "backend/src/gmail-sync/gmail-sync.resolver.ts",
+          "hash": "10484764266622373165"
+        },
+        {
+          "file": "backend/src/gmail-sync/gmail-sync.scheduler.ts",
+          "hash": "14896372395373136437"
+        },
+        {
+          "file": "backend/src/gmail-sync/gmail-sync.service.ts",
+          "hash": "9350611729793554621"
+        },
+        {
+          "file": "backend/src/inbox/README.md",
+          "hash": "9904986200758697923"
+        },
+        {
+          "file": "backend/src/inbox/dto/set-active-inbox.input.ts",
+          "hash": "9528266325913035814"
+        },
+        {
+          "file": "backend/src/inbox/entities/inbox.entity.ts",
+          "hash": "12730213594316026676"
+        },
+        {
+          "file": "backend/src/inbox/inbox.module.ts",
+          "hash": "1064239363574669473"
+        },
+        {
+          "file": "backend/src/inbox/inbox.resolver.ts",
+          "hash": "2746485883930633568"
+        },
+        {
+          "file": "backend/src/inbox/inbox.service.ts",
+          "hash": "16770691419599216542"
+        },
+        {
           "file": "backend/src/mailbox/mail-server.module.ts",
           "hash": "15267630718437502488"
         },
@@ -892,7 +976,7 @@
         },
         {
           "file": "backend/src/main.ts",
-          "hash": "11784124453777458497"
+          "hash": "375075625793478992"
         },
         {
           "file": "backend/src/organization/README.md",

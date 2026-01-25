@@ -4,20 +4,20 @@ overview: Add Google OAuth code-flow login, implement multi-inbox (internal mail
 todos:
   - id: oauth-login
     content: Implement backend Google OAuth code-flow login endpoints, user upsert, JWT+refresh issuance, and auth docs/diagram.
-    status: in_progress
+    status: completed
   - id: provider-connect
     content: Add backend mutations for connectGmail/connectOutlook/connectSmtp + token exchange and align GraphQL with frontend provider-utils expectations.
-    status: pending
+    status: completed
     dependencies:
       - oauth-login
   - id: inbox-switch
     content: Add unified inbox API (myInboxes + setActiveInbox) and persist active selection in Prisma.
-    status: pending
+    status: completed
     dependencies:
       - provider-connect
   - id: gmail-sync
     content: Implement Gmail API sync pipeline (DB model, sync service, queue/cron, queries) so users can view real Gmail inbox messages.
-    status: pending
+    status: completed
     dependencies:
       - inbox-switch
 ---

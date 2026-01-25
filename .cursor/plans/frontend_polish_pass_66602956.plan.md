@@ -12,17 +12,17 @@ todos:
       - foundations-fonts-css
   - id: darkmode-sweep
     content: Remove hardcoded light-only colors and ensure dark-mode correctness for alerts/buttons/surfaces across key pages.
-    status: in_progress
+    status: completed
     dependencies:
       - foundations-fonts-css
   - id: layout-interaction-polish
     content: "Polish dashboard layout interactions: wire sidebar close behavior, remove layout-shift animations, improve a11y on icon buttons."
-    status: pending
+    status: completed
     dependencies:
       - foundations-fonts-css
   - id: docs-flowcharts
     content: Write/refresh module-local docs and mermaid flowcharts for layout + UI primitives + dashboard page scaffolding.
-    status: pending
+    status: completed
     dependencies:
       - layout-interaction-polish
       - ui-input-prefix
