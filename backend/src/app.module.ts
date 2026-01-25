@@ -12,12 +12,16 @@ import { EmailAnalyticsModule } from './email-analytics/email-analytics.module';
 import { ContactModule } from './contacts/contact.module';
 import { MailboxModule } from './mailbox/mailbox.module';
 import { PhoneModule } from './phone/phone.module';
+import { InboxModule } from './inbox/inbox.module';
+import { GmailSyncModule } from './gmail-sync/gmail-sync.module';
 
 @Module({
   imports: [
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
+      // Expose req/res for cookie-based auth and other enterprise concerns (ip/user-agent/auditing)
+      context: ({ req, res }) => ({ req, res }),
     }),
     UserModule,
     EmailModule,
@@ -28,7 +32,9 @@ import { PhoneModule } from './phone/phone.module';
     EmailAnalyticsModule,
     ContactModule,
     MailboxModule,
-    PhoneModule
+    PhoneModule,
+    InboxModule,
+    GmailSyncModule
   ],
   controllers: [],
   providers: [],

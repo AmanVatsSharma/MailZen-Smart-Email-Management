@@ -13,6 +13,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum InboxType {
+  MAILBOX
+  PROVIDER
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -33,6 +38,7 @@ model User {
   contacts  Contact[]
   emails    Email[]
   providers EmailProvider[]
+  externalMessages ExternalEmailMessage[]
   filters   EmailFilter[]
   folders   EmailFolder[]
   labels    EmailLabel[]
@@ -46,6 +52,10 @@ model User {
 
   /// OAuth subject for Google Sign-In (stable per Google account)
   googleSub          String?  @unique
+
+  /// Persisted inbox selection for multi-inbox switching
+  activeInboxType    InboxType?
+  activeInboxId      String?
 }
 
 model Contact {
@@ -85,18 +95,58 @@ model EmailProvider {
   id          String   @id @default(uuid())
   type        String   // GMAIL, OUTLOOK, CUSTOM_SMTP
   email       String
+  /// Human-friendly display name (e.g. "Gmail - user@gmail.com")
+  displayName String?
+  /// Whether this provider is currently the selected/active external inbox
+  isActive    Boolean  @default(false)
+  /// Last time we successfully synced/pulled messages for this provider
+  lastSyncedAt DateTime?
+  /// Connection/sync status for UI ("connected" | "syncing" | "error" | "disconnected")
+  status      String   @default("connected")
   host        String?
   port        Int?
   password    String?
   accessToken String?
   refreshToken String?
   tokenExpiry DateTime?
+  /// Gmail incremental sync cursor (historyId) for future optimizations
+  gmailHistoryId String?
   userId      String
   user        User     @relation(fields: [userId], references: [id])
   emails      Email[]
   warmup      EmailWarmup?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  externalMessages ExternalEmailMessage[]
+}
+
+/// Inbound/received messages synced from external providers (Gmail first).
+model ExternalEmailMessage {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+
+  providerId        String
+  provider          EmailProvider @relation(fields: [providerId], references: [id])
+
+  externalMessageId String
+  threadId          String?
+
+  from              String?
+  to                String[]
+  subject           String?
+  snippet           String?
+  internalDate      DateTime?
+  labels            String[]
+  rawPayload        Json?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([providerId, externalMessageId])
+  @@index([userId])
+  @@index([providerId])
 }
 
 model EmailAnalytics {
