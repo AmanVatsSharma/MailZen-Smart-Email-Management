@@ -7,12 +7,12 @@ todos:
     status: completed
   - id: ui-input-prefix
     content: Fix `Input` primitive to support `prefix`/`suffix` (or create `InputWithIcon`) and update all call sites.
-    status: in_progress
+    status: completed
     dependencies:
       - foundations-fonts-css
   - id: darkmode-sweep
     content: Remove hardcoded light-only colors and ensure dark-mode correctness for alerts/buttons/surfaces across key pages.
-    status: pending
+    status: in_progress
     dependencies:
       - foundations-fonts-css
   - id: layout-interaction-polish

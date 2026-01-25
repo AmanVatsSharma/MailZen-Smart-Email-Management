@@ -2,14 +2,19 @@
   "name": "mailzen",
   "version": "1.0.0",
   "description": "MailZen - Email management platform",
-  "main": "start-dev.js",
+  "private": true,
   "scripts": {
-    "start": "node start-dev.js",
+    "start": "nx run-many -t serve -p frontend backend --parallel=2",
+    "dev": "nx run-many -t serve -p frontend backend --parallel=2",
     "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
-    "start:frontend": "cd frontend && npm run dev",
-    "start:backend": "cd backend && npm run start:dev",
-    "build:frontend": "cd frontend && npm run build",
-    "build:backend": "cd backend && npm run build"
+    "dev:frontend": "nx serve frontend",
+    "dev:backend": "nx serve backend",
+    "build": "nx run-many -t build -p frontend backend",
+    "build:frontend": "nx build frontend",
+    "build:backend": "nx build backend",
+    "lint": "nx run-many -t lint -p frontend backend --parallel=2",
+    "format": "nx run-many -t format -p frontend backend --parallel=2",
+    "format:check": "nx run-many -t format:check -p frontend backend --parallel=2"
   },
   "keywords": [
     "email",
@@ -19,7 +24,7 @@
   ],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "child_process": "^1.0.2"
+  "devDependencies": {
+    "nx": "20.3.1"
   }
 } 
