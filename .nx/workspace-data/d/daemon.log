@@ -1346,3 +1346,25 @@
 [NX Daemon Server] - 2026-01-25T13:29:18.272Z - [SYNC]: project graph hash is the same, not collecting task sync generators
 [NX Daemon Server] - 2026-01-25T13:29:18.272Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
 [NX Daemon Server] - 2026-01-25T13:29:18.272Z - Time taken for 'total execution time for createProjectGraph()' 14.555093000177294ms
+[NX Daemon Server] - 2026-01-25T13:29:29.487Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-25T13:29:29.489Z - [WATCHER]: frontend/components/auth/LoginForm.tsx was modified
+[NX Daemon Server] - 2026-01-25T13:29:35.890Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-25T13:29:35.891Z - [REQUEST]: frontend/components/auth/LoginForm.tsx
+[NX Daemon Server] - 2026-01-25T13:29:35.892Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-25T13:29:35.900Z - Time taken for 'hash changed files from watcher' 0.5334489999804646ms
+[NX Daemon Server] - 2026-01-25T13:29:35.909Z - Time taken for 'build-project-configs' 11.221617999952286ms
+[NX Daemon Server] - 2026-01-25T13:29:35.924Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-25T13:29:35.925Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-25T13:29:35.925Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-25T13:29:35.925Z - Time taken for 'total execution time for createProjectGraph()' 13.192897999892011ms
+[NX Daemon Server] - 2026-01-25T13:29:44.255Z - [WATCHER]: frontend/components/auth/RegisterForm.tsx was modified
+[NX Daemon Server] - 2026-01-25T13:29:44.255Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-25T13:29:50.656Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-25T13:29:50.660Z - [REQUEST]: frontend/components/auth/RegisterForm.tsx
+[NX Daemon Server] - 2026-01-25T13:29:50.660Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-25T13:29:50.687Z - Time taken for 'hash changed files from watcher' 0.5609890001360327ms
+[NX Daemon Server] - 2026-01-25T13:29:50.701Z - Time taken for 'build-project-configs' 22.153087000129744ms
+[NX Daemon Server] - 2026-01-25T13:29:50.739Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-25T13:29:50.741Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-25T13:29:50.741Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-25T13:29:50.741Z - Time taken for 'total execution time for createProjectGraph()' 24.574101999867707ms
