@@ -29,7 +29,7 @@ export const REGISTER_MUTATION = gql`
 
 export const FORGOT_PASSWORD_MUTATION = gql`
   mutation ForgotPassword($email: String!) {
-    forgotPassword(email: $email)
+    forgotPassword(input: { email: $email })
   }
 `;
 
@@ -38,27 +38,6 @@ export const RESET_PASSWORD_MUTATION = gql`
     resetPassword(input: { token: $token, newPassword: $newPassword })
   }
 `;
-
-// Auth utilities
-export const setAuthToken = (token: string): void => {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('token', token);
-  }
-};
-
-export const getAuthToken = (): string | null => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('token');
-  }
-  return null;
-};
-
-export const removeAuthToken = (): void => {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-  }
-};
 
 export const setUserData = (user: any): void => {
   if (typeof window !== 'undefined') {
@@ -80,12 +59,9 @@ export const removeUserData = (): void => {
   }
 };
 
-export const isAuthenticated = (): boolean => {
-  return !!getAuthToken();
-};
-
 export const logoutUser = (): void => {
-  removeAuthToken();
+  // Cookie-based session (HttpOnly) is cleared by calling backend logout.
+  // This helper only clears locally cached user data.
   removeUserData();
 };
 

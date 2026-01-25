@@ -1,6 +1,5 @@
 import { ApolloClient, InMemoryCache, HttpLink, from, ApolloLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
-import { setContext } from '@apollo/client/link/context';
 
 // Error handling link
 const errorLink = onError(({ graphQLErrors, networkError }) => {
@@ -17,24 +16,6 @@ const httpLink = new HttpLink({
   credentials: 'include',
 });
 
-// Auth link to add the token to requests
-const authLink = setContext((_, { headers }) => {
-  // Get the authentication token from local storage if it exists
-  let token = null;
-  
-  if (typeof window !== 'undefined') {
-    token = localStorage.getItem('token');
-  }
-  
-  // Return the headers to the context so httpLink can read them
-  return {
-    headers: {
-      ...headers,
-      authorization: token ? `Bearer ${token}` : "",
-    }
-  };
-});
-
 // Optional: auto-refresh token on auth errors (local-only naive approach)
 const refreshLink = new ApolloLink((operation, forward) => {
   return forward(operation).map((response) => {
@@ -43,9 +24,22 @@ const refreshLink = new ApolloLink((operation, forward) => {
   });
 });
 
+// Dev-only request logging for debugging and later observability work.
+const debugLink = new ApolloLink((operation, forward) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[Apollo] request', {
+      operationName: operation.operationName,
+      variables: operation.variables,
+    });
+  }
+  return forward(operation);
+});
+
 // Initialize Apollo Client
 export const client = new ApolloClient({
-  link: from([errorLink, authLink, refreshLink, httpLink]),
+  // Auth is cookie-based (HttpOnly) so we do NOT read tokens from localStorage.
+  // Cookies are sent automatically via `credentials: 'include'` on httpLink.
+  link: from([errorLink, debugLink, refreshLink, httpLink]),
   cache: new InMemoryCache(),
   defaultOptions: {
     watchQuery: {

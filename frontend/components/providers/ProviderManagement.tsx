@@ -69,11 +69,32 @@ export function ProviderManagement() {
   const getStatusBadge = (status: Provider['status']) => {
     switch (status) {
       case 'connected':
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Connected</Badge>;
+        return (
+          <Badge
+            variant="outline"
+            className="border-emerald-200/60 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200"
+          >
+            Connected
+          </Badge>
+        );
       case 'error':
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Error</Badge>;
+        return (
+          <Badge
+            variant="outline"
+            className="border-destructive/20 bg-destructive/10 text-destructive dark:border-destructive/30 dark:bg-destructive/15"
+          >
+            Error
+          </Badge>
+        );
       case 'syncing':
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Syncing...</Badge>;
+        return (
+          <Badge
+            variant="outline"
+            className="border-blue-200/60 bg-blue-50 text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200"
+          >
+            Syncing...
+          </Badge>
+        );
       default:
         return null;
     }
@@ -83,17 +104,23 @@ export function ProviderManagement() {
   const getProviderIcon = (type: EmailProvider) => {
     switch (type) {
       case 'gmail':
-        return <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-          <Mail className="h-5 w-5 text-red-600" />
-        </div>;
+        return (
+          <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
+            <Mail className="h-5 w-5 text-red-600 dark:text-red-300" />
+          </div>
+        );
       case 'outlook':
-        return <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-          <Mail className="h-5 w-5 text-blue-600" />
-        </div>;
+        return (
+          <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+            <Mail className="h-5 w-5 text-blue-600 dark:text-blue-300" />
+          </div>
+        );
       case 'smtp':
-        return <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-          <Mail className="h-5 w-5 text-purple-600" />
-        </div>;
+        return (
+          <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center">
+            <Mail className="h-5 w-5 text-purple-600 dark:text-purple-300" />
+          </div>
+        );
       default:
         return null;
     }
@@ -151,8 +178,8 @@ export function ProviderManagement() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                        <Mail className="h-5 w-5 text-emerald-600" />
+                      <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                        <Mail className="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
                       </div>
                       <div>
                         <h3 className="font-medium">MailZen Mailbox</h3>
@@ -160,7 +187,12 @@ export function ProviderManagement() {
                       </div>
                     </div>
                     <div>
-                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Primary</Badge>
+                      <Badge
+                        variant="outline"
+                        className="border-emerald-200/60 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200"
+                      >
+                        Primary
+                      </Badge>
                     </div>
                   </div>
                 </CardContent>

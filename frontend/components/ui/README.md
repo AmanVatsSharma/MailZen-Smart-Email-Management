@@ -10,6 +10,15 @@ This directory contains all the UI components used in the MailZen application. T
 - **Feedback components:** Alert, Toast, etc.
 - **Navigation components:** Tabs, Accordion, etc.
 
+## Design tokens (high level)
+
+- **Colors / radius**: configured via CSS variables in `frontend/app/globals.css` and consumed via Tailwind (`hsl(var(--primary))`, etc.).
+- **Typography**:\n  - `frontend/app/layout.tsx` injects the app font via Next.js and sets `--font-sans`.\n  - `frontend/app/globals.css` provides safe fallbacks for `--font-sans`/`--font-mono`.\n
+## Input: prefix/suffix contract
+
+`Input` supports visual adornments so pages can render icons without hacking padding wrappers.
+
+- **Props**:\n  - `prefix?: React.ReactNode`\n  - `suffix?: React.ReactNode`\n  - `containerClassName?: string`\n- **Behavior**:\n  - If no `prefix`/`suffix` is provided, `Input` renders as a plain `<input>` (fast path).\n  - If `prefix`/`suffix` is provided, `Input` renders a relative container with absolute adornments.\n  - `prefix` uses `pointer-events-none` by default so it doesn’t block focusing the input.\n
 ## Form Example with React Hook Form and Zod
 
 We've implemented a form example using React Hook Form with Zod validation. This provides a type-safe and easy-to-use form validation solution.

@@ -38,7 +38,7 @@ todos:
     status: completed
   - id: docs-flowcharts
     content: Add module-level docs + mermaid flowcharts for auth/session wiring and Cognito-ready boundaries.
-    status: in_progress
+    status: completed
     dependencies:
       - backend-jwt-guard-cookie
       - frontend-logout
