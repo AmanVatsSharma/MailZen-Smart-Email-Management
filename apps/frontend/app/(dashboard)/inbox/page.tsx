@@ -8,12 +8,12 @@ import { EmailNavigation } from '@/components/email/EmailNavigation';
 import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
 import { EmailFolder, EmailThread, EmailLabel } from '@/lib/email/email-types';
 import { mockLabels } from '@/lib/email/mock-data';
-import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Filter, MoreVertical, Plus, Keyboard, X } from 'lucide-react';
+import { RefreshCw, Filter, MoreVertical, Plus, Keyboard, X, PanelLeft } from 'lucide-react';
 import { gql, useApolloClient, useQuery, useMutation } from '@apollo/client';
 import { GET_LABELS, UPDATE_EMAIL } from '@/lib/apollo/queries/emails';
 import { useToast } from '@/components/ui/use-toast';
+import { Surface } from '@/components/ui/surface';
 import {
   Dialog,
   DialogContent,
@@ -46,6 +46,15 @@ const SYNC_PROVIDER_FOR_INBOX = gql`
   }
 `;
 
+type InboxProvider = {
+  id: string;
+  type?: string;
+  email?: string;
+  isActive?: boolean;
+  status?: string;
+  lastSynced?: string;
+};
+
 export default function InboxPage() {
   const [selectedThread, setSelectedThread] = useState<EmailThread | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -55,6 +64,7 @@ export default function InboxPage() {
   const [currentLabel, setCurrentLabel] = useState<string | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'preview' | 'full'>('preview');
   const [isShortcutsDialogOpen, setIsShortcutsDialogOpen] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   
   // Keep track of last selected thread index for keyboard navigation
   const lastSelectedThreadIndex = useRef<number>(-1);
@@ -72,7 +82,8 @@ export default function InboxPage() {
 
   // Provider status (for refresh + UX)
   const { data: providersData } = useQuery(GET_PROVIDERS_FOR_INBOX, { fetchPolicy: 'network-only' });
-  const activeProvider = (providersData?.providers || []).find((p: any) => p.isActive) || (providersData?.providers || [])[0];
+  const providers = (providersData?.providers as InboxProvider[] | undefined) || [];
+  const activeProvider = providers.find((p) => p.isActive) || providers[0];
   const [syncProvider] = useMutation(SYNC_PROVIDER_FOR_INBOX);
   
   // Handle folder selection
@@ -137,12 +148,18 @@ export default function InboxPage() {
   
   // Handle reply to email
   const handleReply = (threadId: string) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[Inbox] reply', { threadId });
+    }
     setComposerMode('reply');
     setIsComposerOpen(true);
   };
   
   // Handle forward email
   const handleForward = (threadId: string) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[Inbox] forward', { threadId });
+    }
     setComposerMode('forward');
     setIsComposerOpen(true);
   };
@@ -156,7 +173,9 @@ export default function InboxPage() {
   // Handle archiving an email
   const handleArchive = (threadId: string) => {
     // Would use a GraphQL mutation in a real app
-    console.log(`Archive thread: ${threadId}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[Inbox] archive thread', { threadId });
+    }
     
     // Show notification
     toast({
@@ -173,7 +192,9 @@ export default function InboxPage() {
   // Handle deleting an email
   const handleDelete = (threadId: string) => {
     // Would use a GraphQL mutation in a real app
-    console.log(`Delete thread: ${threadId}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[Inbox] delete thread', { threadId });
+    }
     
     // Show notification
     toast({
@@ -190,7 +211,9 @@ export default function InboxPage() {
   // Handle toggling star on an email
   const handleToggleStar = (threadId: string, isStarred: boolean) => {
     // The component now uses GraphQL mutation internally
-    console.log(`Star toggled for thread ${threadId}: ${isStarred}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[Inbox] star toggled', { threadId, isStarred });
+    }
     
     // Show notification
     toast({
@@ -204,8 +227,14 @@ export default function InboxPage() {
   // Handle batch actions
   const handleBatchAction = async (action: string, threadIds: string[]) => {
     try {
+      type UpdateEmailInput = {
+        folder?: 'archive' | 'trash' | 'inbox' | 'sent' | 'spam' | 'drafts';
+        read?: boolean;
+        starred?: boolean;
+      };
+
       // Define the input for each action type
-      const inputMap: Record<string, any> = {
+      const inputMap: Record<string, UpdateEmailInput> = {
         archive: { folder: 'archive' },
         delete: { folder: 'trash' },
         markRead: { read: true },
@@ -343,68 +372,97 @@ export default function InboxPage() {
   }, [selectedThread]);
   
   return (
-    <div className="container p-0 h-full">
-      <div className="flex h-full">
-        {/* Email Navigation Sidebar */}
-        <EmailNavigation 
-          currentFolder={currentFolder}
-          onFolderSelect={handleFolderSelect}
-          currentLabel={currentLabel}
-          onLabelSelect={handleLabelSelect}
-        />
-        
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
+    <div className="h-full">
+      <div className="flex h-full gap-4">
+        {/* Left panel: navigation */}
+        <Surface
+          className="hidden md:flex w-64 flex-col h-full"
+          variant="glass"
+          animateIn={false}
+        >
+          <EmailNavigation
+            currentFolder={currentFolder}
+            onFolderSelect={handleFolderSelect}
+            currentLabel={currentLabel}
+            onLabelSelect={handleLabelSelect}
+            onCompose={handleNewEmail}
+            className="h-full"
+          />
+        </Surface>
+
+        {/* Right side: toolbar + list + preview/detail */}
+        <div className="flex-1 flex flex-col h-full overflow-hidden gap-4 min-w-0">
           {/* Toolbar */}
-          <div className="py-4 px-6 flex items-center justify-between bg-background sticky top-0 z-10">
-            <h1 className="text-2xl font-bold">
-              {currentLabel 
-                ? availableLabels.find((l: EmailLabel) => l.id === currentLabel)?.name 
-                : currentFolder.charAt(0).toUpperCase() + currentFolder.slice(1)}
-            </h1>
-            
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="default"
-                size="sm"
-                className="gap-1"
-                onClick={handleNewEmail}
-              >
-                <Plus className="h-4 w-4" />
-                New Email
-              </Button>
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={handleRefreshInbox}
-                disabled={isRefreshing}
-              >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </Button>
-              <Button variant="outline" size="icon">
-                <Filter className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={() => setIsShortcutsDialogOpen(true)}
-                aria-label="Keyboard Shortcuts"
-                title="Keyboard Shortcuts (Press ?)"
-              >
-                <Keyboard className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
+          <Surface
+            variant="subtle"
+            className="sticky top-0 z-20 px-4 py-3 md:px-5 md:py-4"
+            animateIn={false}
+          >
+            <div className="flex items-center justify-between gap-4">
+              <h1 className="text-2xl font-semibold tracking-tight truncate">
+                {currentLabel
+                  ? availableLabels.find((l: EmailLabel) => l.id === currentLabel)?.name
+                  : currentFolder.charAt(0).toUpperCase() + currentFolder.slice(1)}
+              </h1>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="md:hidden"
+                  onClick={() => setIsMobileNavOpen(true)}
+                  aria-label="Open folders and labels"
+                  title="Folders & labels"
+                >
+                  <PanelLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="premium"
+                  size="sm"
+                  className="gap-1"
+                  onClick={handleNewEmail}
+                >
+                  <Plus className="h-4 w-4" />
+                  New Email
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleRefreshInbox}
+                  disabled={isRefreshing}
+                  aria-label="Refresh inbox"
+                  title="Refresh inbox (F5)"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </Button>
+                <Button variant="outline" size="icon" aria-label="Filters" title="Filters">
+                  <Filter className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsShortcutsDialogOpen(true)}
+                  aria-label="Keyboard Shortcuts"
+                  title="Keyboard Shortcuts (Press ?)"
+                >
+                  <Keyboard className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" aria-label="More options" title="More options">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </div>
-          
-          <Separator />
-          
-          {/* Email List and Content Area */}
-          <div className="flex flex-1 overflow-hidden">
-            <div className="w-full md:w-2/5 lg:w-1/3 overflow-hidden pr-4">
-              <EmailList 
+          </Surface>
+
+          {/* Email list + content */}
+          <div className="flex flex-1 overflow-hidden gap-4 min-w-0">
+            {/* Middle panel: list */}
+            <Surface
+              className="w-full md:w-[420px] lg:w-[460px] overflow-hidden flex flex-col"
+              variant="glass"
+              animateIn={false}
+            >
+              <EmailList
                 onSelectThread={handleSelectThread}
                 selectedThreadId={selectedThread?.id}
                 className="h-full"
@@ -412,15 +470,17 @@ export default function InboxPage() {
                 initialFolder={currentFolder}
                 labelFilter={currentLabel}
               />
-            </div>
-            
-            <Separator orientation="vertical" className="mr-4 hidden md:block" />
-            
-            {/* Email Content Panel - Conditionally show preview or full view */}
-            <div className="hidden md:block md:flex-1 overflow-auto">
+            </Surface>
+
+            {/* Right panel: preview/detail */}
+            <Surface
+              className="hidden md:flex flex-1 overflow-hidden"
+              variant="glass"
+              animateIn={false}
+            >
               {selectedThread ? (
                 viewMode === 'preview' ? (
-                  <EmailPreviewPane 
+                  <EmailPreviewPane
                     thread={selectedThread}
                     availableLabels={availableLabels}
                     onViewFull={toggleViewMode}
@@ -432,7 +492,7 @@ export default function InboxPage() {
                     className="h-full"
                   />
                 ) : (
-                  <EmailDetail 
+                  <EmailDetail
                     thread={selectedThread}
                     availableLabels={availableLabels}
                     onReply={handleReply}
@@ -449,7 +509,7 @@ export default function InboxPage() {
                   <p>Select an email to view</p>
                 </div>
               )}
-            </div>
+            </Surface>
           </div>
         </div>
       </div>
@@ -470,6 +530,31 @@ export default function InboxPage() {
           ? `\n\n---\nOn ${new Date(selectedThread.lastMessageDate).toLocaleString()}, ${selectedThread.messages[selectedThread.messages.length - 1].from.name} wrote:\n\n${selectedThread.messages[selectedThread.messages.length - 1].contentPreview}...`
           : ''}
       />
+
+      {/* Mobile folders/labels navigation */}
+      <Dialog open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
+        <DialogContent className="p-0 overflow-hidden sm:max-w-[420px]">
+          <Surface variant="glass" className="rounded-none border-0 shadow-none bg-background/80">
+            <EmailNavigation
+              currentFolder={currentFolder}
+              onFolderSelect={(folder) => {
+                handleFolderSelect(folder);
+                setIsMobileNavOpen(false);
+              }}
+              currentLabel={currentLabel}
+              onLabelSelect={(labelId) => {
+                handleLabelSelect(labelId);
+                setIsMobileNavOpen(false);
+              }}
+              onCompose={() => {
+                setIsMobileNavOpen(false);
+                handleNewEmail();
+              }}
+              className="h-[75vh]"
+            />
+          </Surface>
+        </DialogContent>
+      </Dialog>
       
       {/* Keyboard Shortcuts Dialog */}
       <Dialog open={isShortcutsDialogOpen} onOpenChange={setIsShortcutsDialogOpen}>

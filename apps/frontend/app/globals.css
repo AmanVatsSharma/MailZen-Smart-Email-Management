@@ -297,6 +297,29 @@
   background-size: 400% 400%;
 }
 
+/* Premium surface utilities (shared, composable building blocks) */
+@layer utilities {
+  /*
+    Use these for panels/containers so the app feels cohesive.
+    Prefer these over one-off ad-hoc class strings.
+  */
+  .surface-glass {
+    @apply relative overflow-hidden rounded-xl border border-slate-200/40 dark:border-slate-800/40 bg-background/70 backdrop-blur-md shadow-md;
+  }
+
+  .surface-elevated {
+    @apply relative overflow-hidden rounded-xl border border-slate-200/40 dark:border-slate-800/40 bg-background/85 backdrop-blur-md shadow-lg;
+  }
+
+  .surface-subtle {
+    @apply relative overflow-hidden rounded-xl border border-slate-200/25 dark:border-slate-800/25 bg-background/40 backdrop-blur-sm shadow-none;
+  }
+
+  .focus-ring-premium {
+    @apply outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2;
+  }
+}
+
 /* Placeholder Text Animation */
 .placeholder-content {
   position: relative;

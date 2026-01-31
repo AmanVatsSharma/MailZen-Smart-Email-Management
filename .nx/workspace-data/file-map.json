@@ -10,24 +10,16 @@
         "hash": "13021225082785102614"
       },
       {
-        "file": ".cursor/plans/gmailoauth+multiinbox_6db6517f.plan.md",
-        "hash": "15807666030118664436"
+        "file": ".gitignore",
+        "hash": "12228022178553669529"
       },
       {
         "file": ".cursor/plans/enterprise_auth_wiring_a0cc3072.plan.md",
         "hash": "5562174741108176712"
       },
       {
-        "file": "nx.json",
-        "hash": "4028464915613245907"
-      },
-      {
-        "file": "tools/ensure-env.js",
-        "hash": "52241091178071508"
-      },
-      {
-        "file": ".gitignore",
-        "hash": "12228022178553669529"
+        "file": ".cursor/plans/gmailoauth+multiinbox_6db6517f.plan.md",
+        "hash": "15807666030118664436"
       },
       {
         "file": "package.json",
@@ -36,6 +28,14 @@
       {
         "file": "package-lock.json",
         "hash": "3503427873816494508"
+      },
+      {
+        "file": "nx.json",
+        "hash": "4028464915613245907"
+      },
+      {
+        "file": "tools/ensure-env.js",
+        "hash": "52241091178071508"
       },
       {
         "file": "README.md",
@@ -644,7 +644,7 @@
         },
         {
           "file": "apps/backend/src/contacts/contact.resolver.spec.ts",
-          "hash": "1661581234841010503"
+          "hash": "9702193291393630370"
         },
         {
           "file": "apps/backend/src/contacts/contact.resolver.ts",
@@ -688,7 +688,7 @@
         },
         {
           "file": "apps/backend/src/email-integration/README.md",
-          "hash": "759308391513207463"
+          "hash": "2031036466257117611"
         },
         {
           "file": "apps/backend/src/email-integration/dto/delete-provider.input.ts",
@@ -780,15 +780,15 @@
         },
         {
           "file": "apps/backend/src/email/email-filter.resolver.spec.ts",
-          "hash": "4965426754651521036"
+          "hash": "13234520154884918811"
         },
         {
           "file": "apps/backend/src/email/email-filter.service.spec.ts",
-          "hash": "17223537222000296574"
+          "hash": "17032278970253954189"
         },
         {
           "file": "apps/backend/src/email/email-warmup.resolver.spec.ts",
-          "hash": "9458815539528758095"
+          "hash": "11159074318934643785"
         },
         {
           "file": "apps/backend/src/email/email-warmup.service.spec.ts",
@@ -904,7 +904,7 @@
         },
         {
           "file": "apps/backend/src/gmail-sync/README.md",
-          "hash": "1649774171284577310"
+          "hash": "2103569067825647482"
         },
         {
           "file": "apps/backend/src/gmail-sync/entities/inbox-message.entity.ts",
@@ -924,7 +924,7 @@
         },
         {
           "file": "apps/backend/src/gmail-sync/gmail-sync.service.spec.ts",
-          "hash": "5117290066567213337"
+          "hash": "6825093105080453978"
         },
         {
           "file": "apps/backend/src/gmail-sync/gmail-sync.service.ts",
@@ -932,7 +932,7 @@
         },
         {
           "file": "apps/backend/src/inbox/README.md",
-          "hash": "9904986200758697923"
+          "hash": "350770280593212877"
         },
         {
           "file": "apps/backend/src/inbox/dto/set-active-inbox.input.ts",
@@ -980,7 +980,7 @@
         },
         {
           "file": "apps/backend/src/organization/README.md",
-          "hash": "2926752667541415794"
+          "hash": "12024187952070584127"
         },
         {
           "file": "apps/backend/src/organization/dto/create-label.input.ts",
@@ -1060,7 +1060,7 @@
         },
         {
           "file": "apps/backend/src/smart-replies/smart-reply.resolver.spec.ts",
-          "hash": "14047358625557770076"
+          "hash": "2586109807238300814"
         },
         {
           "file": "apps/backend/src/smart-replies/smart-reply.resolver.ts",
@@ -1068,7 +1068,7 @@
         },
         {
           "file": "apps/backend/src/smart-replies/smart-reply.service.spec.ts",
-          "hash": "9420998819486295733"
+          "hash": "9465216241951381464"
         },
         {
           "file": "apps/backend/src/smart-replies/smart-reply.service.ts",
@@ -1097,6 +1097,10 @@
         {
           "file": "apps/backend/src/template/template.service.ts",
           "hash": "6539758537799991057"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/README.md",
+          "hash": "5849358325592106940"
         },
         {
           "file": "apps/backend/src/unified-inbox/dto/email-filter.input.ts",
@@ -1144,11 +1148,11 @@
         },
         {
           "file": "apps/backend/src/unified-inbox/unified-inbox.service.spec.ts",
-          "hash": "12031674241438048523"
+          "hash": "13467271450562637958"
         },
         {
           "file": "apps/backend/src/unified-inbox/unified-inbox.service.ts",
-          "hash": "15323587334046634710"
+          "hash": "11739332732178935878"
         },
         {
           "file": "apps/backend/src/user/dto/create-user.input.ts",
