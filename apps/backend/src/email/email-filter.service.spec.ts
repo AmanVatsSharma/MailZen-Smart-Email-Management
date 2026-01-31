@@ -25,7 +25,6 @@ describe('EmailFilterService (smoke)', () => {
         findFirst: jest.fn().mockResolvedValue(mockFilter),
         delete: jest.fn().mockResolvedValue(mockFilter),
       },
-      email: { findFirst: jest.fn() },
       emailLabelAssignment: { create: jest.fn() },
       emailLabel: { findMany: jest.fn() },
       emailProvider: { findFirst: jest.fn() },

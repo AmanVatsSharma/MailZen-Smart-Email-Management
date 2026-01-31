@@ -2,6 +2,8 @@ import axios from 'axios';
 import { GmailSyncService } from './gmail-sync.service';
 
 jest.mock('axios', () => ({
+  __esModule: true,
+  default: { get: jest.fn() },
   get: jest.fn(),
 }));
 

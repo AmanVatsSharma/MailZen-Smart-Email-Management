@@ -76,7 +76,7 @@ describe('UnifiedInboxService (smoke)', () => {
 
   it('updateThread (non-gmail path) updates labels locally', async () => {
     const prisma = makePrisma();
-    prisma.emailProvider.findFirst.mockResolvedValueOnce({ id: providerId, userId, type: 'CUSTOM_SMTP' });
+    prisma.emailProvider.findFirst.mockResolvedValue({ id: providerId, userId, type: 'CUSTOM_SMTP' });
 
     const svc = new UnifiedInboxService(prisma as any);
     await svc.updateThread(userId, 't1', { read: true, starred: true, folder: 'archive' } as any);
