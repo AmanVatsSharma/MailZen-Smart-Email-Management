@@ -6,24 +6,28 @@
   "fileMap": {
     "nonProjectFiles": [
       {
-        "file": "tools/ensure-env.js",
-        "hash": "52241091178071508"
+        "file": ".cursor/plans/gmailoauth+multiinbox_6db6517f.plan.md",
+        "hash": "15807666030118664436"
       },
       {
-        "file": ".gitignore",
-        "hash": "12228022178553669529"
+        "file": "tools/ensure-env.js",
+        "hash": "52241091178071508"
       },
       {
         "file": "nx.json",
         "hash": "4028464915613245907"
       },
       {
-        "file": ".cursor/plans/gmailoauth+multiinbox_6db6517f.plan.md",
-        "hash": "15807666030118664436"
-      },
-      {
         "file": "package.json",
         "hash": "4216715841772880991"
+      },
+      {
+        "file": ".gitignore",
+        "hash": "12228022178553669529"
+      },
+      {
+        "file": ".cursor/plans/enterprise_auth_wiring_a0cc3072.plan.md",
+        "hash": "5562174741108176712"
       },
       {
         "file": "package-lock.json",
@@ -36,10 +40,6 @@
       {
         "file": "README.md",
         "hash": "16100399334875497739"
-      },
-      {
-        "file": ".cursor/plans/enterprise_auth_wiring_a0cc3072.plan.md",
-        "hash": "5562174741108176712"
       }
     ],
     "projectFileMap": {
@@ -988,7 +988,7 @@
         },
         {
           "file": "apps/backend/src/organization/label.module.ts",
-          "hash": "12523149174082237989"
+          "hash": "10089871645577940771"
         },
         {
           "file": "apps/backend/src/organization/label.resolver.ts",
@@ -996,7 +996,7 @@
         },
         {
           "file": "apps/backend/src/organization/label.service.ts",
-          "hash": "5579273215997349240"
+          "hash": "16009595911697612264"
         },
         {
           "file": "apps/backend/src/phone/phone.module.ts",

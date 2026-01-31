@@ -1,31 +1,34 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Label } from './label.entity';
 import { CreateLabelInput } from './dto/create-label.input';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class LabelService {
-  private labels: Label[] = [];
-  private idCounter = 1;
+  constructor(private readonly prisma: PrismaService) {}
 
-  createLabel(createLabelInput: CreateLabelInput): Label {
-    const label: Label = {
-      id: String(this.idCounter++),
-      name: createLabelInput.name,
-      color: createLabelInput.color
-    };
-    this.labels.push(label);
-    return label;
+  async createLabel(userId: string, createLabelInput: CreateLabelInput): Promise<Label> {
+    const created = await this.prisma.emailLabel.create({
+      data: {
+        userId,
+        name: createLabelInput.name,
+        color: createLabelInput.color ?? undefined,
+      },
+    });
+    return { id: created.id, name: created.name, color: created.color };
   }
 
-  getAllLabels(): Label[] {
-    return this.labels;
+  async getAllLabels(userId: string): Promise<Label[]> {
+    const labels = await this.prisma.emailLabel.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return labels.map(l => ({ id: l.id, name: l.name, color: l.color }));
   }
 
-  getLabelById(id: string): Label {
-    const label = this.labels.find(label => label.id === id);
-    if (!label) {
-      throw new NotFoundException(`Label with id ${id} not found`);
-    }
-    return label;
+  async getLabelById(userId: string, id: string): Promise<Label> {
+    const label = await this.prisma.emailLabel.findFirst({ where: { id, userId } });
+    if (!label) throw new NotFoundException(`Label with id ${id} not found`);
+    return { id: label.id, name: label.name, color: label.color };
   }
 } 
