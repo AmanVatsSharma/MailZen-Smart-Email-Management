@@ -9,7 +9,7 @@ This module contains the **dashboard shell** used across MailZen: sidebar + head
 
 ## Behavior notes
 
-- **Auth routes**: `MainLayout` skips rendering the shell when `pathname` includes `/auth`.\n- **Mobile sidebar**:\n  - When open, a semi-transparent backdrop is rendered.\n  - Clicking the backdrop or the “chevron” close button closes the sidebar.\n
+- **Auth routes**: `MainLayout` skips rendering the shell when `pathname` includes `/auth`.\n- **Route transitions**:\n  - `MainLayout` keys page transitions by `pathname` using `AnimatePresence`.\n  - This keeps navigation feeling “premium” and avoids jarring content swaps.\n- **Mobile sidebar**:\n  - When open, a semi-transparent backdrop is rendered.\n  - Clicking the backdrop or the “chevron” close button closes the sidebar.\n
 ## Flowchart
 
 ```mermaid
@@ -19,9 +19,9 @@ flowchart TD
   MainLayout-->MobileBackdrop
   MainLayout-->Sidebar
   MainLayout-->Header
-  MainLayout-->PageContent
+  MainLayout--AnimatePresenceKeyedByPathname-->PageContent
 ```
 
 ## Debugging
 
-- In development, `MainLayout` emits `console.debug` logs for sidebar open/close transitions to help trace UI state issues.\n
+- In development, `MainLayout` emits `console.debug` logs for:\n  - sidebar open/close transitions\n  - route changes (`pathname`)\n  This helps trace UI state + navigation issues.\n

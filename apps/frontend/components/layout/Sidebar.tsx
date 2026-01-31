@@ -103,7 +103,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   return (
     <motion.div
       className={cn(
-        'fixed inset-y-0 left-0 z-40 flex flex-col border-r bg-background/80 backdrop-blur-md lg:relative',
+        // Premium glass sidebar (kept rectangular for edge-to-edge shell alignment).
+        'fixed inset-y-0 left-0 z-40 flex flex-col border-r bg-background/65 backdrop-blur-xl lg:relative',
         isOpen ? 'w-60' : 'w-0 lg:w-60'
       )}
       variants={sidebarVariants}
