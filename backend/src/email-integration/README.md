@@ -62,16 +62,28 @@ Frontend-facing (matches `frontend/lib/providers/provider-utils.ts`):
 
 OAuth `code` exchange requires that the **redirect URI used during authorization** matches the one used during token exchange.
 
-- If your frontend uses a Next.js callback URL (e.g. `http://localhost:3000/api/auth/google/callback`), set:\n+  - `GOOGLE_PROVIDER_REDIRECT_URI=http://localhost:3000/api/auth/google/callback`\n+- Login OAuth (backend redirect) uses:\n+  - `GOOGLE_REDIRECT_URI=http://localhost:4000/auth/google/callback`\n+
+Provider linking (Gmail/Outlook connect) is **backend-only** (recommended).
+
+- Provider linking start endpoints (frontend redirects the browser here):
+  - `GET /email-integration/google/start`
+  - `GET /email-integration/microsoft/start`
+- Provider linking callback endpoints (OAuth apps must point here):
+  - `GOOGLE_PROVIDER_REDIRECT_URI=http://localhost:4000/email-integration/google/callback`
+  - `OUTLOOK_PROVIDER_REDIRECT_URI=http://localhost:4000/email-integration/microsoft/callback`
+
+Login OAuth (backend redirect) uses:
+- `GOOGLE_REDIRECT_URI=http://localhost:4000/auth/google/callback`
 ## Mermaid: connect provider via OAuth code
 
 ```mermaid
 flowchart TD
-  frontend[Frontend] -->|redirect_to_provider| oauth[OAuthProvider]
-  oauth -->|code| frontendCb[FrontendCallback]
-  frontendCb -->|GraphQL connectGmail/connectOutlook(code)| api[BackendGraphQL]
-  api -->|exchange_code_for_tokens| oauth
-  api --> db[(Postgres/Prisma)]
+  frontend[Frontend] -->|redirect_to_backend_start| apiStart[BackendProviderOAuthStart]
+  apiStart -->|redirect_to_provider| oauth[OAuthProvider]
+  oauth -->|code+state| apiCb[BackendProviderOAuthCallback]
+  apiCb -->|validate_state| apiCb
+  apiCb -->|exchange_code_for_tokens| oauth
+  apiCb --> db[(Postgres/Prisma)]
+  apiCb -->|redirect_success_error| frontend
 ```
 
 ## Data Transfer Objects

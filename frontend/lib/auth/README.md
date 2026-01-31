@@ -36,6 +36,10 @@ flowchart TD
 - **Logout UI**: `frontend/components/layout/Header.tsx` calls backend `logout` and then clears local cached user.
 
 ## Notes / limitations
-- OAuth callback routes under `frontend/app/api/auth/*/callback/route.ts` are currently stubs.
+- Provider linking OAuth redirects are handled by the backend (recommended).
+  - Frontend redirects browser to:
+    - `GET /email-integration/google/start`
+    - `GET /email-integration/microsoft/start`
+  - Backend handles the callback, stores provider tokens, and redirects back to `/email-providers?success=true`.
 - Because the token is HttpOnly, **client JS cannot “check auth” directly**. Prefer server/middleware redirects and/or a backend `me` query (future enhancement).
 
