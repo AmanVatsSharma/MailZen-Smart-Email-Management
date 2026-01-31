@@ -1,58 +1,50 @@
 {
   "$schema": "../node_modules/nx/schemas/project-schema.json",
-  "name": "frontend",
+  "name": "backend",
   "projectType": "application",
-  "sourceRoot": "frontend",
+  "sourceRoot": "apps/backend/src",
   "targets": {
     "prepare-env": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "node tools/ensure-env.js --project frontend"
+        "command": "node tools/ensure-env.js --project backend"
       }
     },
     "serve": {
       "executor": "nx:run-commands",
       "dependsOn": ["prepare-env"],
       "options": {
-        "cwd": "frontend",
-        "command": "npm run dev"
+        "cwd": "apps/backend",
+        "command": "npm run start:dev"
       }
     },
     "build": {
       "executor": "nx:run-commands",
       "dependsOn": ["prepare-env"],
       "options": {
-        "cwd": "frontend",
+        "cwd": "apps/backend",
         "command": "npm run build"
-      }
-    },
-    "start": {
-      "executor": "nx:run-commands",
-      "dependsOn": ["prepare-env"],
-      "options": {
-        "cwd": "frontend",
-        "command": "npm run start"
       }
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "cwd": "frontend",
+        "cwd": "apps/backend",
         "command": "npm run lint"
       }
     },
-    "format": {
+    "test": {
       "executor": "nx:run-commands",
       "options": {
-        "cwd": "frontend",
-        "command": "npm run format"
+        "cwd": "apps/backend",
+        "command": "npm run test"
       }
     },
-    "format:check": {
+    "test:e2e": {
       "executor": "nx:run-commands",
       "options": {
-        "cwd": "frontend",
-        "command": "npm run format:check"
+        "cwd": "apps/backend",
+        "command": "npm run test:e2e"
       }
     }
   }

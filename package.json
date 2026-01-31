@@ -3,10 +3,14 @@
   "version": "1.0.0",
   "description": "MailZen - Email management platform",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "libs/*"
+  ],
   "scripts": {
     "start": "nx run-many -t serve -p frontend backend --parallel=2",
     "dev": "nx run-many -t serve -p frontend backend --parallel=2",
-    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "install:all": "echo \"Deprecated: use 'npm install' at repo root (npm workspaces)\" && exit 1",
     "dev:frontend": "nx serve frontend",
     "dev:backend": "nx serve backend",
     "build": "nx run-many -t build -p frontend backend",

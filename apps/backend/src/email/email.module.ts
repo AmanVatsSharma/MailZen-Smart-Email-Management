@@ -19,6 +19,7 @@ import { BullModule } from '@nestjs/bull';
 import { ScheduleModule } from '@nestjs/schedule';
 import { join } from 'path';
 import { ConfigModule } from '@nestjs/config';
+import { MailService } from './mail.service';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { ConfigModule } from '@nestjs/config';
   providers: [
     EmailService,
     EmailResolver,
+    MailService,
     EmailSchedulerService,
     EmailFilterService,
     EmailFilterResolver,

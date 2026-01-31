@@ -4,8 +4,8 @@
       "name": "frontend",
       "type": "app",
       "data": {
-        "root": "frontend",
-        "sourceRoot": "frontend",
+        "root": "apps/frontend",
+        "sourceRoot": "apps/frontend",
         "name": "frontend",
         "tags": [
           "npm:private"
@@ -47,7 +47,7 @@
               "prepare-env"
             ],
             "options": {
-              "cwd": "frontend",
+              "cwd": "apps/frontend",
               "command": "npm run dev"
             },
             "configurations": {},
@@ -60,7 +60,7 @@
               "prepare-env"
             ],
             "options": {
-              "cwd": "frontend",
+              "cwd": "apps/frontend",
               "command": "npm run build"
             },
             "configurations": {},
@@ -72,7 +72,7 @@
               "prepare-env"
             ],
             "options": {
-              "cwd": "frontend",
+              "cwd": "apps/frontend",
               "command": "npm run start"
             },
             "configurations": {},
@@ -81,7 +81,7 @@
           "lint": {
             "executor": "nx:run-commands",
             "options": {
-              "cwd": "frontend",
+              "cwd": "apps/frontend",
               "command": "npm run lint"
             },
             "configurations": {},
@@ -90,7 +90,7 @@
           "format": {
             "executor": "nx:run-commands",
             "options": {
-              "cwd": "frontend",
+              "cwd": "apps/frontend",
               "command": "npm run format"
             },
             "configurations": {},
@@ -99,7 +99,7 @@
           "format:check": {
             "executor": "nx:run-commands",
             "options": {
-              "cwd": "frontend",
+              "cwd": "apps/frontend",
               "command": "npm run format:check"
             },
             "configurations": {},
@@ -115,8 +115,8 @@
       "name": "backend",
       "type": "app",
       "data": {
-        "root": "backend",
-        "sourceRoot": "backend/src",
+        "root": "apps/backend",
+        "sourceRoot": "apps/backend/src",
         "name": "backend",
         "tags": [
           "npm:private"
@@ -250,7 +250,7 @@
               "prepare-env"
             ],
             "options": {
-              "cwd": "backend",
+              "cwd": "apps/backend",
               "command": "npm run start:dev"
             },
             "configurations": {},
@@ -263,7 +263,7 @@
               "prepare-env"
             ],
             "options": {
-              "cwd": "backend",
+              "cwd": "apps/backend",
               "command": "npm run build"
             },
             "configurations": {},
@@ -272,7 +272,7 @@
           "lint": {
             "executor": "nx:run-commands",
             "options": {
-              "cwd": "backend",
+              "cwd": "apps/backend",
               "command": "npm run lint"
             },
             "configurations": {},
@@ -281,7 +281,7 @@
           "test": {
             "executor": "nx:run-commands",
             "options": {
-              "cwd": "backend",
+              "cwd": "apps/backend",
               "command": "npm run test"
             },
             "configurations": {},
@@ -290,7 +290,7 @@
           "test:e2e": {
             "executor": "nx:run-commands",
             "options": {
-              "cwd": "backend",
+              "cwd": "apps/backend",
               "command": "npm run test:e2e"
             },
             "configurations": {},
