@@ -20,7 +20,7 @@ interface RequestContext {
  * Frontend-facing provider connect + management mutations.
  *
  * This intentionally matches the names used in:
- * - `frontend/lib/providers/provider-utils.ts`
+ * - `apps/frontend/lib/providers/provider-utils.ts`
  */
 @Resolver(() => Provider)
 @UseGuards(JwtAuthGuard)

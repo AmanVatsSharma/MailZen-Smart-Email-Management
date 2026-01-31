@@ -8,6 +8,29 @@ import { addSeconds, addMinutes, isAfter } from 'date-fns';
 export class AuthService {
   constructor(private readonly jwtService: JwtService, private readonly prisma: PrismaService) {}
 
+  /**
+   * Resolve JWT expiration from env in a type-safe way.
+   *
+   * - If `JWT_EXPIRATION` is numeric, treat it as seconds and pass a number.
+   * - Otherwise allow common string formats like `24h`, `1d`, `60s`, etc.
+   * - Default stays `24h` for backwards compatibility.
+   */
+  private getJwtExpiresInSeconds(): number {
+    const raw = process.env.JWT_EXPIRATION;
+    // Default: 24h (in seconds)
+    if (!raw) return 60 * 60 * 24;
+
+    // We intentionally treat JWT_EXPIRATION as seconds to avoid type ambiguity and runtime surprises.
+    const asNumber = Number(raw);
+    if (Number.isFinite(asNumber) && asNumber > 0) return Math.floor(asNumber);
+
+    // Loud logging for debugging; safe fallback.
+    console.warn(
+      `[AuthService] Invalid JWT_EXPIRATION='${raw}'. Expected a positive number (seconds). Falling back to 86400.`,
+    );
+    return 60 * 60 * 24;
+  }
+
   validateToken(token: string): any {
     const secret = process.env.JWT_SECRET;
     if (!secret || secret === 'default-secret') {
@@ -27,7 +50,7 @@ export class AuthService {
     return {
       accessToken: this.jwtService.sign(payload, {
         secret,
-        expiresIn: process.env.JWT_EXPIRATION ? `${process.env.JWT_EXPIRATION}s` : '24h',
+        expiresIn: this.getJwtExpiresInSeconds(),
       }),
     };
   }
@@ -70,7 +93,10 @@ export class AuthService {
     await this.prisma.userSession.update({ where: { refreshTokenHash: hash }, data: { revokedAt: new Date(), revokedReason: 'rotated' } });
 
     const newRefresh = await this.generateRefreshToken(user.id, userAgent, ip);
-    const token = this.jwtService.sign({ id: user.id, email: user.email }, { secret: this.getJwtSecret(), expiresIn: process.env.JWT_EXPIRATION ? `${process.env.JWT_EXPIRATION}s` : '24h' });
+    const token = this.jwtService.sign(
+      { id: user.id, email: user.email },
+      { secret: this.getJwtSecret(), expiresIn: this.getJwtExpiresInSeconds() },
+    );
     return { token, refreshToken: newRefresh, userId: user.id };
   }
 

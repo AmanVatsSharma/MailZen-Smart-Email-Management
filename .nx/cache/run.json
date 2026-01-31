@@ -1,0 +1,21 @@
+{
+  "run": {
+    "command": "nx run backend:prisma:generate",
+    "startTime": "2026-01-31T07:45:04.459Z",
+    "endTime": "2026-01-31T07:45:06.956Z",
+    "inner": false
+  },
+  "tasks": [
+    {
+      "taskId": "backend:prisma:generate",
+      "target": "prisma:generate",
+      "projectName": "backend",
+      "hash": "10071429768021905996",
+      "startTime": "2026-01-31T07:45:04.471Z",
+      "endTime": "2026-01-31T07:45:06.956Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    }
+  ]
+}

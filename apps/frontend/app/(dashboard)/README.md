@@ -1,6 +1,6 @@
-# Dashboard routes (`frontend/app/(dashboard)`)
+# Dashboard routes (`apps/frontend/app/(dashboard)`)
 
-This route group contains **dashboard pages** that render inside `frontend/components/layout/MainLayout.tsx`.
+This route group contains **dashboard pages** that render inside `apps/frontend/components/layout/MainLayout.tsx`.
 
 ## Page scaffolding convention
 

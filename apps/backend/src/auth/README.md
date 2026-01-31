@@ -8,24 +8,24 @@ MailZen backend auth is implemented as **JWT access tokens** issued by GraphQL m
 - Provide predictable observability: clear errors + safe debug logs in non-prod.
 
 ## Key components
-- **JWT issuing / verification**: `backend/src/auth/auth.service.ts`
-- **Cookie management**: `backend/src/auth/session-cookie.service.ts`
+- **JWT issuing / verification**: `apps/backend/src/auth/auth.service.ts`
+- **Cookie management**: `apps/backend/src/auth/session-cookie.service.ts`
 - **GraphQL mutations** set/clear cookie:
   - `login`
   - `register`
   - `signupVerify`
   - `logout` (clears cookie; refresh-token revocation is optional/backward compatible)
-  - `backend/src/auth/auth.resolver.ts`
+  - `apps/backend/src/auth/auth.resolver.ts`
 - **Guard** reads token primarily from cookie, fallback from `Authorization: Bearer ...`:
-  - `backend/src/common/guards/jwt-auth.guard.ts`
+  - `apps/backend/src/common/guards/jwt-auth.guard.ts`
 
 ## Environment requirements (fail-fast)
 - `JWT_SECRET` must be configured and strong (>= 32 chars recommended).
-  - Enforced during bootstrap in `backend/src/main.ts`.
+  - Enforced during bootstrap in `apps/backend/src/main.ts`.
 
 ## GraphQL context
 GraphQL is configured to expose `req/res`:
-- `backend/src/app.module.ts` includes `context: ({ req, res }) => ({ req, res })`
+- `apps/backend/src/app.module.ts` includes `context: ({ req, res }) => ({ req, res })`
 
 This enables setting cookies inside resolvers.
 

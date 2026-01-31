@@ -1,0 +1,6 @@
+> node tools/ensure-env.js --project backend
+
+[ensure-env] repoRoot=/home/amansharma/Desktop/DevOPS/MailZen-Smart-Email-Management
+[ensure-env] project=backend
+[ensure-env] OK: already exists: /home/amansharma/Desktop/DevOPS/MailZen-Smart-Email-Management/apps/backend/.env
+[ensure-env] Done.

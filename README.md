@@ -4,8 +4,8 @@ MailZen is an email management platform built with Next.js (frontend) and NestJS
 
 ## Project Structure
 
-- `frontend/`: Next.js application
-- `backend/`: NestJS application
+- `apps/frontend/`: Next.js application
+- `apps/backend/`: NestJS application
 - `nx.json`: Nx workspace configuration (task orchestration)
 - `tools/`: workspace tooling scripts (env bootstrap, etc.)
 
@@ -25,18 +25,18 @@ MailZen is an email management platform built with Next.js (frontend) and NestJS
 
 2. Install dependencies for both frontend and backend:
    ```bash
-   npm run install:all
+   npm install
    ```
 
 3. Set up environment variables:
-   - Backend: Copy `backend/env.example` to `backend/.env` and update the values
-   - Frontend: Copy `frontend/env.local.example` to `frontend/.env.local` and update the values
+   - Backend: Copy `apps/backend/env.example` to `apps/backend/.env` and update the values
+   - Frontend: Copy `apps/frontend/env.local.example` to `apps/frontend/.env.local` and update the values
 
    Note: Nx `serve` targets run `tools/ensure-env.js` first and will create default env files if they don't exist (it never overwrites).
 
 4. Set up the database:
    ```bash
-   cd backend
+   cd apps/backend
    npx prisma migrate dev
    ```
 

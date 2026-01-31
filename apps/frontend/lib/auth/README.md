@@ -10,7 +10,7 @@ This frontend uses **cookie-based auth** backed by the NestJS GraphQL backend.
 ## How it works
 - **Backend** sets an HttpOnly cookie named `token` on successful `login`, `register`, and `signupVerify`.
 - **Frontend** never stores access tokens in `localStorage`.
-- **Apollo** sends cookies automatically because `credentials: 'include'` is enabled in `frontend/lib/apollo/client.ts`.
+- **Apollo** sends cookies automatically because `credentials: 'include'` is enabled in `apps/frontend/lib/apollo/client.ts`.
 - **Next middleware** checks `request.cookies.get('token')` and redirects:
   - `/` → `/dashboard` if authenticated else `/auth/login`
   - any protected route → `/auth/login`
@@ -30,10 +30,10 @@ flowchart TD
 ```
 
 ## Files
-- **Middleware**: `frontend/_middleware.ts`
-- **Apollo client**: `frontend/lib/apollo/client.ts`
-- **Auth helpers (user cache + GraphQL docs)**: `frontend/lib/auth/auth-utils.ts`
-- **Logout UI**: `frontend/components/layout/Header.tsx` calls backend `logout` and then clears local cached user.
+- **Middleware**: `apps/frontend/_middleware.ts`
+- **Apollo client**: `apps/frontend/lib/apollo/client.ts`
+- **Auth helpers (user cache + GraphQL docs)**: `apps/frontend/lib/auth/auth-utils.ts`
+- **Logout UI**: `apps/frontend/components/layout/Header.tsx` calls backend `logout` and then clears local cached user.
 
 ## Notes / limitations
 - Provider linking OAuth redirects are handled by the backend (recommended).

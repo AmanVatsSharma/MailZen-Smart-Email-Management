@@ -23,13 +23,13 @@ flowchart TD
 
 ## Implementation notes
 
-- **Redirect URLs** are generated in `frontend/lib/providers/provider-utils.ts`:
+- **Redirect URLs** are generated in `apps/frontend/lib/providers/provider-utils.ts`:
   - Uses `NEXT_PUBLIC_GRAPHQL_ENDPOINT` to derive backend base URL
   - Redirects to:
     - `/email-integration/google/start?redirect=<frontend_url>`
     - `/email-integration/microsoft/start?redirect=<frontend_url>`
 - **Provider list + actions** are GraphQL-only:
-  - Operations live in `frontend/lib/apollo/queries/providers.ts` and match backend schema.
+  - Operations live in `apps/frontend/lib/apollo/queries/providers.ts` and match backend schema.
 
 ## Required backend env (local dev)
 

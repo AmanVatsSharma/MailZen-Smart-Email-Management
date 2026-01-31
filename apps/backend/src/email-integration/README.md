@@ -50,7 +50,7 @@ This module follows NestJS best practices and consists of:
 - `updateProviderCredentials(id: String!, input: EmailProviderInput!)`: Update provider credentials
 - `deleteProvider(input: DeleteProviderInput!)`: Delete an email provider
 
-Frontend-facing (matches `frontend/lib/providers/provider-utils.ts`):
+Frontend-facing (matches `apps/frontend/lib/providers/provider-utils.ts`):
 - `connectGmail(code: String!): Provider`
 - `connectOutlook(code: String!): Provider`
 - `connectSmtp(settings: SmtpSettingsInput!): Provider`

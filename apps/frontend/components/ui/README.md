@@ -12,8 +12,8 @@ This directory contains all the UI components used in the MailZen application. T
 
 ## Design tokens (high level)
 
-- **Colors / radius**: configured via CSS variables in `frontend/app/globals.css` and consumed via Tailwind (`hsl(var(--primary))`, etc.).
-- **Typography**:\n  - `frontend/app/layout.tsx` injects the app font via Next.js and sets `--font-sans`.\n  - `frontend/app/globals.css` provides safe fallbacks for `--font-sans`/`--font-mono`.\n
+- **Colors / radius**: configured via CSS variables in `apps/frontend/app/globals.css` and consumed via Tailwind (`hsl(var(--primary))`, etc.).
+- **Typography**:\n  - `apps/frontend/app/layout.tsx` injects the app font via Next.js and sets `--font-sans`.\n  - `apps/frontend/app/globals.css` provides safe fallbacks for `--font-sans`/`--font-mono`.\n
 ## Input: prefix/suffix contract
 
 `Input` supports visual adornments so pages can render icons without hacking padding wrappers.

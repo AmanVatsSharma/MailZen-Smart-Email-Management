@@ -1,7 +1,7 @@
 import { Field, ID, ObjectType } from '@nestjs/graphql';
 
 /**
- * Frontend-aligned provider shape (matches `frontend/lib/providers/provider-utils.ts`).
+ * Frontend-aligned provider shape (matches `apps/frontend/lib/providers/provider-utils.ts`).
  *
  * NOTE: This is intentionally separate from `EmailProvider` to avoid breaking
  * existing GraphQL schema/consumers that rely on the older shape.

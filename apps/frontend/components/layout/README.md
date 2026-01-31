@@ -1,4 +1,4 @@
-# Layout module (`frontend/components/layout`)
+# Layout module (`apps/frontend/components/layout`)
 
 This module contains the **dashboard shell** used across MailZen: sidebar + header + main content.
 

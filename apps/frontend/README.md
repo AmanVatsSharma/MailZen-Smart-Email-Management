@@ -47,8 +47,8 @@
 - Node.js (v16+ recommended)
 
 ### Environment variables
-- Copy `frontend/env.local.example` to `frontend/.env.local` and adjust values as needed.
-- If you run via Nx (`nx serve frontend`), the workspace will also auto-create `frontend/.env.local` if it's missing (it never overwrites).
+- Copy `apps/frontend/env.local.example` to `apps/frontend/.env.local` and adjust values as needed.
+- If you run via Nx (`nx serve frontend`), the workspace will also auto-create `apps/frontend/.env.local` if it's missing (it never overwrites).
 
 ### Development
 

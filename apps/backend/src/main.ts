@@ -7,7 +7,7 @@ async function bootstrap() {
   const jwtSecret = process.env.JWT_SECRET;
   if (!jwtSecret || jwtSecret.trim().length < 32) {
     // 32+ chars is a practical minimum; adjust as needed.
-    throw new Error('JWT_SECRET is missing/too short. Set a strong JWT_SECRET (>= 32 chars) in backend/.env');
+    throw new Error('JWT_SECRET is missing/too short. Set a strong JWT_SECRET (>= 32 chars) in apps/backend/.env');
   }
 
   const app = await NestFactory.create(AppModule);

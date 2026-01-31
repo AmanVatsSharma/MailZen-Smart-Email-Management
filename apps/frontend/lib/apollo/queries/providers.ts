@@ -5,7 +5,7 @@ import { gql } from '@apollo/client';
  *
  * IMPORTANT:
  * These names match the backend schema implemented in:
- * - `backend/src/email-integration/email-provider.connect.resolver.ts`
+ * - `apps/backend/src/email-integration/email-provider.connect.resolver.ts`
  *
  * We keep the frontend as a pure GraphQL client; OAuth redirects are handled by backend REST
  * endpoints under `/email-integration/*`.

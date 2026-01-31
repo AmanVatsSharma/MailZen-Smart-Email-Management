@@ -125,8 +125,9 @@ function main() {
   console.log(`[ensure-env] repoRoot=${repoRoot}`);
   console.log(`[ensure-env] project=${project}`);
 
-  const backendEnvPath = path.join(repoRoot, 'backend', '.env');
-  const frontendEnvPath = path.join(repoRoot, 'frontend', '.env.local');
+  // Nx standard apps layout
+  const backendEnvPath = path.join(repoRoot, 'apps', 'backend', '.env');
+  const frontendEnvPath = path.join(repoRoot, 'apps', 'frontend', '.env.local');
 
   if (project === 'backend' || project === 'all') {
     ensureFile(backendEnvPath, buildBackendEnvTemplate());
