@@ -61,8 +61,14 @@ export function ProviderWizard({ onComplete, onCancel }: ProviderWizardProps) {
     setConnectionError(null);
     
     try {
-      // Redirect to the appropriate OAuth URL
-      const url = provider === 'gmail' ? getGoogleOAuthUrl() : getMicrosoftOAuthUrl();
+      // Backend-only OAuth flow:
+      // - We redirect to backend start endpoint.
+      // - Backend handles OAuth provider redirect + callback + DB write.
+      // - Backend redirects back here with success/error query params.
+      const url =
+        provider === 'gmail'
+          ? getGoogleOAuthUrl('/email-providers')
+          : getMicrosoftOAuthUrl('/email-providers');
       window.location.href = url;
     } catch (error) {
       setConnectionError('Failed to initiate OAuth flow. Please try again.');

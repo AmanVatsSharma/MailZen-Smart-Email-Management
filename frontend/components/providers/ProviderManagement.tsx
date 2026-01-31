@@ -10,9 +10,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ProviderWizard } from './ProviderWizard';
 import { EmailProvider, Provider, ProviderStatus } from '@/lib/providers/provider-utils';
 import { 
-  GET_EMAIL_PROVIDERS, 
+  GET_PROVIDERS, 
   DISCONNECT_PROVIDER, 
-  UPDATE_PROVIDER_STATUS, 
+  UPDATE_PROVIDER, 
   SYNC_PROVIDER 
 } from '@/lib/apollo/queries/providers';
 import { gql } from '@apollo/client';
@@ -22,8 +22,8 @@ export function ProviderManagement() {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState<string | null>(null);
 
   // Fetch providers
-  const { data, loading, error, refetch } = useQuery(GET_EMAIL_PROVIDERS);
-  const providers = data?.getEmailProviders || [];
+  const { data, loading, error, refetch } = useQuery(GET_PROVIDERS);
+  const providers = data?.providers || [];
 
   // Fetch MailZen mailbox list
   const { data: mailboxData } = useQuery(gql`{ myMailboxes }`);
@@ -37,7 +37,7 @@ export function ProviderManagement() {
     }
   });
 
-  const [updateProviderStatus] = useMutation(UPDATE_PROVIDER_STATUS, {
+  const [updateProvider] = useMutation(UPDATE_PROVIDER, {
     onCompleted: () => refetch()
   });
 
@@ -57,7 +57,8 @@ export function ProviderManagement() {
 
   // Toggle provider active status
   const handleToggleActive = (id: string, isActive: boolean) => {
-    updateProviderStatus({ variables: { id, isActive: !isActive } });
+    // Backend mutation is `updateProvider(id, isActive)`; pass explicit boolean.
+    updateProvider({ variables: { id, isActive: !isActive } });
   };
 
   // Sync a provider

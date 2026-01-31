@@ -1,5 +1,3 @@
-import { gql } from '@apollo/client';
-
 // Provider types
 export type EmailProvider = 'gmail' | 'outlook' | 'smtp';
 
@@ -27,133 +25,45 @@ export interface SmtpSettings {
   secure: boolean;
 }
 
-// GraphQL mutations
-export const CONNECT_GMAIL = gql`
-  mutation ConnectGmail($code: String!) {
-    connectGmail(code: $code) {
-      id
-      type
-      name
-      email
-      isActive
-      lastSynced
-      status
-    }
+/**
+ * OAuth utility functions (backend-only redirects).
+ *
+ * IMPORTANT:
+ * We do NOT build provider OAuth URLs in the frontend anymore.
+ * Frontend redirects to backend start endpoints which:
+ * - generate signed `state`
+ * - redirect to Google/Microsoft
+ * - handle callback + token exchange + DB write
+ * - redirect back to frontend with success/error
+ */
+const getBackendBaseUrl = (): string => {
+  const gql = process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql';
+  try {
+    const u = new URL(gql);
+    // Strip `/graphql` if present; keep scheme+host+port.
+    return `${u.protocol}//${u.host}`;
+  } catch (e) {
+    // Dev-friendly fallback; avoids breaking UI if env is malformed.
+    console.warn('[provider-utils] Invalid NEXT_PUBLIC_GRAPHQL_ENDPOINT; falling back to http://localhost:4000', { gql });
+    return 'http://localhost:4000';
   }
-`;
-
-export const CONNECT_OUTLOOK = gql`
-  mutation ConnectOutlook($code: String!) {
-    connectOutlook(code: $code) {
-      id
-      type
-      name
-      email
-      isActive
-      lastSynced
-      status
-    }
-  }
-`;
-
-export const CONNECT_SMTP = gql`
-  mutation ConnectSmtp($settings: SmtpSettingsInput!) {
-    connectSmtp(settings: $settings) {
-      id
-      type
-      name
-      email
-      isActive
-      lastSynced
-      status
-    }
-  }
-`;
-
-export const DISCONNECT_PROVIDER = gql`
-  mutation DisconnectProvider($id: ID!) {
-    disconnectProvider(id: $id) {
-      success
-      message
-    }
-  }
-`;
-
-export const UPDATE_PROVIDER = gql`
-  mutation UpdateProvider($id: ID!, $isActive: Boolean) {
-    updateProvider(id: $id, isActive: $isActive) {
-      id
-      isActive
-      status
-    }
-  }
-`;
-
-export const SYNC_PROVIDER = gql`
-  mutation SyncProvider($id: ID!) {
-    syncProvider(id: $id) {
-      id
-      lastSynced
-      status
-    }
-  }
-`;
-
-// Local storage keys
-const PROVIDERS_STORAGE_KEY = 'mailzen_providers';
-
-// Local storage functions
-export const getStoredProviders = (): Provider[] => {
-  if (typeof window === 'undefined') return [];
-  
-  const storedProviders = localStorage.getItem(PROVIDERS_STORAGE_KEY);
-  return storedProviders ? JSON.parse(storedProviders) : [];
 };
 
-export const storeProviders = (providers: Provider[]): void => {
-  if (typeof window === 'undefined') return;
-  
-  localStorage.setItem(PROVIDERS_STORAGE_KEY, JSON.stringify(providers));
+export const getGoogleOAuthUrl = (redirectPath: string = '/email-providers'): string => {
+  const base = getBackendBaseUrl();
+  const url = new URL('/email-integration/google/start', base);
+  // Redirect back to the current frontend origin by default.
+  const finalRedirect = `${window.location.origin}${redirectPath}`;
+  url.searchParams.set('redirect', finalRedirect);
+  return url.toString();
 };
 
-export const addStoredProvider = (provider: Provider): Provider[] => {
-  const providers = getStoredProviders();
-  const updatedProviders = [...providers, provider];
-  storeProviders(updatedProviders);
-  return updatedProviders;
-};
-
-export const updateStoredProvider = (id: string, updates: Partial<Provider>): Provider[] => {
-  const providers = getStoredProviders();
-  const updatedProviders = providers.map(provider => 
-    provider.id === id ? { ...provider, ...updates } : provider
-  );
-  storeProviders(updatedProviders);
-  return updatedProviders;
-};
-
-export const removeStoredProvider = (id: string): Provider[] => {
-  const providers = getStoredProviders();
-  const updatedProviders = providers.filter(provider => provider.id !== id);
-  storeProviders(updatedProviders);
-  return updatedProviders;
-};
-
-// OAuth utility functions
-export const getGoogleOAuthUrl = (): string => {
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-  const redirectUri = `${window.location.origin}/api/auth/google/callback`;
-  const scope = 'https://mail.google.com/ https://www.googleapis.com/auth/userinfo.email';
-  
-  return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
-};
-
-export const getMicrosoftOAuthUrl = (): string => {
-  const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID;
-  const redirectUri = `${window.location.origin}/api/auth/microsoft/callback`;
-  const scope = 'offline_access Mail.Read Mail.Send User.Read';
-  
-  return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}`;
+export const getMicrosoftOAuthUrl = (redirectPath: string = '/email-providers'): string => {
+  const base = getBackendBaseUrl();
+  const url = new URL('/email-integration/microsoft/start', base);
+  const finalRedirect = `${window.location.origin}${redirectPath}`;
+  url.searchParams.set('redirect', finalRedirect);
+  return url.toString();
 };
 
 // Helper functions
