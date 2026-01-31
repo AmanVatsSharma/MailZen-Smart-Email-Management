@@ -74,9 +74,9 @@ Creates a new label and returns the created label.
 ## Future Enhancements
 
 - **Update and Delete Operations**: Add functionality to update and delete labels
-- **User-Specific Labels**: Associate labels with specific users
+- ✅ **User-Specific Labels**: Labels are user-scoped via Prisma (`EmailLabel.userId`)
 - **Label Hierarchies**: Support for nested labels or categories
-- **Prisma Integration**: Store labels in the database using Prisma ORM
+- ✅ **Prisma Integration**: Labels are stored in Postgres via Prisma (`EmailLabel`)
 - **Bulk Operations**: Support for bulk creation, update, and deletion of labels
 
 ## Usage
@@ -104,7 +104,8 @@ export class EmailService {
   constructor(private readonly labelService: LabelService) {}
 
   async categorizeEmail(emailId: string, labelId: string) {
-    const label = await this.labelService.getLabelById(labelId);
+    // Note: labels are user-scoped; pass userId in real usage.
+    const label = await this.labelService.getLabelById('user-id', labelId);
     // Associate email with label
   }
 }
@@ -112,7 +113,7 @@ export class EmailService {
 
 ## Planned Database Schema
 
-The planned Label model for Prisma schema:
+The Label model (already implemented) in Prisma schema:
 
 ```prisma
 model Label {
@@ -125,6 +126,10 @@ model Label {
   updatedAt DateTime @updatedAt
 }
 ```
+
+## Notes for Unified Inbox
+
+The unified inbox UI label list comes from `UnifiedInboxModule.labels`, which uses provider label metadata (`ExternalEmailLabel`) for Gmail labels and counts from `ExternalEmailMessage.labels`.
 
 ## Dependencies
 

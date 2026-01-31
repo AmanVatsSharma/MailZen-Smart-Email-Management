@@ -4,11 +4,41 @@
 
 Sync **received Gmail messages** into Postgres so the frontend can render an inbox-like experience.
 
-This module stores messages in `ExternalEmailMessage` (Prisma model) and exposes GraphQL queries/mutations to:\n+- trigger sync\n+- fetch synced messages\n+\n+## Required Google scopes
+This module stores messages in `ExternalEmailMessage` (Prisma model) and supports:
+- trigger sync
+- fetch synced messages (legacy list API)
+- sync provider label metadata (for UI labels)
+
+## Required Google scopes
 
 For inbox sync, your Google OAuth consent must include at least:
 - `https://www.googleapis.com/auth/gmail.readonly`
 
-If you also want SMTP send via OAuth (nodemailer), you may use the broader:\n+- `https://mail.google.com/`\n+\n+## GraphQL API
+If you also want SMTP send via OAuth (nodemailer), you may use the broader:
+- `https://mail.google.com/`
 
-- `syncGmailProvider(providerId: String!, maxMessages: Int): Boolean!`\n+- `getInboxMessages(inboxType: String!, inboxId: String!, limit: Int, offset: Int): [InboxMessage!]!`\n+\n+Notes:\n+- MVP supports `inboxType=\"PROVIDER\"` only.\n+\n+## Cron\n+\n+Active Gmail providers (`EmailProvider.isActive=true`) are synced every 10 minutes.\n+\n+## Mermaid flow\n+\n+```mermaid\n+flowchart TD\n+  ui[Frontend] -->|Mutation syncProvider| api[EmailProviderConnectResolver]\n+  api --> sync[GmailSyncService]\n+  sync -->|GmailAPI list+get| gmail[GmailAPI]\n+  sync --> db[(Postgres/Prisma)]\n+  ui -->|Query getInboxMessages| gql[GraphQL]\n+  gql --> db\n+```\n+
+## GraphQL API
+
+- `syncGmailProvider(providerId: String!, maxMessages: Int): Boolean!`
+- `getInboxMessages(inboxType: String!, inboxId: String!, limit: Int, offset: Int): [InboxMessage!]!`
+
+Notes:
+- MVP supports `inboxType="PROVIDER"` only.
+- The unified inbox UI primarily uses `UnifiedInboxModule` (`emails/email/updateEmail/...`) rather than `getInboxMessages`.
+
+## Label metadata sync
+
+On each `syncGmailProvider`, we best-effort sync Gmail labels into `ExternalEmailLabel` so the UI can render human label names and colors.
+
+## Mermaid: provider sync
+
+```mermaid
+flowchart TD
+  ui[Frontend] -->|Mutation syncProvider| api[EmailProviderConnectResolver]
+  api --> sync[GmailSyncService]
+  sync -->|GmailAPI labels.list| gmailLabels[GmailAPI]
+  sync --> db[(PostgresPrisma)]
+  sync -->|GmailAPI messages.list+messages.get(metadata)| gmailMsgs[GmailAPI]
+  ui -->|Query emails/email| inboxGql[UnifiedInboxResolver]
+  inboxGql --> db
+```

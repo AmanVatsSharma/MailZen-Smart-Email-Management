@@ -24,4 +24,9 @@ flowchart TD
 
 ## Notes
 
-- Active selection is persisted on `User` (`activeInboxType`, `activeInboxId`).\n+- When selecting a provider inbox, we also set `EmailProvider.isActive=true` for UI consistency.\n+
+- Active selection is persisted on `User` (`activeInboxType`, `activeInboxId`).
+- When selecting a provider inbox, we also set `EmailProvider.isActive=true` for UI consistency.
+
+## Relation to Unified Inbox
+
+The unified inbox UI uses this module to determine the active provider inbox (or mailbox) and then fetches messages via `UnifiedInboxModule` (`emails/email/updateEmail/folders/labels`).

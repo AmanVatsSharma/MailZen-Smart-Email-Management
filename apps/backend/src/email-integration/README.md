@@ -38,11 +38,12 @@ This module follows NestJS best practices and consists of:
 
 ### Queries
 
-- `getAllProviders`: Get all email providers for the authenticated user
-- `getProviderById(id: String!)`: Get a specific provider by ID
+- `getAllProviders`: Get all email providers for the authenticated user (legacy admin-ish shape)
+- `getProviderById(id: String!)`: Get a specific provider by ID (legacy admin-ish shape)
 - `getProviderEmails(providerId: String!)`: Get all emails for a specific provider
 - `validateProvider(id: String!)`: Validate connection to a provider
 - `providers`: Frontend-facing provider list (UI shape)
+- `getEmailProviders`: Backwards-compatible alias for `providers`
 
 ### Mutations
 
@@ -56,6 +57,7 @@ Frontend-facing (matches `apps/frontend/lib/providers/provider-utils.ts`):
 - `connectSmtp(settings: SmtpSettingsInput!): Provider`
 - `disconnectProvider(id: ID!): ProviderActionResult`
 - `updateProvider(id: ID!, isActive: Boolean): Provider`
+- `updateProviderStatus(id: String!, isActive: Boolean): Provider` (alias for older frontend clients)
 - `syncProvider(id: ID!): Provider`
 
 ## OAuth Redirect URI notes (important)
