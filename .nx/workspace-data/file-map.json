@@ -6,12 +6,32 @@
   "fileMap": {
     "nonProjectFiles": [
       {
-        "file": ".cursor/plans/gmailoauth+multiinbox_6db6517f.plan.md",
-        "hash": "15807666030118664436"
+        "file": "package-lock.json",
+        "hash": "3503427873816494508"
+      },
+      {
+        "file": ".cursor/plans/enterprise_auth_wiring_a0cc3072.plan.md",
+        "hash": "5562174741108176712"
       },
       {
         "file": "tools/ensure-env.js",
         "hash": "52241091178071508"
+      },
+      {
+        "file": "README.md",
+        "hash": "16100399334875497739"
+      },
+      {
+        "file": ".cursor/plans/frontend_polish_pass_66602956.plan.md",
+        "hash": "13021225082785102614"
+      },
+      {
+        "file": ".gitignore",
+        "hash": "12228022178553669529"
+      },
+      {
+        "file": ".cursor/plans/gmailoauth+multiinbox_6db6517f.plan.md",
+        "hash": "15807666030118664436"
       },
       {
         "file": "nx.json",
@@ -20,26 +40,6 @@
       {
         "file": "package.json",
         "hash": "4216715841772880991"
-      },
-      {
-        "file": ".gitignore",
-        "hash": "12228022178553669529"
-      },
-      {
-        "file": ".cursor/plans/enterprise_auth_wiring_a0cc3072.plan.md",
-        "hash": "5562174741108176712"
-      },
-      {
-        "file": "package-lock.json",
-        "hash": "3503427873816494508"
-      },
-      {
-        "file": ".cursor/plans/frontend_polish_pass_66602956.plan.md",
-        "hash": "13021225082785102614"
-      },
-      {
-        "file": "README.md",
-        "hash": "16100399334875497739"
       }
     ],
     "projectFileMap": {
@@ -676,15 +676,15 @@
         },
         {
           "file": "apps/backend/src/email-analytics/email-analytics.module.ts",
-          "hash": "16956214973615192355"
+          "hash": "9937810534184118331"
         },
         {
           "file": "apps/backend/src/email-analytics/email-analytics.resolver.ts",
-          "hash": "17065480551943506672"
+          "hash": "17152026936829908244"
         },
         {
           "file": "apps/backend/src/email-analytics/email-analytics.service.ts",
-          "hash": "1142399413985311798"
+          "hash": "4428502342777928825"
         },
         {
           "file": "apps/backend/src/email-integration/README.md",
@@ -992,7 +992,7 @@
         },
         {
           "file": "apps/backend/src/organization/label.resolver.ts",
-          "hash": "14691891345514153641"
+          "hash": "759519266791786141"
         },
         {
           "file": "apps/backend/src/organization/label.service.ts",
