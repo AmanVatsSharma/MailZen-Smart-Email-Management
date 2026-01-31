@@ -77,7 +77,8 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
   return (
     <motion.header 
-      className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/80 backdrop-blur-md px-4 md:px-6"
+      // Premium glass header: slightly more blur to feel “native”.
+      className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/65 backdrop-blur-xl px-4 md:px-6"
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ 

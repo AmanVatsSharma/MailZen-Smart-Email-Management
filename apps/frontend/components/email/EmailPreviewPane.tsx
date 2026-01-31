@@ -82,7 +82,7 @@ export function EmailPreviewPane({
     : [];
   
   return (
-    <div className={cn("flex flex-col h-full border rounded-md", className)}>
+    <div className={cn("flex flex-col h-full", className)}>
       {/* Header */}
       <div className="p-4 flex items-center justify-between border-b">
         <div className="flex items-center gap-2">
