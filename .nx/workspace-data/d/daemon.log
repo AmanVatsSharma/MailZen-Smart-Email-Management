@@ -2083,3 +2083,157 @@
 [NX Daemon Server] - 2026-01-31T07:49:28.001Z - [SYNC]: project graph hash is the same, not collecting task sync generators
 [NX Daemon Server] - 2026-01-31T07:49:28.002Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
 [NX Daemon Server] - 2026-01-31T07:49:28.002Z - Time taken for 'total execution time for createProjectGraph()' 40.39713599998504ms
+[NX Daemon Server] - 2026-01-31T07:52:57.498Z - [WATCHER]: apps/backend/src/unified-inbox/entities/email-participant.entity.ts was created or restored
+[NX Daemon Server] - 2026-01-31T07:52:57.501Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-31T07:52:57.607Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-31T07:52:57.612Z - [REQUEST]: apps/backend/src/unified-inbox/entities/email-participant.entity.ts
+[NX Daemon Server] - 2026-01-31T07:52:57.613Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-31T07:52:57.680Z - Time taken for 'hash changed files from watcher' 2.760388999944553ms
+[NX Daemon Server] - 2026-01-31T07:52:57.769Z - Time taken for 'build-project-configs' 96.7166810000781ms
+[NX Daemon Server] - 2026-01-31T07:52:57.920Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-31T07:52:57.921Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-31T07:52:57.921Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-31T07:52:57.921Z - Time taken for 'total execution time for createProjectGraph()' 130.33018699998502ms
+[NX Daemon Server] - 2026-01-31T07:52:58.164Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-31T07:52:58.173Z - [WATCHER]: apps/backend/src/unified-inbox/entities/email-participant.entity.ts was modified
+[NX Daemon Server] - 2026-01-31T07:52:58.378Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-31T07:52:58.383Z - [REQUEST]: apps/backend/src/unified-inbox/entities/email-participant.entity.ts
+[NX Daemon Server] - 2026-01-31T07:52:58.384Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-31T07:52:58.401Z - Time taken for 'hash changed files from watcher' 0.9544829999795184ms
+[NX Daemon Server] - 2026-01-31T07:52:58.560Z - Time taken for 'build-project-configs' 151.36698399996385ms
+[NX Daemon Server] - 2026-01-31T07:52:58.712Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-31T07:52:58.713Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-31T07:52:58.713Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-31T07:52:58.713Z - Time taken for 'total execution time for createProjectGraph()' 138.48034100001678ms
+[NX Daemon Server] - 2026-01-31T07:53:03.265Z - [WATCHER]: apps/backend/src/unified-inbox/entities/email-attachment.entity.ts was created or restored
+[NX Daemon Server] - 2026-01-31T07:53:03.268Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-31T07:53:03.371Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-31T07:53:03.375Z - [REQUEST]: apps/backend/src/unified-inbox/entities/email-attachment.entity.ts
+[NX Daemon Server] - 2026-01-31T07:53:03.376Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-31T07:53:03.390Z - Time taken for 'hash changed files from watcher' 1.2559609999880195ms
+[NX Daemon Server] - 2026-01-31T07:53:03.476Z - Time taken for 'build-project-configs' 78.26096400001552ms
+[NX Daemon Server] - 2026-01-31T07:53:03.599Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-31T07:53:03.600Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-31T07:53:03.601Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-31T07:53:03.601Z - Time taken for 'total execution time for createProjectGraph()' 104.28198800003156ms
+[NX Daemon Server] - 2026-01-31T07:53:04.250Z - [WATCHER]: apps/backend/src/unified-inbox/entities/email-attachment.entity.ts was modified
+[NX Daemon Server] - 2026-01-31T07:53:04.253Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-31T07:53:04.455Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-31T07:53:04.467Z - [REQUEST]: apps/backend/src/unified-inbox/entities/email-attachment.entity.ts
+[NX Daemon Server] - 2026-01-31T07:53:04.467Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-31T07:53:04.485Z - Time taken for 'hash changed files from watcher' 0.6574329999275506ms
+[NX Daemon Server] - 2026-01-31T07:53:04.535Z - Time taken for 'build-project-configs' 53.321624999982305ms
+[NX Daemon Server] - 2026-01-31T07:53:04.664Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-31T07:53:04.666Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-31T07:53:04.667Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-31T07:53:04.667Z - Time taken for 'total execution time for createProjectGraph()' 105.70496400003321ms
+[NX Daemon Server] - 2026-01-31T07:53:10.978Z - [WATCHER]: apps/backend/src/unified-inbox/entities/email-message.entity.ts was created or restored
+[NX Daemon Server] - 2026-01-31T07:53:10.995Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-31T07:53:11.091Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-31T07:53:11.094Z - [REQUEST]: apps/backend/src/unified-inbox/entities/email-message.entity.ts
+[NX Daemon Server] - 2026-01-31T07:53:11.095Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-31T07:53:11.108Z - Time taken for 'hash changed files from watcher' 1.9609619999537244ms
+[NX Daemon Server] - 2026-01-31T07:53:11.190Z - Time taken for 'build-project-configs' 75.42060099996161ms
+[NX Daemon Server] - 2026-01-31T07:53:11.289Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-31T07:53:11.291Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-31T07:53:11.291Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-31T07:53:11.293Z - Time taken for 'total execution time for createProjectGraph()' 69.03055899997707ms
+[NX Daemon Server] - 2026-01-31T07:53:11.666Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-31T07:53:11.671Z - [WATCHER]: apps/backend/src/unified-inbox/entities/email-message.entity.ts was modified
+[NX Daemon Server] - 2026-01-31T07:53:11.879Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-31T07:53:11.881Z - [REQUEST]: apps/backend/src/unified-inbox/entities/email-message.entity.ts
+[NX Daemon Server] - 2026-01-31T07:53:11.882Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-31T07:53:11.911Z - Time taken for 'hash changed files from watcher' 2.6314669999992475ms
+[NX Daemon Server] - 2026-01-31T07:53:11.998Z - Time taken for 'build-project-configs' 87.3974000000162ms
+[NX Daemon Server] - 2026-01-31T07:53:12.126Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-31T07:53:12.127Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-31T07:53:12.128Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-31T07:53:12.129Z - Time taken for 'total execution time for createProjectGraph()' 111.89296199998353ms
+[NX Daemon Server] - 2026-01-31T07:53:18.364Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-31T07:53:18.368Z - [WATCHER]: apps/backend/src/unified-inbox/entities/email-thread.entity.ts was created or restored
+[NX Daemon Server] - 2026-01-31T07:53:18.471Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-31T07:53:18.471Z - [REQUEST]: apps/backend/src/unified-inbox/entities/email-thread.entity.ts
+[NX Daemon Server] - 2026-01-31T07:53:18.472Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-31T07:53:18.498Z - Time taken for 'hash changed files from watcher' 0.5856790000107139ms
+[NX Daemon Server] - 2026-01-31T07:53:18.562Z - Time taken for 'build-project-configs' 63.16222400008701ms
+[NX Daemon Server] - 2026-01-31T07:53:18.794Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-31T07:53:18.795Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-31T07:53:18.795Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-31T07:53:18.795Z - Time taken for 'total execution time for createProjectGraph()' 185.75922400003765ms
+[NX Daemon Server] - 2026-01-31T07:53:19.930Z - [WATCHER]: apps/backend/src/unified-inbox/entities/email-thread.entity.ts was modified
+[NX Daemon Server] - 2026-01-31T07:53:19.930Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-31T07:53:20.132Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-31T07:53:20.132Z - [REQUEST]: apps/backend/src/unified-inbox/entities/email-thread.entity.ts
+[NX Daemon Server] - 2026-01-31T07:53:20.136Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-31T07:53:20.153Z - Time taken for 'hash changed files from watcher' 0.8642739999340847ms
+[NX Daemon Server] - 2026-01-31T07:53:20.256Z - Time taken for 'build-project-configs' 88.35878799995407ms
+[NX Daemon Server] - 2026-01-31T07:53:20.516Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-31T07:53:20.519Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-31T07:53:20.520Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-31T07:53:20.521Z - Time taken for 'total execution time for createProjectGraph()' 205.3781720000552ms
+[NX Daemon Server] - 2026-01-31T07:53:24.157Z - [WATCHER]: apps/backend/src/unified-inbox/entities/email-folder.entity.ts was created or restored
+[NX Daemon Server] - 2026-01-31T07:53:24.161Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-31T07:53:24.274Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-31T07:53:24.274Z - [REQUEST]: apps/backend/src/unified-inbox/entities/email-folder.entity.ts
+[NX Daemon Server] - 2026-01-31T07:53:24.275Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-31T07:53:24.303Z - Time taken for 'hash changed files from watcher' 11.04601300007198ms
+[NX Daemon Server] - 2026-01-31T07:53:24.386Z - Time taken for 'build-project-configs' 80.90910499996971ms
+[NX Daemon Server] - 2026-01-31T07:53:24.525Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-31T07:53:24.526Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-31T07:53:24.527Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-31T07:53:24.532Z - Time taken for 'total execution time for createProjectGraph()' 111.72527899988927ms
+[NX Daemon Server] - 2026-01-31T07:53:25.223Z - [WATCHER]: apps/backend/src/unified-inbox/entities/email-folder.entity.ts was modified
+[NX Daemon Server] - 2026-01-31T07:53:25.224Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-31T07:53:25.426Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-31T07:53:25.427Z - [REQUEST]: apps/backend/src/unified-inbox/entities/email-folder.entity.ts
+[NX Daemon Server] - 2026-01-31T07:53:25.427Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-31T07:53:25.448Z - Time taken for 'hash changed files from watcher' 1.2904970000963658ms
+[NX Daemon Server] - 2026-01-31T07:53:25.481Z - Time taken for 'build-project-configs' 38.75691699993331ms
+[NX Daemon Server] - 2026-01-31T07:53:25.596Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-31T07:53:25.596Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-31T07:53:25.596Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-31T07:53:25.597Z - Time taken for 'total execution time for createProjectGraph()' 80.42502099997364ms
+[NX Daemon Server] - 2026-01-31T07:53:31.810Z - [WATCHER]: apps/backend/src/unified-inbox/entities/email-label.entity.ts was created or restored
+[NX Daemon Server] - 2026-01-31T07:53:31.810Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-31T07:53:31.912Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-31T07:53:31.912Z - [REQUEST]: apps/backend/src/unified-inbox/entities/email-label.entity.ts
+[NX Daemon Server] - 2026-01-31T07:53:31.913Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-31T07:53:31.936Z - Time taken for 'hash changed files from watcher' 0.872679999913089ms
+[NX Daemon Server] - 2026-01-31T07:53:32.002Z - Time taken for 'build-project-configs' 64.34757699992042ms
+[NX Daemon Server] - 2026-01-31T07:53:32.155Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-31T07:53:32.158Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-31T07:53:32.159Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-31T07:53:32.159Z - Time taken for 'total execution time for createProjectGraph()' 122.80157200002577ms
+[NX Daemon Server] - 2026-01-31T07:53:32.640Z - [WATCHER]: apps/backend/src/unified-inbox/entities/email-label.entity.ts was modified
+[NX Daemon Server] - 2026-01-31T07:53:32.640Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-31T07:53:32.842Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-31T07:53:32.842Z - [REQUEST]: apps/backend/src/unified-inbox/entities/email-label.entity.ts
+[NX Daemon Server] - 2026-01-31T07:53:32.842Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-31T07:53:32.855Z - Time taken for 'hash changed files from watcher' 0.7418690000195056ms
+[NX Daemon Server] - 2026-01-31T07:53:32.893Z - Time taken for 'build-project-configs' 34.45777199999429ms
+[NX Daemon Server] - 2026-01-31T07:53:33.026Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-31T07:53:33.032Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-31T07:53:33.033Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-31T07:53:33.033Z - Time taken for 'total execution time for createProjectGraph()' 94.52111999993213ms
+[NX Daemon Server] - 2026-01-31T07:53:37.648Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-31T07:53:37.653Z - [WATCHER]: apps/backend/src/unified-inbox/dto/email-filter.input.ts was created or restored
+[NX Daemon Server] - 2026-01-31T07:53:37.759Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-31T07:53:37.763Z - [REQUEST]: apps/backend/src/unified-inbox/dto/email-filter.input.ts
+[NX Daemon Server] - 2026-01-31T07:53:37.771Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-31T07:53:37.798Z - Time taken for 'hash changed files from watcher' 0.7027879999950528ms
+[NX Daemon Server] - 2026-01-31T07:53:37.948Z - Time taken for 'build-project-configs' 143.10570199997164ms
+[NX Daemon Server] - 2026-01-31T07:53:38.261Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-31T07:53:38.262Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-31T07:53:38.263Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-31T07:53:38.264Z - Time taken for 'total execution time for createProjectGraph()' 284.45126999996137ms
+[NX Daemon Server] - 2026-01-31T07:53:39.490Z - [WATCHER]: apps/backend/src/unified-inbox/dto/email-filter.input.ts was modified
+[NX Daemon Server] - 2026-01-31T07:53:39.495Z - [WATCHER]: Processing file changes in outputs
+[NX Daemon Server] - 2026-01-31T07:53:39.707Z - [REQUEST]: Updated workspace context based on watched changes, recomputing project graph...
+[NX Daemon Server] - 2026-01-31T07:53:39.709Z - [REQUEST]: apps/backend/src/unified-inbox/dto/email-filter.input.ts
+[NX Daemon Server] - 2026-01-31T07:53:39.709Z - [REQUEST]: 
+[NX Daemon Server] - 2026-01-31T07:53:39.725Z - Time taken for 'hash changed files from watcher' 0.7260529999621212ms
+[NX Daemon Server] - 2026-01-31T07:53:39.858Z - Time taken for 'build-project-configs' 113.93080400000326ms
+[NX Daemon Server] - 2026-01-31T07:53:39.992Z - [SYNC]: collect registered sync generators
+[NX Daemon Server] - 2026-01-31T07:53:39.996Z - [SYNC]: project graph hash is the same, not collecting task sync generators
+[NX Daemon Server] - 2026-01-31T07:53:39.996Z - [SYNC]: nx.json hash is the same, not collecting global sync generators
+[NX Daemon Server] - 2026-01-31T07:53:39.997Z - Time taken for 'total execution time for createProjectGraph()' 123.71431499999017ms
