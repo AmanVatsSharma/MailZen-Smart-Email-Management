@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
 import { join } from 'path';
 import { UserModule } from './user/user.module';
 import { EmailModule } from './email/email.module';
@@ -18,6 +20,29 @@ import { UnifiedInboxModule } from './unified-inbox/unified-inbox.module';
 
 @Module({
   imports: [
+    // Configuration module to load environment variables
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
+    
+    // TypeORM configuration for PostgreSQL
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      url: process.env.DATABASE_URL,
+      // Auto-sync entities with database (dev mode only)
+      synchronize: true,
+      // Log only errors for cleaner console output
+      logging: ['error'],
+      // Auto-discover and load all entities from modules
+      autoLoadEntities: true,
+      // Connection pool settings for better performance
+      extra: {
+        max: 10, // Maximum pool size
+        idleTimeoutMillis: 30000,
+      },
+    }),
+    
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
