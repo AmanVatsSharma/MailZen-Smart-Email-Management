@@ -1,9 +1,13 @@
 import { Global, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from '../user/entities/user.entity';
+import { UserSession } from './entities/user-session.entity';
+import { VerificationToken } from './entities/verification-token.entity';
+import { SignupVerification } from '../phone/entities/signup-verification.entity';
 import { AuthService } from './auth.service';
 import { AuthResolver } from './auth.resolver';
 import { UserModule } from '../user/user.module';
-import { PrismaModule } from '../prisma/prisma.module';
 import { MailboxModule } from '../mailbox/mailbox.module';
 import { GoogleOAuthController } from './oauth.controller';
 import { SessionCookieService } from './session-cookie.service';
@@ -30,11 +34,15 @@ function getJwtExpiresInSeconds(): number {
   return 60 * 60 * 24;
 }
 
+/**
+ * AuthModule - Authentication and authorization
+ * Provides JWT tokens, refresh tokens, and verification flows
+ */
 @Global()
 @Module({
   imports: [
+    TypeOrmModule.forFeature([User, UserSession, VerificationToken, SignupVerification]),
     UserModule,
-    PrismaModule,
     MailboxModule,
     JwtModule.register({
       // Enterprise hygiene: do NOT silently fall back to a default secret.
