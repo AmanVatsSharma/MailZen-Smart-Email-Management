@@ -101,16 +101,19 @@ export function EmailDetail({
     skip: !thread?.id,
     fetchPolicy: 'network-only'
   });
+
+  // Use server-fetched thread when available (ensures full messages/content are loaded).
+  const effectiveThread = (emailData?.email as EmailThread | undefined) || thread;
   
   // Update email mutation
   const [updateEmail] = useMutation(UPDATE_EMAIL);
   
   // Mark email as read when opened
   useEffect(() => {
-    if (thread && thread.isUnread) {
+    if (effectiveThread && effectiveThread.isUnread) {
       updateEmail({
         variables: {
-          id: thread.id,
+          id: effectiveThread.id,
           input: {
             read: true
           }
@@ -119,23 +122,23 @@ export function EmailDetail({
         console.error('Error marking email as read:', error);
       });
     }
-  }, [thread?.id, thread?.isUnread, updateEmail]);
+  }, [effectiveThread?.id, effectiveThread?.isUnread, updateEmail]);
   
   // Handle toggling the star
   const handleToggleStar = () => {
-    if (thread) {
-      const lastMessage = thread.messages[thread.messages.length - 1];
+    if (effectiveThread) {
+      const lastMessage = effectiveThread.messages[effectiveThread.messages.length - 1];
       // Call the API to update the star status
       updateEmail({
         variables: {
-          id: thread.id,
+          id: effectiveThread.id,
           input: {
             starred: !lastMessage.isStarred
           }
         }
       }).then(() => {
         // Call the callback to update UI
-        onToggleStar(thread.id, !lastMessage.isStarred);
+        onToggleStar(effectiveThread.id, !lastMessage.isStarred);
       }).catch(error => {
         console.error('Error updating star status:', error);
       });
@@ -193,7 +196,7 @@ export function EmailDetail({
     }
   }, [thread]);
 
-  if (!thread) {
+  if (!effectiveThread) {
     return (
       <div className={`flex flex-col items-center justify-center h-full text-center p-8 ${className}`}>
         <div className="p-6 rounded-full bg-primary/10 mb-4">
@@ -244,14 +247,14 @@ export function EmailDetail({
   };
 
   // Get labels for the thread
-  const threadLabels = thread.labelIds
-    ? thread.labelIds
+  const threadLabels = effectiveThread.labelIds
+    ? effectiveThread.labelIds
         .map(id => availableLabels.find(label => label.id === id))
         .filter(Boolean) as EmailLabel[]
     : [];
 
   // Last message in thread
-  const lastMessage = thread.messages[thread.messages.length - 1];
+  const lastMessage = effectiveThread.messages[effectiveThread.messages.length - 1];
     
   // Add a function to get appropriate icon for file type
   const getFileIcon = (fileType: string) => {
@@ -295,7 +298,7 @@ export function EmailDetail({
               Back
             </Button>
           )}
-          <h2 className="text-xl font-semibold truncate">{thread.subject}</h2>
+          <h2 className="text-xl font-semibold truncate">{effectiveThread.subject}</h2>
         </div>
         
         <div className="flex items-center gap-1">
@@ -389,7 +392,7 @@ export function EmailDetail({
       {/* Thread messages */}
       <div className="flex-1 overflow-auto p-4">
         <div className="space-y-6">
-          {thread.messages.map((message, index) => (
+          {effectiveThread.messages.map((message, index) => (
             <motion.div 
               key={message.id} 
               className={cn(
@@ -459,7 +462,7 @@ export function EmailDetail({
       <div className="p-4 border-t">
         <div 
           className="p-3 border rounded-lg bg-muted/30 text-muted-foreground cursor-pointer hover:bg-muted transition-colors"
-          onClick={() => onReply(thread.id)}
+          onClick={() => onReply(effectiveThread.id)}
         >
           Click here to reply...
         </div>

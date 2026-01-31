@@ -76,5 +76,27 @@ export class EmailProviderConnectResolver {
   async providers(@Context() ctx: RequestContext) {
     return this.emailProviderService.listProvidersUi(ctx.req.user.id);
   }
+
+  /**
+   * Backwards-compatible alias for older frontend queries.
+   * Prefer `providers`.
+   */
+  @Query(() => [Provider])
+  async getEmailProviders(@Context() ctx: RequestContext) {
+    return this.emailProviderService.listProvidersUi(ctx.req.user.id);
+  }
+
+  /**
+   * Backwards-compatible alias for older frontend mutations.
+   * Prefer `updateProvider`.
+   */
+  @Mutation(() => Provider)
+  async updateProviderStatus(
+    @Args('id') id: string,
+    @Args('isActive', { nullable: true }) isActive: boolean | null,
+    @Context() ctx: RequestContext
+  ) {
+    return this.emailProviderService.setActiveProvider(id, ctx.req.user.id, isActive ?? undefined);
+  }
 }
 
