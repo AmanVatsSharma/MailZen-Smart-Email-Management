@@ -1,62 +1,34 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EmailWarmupService } from './email.email-warmup.service';
 import { EmailWarmupResolver } from './email.email-warmup.resolver';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { AuthService } from '../auth/auth.service';
 
-describe('EmailWarmupResolver', () => {
+describe('EmailWarmupResolver (smoke)', () => {
   let resolver: EmailWarmupResolver;
-  let service: EmailWarmupService;
+  let service: any;
 
-  // Mock data
   const mockProviderId = 'provider-1';
   const mockUserId = 'user-1';
-  
-  const mockWarmupConfig = {
+  const mockContext = { req: { user: { id: mockUserId } } };
+
+  const mockWarmup = {
     id: 'warmup-1',
     providerId: mockProviderId,
-    userId: mockUserId,
     status: 'ACTIVE',
+    currentDailyLimit: 5,
     dailyIncrement: 5,
-    startVolume: 10,
-    maxVolume: 100,
-    currentVolume: 15,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    maxDailyEmails: 100,
+    minimumInterval: 15,
+    targetOpenRate: 80,
   };
 
-  const mockWarmupStats = {
-    id: 'stats-1',
-    warmupConfigId: 'warmup-1',
-    sentCount: 15,
-    deliveredCount: 14,
-    openedCount: 10,
-    repliedCount: 5,
-    bounceCount: 1,
-    spamCount: 0,
-    date: new Date(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-
-  // Mock context with user info
-  const mockContext = {
-    req: {
-      user: {
-        id: mockUserId,
-      },
-    },
-  };
-
-  // Mock EmailWarmupService
   const mockEmailWarmupService = {
-    startWarmup: jest.fn().mockResolvedValue(mockWarmupConfig),
-    pauseWarmup: jest.fn().mockResolvedValue({ 
-      ...mockWarmupConfig,
-      status: 'PAUSED',
-    }),
-    getWarmupStatus: jest.fn().mockResolvedValue({
-      config: mockWarmupConfig,
-      stats: [mockWarmupStats],
-    }),
+    startWarmup: jest.fn().mockResolvedValue(mockWarmup),
+    pauseWarmup: jest.fn().mockResolvedValue({ ...mockWarmup, status: 'PAUSED' }),
+    getWarmupStatus: jest.fn().mockResolvedValue(mockWarmup),
+    getWarmupPerformanceMetrics: jest.fn().mockResolvedValue({ averageOpenRate: 0, totalEmailsSent: 0, daysActive: 0, currentPhase: 'Initial' }),
+    adjustWarmupStrategy: jest.fn().mockResolvedValue(mockWarmup),
   };
 
   beforeEach(async () => {
@@ -64,79 +36,34 @@ describe('EmailWarmupResolver', () => {
       providers: [
         EmailWarmupResolver,
         { provide: EmailWarmupService, useValue: mockEmailWarmupService },
+        JwtAuthGuard,
+        { provide: AuthService, useValue: { validateToken: jest.fn().mockReturnValue({ id: mockUserId }) } },
       ],
     }).compile();
 
-    resolver = module.get<EmailWarmupResolver>(EmailWarmupResolver);
-    service = module.get<EmailWarmupService>(EmailWarmupService);
+    resolver = module.get(EmailWarmupResolver);
+    service = module.get(EmailWarmupService);
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  afterEach(() => jest.clearAllMocks());
+
+  it('startEmailWarmup passes input + userId', async () => {
+    const input = { providerId: mockProviderId, config: { dailyIncrement: 5 } } as any;
+    const res = await resolver.startEmailWarmup(input, mockContext as any);
+    expect(service.startWarmup).toHaveBeenCalledWith(input, mockUserId);
+    expect(res).toEqual(mockWarmup);
   });
 
-  it('should be defined', () => {
-    expect(resolver).toBeDefined();
+  it('pauseEmailWarmup passes input + userId', async () => {
+    const input = { providerId: mockProviderId } as any;
+    const res = await resolver.pauseEmailWarmup(input, mockContext as any);
+    expect(service.pauseWarmup).toHaveBeenCalledWith(input, mockUserId);
+    expect(res.status).toBe('PAUSED');
   });
 
-  describe('startEmailWarmup', () => {
-    it('should start email warmup for a provider', async () => {
-      // Arrange
-      const startWarmupInput = {
-        providerId: mockProviderId,
-        dailyIncrement: 5,
-        startVolume: 10,
-        maxVolume: 100,
-      };
-
-      // Act
-      const result = await resolver.startEmailWarmup(startWarmupInput, mockContext);
-
-      // Assert
-      expect(service.startWarmup).toHaveBeenCalledWith(
-        mockContext.req.user.id,
-        startWarmupInput
-      );
-      expect(result).toEqual(mockWarmupConfig);
-    });
+  it('getEmailWarmupStatus calls service.getWarmupStatus', async () => {
+    const res = await resolver.getEmailWarmupStatus(mockProviderId, mockContext as any);
+    expect(service.getWarmupStatus).toHaveBeenCalledWith(mockProviderId, mockUserId);
+    expect(res).toEqual(mockWarmup);
   });
-
-  describe('pauseEmailWarmup', () => {
-    it('should pause a running warmup', async () => {
-      // Arrange
-      const pauseWarmupInput = {
-        providerId: mockProviderId,
-      };
-
-      // Act
-      const result = await resolver.pauseEmailWarmup(pauseWarmupInput, mockContext);
-
-      // Assert
-      expect(service.pauseWarmup).toHaveBeenCalledWith(
-        mockContext.req.user.id,
-        pauseWarmupInput
-      );
-      expect(result).toEqual({
-        ...mockWarmupConfig,
-        status: 'PAUSED',
-      });
-    });
-  });
-
-  describe('getEmailWarmupStatus', () => {
-    it('should return warmup status and stats', async () => {
-      // Act
-      const result = await resolver.getEmailWarmupStatus(mockProviderId, mockContext);
-
-      // Assert
-      expect(service.getWarmupStatus).toHaveBeenCalledWith(
-        mockContext.req.user.id,
-        mockProviderId
-      );
-      expect(result).toEqual({
-        config: mockWarmupConfig,
-        stats: [mockWarmupStats],
-      });
-    });
-  });
-}); 
+});

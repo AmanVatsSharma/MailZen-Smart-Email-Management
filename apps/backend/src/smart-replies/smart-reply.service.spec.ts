@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SmartReplyService } from './smart-reply.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { Logger } from '@nestjs/common';
 import { SmartReplyInput } from './dto/smart-reply.input';
 
 // Create a mock for PrismaService
@@ -10,19 +9,6 @@ const mockPrismaService = {
     create: jest.fn(),
   },
 };
-
-// Create a mock for Logger
-jest.mock('@nestjs/common', () => {
-  const originalModule = jest.requireActual('@nestjs/common');
-  return {
-    ...originalModule,
-    Logger: jest.fn().mockImplementation(() => ({
-      log: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-    })),
-  };
-});
 
 describe('SmartReplyService', () => {
   let service: SmartReplyService;

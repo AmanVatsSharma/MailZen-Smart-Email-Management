@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SmartReplyResolver } from './smart-reply.resolver';
 import { SmartReplyService } from './smart-reply.service';
 import { SmartReplyInput } from './dto/smart-reply.input';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { AuthService } from '../auth/auth.service';
 
 describe('SmartReplyResolver', () => {
   let resolver: SmartReplyResolver;
@@ -20,6 +22,8 @@ describe('SmartReplyResolver', () => {
       providers: [
         SmartReplyResolver,
         { provide: SmartReplyService, useValue: mockSmartReplyService },
+        JwtAuthGuard,
+        { provide: AuthService, useValue: { validateToken: jest.fn().mockReturnValue({ id: 'user-1' }) } },
       ],
     }).compile();
 
