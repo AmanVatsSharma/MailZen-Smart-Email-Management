@@ -2,30 +2,63 @@ import { gql } from '@apollo/client';
 
 // Query to get all emails
 export const GET_EMAILS = gql`
-  query GetEmails($limit: Int, $offset: Int, $filter: EmailFilterInput) {
-    emails(limit: $limit, offset: $offset, filter: $filter) {
+  query GetEmails($limit: Int, $offset: Int, $filter: EmailFilterInput, $sort: EmailSortInput) {
+    emails(limit: $limit, offset: $offset, filter: $filter, sort: $sort) {
       id
       subject
-      sender {
+      participants {
         name
         email
+        avatar
       }
-      receiver {
-        name
-        email
-      }
-      content
-      timestamp
-      read
-      starred
-      labels
-      attachments {
-        id
-        name
-        size
-        type
-      }
+      lastMessageDate
+      isUnread
       folder
+      labelIds
+      providerId
+      providerThreadId
+      messages {
+        id
+        threadId
+        subject
+        from {
+          name
+          email
+          avatar
+        }
+        to {
+          name
+          email
+          avatar
+        }
+        cc {
+          name
+          email
+          avatar
+        }
+        bcc {
+          name
+          email
+          avatar
+        }
+        content
+        contentPreview
+        date
+        folder
+        isStarred
+        importance
+        attachments {
+          id
+          name
+          size
+          type
+          url
+        }
+        status
+        labelIds
+        providerId
+        providerEmailId
+      }
     }
   }
 `;
@@ -36,29 +69,58 @@ export const GET_EMAIL = gql`
     email(id: $id) {
       id
       subject
-      sender {
+      participants {
         name
         email
+        avatar
       }
-      receiver {
-        name
-        email
-      }
-      content
-      timestamp
-      read
-      starred
-      labels
-      attachments {
-        id
-        name
-        size
-        type
-      }
+      lastMessageDate
+      isUnread
       folder
-      thread {
+      labelIds
+      providerId
+      providerThreadId
+      messages {
         id
+        threadId
         subject
+        from {
+          name
+          email
+          avatar
+        }
+        to {
+          name
+          email
+          avatar
+        }
+        cc {
+          name
+          email
+          avatar
+        }
+        bcc {
+          name
+          email
+          avatar
+        }
+        content
+        contentPreview
+        date
+        folder
+        isStarred
+        importance
+        attachments {
+          id
+          name
+          size
+          type
+          url
+        }
+        status
+        labelIds
+        providerId
+        providerEmailId
       }
     }
   }
@@ -69,10 +131,17 @@ export const UPDATE_EMAIL = gql`
   mutation UpdateEmail($id: ID!, $input: EmailUpdateInput!) {
     updateEmail(id: $id, input: $input) {
       id
-      read
-      starred
-      labels
       folder
+      labelIds
+      isUnread
+      lastMessageDate
+      messages {
+        id
+        isStarred
+        status
+        labelIds
+        folder
+      }
     }
   }
 `;

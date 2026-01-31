@@ -11,7 +11,7 @@ import { mockLabels } from '@/lib/email/mock-data';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Filter, MoreVertical, Plus, Keyboard, X } from 'lucide-react';
-import { useQuery, useMutation } from '@apollo/client';
+import { gql, useApolloClient, useQuery, useMutation } from '@apollo/client';
 import { GET_LABELS, UPDATE_EMAIL } from '@/lib/apollo/queries/emails';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -22,6 +22,29 @@ import {
   DialogTitle,
   DialogClose
 } from '@/components/ui/dialog';
+
+const GET_PROVIDERS_FOR_INBOX = gql`
+  query InboxProviders {
+    providers {
+      id
+      type
+      email
+      isActive
+      status
+      lastSynced
+    }
+  }
+`;
+
+const SYNC_PROVIDER_FOR_INBOX = gql`
+  mutation InboxSyncProvider($id: String!) {
+    syncProvider(id: $id) {
+      id
+      status
+      lastSynced
+    }
+  }
+`;
 
 export default function InboxPage() {
   const [selectedThread, setSelectedThread] = useState<EmailThread | null>(null);
@@ -38,6 +61,7 @@ export default function InboxPage() {
   
   // Get toast functionality
   const { toast } = useToast();
+  const apollo = useApolloClient();
   
   // Get update email mutation
   const [updateEmail] = useMutation(UPDATE_EMAIL);
@@ -45,6 +69,11 @@ export default function InboxPage() {
   // Fetch labels
   const { data: labelsData } = useQuery(GET_LABELS);
   const availableLabels = labelsData?.labels || mockLabels;
+
+  // Provider status (for refresh + UX)
+  const { data: providersData } = useQuery(GET_PROVIDERS_FOR_INBOX, { fetchPolicy: 'network-only' });
+  const activeProvider = (providersData?.providers || []).find((p: any) => p.isActive) || (providersData?.providers || [])[0];
+  const [syncProvider] = useMutation(SYNC_PROVIDER_FOR_INBOX);
   
   // Handle folder selection
   const handleFolderSelect = (folder: EmailFolder) => {
@@ -74,19 +103,36 @@ export default function InboxPage() {
   };
   
   // Simulate refreshing inbox
-  const handleRefreshInbox = () => {
+  const handleRefreshInbox = async () => {
     setIsRefreshing(true);
-    
-    // In a real app, this would refetch the emails query
-    setTimeout(() => {
-      setIsRefreshing(false);
-      
-      // Show refresh notification
+    try {
+      if (!activeProvider?.id) {
+        toast({
+          title: "No provider connected",
+          description: "Connect a provider to sync inbox messages.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await syncProvider({ variables: { id: activeProvider.id } });
+      // Refetch inbox queries
+      await apollo.refetchQueries({ include: ['GetEmails', 'GetLabels', 'GetFolders'] });
+
       toast({
         title: "Inbox refreshed",
         description: "Your inbox has been updated with the latest emails",
       });
-    }, 1500);
+    } catch (e) {
+      console.error('[Inbox Refresh] failed', e);
+      toast({
+        title: "Refresh failed",
+        description: "Could not sync inbox. Check logs for details.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
   };
   
   // Handle reply to email
