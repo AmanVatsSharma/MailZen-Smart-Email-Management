@@ -14,6 +14,7 @@ import { MailboxModule } from './mailbox/mailbox.module';
 import { PhoneModule } from './phone/phone.module';
 import { InboxModule } from './inbox/inbox.module';
 import { GmailSyncModule } from './gmail-sync/gmail-sync.module';
+import { UnifiedInboxModule } from './unified-inbox/unified-inbox.module';
 
 @Module({
   imports: [
@@ -34,7 +35,8 @@ import { GmailSyncModule } from './gmail-sync/gmail-sync.module';
     MailboxModule,
     PhoneModule,
     InboxModule,
-    GmailSyncModule
+    GmailSyncModule,
+    UnifiedInboxModule
   ],
   controllers: [],
   providers: [],
