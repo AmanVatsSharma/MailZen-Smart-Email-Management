@@ -6,22 +6,6 @@
   "fileMap": {
     "nonProjectFiles": [
       {
-        "file": ".gitignore",
-        "hash": "12228022178553669529"
-      },
-      {
-        "file": "package-lock.json",
-        "hash": "3503427873816494508"
-      },
-      {
-        "file": "README.md",
-        "hash": "16100399334875497739"
-      },
-      {
-        "file": "tools/ensure-env.js",
-        "hash": "52241091178071508"
-      },
-      {
         "file": ".cursor/plans/frontend_polish_pass_66602956.plan.md",
         "hash": "13021225082785102614"
       },
@@ -30,16 +14,32 @@
         "hash": "15807666030118664436"
       },
       {
+        "file": ".cursor/plans/enterprise_auth_wiring_a0cc3072.plan.md",
+        "hash": "5562174741108176712"
+      },
+      {
         "file": "nx.json",
         "hash": "4028464915613245907"
+      },
+      {
+        "file": "tools/ensure-env.js",
+        "hash": "52241091178071508"
+      },
+      {
+        "file": ".gitignore",
+        "hash": "12228022178553669529"
       },
       {
         "file": "package.json",
         "hash": "4216715841772880991"
       },
       {
-        "file": ".cursor/plans/enterprise_auth_wiring_a0cc3072.plan.md",
-        "hash": "5562174741108176712"
+        "file": "package-lock.json",
+        "hash": "3503427873816494508"
+      },
+      {
+        "file": "README.md",
+        "hash": "16100399334875497739"
       }
     ],
     "projectFileMap": {
@@ -536,7 +536,7 @@
         },
         {
           "file": "apps/backend/prisma/schema.prisma",
-          "hash": "6980079317603732242"
+          "hash": "13292699218207937951"
         },
         {
           "file": "apps/backend/project.json",
@@ -784,7 +784,7 @@
         },
         {
           "file": "apps/backend/src/email/email-filter.service.spec.ts",
-          "hash": "12514342314183653507"
+          "hash": "17223537222000296574"
         },
         {
           "file": "apps/backend/src/email/email-warmup.resolver.spec.ts",
@@ -792,7 +792,7 @@
         },
         {
           "file": "apps/backend/src/email/email-warmup.service.spec.ts",
-          "hash": "10764018546935099676"
+          "hash": "14712359351454203622"
         },
         {
           "file": "apps/backend/src/email/email.attachment.resolver.ts",

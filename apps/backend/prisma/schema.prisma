@@ -139,7 +139,7 @@ model ExternalEmailLabel {
   /// Gmail: \"system\" | \"user\"
   type            String
   /// Optional UI color (hex string)
-  color           String?  @default(\"#4F46E5\")
+  color           String?  @default("#4F46E5")
   isSystem        Boolean  @default(false)
 
   createdAt       DateTime @default(now())
