@@ -1,4 +1,3 @@
-//src/(dashboard)/page.tsx
 'use client';
 
 import React from 'react';
@@ -16,48 +15,21 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import {
   ArrowUpRight,
-  Calendar,
-  MailOpen,
-  Trash2,
-  Star,
-  Archive,
   Mail,
-  Filter,
   Clock,
-  Flame,
-  TrendingUp,
-  BarChart4,
-  Sparkles,
-  RefreshCcw,
-  Bell,
-  Eye,
-  ArrowRight,
-  ChevronUp,
-  Info,
-  Users,
-  Inbox,
-  CheckCircle2,
-  CreditCard,
-  CircleDollarSign,
-  ShoppingBag,
-  ArrowDownRight,
-  BarChart3,
-  MessageSquare,
-  MoreHorizontal,
-  Send,
   Zap,
+  MessageSquare,
+  Send,
+  MoreHorizontal,
 } from 'lucide-react';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
+import { TiltCard } from '@/components/ui/TiltCard';
+import { OverviewChart } from '@/components/ui/charts/OverviewChart';
+import { StorageChart } from '@/components/ui/charts/StorageChart';
+import { ResponseTimeChart } from '@/components/ui/charts/ResponseTimeChart';
 
-const container = {
+const container: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -68,7 +40,7 @@ const container = {
   },
 };
 
-const item = {
+const item: Variants = {
   hidden: { opacity: 0, y: 20 },
   show: { 
     opacity: 1, 
@@ -111,87 +83,95 @@ export default function DashboardPage() {
           animate="show"
         >
           <motion.div variants={item}>
-            <Card className="overflow-hidden">
-              <CardHeader className="pb-2">
-                <CardTitle>Total Emails</CardTitle>
-                <CardDescription>All emails in your account</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">2,853</div>
-                <div className="text-xs text-muted-foreground">
-                  <span className="text-emerald-500 font-medium">+12%</span> from last month
+            <TiltCard>
+              <Card className="overflow-hidden h-full border-l-4 border-l-primary/50">
+                <CardHeader className="pb-2">
+                  <CardTitle>Total Emails</CardTitle>
+                  <CardDescription>All emails in your account</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">2,853</div>
+                  <div className="text-xs text-muted-foreground">
+                    <span className="text-emerald-500 font-medium">+12%</span> from last month
+                  </div>
+                  <div className="mt-4 h-1">
+                    <Progress value={75} className="h-2" />
+                  </div>
+                </CardContent>
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                  <Mail className="h-12 w-12 text-primary" />
                 </div>
-                <div className="mt-4 h-1">
-                  <Progress value={75} className="h-2" />
-                </div>
-              </CardContent>
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Mail className="h-12 w-12 text-primary" />
-              </div>
-            </Card>
+              </Card>
+            </TiltCard>
           </motion.div>
 
           <motion.div variants={item}>
-            <Card className="overflow-hidden">
-              <CardHeader className="pb-2">
-                <CardTitle>Unread</CardTitle>
-                <CardDescription>Emails waiting for response</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">24</div>
-                <div className="text-xs text-muted-foreground">
-                  <span className="text-red-500 font-medium">+8%</span> from yesterday
+            <TiltCard>
+              <Card className="overflow-hidden h-full border-l-4 border-l-amber-500/50">
+                <CardHeader className="pb-2">
+                  <CardTitle>Unread</CardTitle>
+                  <CardDescription>Emails waiting for response</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">24</div>
+                  <div className="text-xs text-muted-foreground">
+                    <span className="text-red-500 font-medium">+8%</span> from yesterday
+                  </div>
+                  <div className="mt-4 h-1">
+                    <Progress value={35} className="h-2" indicatorColor="bg-linear-to-r from-amber-500 to-amber-300" />
+                  </div>
+                </CardContent>
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                  <MessageSquare className="h-12 w-12 text-amber-500" />
                 </div>
-                <div className="mt-4 h-1">
-                  <Progress value={35} className="h-2" indicatorColor="bg-gradient-to-r from-amber-500 to-amber-300" />
-                </div>
-              </CardContent>
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <MessageSquare className="h-12 w-12 text-amber-500" />
-              </div>
-            </Card>
+              </Card>
+            </TiltCard>
           </motion.div>
 
           <motion.div variants={item}>
-            <Card className="overflow-hidden">
-              <CardHeader className="pb-2">
-                <CardTitle>Sent Today</CardTitle>
-                <CardDescription>Emails sent in last 24h</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">48</div>
-                <div className="text-xs text-muted-foreground">
-                  <span className="text-emerald-500 font-medium">+24%</span> from yesterday
+            <TiltCard>
+              <Card className="overflow-hidden h-full border-l-4 border-l-emerald-500/50">
+                <CardHeader className="pb-2">
+                  <CardTitle>Sent Today</CardTitle>
+                  <CardDescription>Emails sent in last 24h</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">48</div>
+                  <div className="text-xs text-muted-foreground">
+                    <span className="text-emerald-500 font-medium">+24%</span> from yesterday
+                  </div>
+                  <div className="mt-4 h-1">
+                    <Progress value={65} className="h-2" indicatorColor="bg-linear-to-r from-emerald-500 to-emerald-300" />
+                  </div>
+                </CardContent>
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                  <Send className="h-12 w-12 text-emerald-500" />
                 </div>
-                <div className="mt-4 h-1">
-                  <Progress value={65} className="h-2" indicatorColor="bg-gradient-to-r from-emerald-500 to-emerald-300" />
-                </div>
-              </CardContent>
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Send className="h-12 w-12 text-emerald-500" />
-              </div>
-            </Card>
+              </Card>
+            </TiltCard>
           </motion.div>
 
           <motion.div variants={item}>
-            <Card className="overflow-hidden">
-              <CardHeader className="pb-2">
-                <CardTitle>Scheduled</CardTitle>
-                <CardDescription>Emails waiting to be sent</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">12</div>
-                <div className="text-xs text-muted-foreground">
-                  <span className="text-blue-500 font-medium">+3</span> from yesterday
+            <TiltCard>
+              <Card className="overflow-hidden h-full border-l-4 border-l-blue-500/50">
+                <CardHeader className="pb-2">
+                  <CardTitle>Scheduled</CardTitle>
+                  <CardDescription>Emails waiting to be sent</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">12</div>
+                  <div className="text-xs text-muted-foreground">
+                    <span className="text-blue-500 font-medium">+3</span> from yesterday
+                  </div>
+                  <div className="mt-4 h-1">
+                    <Progress value={25} className="h-2" indicatorColor="bg-linear-to-r from-blue-500 to-blue-300" />
+                  </div>
+                </CardContent>
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                  <Clock className="h-12 w-12 text-blue-500" />
                 </div>
-                <div className="mt-4 h-1">
-                  <Progress value={25} className="h-2" indicatorColor="bg-gradient-to-r from-blue-500 to-blue-300" />
-                </div>
-              </CardContent>
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Clock className="h-12 w-12 text-blue-500" />
-              </div>
-            </Card>
+              </Card>
+            </TiltCard>
           </motion.div>
         </motion.div>
       </motion.div>
@@ -201,7 +181,7 @@ export default function DashboardPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4, duration: 0.5 }}
       >
-        <Alert className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
+        <Alert className="bg-linear-to-r from-primary/10 to-primary/5 border-primary/20">
           <Zap className="h-4 w-4 text-primary" />
           <AlertTitle>Smart Replies Active</AlertTitle>
           <AlertDescription>
@@ -228,9 +208,7 @@ export default function DashboardPage() {
                 <CardDescription>Your email activity over the last 30 days.</CardDescription>
               </CardHeader>
               <CardContent className="pl-2">
-                <div className="h-[200px] w-full bg-gradient-to-br from-primary/5 to-primary/10 rounded-md flex items-center justify-center">
-                  <BarChart3 className="h-24 w-24 text-primary/40" />
-                </div>
+                <OverviewChart />
               </CardContent>
               <CardFooter className="flex justify-between">
                 <div className="flex gap-4 text-sm text-muted-foreground">
@@ -256,29 +234,34 @@ export default function DashboardPage() {
                 <CardDescription>Your account storage usage.</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="mb-4 flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Used Storage</p>
-                    <p className="text-2xl font-bold">4.2 GB</p>
-                  </div>
-                  <div className="space-y-1 text-right">
-                    <p className="text-sm font-medium">Total Storage</p>
-                    <p className="text-2xl font-bold">15 GB</p>
-                  </div>
-                </div>
-                <Progress value={28} className="h-3" />
-                <div className="mt-2 grid grid-cols-3 gap-4 text-center text-sm text-muted-foreground">
-                  <div className="space-y-1">
-                    <p className="font-medium">Emails</p>
-                    <p>2.8 GB</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="font-medium">Attachments</p>
-                    <p>1.2 GB</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="font-medium">Other</p>
-                    <p>0.2 GB</p>
+                <div className="grid md:grid-cols-2 gap-8 items-center">
+                  <StorageChart />
+                  <div className="space-y-4">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Used Storage</p>
+                        <p className="text-2xl font-bold">4.2 GB</p>
+                      </div>
+                      <div className="space-y-1 text-right">
+                        <p className="text-sm font-medium">Total Storage</p>
+                        <p className="text-2xl font-bold">15 GB</p>
+                      </div>
+                    </div>
+                    <Progress value={28} className="h-3" />
+                    <div className="mt-2 grid grid-cols-3 gap-4 text-center text-sm text-muted-foreground">
+                      <div className="space-y-1">
+                        <p className="font-medium">Emails</p>
+                        <p>2.8 GB</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-medium">Attachments</p>
+                        <p>1.2 GB</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-medium">Other</p>
+                        <p>0.2 GB</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -296,26 +279,32 @@ export default function DashboardPage() {
                 <CardDescription>Analytics and patterns from your email usage.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2 rounded-lg border p-4">
-                    <div className="text-sm font-medium text-muted-foreground">Response Rate</div>
-                    <div className="text-2xl font-bold">78%</div>
-                    <div className="text-xs text-emerald-500">+12% from last month</div>
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Response Time Trends</h3>
+                    <ResponseTimeChart />
                   </div>
-                  <div className="space-y-2 rounded-lg border p-4">
-                    <div className="text-sm font-medium text-muted-foreground">Avg. Response Time</div>
-                    <div className="text-2xl font-bold">3.2h</div>
-                    <div className="text-xs text-emerald-500">-0.8h from last month</div>
-                  </div>
-                  <div className="space-y-2 rounded-lg border p-4">
-                    <div className="text-sm font-medium text-muted-foreground">Peak Activity</div>
-                    <div className="text-2xl font-bold">10-11 AM</div>
-                    <div className="text-xs text-muted-foreground">Monday-Friday</div>
-                  </div>
-                  <div className="space-y-2 rounded-lg border p-4">
-                    <div className="text-sm font-medium text-muted-foreground">Smart Replies Used</div>
-                    <div className="text-2xl font-bold">42%</div>
-                    <div className="text-xs text-emerald-500">+8% from last month</div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2 rounded-lg border p-4 bg-card/50">
+                      <div className="text-sm font-medium text-muted-foreground">Response Rate</div>
+                      <div className="text-2xl font-bold">78%</div>
+                      <div className="text-xs text-emerald-500">+12% from last month</div>
+                    </div>
+                    <div className="space-y-2 rounded-lg border p-4 bg-card/50">
+                      <div className="text-sm font-medium text-muted-foreground">Avg. Response Time</div>
+                      <div className="text-2xl font-bold">3.2h</div>
+                      <div className="text-xs text-emerald-500">-0.8h from last month</div>
+                    </div>
+                    <div className="space-y-2 rounded-lg border p-4 bg-card/50">
+                      <div className="text-sm font-medium text-muted-foreground">Peak Activity</div>
+                      <div className="text-2xl font-bold">10-11 AM</div>
+                      <div className="text-xs text-muted-foreground">Monday-Friday</div>
+                    </div>
+                    <div className="space-y-2 rounded-lg border p-4 bg-card/50">
+                      <div className="text-sm font-medium text-muted-foreground">Smart Replies Used</div>
+                      <div className="text-2xl font-bold">42%</div>
+                      <div className="text-xs text-emerald-500">+8% from last month</div>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -350,8 +339,8 @@ export default function DashboardPage() {
                   transition={{ delay: 0.2 * i, duration: 0.3 }}
                   className="flex items-center gap-4 rounded-lg border p-3 hover:bg-accent/50 transition-colors"
                 >
-                  <div className="flex-shrink-0">
-                    <div className="size-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                  <div className="shrink-0">
+                    <div className="size-10 rounded-full bg-linear-to-br from-primary/20 to-primary/10 flex items-center justify-center">
                       <Mail className="h-5 w-5 text-primary" />
                     </div>
                   </div>
@@ -363,7 +352,7 @@ export default function DashboardPage() {
                         {i === 3 && "Project proposal approved"}
                         {i === 4 && "New comment on shared document"}
                       </div>
-                      <Badge variant="outline" className="ml-auto flex-shrink-0">
+                      <Badge variant="outline" className="ml-auto shrink-0">
                         {i === 1 && "New"}
                         {i === 2 && "Calendar"}
                         {i === 3 && "Project"}
@@ -383,7 +372,7 @@ export default function DashboardPage() {
                       {i === 4 && "Yesterday at 4:23 PM"}
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" className="flex-shrink-0">
+                  <Button variant="ghost" size="icon" className="shrink-0">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </motion.div>
@@ -463,24 +452,4 @@ export default function DashboardPage() {
       </motion.div>
     </div>
   );
-}
-
-function File(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-      <polyline points="14 2 14 8 20 8" />
-    </svg>
-  )
 }
