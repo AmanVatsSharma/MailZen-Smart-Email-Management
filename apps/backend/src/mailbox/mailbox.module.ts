@@ -1,11 +1,17 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '../prisma/prisma.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Mailbox } from './entities/mailbox.entity';
 import { MailboxService } from './mailbox.service';
 import { MailboxResolver } from './mailbox.resolver';
-import { MailServerModule } from './mail-server.module';
 
+/**
+ * MailboxModule - Self-hosted mailbox management
+ * Handles mailzen.com mailbox operations
+ */
 @Module({
-  imports: [PrismaModule, MailServerModule],
+  imports: [
+    TypeOrmModule.forFeature([Mailbox]),
+  ],
   providers: [MailboxService, MailboxResolver],
   exports: [MailboxService],
 })
