@@ -1,9 +1,20 @@
 import { gql } from '@apollo/client';
 
-// Query to get all email providers for the current user
-export const GET_EMAIL_PROVIDERS = gql`
-  query GetEmailProviders {
-    getEmailProviders {
+/**
+ * Provider GraphQL operations (single source of truth).
+ *
+ * IMPORTANT:
+ * These names match the backend schema implemented in:
+ * - `backend/src/email-integration/email-provider.connect.resolver.ts`
+ *
+ * We keep the frontend as a pure GraphQL client; OAuth redirects are handled by backend REST
+ * endpoints under `/email-integration/*`.
+ */
+
+// Query to get UI-shaped providers for the current user
+export const GET_PROVIDERS = gql`
+  query Providers {
+    providers {
       id
       type
       name
@@ -15,72 +26,10 @@ export const GET_EMAIL_PROVIDERS = gql`
   }
 `;
 
-// Query to get a specific email provider
-export const GET_EMAIL_PROVIDER = gql`
-  query GetEmailProvider($id: String!) {
-    getEmailProvider(id: $id) {
-      id
-      type
-      name
-      email
-      isActive
-      lastSynced
-      status
-      settings {
-        ... on GmailSettings {
-          refreshToken
-          scope
-        }
-        ... on OutlookSettings {
-          refreshToken
-          scope
-        }
-        ... on SmtpSettings {
-          host
-          port
-          username
-          password
-          secure
-        }
-      }
-    }
-  }
-`;
-
-// Mutation to connect a Gmail provider
-export const CONNECT_GMAIL_PROVIDER = gql`
-  mutation ConnectGmailProvider($code: String!) {
-    connectGmailProvider(code: $code) {
-      id
-      type
-      name
-      email
-      isActive
-      lastSynced
-      status
-    }
-  }
-`;
-
-// Mutation to connect an Outlook provider
-export const CONNECT_OUTLOOK_PROVIDER = gql`
-  mutation ConnectOutlookProvider($code: String!) {
-    connectOutlookProvider(code: $code) {
-      id
-      type
-      name
-      email
-      isActive
-      lastSynced
-      status
-    }
-  }
-`;
-
-// Mutation to connect an SMTP provider
-export const CONNECT_SMTP_PROVIDER = gql`
-  mutation ConnectSmtpProvider($input: SmtpProviderInput!) {
-    connectSmtpProvider(input: $input) {
+// Mutation to connect an SMTP provider (OAuth providers are connected via backend redirect flow)
+export const CONNECT_SMTP = gql`
+  mutation ConnectSmtp($settings: SmtpSettingsInput!) {
+    connectSmtp(settings: $settings) {
       id
       type
       name
@@ -94,19 +43,18 @@ export const CONNECT_SMTP_PROVIDER = gql`
 
 // Mutation to disconnect a provider
 export const DISCONNECT_PROVIDER = gql`
-  mutation DisconnectProvider($id: String!) {
+  mutation DisconnectProvider($id: ID!) {
     disconnectProvider(id: $id) {
-      id
       success
       message
     }
   }
 `;
 
-// Mutation to update provider status
-export const UPDATE_PROVIDER_STATUS = gql`
-  mutation UpdateProviderStatus($id: String!, $isActive: Boolean!) {
-    updateProviderStatus(id: $id, isActive: $isActive) {
+// Mutation to update provider active status
+export const UPDATE_PROVIDER = gql`
+  mutation UpdateProvider($id: ID!, $isActive: Boolean) {
+    updateProvider(id: $id, isActive: $isActive) {
       id
       isActive
       status
@@ -116,7 +64,7 @@ export const UPDATE_PROVIDER_STATUS = gql`
 
 // Mutation to sync a provider
 export const SYNC_PROVIDER = gql`
-  mutation SyncProvider($id: String!) {
+  mutation SyncProvider($id: ID!) {
     syncProvider(id: $id) {
       id
       lastSynced
@@ -125,13 +73,5 @@ export const SYNC_PROVIDER = gql`
   }
 `;
 
-// Input type for SMTP provider
-export interface SmtpProviderInput {
-  name: string;
-  email: string;
-  host: string;
-  port: number;
-  username: string;
-  password: string;
-  secure: boolean;
-} 
+// NOTE: the actual `SmtpSettingsInput` shape is defined by the backend schema.
+// Frontend types can be derived later via codegen; for now UI uses local TS types. 
