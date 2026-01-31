@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './Sidebar';
 import Header from './Header';
 
+import { BackgroundGradient } from '@/components/ui/background-gradient';
+
 interface MainLayoutProps {
   children: React.ReactNode;
 }
@@ -44,7 +46,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+    <div className="flex h-screen overflow-hidden relative">
+      <BackgroundGradient className="opacity-40" />
+      
       {/* Mobile backdrop (click to close). Keeps interaction crisp and predictable on small screens. */}
       <AnimatePresence>
         {sidebarOpen ? (
@@ -74,7 +78,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       >
         <Header onToggleSidebar={toggleSidebar} />
         <motion.main 
-          className="flex-1 overflow-y-auto p-4 md:p-6 bg-gradient-to-br from-white/80 to-slate-100/80 dark:from-slate-900/80 dark:to-slate-950/80 backdrop-blur-sm"
+          className="flex-1 overflow-y-auto p-4 md:p-6 bg-transparent"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ 

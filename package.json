@@ -30,5 +30,8 @@
   "license": "ISC",
   "devDependencies": {
     "nx": "^20.3.1"
+  },
+  "dependencies": {
+    "recharts": "^3.7.0"
   }
 }
