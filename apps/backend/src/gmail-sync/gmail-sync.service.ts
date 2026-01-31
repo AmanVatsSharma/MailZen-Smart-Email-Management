@@ -20,6 +20,18 @@ type GmailMessageResponse = {
   };
 };
 
+type GmailLabelsResponse = {
+  labels?: {
+    id: string;
+    name: string;
+    type?: string;
+    color?: {
+      backgroundColor?: string;
+      textColor?: string;
+    };
+  }[];
+};
+
 @Injectable()
 export class GmailSyncService {
   private readonly logger = new Logger(GmailSyncService.name);
@@ -70,6 +82,45 @@ export class GmailSyncService {
     }
   }
 
+  private async syncGmailLabels(providerId: string, userId: string, accessToken: string) {
+    try {
+      const url = 'https://gmail.googleapis.com/gmail/v1/users/me/labels';
+      const res = await axios.get<GmailLabelsResponse>(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      const labels = res.data.labels || [];
+      for (const l of labels) {
+        const isSystem = String(l.type || '').toLowerCase() === 'system';
+        // Gmail label colors are optional and may require a separate API; use backgroundColor if present.
+        const color = l.color?.backgroundColor || null;
+        await this.prisma.externalEmailLabel.upsert({
+          where: { providerId_externalLabelId: { providerId, externalLabelId: l.id } },
+          create: {
+            userId,
+            providerId,
+            externalLabelId: l.id,
+            name: l.name,
+            type: l.type || (isSystem ? 'system' : 'user'),
+            color,
+            isSystem,
+          },
+          update: {
+            name: l.name,
+            type: l.type || (isSystem ? 'system' : 'user'),
+            color,
+            isSystem,
+          },
+        });
+      }
+
+      this.logger.log(`Synced Gmail labels provider=${providerId} user=${userId} count=${labels.length}`);
+    } catch (e: any) {
+      // Label sync failure should not block message sync.
+      this.logger.warn(`Failed to sync Gmail labels provider=${providerId} user=${userId}: ${e?.message || e}`);
+    }
+  }
+
   /**
    * Sync recent Gmail messages into `ExternalEmailMessage`.
    *
@@ -85,6 +136,9 @@ export class GmailSyncService {
 
     this.logger.log(`Starting Gmail sync provider=${providerId} user=${userId} maxMessages=${maxMessages}`);
     await this.prisma.emailProvider.update({ where: { id: providerId }, data: { status: 'syncing' } });
+
+    // Best-effort label metadata sync (for UI label rendering).
+    await this.syncGmailLabels(providerId, userId, accessToken);
 
     const listUrl = 'https://gmail.googleapis.com/gmail/v1/users/me/messages';
     const list = await axios.get<GmailListResponse>(listUrl, {

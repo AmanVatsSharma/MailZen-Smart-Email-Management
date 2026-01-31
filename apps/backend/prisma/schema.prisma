@@ -42,6 +42,7 @@ model User {
   filters   EmailFilter[]
   folders   EmailFolder[]
   labels    EmailLabel[]
+  externalLabels ExternalEmailLabel[]
   templates Template[]
 
   sessions           UserSession[]
@@ -119,6 +120,34 @@ model EmailProvider {
   updatedAt   DateTime @updatedAt
 
   externalMessages ExternalEmailMessage[]
+  externalLabels   ExternalEmailLabel[]
+}
+
+/// Provider-owned label metadata (Gmail system + user labels).
+/// Used to render label names/colors in the unified inbox UI.
+model ExternalEmailLabel {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+
+  providerId      String
+  provider        EmailProvider @relation(fields: [providerId], references: [id])
+
+  /// Provider label id (e.g. Gmail label id: INBOX, STARRED, or a custom id)
+  externalLabelId String
+  name            String
+  /// Gmail: \"system\" | \"user\"
+  type            String
+  /// Optional UI color (hex string)
+  color           String?  @default(\"#4F46E5\")
+  isSystem        Boolean  @default(false)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([providerId, externalLabelId])
+  @@index([userId])
+  @@index([providerId])
 }
 
 /// Inbound/received messages synced from external providers (Gmail first).
