@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,10 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  DialogClose,
 } from '@/components/ui/dialog';
 import {
   DropdownMenu,
@@ -33,7 +30,6 @@ import {
   X,
   ChevronDown,
   Clock,
-  Calendar as CalendarIcon,
   PenLine,
   Trash2 as TrashIcon,
   Smile,
@@ -42,12 +38,11 @@ import {
   Loader2,
   MinusCircle,
   FileText,
-  Image,
+  Image as ImageIcon,
   Film
 } from 'lucide-react';
 import { useMutation } from '@apollo/client';
 import { SEND_EMAIL } from '@/lib/apollo/queries/emails';
-import { toast } from '@/components/ui/use-toast';
 import { useToast } from '@/components/ui/use-toast';
 import { EmailAttachmentList } from './EmailAttachment';
 
@@ -70,6 +65,8 @@ export function EmailComposer({
   mode = 'new',
   initialContent = '',
 }: EmailComposerProps) {
+  const { toast } = useToast();
+
   const [to, setTo] = useState<string>(
     mode === 'reply' ? threadRecipients.map(r => r.email).join(', ') : ''
   );
@@ -88,18 +85,35 @@ export function EmailComposer({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Apollo Client mutation for sending emails
-  const [sendEmail, { loading }] = useMutation(SEND_EMAIL);
+  const [sendEmail] = useMutation(SEND_EMAIL);
+
+  const composerTitle = useMemo(() => {
+    return mode === 'new' ? 'New Message' : mode === 'reply' ? 'Reply' : 'Forward';
+  }, [mode]);
+
+  useEffect(() => {
+    // Debug-only log to help trace composer lifecycle issues later.
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[EmailComposer] open change', { isOpen, mode });
+    }
+  }, [isOpen, mode]);
 
   // Handle file selection for attachments
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[EmailComposer] attachments selected', { count: newFiles.length });
+      }
       setAttachments(prev => [...prev, ...newFiles]);
     }
   };
 
   // Handle removing an attachment
   const handleRemoveAttachment = (index: number) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[EmailComposer] attachment removed', { index });
+    }
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
@@ -109,97 +123,134 @@ export function EmailComposer({
   };
 
   // Handle sending the email
-  const handleSendEmail = () => {
-    setIsSending(true);
-
-    // Parse the string inputs to create participant objects
+  const handleSendEmail = async () => {
+    // Parse the string inputs to create participant objects.
     const parseRecipients = (recipientString: string): EmailParticipant[] => {
-      return recipientString.split(',').map(email => {
-        const trimmedEmail = email.trim();
-        return {
-          name: trimmedEmail.split('@')[0] || trimmedEmail,
-          email: trimmedEmail
-        };
-      }).filter(recipient => recipient.email !== '');
+      return recipientString
+        .split(',')
+        .map((raw) => raw.trim())
+        .filter(Boolean)
+        .map((email) => ({
+          name: email.split('@')[0] || email,
+          email,
+        }));
     };
 
-    // Convert strings to EmailParticipant arrays
     const toRecipients = parseRecipients(to);
     const ccRecipients = parseRecipients(cc);
     const bccRecipients = parseRecipients(bcc);
-    
-    // Call the GraphQL mutation
-    sendEmail({
-      variables: {
-        input: {
-          subject: emailSubject,
-          content: content,
-          receiver: toRecipients,
-          cc: ccRecipients.length > 0 ? ccRecipients : undefined,
-          bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
-          attachments: attachments.length > 0 ? attachments.map(file => ({
-            name: file.name,
-            size: file.size,
-            type: file.type
-          })) : undefined,
-          scheduledDate: isScheduled ? scheduledDate?.toISOString() : undefined,
-          replyToMessageId: mode === 'reply' && replyToThread ? replyToThread.id : undefined
-        }
-      }
-    }).then(() => {
-      // Show success message
+
+    // Frontend validations (fast feedback, better UX).
+    if (toRecipients.length === 0) {
       toast({
-        title: 'Email sent',
-        description: isScheduled 
-          ? `Your email has been scheduled for ${scheduledDate?.toLocaleString()}`
+        title: 'Add at least one recipient',
+        description: 'Please enter a valid email in the “To” field.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (isScheduled && !scheduledDate) {
+      toast({
+        title: 'Pick a schedule date',
+        description: 'Choose a date in Schedule Send (or disable scheduling).',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSending(true);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[EmailComposer] send start', {
+        mode,
+        toCount: toRecipients.length,
+        ccCount: ccRecipients.length,
+        bccCount: bccRecipients.length,
+        attachments: attachments.length,
+        scheduled: isScheduled,
+      });
+    }
+
+    try {
+      await sendEmail({
+        variables: {
+          input: {
+            subject: emailSubject,
+            content,
+            receiver: toRecipients,
+            cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+            bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
+            attachments:
+              attachments.length > 0
+                ? attachments.map((file) => ({
+                    name: file.name,
+                    size: file.size,
+                    type: file.type,
+                  }))
+                : undefined,
+            scheduledDate: isScheduled ? scheduledDate?.toISOString() : undefined,
+            replyToMessageId: mode === 'reply' && replyToThread ? replyToThread.id : undefined,
+          },
+        },
+      });
+
+      toast({
+        title: isScheduled ? 'Email scheduled' : 'Email sent',
+        description: isScheduled
+          ? `Scheduled for ${scheduledDate?.toLocaleString()}`
           : 'Your email has been sent successfully',
       });
+
       onClose();
-    }).catch(error => {
-      // Show error message
+    } catch (error: unknown) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[EmailComposer] send failed', error);
+      }
+      const message = error instanceof Error ? error.message : 'Unknown error';
       toast({
         title: 'Failed to send email',
-        description: error.message,
-        variant: 'destructive'
+        description: message,
+        variant: 'destructive',
       });
-    }).finally(() => {
+    } finally {
       setIsSending(false);
-    });
-  };
-
-  // Get file size display
-  const getFileSize = (size: number) => {
-    if (size < 1024) {
-      return `${size} B`;
-    } else if (size < 1024 * 1024) {
-      return `${(size / 1024).toFixed(1)} KB`;
-    } else {
-      return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[EmailComposer] send end');
+      }
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <motion.div
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 50 }}
-        className="bg-background rounded-lg border shadow-lg w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        // Radix Dialog closes on overlay click / ESC; we map that back to parent state.
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        className="p-0 overflow-hidden sm:max-w-[980px] max-h-[90vh] bg-background/70 backdrop-blur-xl border-slate-200/40 dark:border-slate-800/40"
       >
-        {/* Composer header */}
-        <div className="p-4 border-b flex items-center justify-between">
-          <h2 className="text-xl font-medium">
-            {mode === 'new' ? 'New Message' : mode === 'reply' ? 'Reply' : 'Forward'}
-          </h2>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close composer">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+        <div className="flex flex-col max-h-[90vh]">
+          {/* Composer header */}
+          <div className="p-4 border-b flex items-center justify-between bg-background/50 backdrop-blur-md">
+            <div className="min-w-0">
+              <h2 className="text-lg md:text-xl font-semibold tracking-tight truncate">
+                {composerTitle}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {isScheduled ? 'Scheduled send enabled' : 'Send now'}
+              </p>
+            </div>
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon" aria-label="Close composer">
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
+          </div>
 
-        {/* Composer body */}
-        <div className="flex-1 overflow-auto p-4 min-h-[400px]">
+          {/* Composer body */}
+          <div className="flex-1 overflow-auto p-4 md:p-5 min-h-[420px]">
           {/* Recipients */}
           <div className="space-y-2 mb-4">
             <div className="flex items-center gap-2">
@@ -209,7 +260,7 @@ export function EmailComposer({
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
                   placeholder="Add recipients..."
-                  className="border-0 shadow-none focus-visible:ring-0 px-0"
+                  className="border-0 shadow-none focus-visible:ring-0 px-0 bg-transparent"
                 />
               </div>
               <Button
@@ -239,7 +290,7 @@ export function EmailComposer({
                       value={cc}
                       onChange={(e) => setCc(e.target.value)}
                       placeholder="Add CC recipients..."
-                      className="border-0 shadow-none focus-visible:ring-0 px-0"
+                      className="border-0 shadow-none focus-visible:ring-0 px-0 bg-transparent"
                     />
                   </div>
                   <Button
@@ -267,7 +318,7 @@ export function EmailComposer({
                       value={bcc}
                       onChange={(e) => setBcc(e.target.value)}
                       placeholder="Add BCC recipients..."
-                      className="border-0 shadow-none focus-visible:ring-0 px-0"
+                      className="border-0 shadow-none focus-visible:ring-0 px-0 bg-transparent"
                     />
                   </div>
                   <Button
@@ -290,7 +341,7 @@ export function EmailComposer({
                   value={emailSubject}
                   onChange={(e) => setEmailSubject(e.target.value)}
                   placeholder="Subject..."
-                  className="border-0 shadow-none focus-visible:ring-0 px-0"
+                  className="border-0 shadow-none focus-visible:ring-0 px-0 bg-transparent"
                 />
               </div>
             </div>
@@ -367,7 +418,7 @@ export function EmailComposer({
 
           {/* Attachments */}
           {attachments.length > 0 && (
-            <div className="mt-4 border rounded-md p-3">
+            <div className="mt-4 border rounded-md p-3 bg-background/40 backdrop-blur-sm">
               <h3 className="text-sm font-medium mb-2">Attachments ({attachments.length})</h3>
               <EmailAttachmentList 
                 attachments={attachments} 
@@ -379,10 +430,10 @@ export function EmailComposer({
         </div>
 
         {/* Composer footer */}
-        <div className="p-4 border-t flex items-center justify-between">
+        <div className="p-4 border-t flex items-center justify-between bg-background/50 backdrop-blur-md">
           <div className="flex items-center gap-2">
             <Button 
-              variant="default" 
+              variant="premium" 
               className="gap-1"
               onClick={handleSendEmail}
               disabled={isSending}
@@ -432,7 +483,7 @@ export function EmailComposer({
                     }, 100);
                   }
                 }}>
-                  <Image className="h-4 w-4 mr-2" />
+                  <ImageIcon className="h-4 w-4 mr-2" />
                   <span>Attach Images</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {
@@ -472,6 +523,9 @@ export function EmailComposer({
                   onSelect={(date) => {
                     setScheduledDate(date);
                     setIsScheduled(!!date);
+                    if (process.env.NODE_ENV !== 'production') {
+                      console.warn('[EmailComposer] schedule set', { date: date?.toISOString() });
+                    }
                   }}
                   initialFocus
                 />
@@ -488,6 +542,9 @@ export function EmailComposer({
                     onClick={() => {
                       setIsScheduled(false);
                       setScheduledDate(undefined);
+                      if (process.env.NODE_ENV !== 'production') {
+                        console.warn('[EmailComposer] schedule cleared');
+                      }
                     }}
                   >
                     <TrashIcon className="h-3 w-3 mr-1" />
@@ -526,7 +583,8 @@ export function EmailComposer({
             </div>
           )}
         </div>
-      </motion.div>
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

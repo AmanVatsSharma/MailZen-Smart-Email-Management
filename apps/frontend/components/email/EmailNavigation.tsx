@@ -8,13 +8,10 @@ import {
   AlertCircle, 
   Archive, 
   Trash, 
-  Tag, 
-  FolderPlus, 
   PlusCircle,
   ChevronRight,
   ChevronDown,
-  Settings,
-  Edit
+  Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -26,13 +23,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
 import { EmailFolder, EmailLabel } from '@/lib/email/email-types';
 import { useQuery } from '@apollo/client';
 import { GET_FOLDERS, GET_LABELS } from '@/lib/apollo/queries/emails';
@@ -42,6 +32,10 @@ interface EmailNavigationProps {
   onFolderSelect: (folder: EmailFolder) => void;
   currentLabel?: string;
   onLabelSelect: (labelId: string) => void;
+  /**
+   * Optional compose handler. When omitted, the button will log in dev.
+   */
+  onCompose?: () => void;
   className?: string;
 }
 
@@ -62,6 +56,7 @@ export function EmailNavigation({
   onFolderSelect,
   currentLabel,
   onLabelSelect,
+  onCompose,
   className = '',
 }: EmailNavigationProps) {
   const [labelsExpanded, setLabelsExpanded] = useState(true);
@@ -111,10 +106,24 @@ export function EmailNavigation({
   };
   
   return (
-    <div className={cn("w-56 flex flex-col h-full border-r", className)}>
+    <div className={cn("w-full flex flex-col h-full min-w-0", className)}>
       {/* Create new email button */}
       <div className="p-4">
-        <Button className="w-full gap-2" size="sm">
+        <Button
+          className="w-full gap-2"
+          size="sm"
+          variant="premium"
+          onClick={() => {
+            if (onCompose) {
+              onCompose();
+              return;
+            }
+            if (process.env.NODE_ENV !== 'production') {
+              // eslint-disable-next-line no-console
+              console.debug('[EmailNavigation] compose clicked (no handler provided)');
+            }
+          }}
+        >
           <PlusCircle className="h-4 w-4" />
           Compose
         </Button>
@@ -179,8 +188,11 @@ export function EmailNavigation({
                       className="h-5 w-5"
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Open label management
-                        console.log('Open label management');
+                        // Open label management (future). Keep dev logging for now.
+                        if (process.env.NODE_ENV !== 'production') {
+                          // eslint-disable-next-line no-console
+                          console.debug('[EmailNavigation] open label management');
+                        }
                       }}
                     >
                       <Settings className="h-3 w-3" />

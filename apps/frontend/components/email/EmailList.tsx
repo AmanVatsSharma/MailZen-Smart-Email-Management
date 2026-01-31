@@ -413,7 +413,7 @@ export function EmailList({
   }, [isSelectMode, selectedThreadIds, emails.items]);
 
   return (
-    <div className={`flex flex-col h-full ${className}`}>
+    <div className={cn('flex flex-col h-full p-4', className)}>
       {/* Top toolbar */}
       <div className="flex items-center justify-between pb-4 border-b">
         <div className="flex items-center gap-2">
