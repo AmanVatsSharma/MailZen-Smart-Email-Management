@@ -1,4 +1,15 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Email } from './entities/email.entity';
+import { EmailProvider } from '../email-integration/entities/email-provider.entity';
+import { EmailAnalytics } from '../email-analytics/entities/email-analytics.entity';
+import { EmailFilter } from './entities/email-filter.entity';
+import { EmailFolder } from './entities/email-folder.entity';
+import { EmailLabel } from './entities/email-label.entity';
+import { EmailLabelAssignment } from './entities/email-label-assignment.entity';
+import { Attachment } from './entities/attachment.entity';
+import { EmailWarmup } from './entities/email-warmup.entity';
+import { WarmupActivity } from './entities/warmup-activity.entity';
 import { EmailService } from './email.service';
 import { EmailResolver } from './email.resolver';
 import { EmailController } from './email.controller';
@@ -12,7 +23,6 @@ import { AttachmentResolver } from './email.attachment.resolver';
 import { EmailWarmupService } from './email.email-warmup.service';
 import { EmailWarmupResolver } from './email.email-warmup.resolver';
 import { EmailProviderModule } from '../email-integration/email-provider.module';
-import { PrismaModule } from '../prisma/prisma.module';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { EjsAdapter } from '@nestjs-modules/mailer/dist/adapters/ejs.adapter';
 import { BullModule } from '@nestjs/bull';
@@ -21,10 +31,25 @@ import { join } from 'path';
 import { ConfigModule } from '@nestjs/config';
 import { MailService } from './mail.service';
 
+/**
+ * EmailModule - Email sending, tracking, and management
+ * Handles email operations, scheduling, filtering, and warmup campaigns
+ */
 @Module({
   imports: [
+    TypeOrmModule.forFeature([
+      Email,
+      EmailProvider,
+      EmailAnalytics,
+      EmailFilter,
+      EmailFolder,
+      EmailLabel,
+      EmailLabelAssignment,
+      Attachment,
+      EmailWarmup,
+      WarmupActivity,
+    ]),
     ConfigModule,
-    PrismaModule,
     EmailProviderModule,
     ScheduleModule.forRoot(),
     BullModule.forRoot({

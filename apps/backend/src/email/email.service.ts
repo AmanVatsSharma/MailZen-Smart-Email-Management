@@ -1,55 +1,83 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Email } from './entities/email.entity';
+import { EmailProvider } from '../email-integration/entities/email-provider.entity';
+import { EmailAnalytics } from '../email-analytics/entities/email-analytics.entity';
 import { EmailProviderService } from '../email-integration/email-provider.service';
 import { SendEmailInput } from './dto/send-email.input';
 import { MailerService } from '@nestjs-modules/mailer';
 import * as nodemailer from 'nodemailer';
 
+/**
+ * EmailService - Handles email sending, tracking, and management
+ * Integrates with external providers (Gmail, Outlook, SMTP)
+ */
 @Injectable()
 export class EmailService {
   constructor(
-    private prisma: PrismaService,
+    @InjectRepository(Email)
+    private readonly emailRepository: Repository<Email>,
+    @InjectRepository(EmailProvider)
+    private readonly providerRepository: Repository<EmailProvider>,
+    @InjectRepository(EmailAnalytics)
+    private readonly analyticsRepository: Repository<EmailAnalytics>,
     private emailProviderService: EmailProviderService,
     private mailerService: MailerService,
-  ) {}
+  ) {
+    console.log('[EmailService] Initialized with TypeORM repositories');
+  }
 
+  /**
+   * Send email via configured provider
+   * @param input - Email send parameters
+   * @param userId - User ID
+   * @returns Created email entity
+   */
   async sendEmail(input: SendEmailInput, userId: string) {
+    console.log('[EmailService] Sending email from user:', userId);
+    
     // First save the email in database
-    const email = await this.prisma.email.create({
-      data: {
-        subject: input.subject,
-        body: input.body,
-        from: input.from,
-        to: input.to,
-        status: input.scheduledAt ? 'SCHEDULED' : 'PENDING',
-        scheduledAt: input.scheduledAt,
-        userId,
-        providerId: input.providerId,
-      },
+    const email = this.emailRepository.create({
+      subject: input.subject,
+      body: input.body,
+      from: input.from,
+      to: input.to,
+      status: input.scheduledAt ? 'SCHEDULED' : 'PENDING',
+      scheduledAt: input.scheduledAt,
+      userId,
+      providerId: input.providerId,
     });
+    
+    const savedEmail = await this.emailRepository.save(email);
+    console.log('[EmailService] Email saved to database:', savedEmail.id);
 
     // Create analytics entry
-    await this.prisma.emailAnalytics.create({
-      data: {
-        emailId: email.id,
-        openCount: 0,
-        clickCount: 0,
-      },
+    const analytics = this.analyticsRepository.create({
+      emailId: savedEmail.id,
+      openCount: 0,
+      clickCount: 0,
     });
+    await this.analyticsRepository.save(analytics);
+    console.log('[EmailService] Analytics entry created');
 
     // If scheduled, return early
     if (input.scheduledAt) {
-      return email;
+      console.log('[EmailService] Email scheduled for:', input.scheduledAt);
+      return savedEmail;
     }
 
     // Get provider details
-    const provider = await this.prisma.emailProvider.findUnique({
+    const provider = await this.providerRepository.findOne({
       where: { id: input.providerId },
     });
 
     if (!provider) {
+      console.log('[EmailService] Provider not found:', input.providerId);
       throw new Error('Email provider not found');
     }
+    
+    console.log('[EmailService] Using provider:', provider.type);
 
     // Configure transport based on provider type
     let transportConfig;
@@ -98,21 +126,28 @@ export class EmailService {
       });
 
       // Update email status
-      return this.prisma.email.update({
-        where: { id: email.id },
-        data: { status: 'SENT' },
-      });
+      console.log('[EmailService] Email sent successfully');
+      await this.emailRepository.update(savedEmail.id, { status: 'SENT' });
+      return this.emailRepository.findOne({ where: { id: savedEmail.id } });
     } catch (error) {
       // Update email status on failure
-      await this.prisma.email.update({
-        where: { id: email.id },
-        data: { status: 'FAILED' },
-      });
+      console.error('[EmailService] Failed to send email:', error);
+      await this.emailRepository.update(savedEmail.id, { status: 'FAILED' });
       throw error;
     }
   }
 
+  /**
+   * Send email using template
+   * @param template - Template name
+   * @param to - Recipient emails
+   * @param context - Template context data
+   * @param userId - User ID
+   * @returns Created email entity
+   */
   async sendTemplateEmail(template: string, to: string[], context: any, userId: string) {
+    console.log('[EmailService] Sending template email:', template);
+    
     const email = await this.mailerService.sendMail({
       to: to.join(','),
       subject: context.subject,
@@ -120,16 +155,19 @@ export class EmailService {
       context,
     });
 
-    return this.prisma.email.create({
-      data: {
-        subject: context.subject,
-        body: email.html,
-        from: email.from,
-        to,
-        status: 'SENT',
-        userId,
-      },
+    const savedEmail = this.emailRepository.create({
+      subject: context.subject,
+      body: email.html,
+      from: email.from,
+      to,
+      status: 'SENT',
+      userId,
     });
+    
+    const result = await this.emailRepository.save(savedEmail);
+    console.log('[EmailService] Template email sent:', result.id);
+    
+    return result;
   }
 
   private addClickTracking(html: string, emailId: string): string {
@@ -140,55 +178,86 @@ export class EmailService {
     );
   }
 
+  /**
+   * Track email open event
+   * @param emailId - Email ID
+   * @returns Updated analytics
+   */
   async trackOpen(emailId: string) {
-    return this.prisma.emailAnalytics.update({
-      where: { emailId },
-      data: {
-        openCount: { increment: 1 },
-      },
-    });
+    console.log('[EmailService] Tracking email open:', emailId);
+    
+    const analytics = await this.analyticsRepository.findOne({ where: { emailId } });
+    if (analytics) {
+      analytics.openCount += 1;
+      return this.analyticsRepository.save(analytics);
+    }
+    return null;
   }
 
+  /**
+   * Track email link click event
+   * @param emailId - Email ID
+   * @returns Updated analytics
+   */
   async trackClick(emailId: string) {
-    return this.prisma.emailAnalytics.update({
-      where: { emailId },
-      data: {
-        clickCount: { increment: 1 },
-      },
-    });
+    console.log('[EmailService] Tracking email click:', emailId);
+    
+    const analytics = await this.analyticsRepository.findOne({ where: { emailId } });
+    if (analytics) {
+      analytics.clickCount += 1;
+      return this.analyticsRepository.save(analytics);
+    }
+    return null;
   }
 
+  /**
+   * Get emails for a user, optionally filtered by provider
+   * @param userId - User ID
+   * @param providerId - Optional provider filter
+   * @returns Array of emails with relations
+   */
   async getEmailsByUser(userId: string, providerId?: string | null) {
-    return this.prisma.email.findMany({
-      where: {
-        userId,
-        ...(providerId ? { providerId } : {}),
-      },
-      include: {
-        provider: true,
-        analytics: true,
-      },
-      orderBy: { createdAt: 'desc' },
+    console.log('[EmailService] Fetching emails for user:', userId);
+    
+    const where: any = { userId };
+    if (providerId) {
+      where.providerId = providerId;
+    }
+    
+    const emails = await this.emailRepository.find({
+      where,
+      relations: ['provider', 'analytics'],
+      order: { createdAt: 'DESC' },
     });
+    
+    console.log('[EmailService] Found', emails.length, 'emails');
+    return emails;
   }
 
+  /**
+   * Get single email by ID for a user
+   * @param id - Email ID
+   * @param userId - User ID
+   * @returns Email with relations
+   */
   async getEmailById(id: string, userId: string) {
-    return this.prisma.email.findFirst({
-      where: { 
-        id,
-        userId,
-      },
-      include: {
-        provider: true,
-        analytics: true,
-      },
+    console.log('[EmailService] Fetching email:', id);
+    
+    return this.emailRepository.findOne({
+      where: { id, userId },
+      relations: ['provider', 'analytics'],
     });
   }
 
+  /**
+   * Mark email as read
+   * @param emailId - Email ID
+   * @returns Updated email
+   */
   async markEmailRead(emailId: string) {
-    return this.prisma.email.update({
-      where: { id: emailId },
-      data: { status: 'READ' },
-    });
+    console.log('[EmailService] Marking email as read:', emailId);
+    
+    await this.emailRepository.update(emailId, { status: 'READ' });
+    return this.emailRepository.findOne({ where: { id: emailId } });
   }
 }
