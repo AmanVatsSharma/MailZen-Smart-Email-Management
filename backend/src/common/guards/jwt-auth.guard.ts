@@ -41,9 +41,20 @@ export class JwtAuthGuard implements CanActivate {
     return token;
   }
 
+  /**
+   * This guard supports BOTH:
+   * - GraphQL resolvers (via `GqlExecutionContext`)
+   * - REST controllers (via `context.switchToHttp()`)
+   *
+   * Why: we keep auth behavior consistent across transport layers
+   * (cookie-first, Authorization header fallback).
+   */
   canActivate(context: ExecutionContext): boolean {
-    const ctx = GqlExecutionContext.create(context);
-    const request = ctx.getContext().req;
+    const type = context.getType<'http' | 'graphql' | string>();
+    const request =
+      type === 'http'
+        ? context.switchToHttp().getRequest()
+        : GqlExecutionContext.create(context).getContext().req;
 
     // Primary: HttpOnly cookie token. Fallback: Authorization header.
     const token = this.getCookieToken(request) || this.getBearerToken(request);
