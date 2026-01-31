@@ -13,7 +13,6 @@ interface EmailProvidersPageProps {
     provider?: string;
     success?: string;
     error?: string;
-    code?: string;
   };
 }
 
