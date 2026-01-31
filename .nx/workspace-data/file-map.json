@@ -6,24 +6,24 @@
   "fileMap": {
     "nonProjectFiles": [
       {
-        "file": ".cursor/plans/frontend_polish_pass_66602956.plan.md",
-        "hash": "13021225082785102614"
+        "file": ".gitignore",
+        "hash": "12228022178553669529"
       },
       {
-        "file": "tools/ensure-env.js",
-        "hash": "52241091178071508"
-      },
-      {
-        "file": ".cursor/plans/enterprise_auth_wiring_a0cc3072.plan.md",
-        "hash": "5562174741108176712"
+        "file": "package-lock.json",
+        "hash": "3503427873816494508"
       },
       {
         "file": "README.md",
         "hash": "16100399334875497739"
       },
       {
-        "file": "package.json",
-        "hash": "4216715841772880991"
+        "file": "tools/ensure-env.js",
+        "hash": "52241091178071508"
+      },
+      {
+        "file": ".cursor/plans/frontend_polish_pass_66602956.plan.md",
+        "hash": "13021225082785102614"
       },
       {
         "file": ".cursor/plans/gmailoauth+multiinbox_6db6517f.plan.md",
@@ -34,12 +34,12 @@
         "hash": "4028464915613245907"
       },
       {
-        "file": ".gitignore",
-        "hash": "12228022178553669529"
+        "file": "package.json",
+        "hash": "4216715841772880991"
       },
       {
-        "file": "package-lock.json",
-        "hash": "3503427873816494508"
+        "file": ".cursor/plans/enterprise_auth_wiring_a0cc3072.plan.md",
+        "hash": "5562174741108176712"
       }
     ],
     "projectFileMap": {
@@ -923,6 +923,10 @@
           "hash": "14896372395373136437"
         },
         {
+          "file": "apps/backend/src/gmail-sync/gmail-sync.service.spec.ts",
+          "hash": "5117290066567213337"
+        },
+        {
           "file": "apps/backend/src/gmail-sync/gmail-sync.service.ts",
           "hash": "1543492581458940448"
         },
@@ -1137,6 +1141,10 @@
         {
           "file": "apps/backend/src/unified-inbox/unified-inbox.resolver.ts",
           "hash": "4376180700434887477"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/unified-inbox.service.spec.ts",
+          "hash": "12031674241438048523"
         },
         {
           "file": "apps/backend/src/unified-inbox/unified-inbox.service.ts",
