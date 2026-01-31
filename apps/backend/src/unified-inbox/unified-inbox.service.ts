@@ -481,7 +481,6 @@ export class UnifiedInboxService {
       folder: this.labelsToFolder(threadLabels),
       labelIds: threadLabels,
       providerId: anchor.providerId,
-      providerThreadId: anchor.threadId || undefined,
     };
   }
 

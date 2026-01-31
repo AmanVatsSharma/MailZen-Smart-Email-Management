@@ -3,6 +3,8 @@ import { ContactResolver } from './contact.resolver';
 import { ContactService } from './contact.service';
 import { CreateContactInput } from './dto/create-contact.input';
 import { UpdateContactInput } from './dto/update-contact.input';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { AuthService } from '../auth/auth.service';
 
 describe('ContactResolver', () => {
   let resolver: ContactResolver;
@@ -42,6 +44,9 @@ describe('ContactResolver', () => {
       providers: [
         ContactResolver,
         { provide: ContactService, useValue: mockContactService },
+        // Resolver uses @UseGuards(JwtAuthGuard); include guard deps so TestingModule can compile.
+        JwtAuthGuard,
+        { provide: AuthService, useValue: { validateToken: jest.fn().mockReturnValue({ id: mockContext.req.user.id }) } },
       ],
     }).compile();
 

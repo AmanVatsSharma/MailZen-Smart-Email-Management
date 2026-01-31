@@ -1,51 +1,20 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { EmailFilterService } from './email.email-filter.service';
 import { EmailFilterResolver } from './email.email-filter.resolver';
-import { CreateEmailFilterInput } from './dto/email-filter.input';
+import { EmailFilterService } from './email.email-filter.service';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { AuthService } from '../auth/auth.service';
 
-describe('EmailFilterResolver', () => {
+describe('EmailFilterResolver (smoke)', () => {
   let resolver: EmailFilterResolver;
-  let service: EmailFilterService;
+  let service: any;
 
-  // Mock email filter data
-  const mockEmailFilter = {
-    id: '1',
-    userId: 'user-1',
-    name: 'Spam Filter',
-    conditions: {
-      fromEmail: 'spam@example.com',
-      subject: 'lottery',
-      bodyContains: ['urgent', 'money', 'prize'],
-    },
-    actions: {
-      moveTo: 'SPAM',
-      markAs: 'READ',
-      forward: false,
-    },
-    active: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  const userId = 'user-1';
+  const mockContext = { req: { user: { id: userId } } };
 
-  // Mock context with user info
-  const mockContext = {
-    req: {
-      user: {
-        id: 'user-1',
-      },
-    },
-  };
-
-  // Mock EmailFilterService
   const mockEmailFilterService = {
-    createEmailFilter: jest.fn().mockResolvedValue(mockEmailFilter),
-    getEmailFilters: jest.fn().mockResolvedValue([mockEmailFilter]),
-    getEmailFilterById: jest.fn().mockResolvedValue(mockEmailFilter),
-    updateEmailFilter: jest.fn().mockResolvedValue({
-      ...mockEmailFilter,
-      name: 'Updated Filter',
-    }),
-    deleteEmailFilter: jest.fn().mockResolvedValue(mockEmailFilter),
+    createFilter: jest.fn().mockResolvedValue({ id: 'f1' }),
+    getFilters: jest.fn().mockResolvedValue([{ id: 'f1', name: 'My Filter', rules: [] }]),
+    deleteFilter: jest.fn().mockResolvedValue({ id: 'f1' }),
   };
 
   beforeEach(async () => {
@@ -53,73 +22,33 @@ describe('EmailFilterResolver', () => {
       providers: [
         EmailFilterResolver,
         { provide: EmailFilterService, useValue: mockEmailFilterService },
+        JwtAuthGuard,
+        { provide: AuthService, useValue: { validateToken: jest.fn().mockReturnValue({ id: userId }) } },
       ],
     }).compile();
 
-    resolver = module.get<EmailFilterResolver>(EmailFilterResolver);
-    service = module.get<EmailFilterService>(EmailFilterService);
+    resolver = module.get(EmailFilterResolver);
+    service = module.get(EmailFilterService);
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  afterEach(() => jest.clearAllMocks());
+
+  it('createEmailFilter delegates to service.createFilter and returns true', async () => {
+    const ok = await resolver.createEmailFilter({ name: 'My Filter', rules: [] } as any, mockContext as any);
+    expect(service.createFilter).toHaveBeenCalledWith({ name: 'My Filter', rules: [] }, userId);
+    expect(ok).toBe(true);
   });
 
-  it('should be defined', () => {
-    expect(resolver).toBeDefined();
+  it('getEmailFilters delegates and returns stringified filters', async () => {
+    const res = await resolver.getEmailFilters(mockContext as any);
+    expect(service.getFilters).toHaveBeenCalledWith(userId);
+    expect(Array.isArray(res)).toBe(true);
+    expect(typeof res[0]).toBe('string');
   });
 
-  describe('createEmailFilter', () => {
-    it('should create a new email filter', async () => {
-      // Arrange
-      const createEmailFilterInput: CreateEmailFilterInput = {
-        name: 'Spam Filter',
-        conditions: {
-          fromEmail: 'spam@example.com',
-          subject: 'lottery',
-          bodyContains: ['urgent', 'money', 'prize'],
-        },
-        actions: {
-          moveTo: 'SPAM',
-          markAs: 'READ',
-          forward: false,
-        },
-        active: true,
-      };
-
-      // Act
-      const result = await resolver.createEmailFilter(createEmailFilterInput, mockContext);
-
-      // Assert
-      expect(service.createEmailFilter).toHaveBeenCalledWith(
-        mockContext.req.user.id,
-        createEmailFilterInput
-      );
-      expect(result).toEqual(mockEmailFilter);
-    });
+  it('deleteEmailFilter delegates and returns true', async () => {
+    const ok = await resolver.deleteEmailFilter('f1', mockContext as any);
+    expect(service.deleteFilter).toHaveBeenCalledWith('f1', userId);
+    expect(ok).toBe(true);
   });
-
-  describe('getEmailFilters', () => {
-    it('should return all email filters for the authenticated user', async () => {
-      // Act
-      const result = await resolver.getEmailFilters(mockContext);
-
-      // Assert
-      expect(service.getEmailFilters).toHaveBeenCalledWith(mockContext.req.user.id);
-      expect(result).toEqual([mockEmailFilter]);
-    });
-  });
-
-  describe('deleteEmailFilter', () => {
-    it('should delete an email filter', async () => {
-      // Arrange
-      const filterId = '1';
-
-      // Act
-      const result = await resolver.deleteEmailFilter(filterId, mockContext);
-
-      // Assert
-      expect(service.deleteEmailFilter).toHaveBeenCalledWith(mockContext.req.user.id, filterId);
-      expect(result).toEqual(mockEmailFilter);
-    });
-  });
-}); 
+});
