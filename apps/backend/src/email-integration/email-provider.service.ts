@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, InternalServerErrorException, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { EmailProvider } from './entities/email-provider.entity';
 import { EmailProviderInput } from './dto/email-provider.input';
 import { SmtpSettingsInput } from './dto/smtp-settings.input';
-import { PrismaService } from '../prisma/prisma.service';
 import { createTransport, Transporter } from 'nodemailer';
 import * as NodeCache from 'node-cache';
 import { OAuth2Client } from 'google-auth-library';
@@ -14,6 +16,10 @@ interface SmtpConnectionPool {
   }
 }
 
+/**
+ * EmailProviderService - Manages external email provider integrations
+ * Handles OAuth flows, SMTP connections, and provider lifecycle
+ */
 @Injectable()
 export class EmailProviderService {
   private readonly logger = new Logger(EmailProviderService.name);
@@ -21,7 +27,12 @@ export class EmailProviderService {
   private readonly smtpConnectionPool: SmtpConnectionPool = {};
   private readonly connectionCache = new NodeCache({ stdTTL: 3600, checkperiod: 600 }); // 1 hour TTL, check every 10 minutes
   
-  constructor(private prisma: PrismaService) {
+  constructor(
+    @InjectRepository(EmailProvider)
+    private readonly providerRepository: Repository<EmailProvider>,
+  ) {
+    console.log('[EmailProviderService] Initialized with TypeORM repository');
+    
     // Setup Google OAuth client
     this.googleOAuth2Client = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID,
@@ -40,7 +51,7 @@ export class EmailProviderService {
    * This is used by inbox sync modules (Gmail/Outlook) that need API access.
    */
   async getValidAccessToken(providerId: string, userId: string): Promise<string | null> {
-    const provider = await this.prisma.emailProvider.findFirst({ where: { id: providerId, userId } });
+    const provider = await this.providerRepository.findOne({ where: { id: providerId, userId } });
     if (!provider) throw new NotFoundException('Provider not found');
     if (!['GMAIL', 'OUTLOOK'].includes(provider.type)) return null;
 
@@ -53,7 +64,7 @@ export class EmailProviderService {
       }
     }
 
-    const updated = await this.prisma.emailProvider.findUnique({ where: { id: providerId } });
+    const updated = await this.providerRepository.findOne({ where: { id: providerId } });
     return updated?.accessToken || null;
   }
 
@@ -99,10 +110,7 @@ export class EmailProviderService {
       const created = await this.configureProvider(input, userId);
       // Set UI fields for provider management
       const displayName = `Gmail - ${email}`;
-      await this.prisma.emailProvider.update({
-        where: { id: created.id },
-        data: { displayName, status: 'connected', lastSyncedAt: null },
-      });
+      await this.providerRepository.update(created.id, { displayName, status: 'connected', lastSyncedAt: null });
       return this.getProviderUi(created.id, userId);
     } catch (error: any) {
       this.logger.error(`Failed to connect Gmail: ${error.message}`, error.stack);
@@ -155,10 +163,7 @@ export class EmailProviderService {
 
       const created = await this.configureProvider(input, userId);
       const displayName = `Outlook - ${email}`;
-      await this.prisma.emailProvider.update({
-        where: { id: created.id },
-        data: { displayName, status: 'connected', lastSyncedAt: null },
-      });
+      await this.providerRepository.update(created.id, { displayName, status: 'connected', lastSyncedAt: null });
       return this.getProviderUi(created.id, userId);
     } catch (error: any) {
       this.logger.error(`Failed to connect Outlook: ${error.message}`, error.stack);
@@ -179,10 +184,7 @@ export class EmailProviderService {
 
       const created = await this.configureProvider(input, userId);
       const displayName = `SMTP - ${settings.email}`;
-      await this.prisma.emailProvider.update({
-        where: { id: created.id },
-        data: { displayName, status: 'connected', lastSyncedAt: null },
-      });
+      await this.providerRepository.update(created.id, { displayName, status: 'connected', lastSyncedAt: null });
       return this.getProviderUi(created.id, userId);
     } catch (error: any) {
       this.logger.error(`Failed to connect SMTP: ${error.message}`, error.stack);
@@ -193,15 +195,15 @@ export class EmailProviderService {
 
   async setActiveProvider(providerId: string, userId: string, isActive?: boolean) {
     try {
-      const provider = await this.prisma.emailProvider.findFirst({ where: { id: providerId, userId } });
+      const provider = await this.providerRepository.findOne({ where: { id: providerId, userId } });
       if (!provider) throw new NotFoundException('Provider not found');
 
       // If enabling, disable all other providers for this user.
       if (isActive) {
-        await this.prisma.emailProvider.updateMany({ where: { userId }, data: { isActive: false } });
-        await this.prisma.emailProvider.update({ where: { id: providerId }, data: { isActive: true } });
+        await this.providerRepository.update({ userId }, { isActive: false });
+        await this.providerRepository.update(providerId, { isActive: true });
       } else if (isActive === false) {
-        await this.prisma.emailProvider.update({ where: { id: providerId }, data: { isActive: false } });
+        await this.providerRepository.update(providerId, { isActive: false });
       }
 
       return this.getProviderUi(providerId, userId);
@@ -220,19 +222,19 @@ export class EmailProviderService {
 
   async syncProvider(providerId: string, userId: string) {
     // MVP: mark as syncing; gmail-sync module will do real syncing later.
-    const provider = await this.prisma.emailProvider.findFirst({ where: { id: providerId, userId } });
+    const provider = await this.providerRepository.findOne({ where: { id: providerId, userId } });
     if (!provider) throw new NotFoundException('Provider not found');
-    await this.prisma.emailProvider.update({ where: { id: providerId }, data: { status: 'syncing' } });
+    await this.providerRepository.update(providerId, { status: 'syncing' });
     return this.getProviderUi(providerId, userId);
   }
 
   async listProvidersUi(userId: string) {
-    const providers = await this.prisma.emailProvider.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
+    const providers = await this.providerRepository.find({ where: { userId }, order: { createdAt: 'DESC' } });
     return providers.map(p => this.mapToProviderUi(p));
   }
 
   private async getProviderUi(providerId: string, userId: string) {
-    const provider = await this.prisma.emailProvider.findFirst({ where: { id: providerId, userId } });
+    const provider = await this.providerRepository.findOne({ where: { id: providerId, userId } });
     if (!provider) throw new NotFoundException('Provider not found');
     return this.mapToProviderUi(provider);
   }
@@ -263,7 +265,7 @@ export class EmailProviderService {
       }
       
       // Check if provider already exists
-      const existingProvider = await this.prisma.emailProvider.findFirst({
+      const existingProvider = await this.providerRepository.findOne({
         where: {
           email: config.email,
           type: config.providerType,
@@ -314,20 +316,15 @@ export class EmailProviderService {
     }
     
     try {
-      return await this.prisma.emailProvider.create({
-        data: {
-          type: 'GMAIL',
-          email: config.email,
-          accessToken: config.accessToken,
-          refreshToken: config.refreshToken,
-          tokenExpiry: config.tokenExpiry ? new Date(config.tokenExpiry) : null,
-          user: {
-            connect: {
-              id: userId
-            }
-          }
-        }
+      const provider = this.providerRepository.create({
+        type: 'GMAIL',
+        email: config.email,
+        accessToken: config.accessToken,
+        refreshToken: config.refreshToken,
+        tokenExpiry: config.tokenExpiry ? new Date(config.tokenExpiry * 1000) : null,
+        userId
       });
+      return await this.providerRepository.save(provider);
     } catch (error) {
       this.logger.error(`Failed to configure Gmail provider: ${error.message}`, error.stack);
       throw new InternalServerErrorException('Failed to configure Gmail provider');
@@ -340,20 +337,15 @@ export class EmailProviderService {
     }
     
     try {
-      return await this.prisma.emailProvider.create({
-        data: {
-          type: 'OUTLOOK',
-          email: config.email,
-          accessToken: config.accessToken,
-          refreshToken: config.refreshToken,
-          tokenExpiry: config.tokenExpiry ? new Date(config.tokenExpiry) : null,
-          user: {
-            connect: {
-              id: userId
-            }
-          }
-        }
+      const provider = this.providerRepository.create({
+        type: 'OUTLOOK',
+        email: config.email,
+        accessToken: config.accessToken,
+        refreshToken: config.refreshToken,
+        tokenExpiry: config.tokenExpiry ? new Date(config.tokenExpiry * 1000) : null,
+        userId
       });
+      return await this.providerRepository.save(provider);
     } catch (error) {
       this.logger.error(`Failed to configure Outlook provider: ${error.message}`, error.stack);
       throw new InternalServerErrorException('Failed to configure Outlook provider');
@@ -366,20 +358,15 @@ export class EmailProviderService {
     }
 
     try {
-      return await this.prisma.emailProvider.create({
-        data: {
-          type: 'CUSTOM_SMTP',
-          email: config.email,
-          host: config.host,
-          port: config.port,
-          password: config.password,
-          user: {
-            connect: {
-              id: userId
-            }
-          }
-        }
+      const provider = this.providerRepository.create({
+        type: 'CUSTOM_SMTP',
+        email: config.email,
+        host: config.host,
+        port: config.port,
+        password: config.password,
+        userId
       });
+      return await this.providerRepository.save(provider);
     } catch (error) {
       this.logger.error(`Failed to configure SMTP provider: ${error.message}`, error.stack);
       throw new InternalServerErrorException('Failed to configure SMTP provider');
@@ -388,12 +375,12 @@ export class EmailProviderService {
 
   async getProviderEmails(providerId: string, userId: string) {
     try {
-      const provider = await this.prisma.emailProvider.findFirst({
+      const provider = await this.providerRepository.findOne({
         where: { 
           id: providerId,
           userId
         },
-        include: { emails: true }
+        relations: ['emails']
       });
 
       if (!provider) {
@@ -412,9 +399,9 @@ export class EmailProviderService {
 
   async getAllProviders(userId: string) {
     try {
-      return await this.prisma.emailProvider.findMany({
+      return await this.providerRepository.find({
         where: { userId },
-        orderBy: { createdAt: 'desc' }
+        order: { createdAt: 'DESC' }
       });
     } catch (error) {
       this.logger.error(`Failed to get all providers: ${error.message}`, error.stack);
@@ -424,7 +411,7 @@ export class EmailProviderService {
 
   async getProviderById(id: string, userId: string) {
     try {
-      const provider = await this.prisma.emailProvider.findFirst({
+      const provider = await this.providerRepository.findOne({
         where: { 
           id,
           userId 
@@ -448,7 +435,7 @@ export class EmailProviderService {
   async deleteProvider(id: string, userId: string) {
     try {
       // First verify that the provider exists and belongs to the user
-      const provider = await this.prisma.emailProvider.findFirst({
+      const provider = await this.providerRepository.findOne({
         where: { 
           id,
           userId 
@@ -463,9 +450,7 @@ export class EmailProviderService {
       this.removeFromConnectionPool(id);
 
       // Delete the provider
-      await this.prisma.emailProvider.delete({
-        where: { id }
-      });
+      await this.providerRepository.delete(id);
 
       return true;
     } catch (error) {
@@ -480,7 +465,7 @@ export class EmailProviderService {
   async updateProviderCredentials(id: string, updatedData: Partial<EmailProviderInput>, userId: string) {
     try {
       // First verify that the provider exists and belongs to the user
-      const provider = await this.prisma.emailProvider.findFirst({
+      const provider = await this.providerRepository.findOne({
         where: { 
           id,
           userId 
@@ -495,23 +480,21 @@ export class EmailProviderService {
       this.removeFromConnectionPool(id);
 
       // Prepare update data based on provider type
-      const updateData = {};
+      const updateData: any = {};
       
       if (provider.type === 'CUSTOM_SMTP') {
-        if (updatedData.host) updateData['host'] = updatedData.host;
-        if (updatedData.port) updateData['port'] = updatedData.port;
-        if (updatedData.password) updateData['password'] = updatedData.password;
+        if (updatedData.host) updateData.host = updatedData.host;
+        if (updatedData.port) updateData.port = updatedData.port;
+        if (updatedData.password) updateData.password = updatedData.password;
       } else if (['GMAIL', 'OUTLOOK'].includes(provider.type)) {
-        if (updatedData.accessToken) updateData['accessToken'] = updatedData.accessToken;
-        if (updatedData.refreshToken) updateData['refreshToken'] = updatedData.refreshToken;
-        if (updatedData.tokenExpiry) updateData['tokenExpiry'] = new Date(updatedData.tokenExpiry);
+        if (updatedData.accessToken) updateData.accessToken = updatedData.accessToken;
+        if (updatedData.refreshToken) updateData.refreshToken = updatedData.refreshToken;
+        if (updatedData.tokenExpiry) updateData.tokenExpiry = new Date(updatedData.tokenExpiry * 1000);
       }
 
       // Update the provider
-      return await this.prisma.emailProvider.update({
-        where: { id },
-        data: updateData
-      });
+      await this.providerRepository.update(id, updateData);
+      return await this.providerRepository.findOne({ where: { id } });
     } catch (error) {
       this.logger.error(`Failed to update provider credentials: ${error.message}`, error.stack);
       if (error instanceof NotFoundException) {
@@ -639,12 +622,9 @@ export class EmailProviderService {
         const { credentials } = await this.googleOAuth2Client.refreshAccessToken();
         
         // Update provider with new token info
-        await this.prisma.emailProvider.update({
-          where: { id: provider.id },
-          data: {
-            accessToken: credentials.access_token,
-            tokenExpiry: credentials.expiry_date ? new Date(credentials.expiry_date) : null
-          }
+        await this.providerRepository.update(provider.id, {
+          accessToken: credentials.access_token,
+          tokenExpiry: credentials.expiry_date ? new Date(credentials.expiry_date) : null
         });
         
         // Update local reference
@@ -670,13 +650,10 @@ export class EmailProviderService {
         const expiryDate = new Date();
         expiryDate.setSeconds(expiryDate.getSeconds() + response.data.expires_in);
         
-        await this.prisma.emailProvider.update({
-          where: { id: provider.id },
-          data: {
-            accessToken: response.data.access_token,
-            refreshToken: response.data.refresh_token || provider.refreshToken, // Some providers don't return a new refresh token
-            tokenExpiry: expiryDate
-          }
+        await this.providerRepository.update(provider.id, {
+          accessToken: response.data.access_token,
+          refreshToken: response.data.refresh_token || provider.refreshToken, // Some providers don't return a new refresh token
+          tokenExpiry: expiryDate
         });
         
         // Update local reference
