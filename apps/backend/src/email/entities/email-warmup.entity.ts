@@ -1,4 +1,13 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToOne, OneToMany, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToOne,
+  OneToMany,
+  JoinColumn,
+} from 'typeorm';
 import { EmailProvider } from '../../email-integration/entities/email-provider.entity';
 import { WarmupActivity } from './warmup-activity.entity';
 
@@ -14,7 +23,7 @@ export class EmailWarmup {
   @Column({ unique: true })
   providerId: string;
 
-  @OneToOne(() => EmailProvider, provider => provider.warmup)
+  @OneToOne(() => EmailProvider, (provider) => provider.warmup)
   @JoinColumn({ name: 'providerId' })
   provider: EmailProvider;
 
@@ -48,6 +57,6 @@ export class EmailWarmup {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToMany(() => WarmupActivity, activity => activity.warmup)
+  @OneToMany(() => WarmupActivity, (activity) => activity.warmup)
   activities: WarmupActivity[];
 }

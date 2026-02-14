@@ -1,4 +1,14 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { EmailLabelAssignment } from './email-label-assignment.entity';
 
@@ -21,11 +31,11 @@ export class EmailLabel {
   @Index()
   userId: string;
 
-  @ManyToOne(() => User, user => user.labels)
+  @ManyToOne(() => User, (user) => user.labels)
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @OneToMany(() => EmailLabelAssignment, assignment => assignment.label)
+  @OneToMany(() => EmailLabelAssignment, (assignment) => assignment.label)
   emails: EmailLabelAssignment[];
 
   @CreateDateColumn()

@@ -1,5 +1,16 @@
 import { ObjectType, Field, ID } from '@nestjs/graphql';
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, OneToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  OneToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { EmailProvider } from '../../email-integration/entities/email-provider.entity';
 import { EmailFolder } from './email-folder.entity';
@@ -46,7 +57,7 @@ export class Email {
   @Index()
   userId: string;
 
-  @ManyToOne(() => User, user => user.emails)
+  @ManyToOne(() => User, (user) => user.emails)
   @JoinColumn({ name: 'userId' })
   user: User;
 
@@ -54,7 +65,9 @@ export class Email {
   @Index()
   providerId?: string;
 
-  @ManyToOne(() => EmailProvider, provider => provider.emails, { nullable: true })
+  @ManyToOne(() => EmailProvider, (provider) => provider.emails, {
+    nullable: true,
+  })
   @JoinColumn({ name: 'providerId' })
   provider?: EmailProvider;
 
@@ -62,14 +75,14 @@ export class Email {
   @Index()
   folderId?: string;
 
-  @ManyToOne(() => EmailFolder, folder => folder.emails, { nullable: true })
+  @ManyToOne(() => EmailFolder, (folder) => folder.emails, { nullable: true })
   @JoinColumn({ name: 'folderId' })
   folder?: EmailFolder;
 
-  @OneToMany(() => EmailLabelAssignment, assignment => assignment.email)
+  @OneToMany(() => EmailLabelAssignment, (assignment) => assignment.email)
   labels: EmailLabelAssignment[];
 
-  @OneToMany(() => Attachment, attachment => attachment.email)
+  @OneToMany(() => Attachment, (attachment) => attachment.email)
   attachments: Attachment[];
 
   @Column({ type: 'timestamp', nullable: true })
@@ -83,6 +96,8 @@ export class Email {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToOne(() => EmailAnalytics, analytics => analytics.email, { nullable: true })
+  @OneToOne(() => EmailAnalytics, (analytics) => analytics.email, {
+    nullable: true,
+  })
   analytics?: EmailAnalytics;
 }
