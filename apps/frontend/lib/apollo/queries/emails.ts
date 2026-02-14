@@ -65,7 +65,7 @@ export const GET_EMAILS = gql`
 
 // Query to get a single email by ID
 export const GET_EMAIL = gql`
-  query GetEmail($id: ID!) {
+  query GetEmail($id: String!) {
     email(id: $id) {
       id
       subject
@@ -128,7 +128,7 @@ export const GET_EMAIL = gql`
 
 // Mutation to update email status
 export const UPDATE_EMAIL = gql`
-  mutation UpdateEmail($id: ID!, $input: EmailUpdateInput!) {
+  mutation UpdateEmail($id: String!, $input: EmailUpdateInput!) {
     updateEmail(id: $id, input: $input) {
       id
       folder
@@ -148,20 +148,15 @@ export const UPDATE_EMAIL = gql`
 
 // Mutation to send an email
 export const SEND_EMAIL = gql`
-  mutation SendEmail($input: EmailSendInput!) {
+  mutation SendEmail($input: SendEmailInput!) {
     sendEmail(input: $input) {
       id
       subject
-      sender {
-        name
-        email
-      }
-      receiver {
-        name
-        email
-      }
-      content
-      timestamp
+      body
+      from
+      to
+      status
+      createdAt
     }
   }
 `;
