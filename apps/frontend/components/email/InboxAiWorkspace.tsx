@@ -28,6 +28,7 @@ import {
 } from '@/lib/apollo/queries/smart-replies';
 import { GET_EMAIL_TEMPLATES } from '@/lib/apollo/queries/email-templates';
 import type { EmailThread } from '@/lib/email/email-types';
+import { InboxAssistantAdapter } from '@/components/email/InboxAssistantAdapter';
 import { cn } from '@/lib/utils';
 
 interface InboxAiWorkspaceProps {
@@ -220,12 +221,15 @@ export function InboxAiWorkspace({
 
       <div className="min-h-0 flex-1 px-3 py-3">
         <Tabs defaultValue="reply" className="flex h-full min-h-0 flex-col">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="reply" className="text-xs">
               Reply
             </TabsTrigger>
             <TabsTrigger value="templates" className="text-xs">
               Templates
+            </TabsTrigger>
+            <TabsTrigger value="assistant" className="text-xs">
+              Assistant
             </TabsTrigger>
             <TabsTrigger value="insights" className="text-xs">
               Insights
@@ -349,6 +353,13 @@ export function InboxAiWorkspace({
                 ) : null}
               </div>
             </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="assistant" className="mt-3 min-h-0 flex-1">
+            <InboxAssistantAdapter
+              selectedThread={selectedThread}
+              onUseDraft={onUseDraft}
+            />
           </TabsContent>
 
           <TabsContent value="insights" className="mt-3 min-h-0 flex-1">
