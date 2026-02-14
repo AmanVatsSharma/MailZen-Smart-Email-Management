@@ -7,4 +7,4 @@ export class CreateLabelInput {
 
   @Field({ nullable: true })
   color?: string;
-} 
+}

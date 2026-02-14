@@ -74,9 +74,9 @@ Creates a new label and returns the created label.
 ## Future Enhancements
 
 - **Update and Delete Operations**: Add functionality to update and delete labels
-- ✅ **User-Specific Labels**: Labels are user-scoped via Prisma (`EmailLabel.userId`)
+- ✅ **User-Specific Labels**: Labels are user-scoped via TypeORM (`EmailLabel.userId`)
 - **Label Hierarchies**: Support for nested labels or categories
-- ✅ **Prisma Integration**: Labels are stored in Postgres via Prisma (`EmailLabel`)
+- ✅ **TypeORM Integration**: Labels are stored in Postgres via TypeORM (`EmailLabel`)
 - **Bulk Operations**: Support for bulk creation, update, and deletion of labels
 
 ## Usage
@@ -111,19 +111,24 @@ export class EmailService {
 }
 ```
 
-## Planned Database Schema
+## Database Entity
 
-The Label model (already implemented) in Prisma schema:
+The label persistence model is implemented as a TypeORM entity:
 
-```prisma
-model Label {
-  id        String   @id @default(uuid())
-  name      String
-  color     String?
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+```typescript
+@Entity('email_labels')
+export class EmailLabel {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  name: string;
+
+  @Column({ nullable: true })
+  color?: string;
+
+  @Column()
+  userId: string;
 }
 ```
 
