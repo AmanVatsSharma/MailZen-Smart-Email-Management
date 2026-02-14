@@ -10,4 +10,4 @@ export class UpdateFeatureInput {
 
   @Field({ nullable: true })
   isActive?: boolean;
-} 
+}

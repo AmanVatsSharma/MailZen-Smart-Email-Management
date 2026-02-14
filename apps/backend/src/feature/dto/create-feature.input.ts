@@ -7,4 +7,4 @@ export class CreateFeatureInput {
 
   @Field({ defaultValue: false })
   isActive: boolean;
-} 
+}
