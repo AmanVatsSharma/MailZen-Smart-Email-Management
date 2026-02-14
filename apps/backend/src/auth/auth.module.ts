@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../user/entities/user.entity';
 import { UserSession } from './entities/user-session.entity';
 import { VerificationToken } from './entities/verification-token.entity';
+import { AuditLog } from './entities/audit-log.entity';
 import { SignupVerification } from '../phone/entities/signup-verification.entity';
 import { AuthService } from './auth.service';
 import { AuthResolver } from './auth.resolver';
@@ -41,7 +42,13 @@ function getJwtExpiresInSeconds(): number {
 @Global()
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, UserSession, VerificationToken, SignupVerification]),
+    TypeOrmModule.forFeature([
+      User,
+      UserSession,
+      VerificationToken,
+      AuditLog,
+      SignupVerification,
+    ]),
     UserModule,
     MailboxModule,
     JwtModule.register({
@@ -55,4 +62,4 @@ function getJwtExpiresInSeconds(): number {
   providers: [AuthService, AuthResolver, SessionCookieService],
   exports: [AuthService],
 })
-export class AuthModule {} 
+export class AuthModule {}
