@@ -27,7 +27,7 @@ const refreshLink = new ApolloLink((operation, forward) => {
 // Dev-only request logging for debugging and later observability work.
 const debugLink = new ApolloLink((operation, forward) => {
   if (process.env.NODE_ENV !== 'production') {
-    console.log('[Apollo] request', {
+    console.warn('[Apollo] request', {
       operationName: operation.operationName,
       variables: operation.variables,
     });

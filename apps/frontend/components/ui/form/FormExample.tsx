@@ -36,7 +36,7 @@ export function FormExample() {
 
     try {
       // In a real application, you would call your API here
-      console.log('Form data:', data);
+      console.warn('Form data:', data);
 
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
