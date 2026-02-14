@@ -1,118 +1,98 @@
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Repository } from 'typeorm';
 import { SmartReplyService } from './smart-reply.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { SmartReplyInput } from './dto/smart-reply.input';
-
-// Create a mock for PrismaService
-const mockPrismaService = {
-  conversationLog: {
-    create: jest.fn(),
-  },
-};
+import { SmartReplySettings } from './entities/smart-reply-settings.entity';
 
 describe('SmartReplyService', () => {
   let service: SmartReplyService;
-  let prismaService: PrismaService;
+  let settingsRepo: jest.Mocked<Repository<SmartReplySettings>>;
 
   beforeEach(async () => {
+    const repoMock = {
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      merge: jest.fn(),
+    } as unknown as jest.Mocked<Repository<SmartReplySettings>>;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SmartReplyService,
-        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: getRepositoryToken(SmartReplySettings), useValue: repoMock },
       ],
     }).compile();
 
     service = module.get<SmartReplyService>(SmartReplyService);
-    prismaService = module.get<PrismaService>(PrismaService);
+    settingsRepo = module.get(getRepositoryToken(SmartReplySettings));
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+  it('generates a non-empty reply string', async () => {
+    const result = await service.generateReply({
+      conversation: 'Can you confirm the timeline for delivery?',
+    });
+
+    expect(typeof result).toBe('string');
+    expect(result.length).toBeGreaterThan(0);
   });
 
-  describe('generateReply', () => {
-    it('should return a smart reply string', async () => {
-      // Arrange
-      const input: SmartReplyInput = { conversation: 'Hello, how are you?' };
-      
-      // Act
-      const result = await service.generateReply(input);
-      
-      // Assert
-      expect(result).toBeDefined();
-      expect(typeof result).toBe('string');
-      expect(result.length).toBeGreaterThan(0);
-    });
+  it('returns existing settings when present', async () => {
+    const existing = {
+      id: 'settings-1',
+      userId: 'user-1',
+      enabled: true,
+    } as SmartReplySettings;
+    settingsRepo.findOne.mockResolvedValue(existing);
 
-    it('should log the conversation and call storeConversation', async () => {
-      // Arrange
-      const input: SmartReplyInput = { conversation: 'Test conversation' };
-      const storeConversationSpy = jest.spyOn(service as any, 'storeConversation');
-      
-      // Act
-      await service.generateReply(input);
-      
-      // Assert
-      expect(storeConversationSpy).toHaveBeenCalledWith('Test conversation');
-    });
+    const result = await service.getSettings('user-1');
 
-    it('should handle errors and return a fallback message', async () => {
-      // Arrange
-      const input: SmartReplyInput = { conversation: 'Test conversation' };
-      jest.spyOn(service as any, 'storeConversation').mockImplementation(() => {
-        throw new Error('Test error');
-      });
-      
-      // Act
-      const result = await service.generateReply(input);
-      
-      // Assert
-      expect(result).toBe("I'm sorry, I couldn't generate a reply at this time.");
+    expect(settingsRepo.findOne).toHaveBeenCalledWith({
+      where: { userId: 'user-1' },
     });
+    expect(result).toBe(existing);
   });
 
-  describe('getSuggestedReplies', () => {
-    it('should return an array of suggested replies', async () => {
-      // Arrange
-      const emailBody = 'When can we meet to discuss the project?';
-      const count = 3;
-      
-      // Act
-      const result = await service.getSuggestedReplies(emailBody, count);
-      
-      // Assert
-      expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBe(count);
-      result.forEach(reply => {
-        expect(typeof reply).toBe('string');
-      });
-    });
+  it('creates default settings when no row exists', async () => {
+    const created = { id: 'settings-1', userId: 'user-1' } as SmartReplySettings;
+    settingsRepo.findOne.mockResolvedValue(null);
+    settingsRepo.create.mockReturnValue(created);
+    settingsRepo.save.mockResolvedValue(created);
 
-    it('should limit the number of replies to the count specified', async () => {
-      // Arrange
-      const emailBody = 'Example email';
-      const count = 2;
-      
-      // Act
-      const result = await service.getSuggestedReplies(emailBody, count);
-      
-      // Assert
-      expect(result.length).toBe(count);
-    });
+    const result = await service.getSettings('user-1');
 
-    it('should use default count when not specified', async () => {
-      // Arrange
-      const emailBody = 'Example email';
-      
-      // Act
-      const result = await service.getSuggestedReplies(emailBody);
-      
-      // Assert
-      expect(result.length).toBe(3); // Default count is 3
-    });
+    expect(settingsRepo.create).toHaveBeenCalledWith({ userId: 'user-1' });
+    expect(settingsRepo.save).toHaveBeenCalledWith(created);
+    expect(result).toEqual(created);
   });
-}); 
+
+  it('updates settings with merged values', async () => {
+    const existing = {
+      id: 'settings-1',
+      userId: 'user-1',
+      enabled: true,
+      maxSuggestions: 3,
+    } as SmartReplySettings;
+    const merged = {
+      ...existing,
+      enabled: false,
+      maxSuggestions: 5,
+    } as SmartReplySettings;
+
+    settingsRepo.findOne.mockResolvedValue(existing);
+    settingsRepo.merge.mockReturnValue(merged);
+    settingsRepo.save.mockResolvedValue(merged);
+
+    const result = await service.updateSettings('user-1', {
+      enabled: false,
+      maxSuggestions: 5,
+    });
+
+    expect(settingsRepo.merge).toHaveBeenCalled();
+    expect(settingsRepo.save).toHaveBeenCalledWith(merged);
+    expect(result).toEqual(merged);
+  });
+});
