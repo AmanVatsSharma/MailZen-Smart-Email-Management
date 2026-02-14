@@ -18,3 +18,8 @@ class AgentRuntime:
         if not hasattr(skill, "run"):
             raise ValueError(f"skill '{request.skill}' does not implement run()")
         return skill.run(request)  # type: ignore[no-any-return]
+
+    def registered_skills(self) -> list[str]:
+        """Expose the currently registered skill names."""
+
+        return self._registry.registered_skills()

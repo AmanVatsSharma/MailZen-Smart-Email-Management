@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     inbound_api_key: str | None = None
     default_locale: str = "en-IN"
     max_message_chars: int = 3000
+    latency_warn_ms: int = 1200
+    error_rate_warn_percent: float = 5.0
 
     model_config = SettingsConfigDict(
         env_prefix="AGENT_PLATFORM_",
