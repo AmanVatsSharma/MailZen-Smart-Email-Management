@@ -1,4 +1,12 @@
-import { Controller, Get, Logger, Query, Req, Res } from '@nestjs/common';
+import {
+  ConflictException,
+  Controller,
+  Get,
+  Logger,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -7,6 +15,9 @@ import { AuthService } from './auth.service';
 import { buildOAuthState, verifyOAuthState } from './oauth-state.util';
 import { User } from '../user/entities/user.entity';
 import { AuditLog } from './entities/audit-log.entity';
+import { SessionCookieService } from './session-cookie.service';
+import { EmailProviderService } from '../email-integration/email-provider.service';
+import { MailboxService } from '../mailbox/mailbox.service';
 
 /**
  * Google OAuth login (code flow).
@@ -26,6 +37,9 @@ export class GoogleOAuthController {
     @InjectRepository(AuditLog)
     private readonly auditLogRepo: Repository<AuditLog>,
     private readonly authService: AuthService,
+    private readonly sessionCookie: SessionCookieService,
+    private readonly emailProviderService: EmailProviderService,
+    private readonly mailboxService: MailboxService,
   ) {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -43,6 +57,87 @@ export class GoogleOAuthController {
     );
   }
 
+  private async getAliasSetupState(userId: string): Promise<{
+    hasMailzenAlias: boolean;
+    requiresAliasSetup: boolean;
+    nextStep: string;
+  }> {
+    const mailboxes = await this.mailboxService.getUserMailboxes(userId);
+    const hasMailzenAlias = mailboxes.length > 0;
+    return {
+      hasMailzenAlias,
+      requiresAliasSetup: !hasMailzenAlias,
+      nextStep: hasMailzenAlias ? '/' : '/auth/alias-select',
+    };
+  }
+
+  private async ensureGmailProviderConnected(input: {
+    userId: string;
+    email: string;
+    accessToken?: string | null;
+    refreshToken?: string | null;
+    expiryDate?: number | null;
+  }): Promise<void> {
+    const { userId, email, accessToken, refreshToken, expiryDate } = input;
+
+    if (!accessToken) {
+      this.logger.warn(
+        `Google OAuth callback missing access_token; skipping provider auto-connect for user=${userId}`,
+      );
+      return;
+    }
+
+    let providerId: string | null = null;
+    try {
+      const provider =
+        await this.emailProviderService.connectGmailFromOAuthTokens(
+          {
+            email,
+            accessToken,
+            refreshToken: refreshToken || undefined,
+            expiryDate: expiryDate || undefined,
+          },
+          userId,
+        );
+      providerId = provider.id;
+    } catch (error: any) {
+      if (error instanceof ConflictException) {
+        try {
+          const providers = await this.emailProviderService.listProvidersUi(
+            userId,
+          );
+          const existing = providers.find(
+            (provider) =>
+              provider.type === 'gmail' &&
+              provider.email.toLowerCase() === email.toLowerCase(),
+          );
+          providerId = existing?.id || null;
+        } catch (lookupError: any) {
+          this.logger.warn(
+            `Failed to resolve existing Gmail provider for user=${userId}: ${lookupError?.message || lookupError}`,
+          );
+        }
+      } else {
+        this.logger.warn(
+          `Failed to auto-connect Gmail provider for user=${userId}: ${error?.message || error}`,
+        );
+        return;
+      }
+    }
+
+    if (!providerId) {
+      return;
+    }
+
+    try {
+      await this.emailProviderService.syncProvider(providerId, userId);
+    } catch (error: any) {
+      this.logger.warn(
+        `Failed to trigger Gmail initial sync for provider=${providerId}: ${error?.message || error}`,
+      );
+    }
+  }
+
   @Get('start')
   async start(@Res() res: Response, @Query('redirect') redirect?: string) {
     const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -51,9 +146,10 @@ export class GoogleOAuthController {
       return res.status(500).send('Google OAuth not configured');
     }
 
-    // Scope default: identity (openid/email/profile). You can expand with Gmail scopes if desired.
-    // We keep this env-configurable for easy iteration without code changes.
-    const scope = process.env.GOOGLE_OAUTH_SCOPES || 'openid email profile';
+    // Default scopes support both identity login and immediate Gmail provider bootstrap.
+    const scope =
+      process.env.GOOGLE_OAUTH_SCOPES ||
+      'openid email profile https://mail.google.com/ https://www.googleapis.com/auth/userinfo.email';
     const state = buildOAuthState(redirect);
 
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
@@ -213,8 +309,22 @@ export class GoogleOAuthController {
         req.ip,
       );
 
-      const finalRedirect =
-        redirectOverride || `${frontendUrl}/auth/oauth-success`;
+      this.sessionCookie.setTokenCookie(res, accessToken);
+
+      await this.ensureGmailProviderConnected({
+        userId: dbUser.id,
+        email,
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        expiryDate: tokens.expiry_date,
+      });
+
+      const aliasState = await this.getAliasSetupState(dbUser.id);
+      const aliasRedirectTarget = redirectOverride || '/';
+
+      const finalRedirect = aliasState.requiresAliasSetup
+        ? `${frontendUrl}/auth/alias-select?redirect=${encodeURIComponent(aliasRedirectTarget)}`
+        : redirectOverride || `${frontendUrl}/auth/oauth-success`;
 
       if (outMode === 'json') {
         return res.json({
@@ -222,16 +332,11 @@ export class GoogleOAuthController {
           token: accessToken,
           refreshToken,
           user: { id: dbUser.id, email: dbUser.email, name: dbUser.name },
+          ...aliasState,
         });
       }
 
-      // WARNING: putting tokens in query params is not ideal (they can appear in logs/history).
-      // This matches the current frontend pattern (localStorage) and is a practical MVP.
-      // In a hardening pass, switch to HttpOnly cookies.
-      const url = new URL(finalRedirect);
-      url.searchParams.set('token', accessToken);
-      url.searchParams.set('refreshToken', refreshToken);
-      return res.redirect(url.toString());
+      return res.redirect(finalRedirect);
     } catch (e: any) {
       this.logger.error(
         `Google OAuth login failed: ${e?.message || e}`,

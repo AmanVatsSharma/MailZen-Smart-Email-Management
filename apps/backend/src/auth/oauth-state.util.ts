@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 /**
  * Stateless OAuth `state` protection.
@@ -59,6 +59,9 @@ export function verifyOAuthState(
   if (!body || !sig) throw new Error('Missing or malformed OAuth state');
 
   const expected = hmacSha256(body, getStateSecret());
+  if (sig.length !== expected.length) {
+    throw new Error('Invalid OAuth state signature');
+  }
   // constant-time compare to avoid timing leaks
   const ok = crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
   if (!ok) throw new Error('Invalid OAuth state signature');
