@@ -20,6 +20,7 @@ import { UnifiedInboxModule } from './unified-inbox/unified-inbox.module';
 import { SmartReplyModule } from './smart-replies/smart-reply.module';
 import { LabelModule } from './organization/label.module';
 import { QuestionModule } from './question/question.module';
+import { AiAgentGatewayModule } from './ai-agent-gateway/ai-agent-gateway.module';
 import { buildTypeOrmModuleOptions } from './database/typeorm.config';
 
 @Module({
@@ -65,6 +66,7 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
     SmartReplyModule,
     LabelModule,
     QuestionModule,
+    AiAgentGatewayModule,
   ],
   controllers: [],
   providers: [],
