@@ -16,7 +16,7 @@ Provide a single API for **multi-inbox switching**, combining:
 ```mermaid
 flowchart TD
   frontend[FrontendInboxSwitcher] -->|Query myInboxes| api[GraphQL InboxResolver]
-  api --> db[(Postgres/Prisma)]
+  api --> db[(PostgresTypeORM)]
   frontend -->|Mutation setActiveInbox(type,id)| api
   api -->|validate_ownership| db
   api -->|persist_activeInbox| db

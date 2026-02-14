@@ -12,7 +12,7 @@ import { EmailProvider } from '../email-integration/entities/email-provider.enti
 @Injectable()
 export class InboxService {
   private readonly logger = new Logger(InboxService.name);
-  
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -31,19 +31,25 @@ export class InboxService {
    */
   async listUserInboxes(userId: string) {
     console.log('[InboxService] Listing inboxes for user:', userId);
-    
+
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
     const [mailboxes, providers] = await Promise.all([
-      this.mailboxRepository.find({ where: { userId }, order: { createdAt: 'DESC' } }),
-      this.providerRepository.find({ where: { userId }, order: { createdAt: 'DESC' } }),
+      this.mailboxRepository.find({
+        where: { userId },
+        order: { createdAt: 'DESC' },
+      }),
+      this.providerRepository.find({
+        where: { userId },
+        order: { createdAt: 'DESC' },
+      }),
     ]);
 
     const activeType = user.activeInboxType;
     const activeId = user.activeInboxId;
 
-    const mailboxInboxes = mailboxes.map(m => ({
+    const mailboxInboxes = mailboxes.map((m) => ({
       id: m.id,
       type: 'MAILBOX',
       address: m.email,
@@ -51,7 +57,7 @@ export class InboxService {
       status: m.status,
     }));
 
-    const providerInboxes = providers.map(p => ({
+    const providerInboxes = providers.map((p) => ({
       id: p.id,
       type: 'PROVIDER',
       address: p.email,
@@ -59,7 +65,13 @@ export class InboxService {
       status: p.status || 'connected',
     }));
 
-    console.log('[InboxService] Found', mailboxInboxes.length, 'mailboxes and', providerInboxes.length, 'providers');
+    console.log(
+      '[InboxService] Found',
+      mailboxInboxes.length,
+      'mailboxes and',
+      providerInboxes.length,
+      'providers',
+    );
     return [...mailboxInboxes, ...providerInboxes];
   }
 
@@ -70,32 +82,55 @@ export class InboxService {
    * @param id - Inbox ID
    * @returns Updated inbox list
    */
-  async setActiveInbox(userId: string, type: 'MAILBOX' | 'PROVIDER', id: string) {
-    console.log('[InboxService] Setting active inbox:', type, id, 'for user:', userId);
-    
+  async setActiveInbox(
+    userId: string,
+    type: 'MAILBOX' | 'PROVIDER',
+    id: string,
+  ) {
+    console.log(
+      '[InboxService] Setting active inbox:',
+      type,
+      id,
+      'for user:',
+      userId,
+    );
+
     // Ownership validation + consistent "active" flags
     if (type === 'MAILBOX') {
-      const mailbox = await this.mailboxRepository.findOne({ where: { id, userId } });
+      const mailbox = await this.mailboxRepository.findOne({
+        where: { id, userId },
+      });
       if (!mailbox) throw new NotFoundException('Mailbox not found');
 
       // Deactivate all external providers for UI consistency
       await this.providerRepository.update({ userId }, { isActive: false });
-      await this.userRepository.update(userId, { activeInboxType: 'MAILBOX', activeInboxId: id });
-      
-      this.logger.log(`Set active inbox to MAILBOX ${mailbox.email} for user=${userId}`);
+      await this.userRepository.update(userId, {
+        activeInboxType: 'MAILBOX',
+        activeInboxId: id,
+      });
+
+      this.logger.log(
+        `Set active inbox to MAILBOX ${mailbox.email} for user=${userId}`,
+      );
       return this.listUserInboxes(userId);
     }
 
-    const provider = await this.providerRepository.findOne({ where: { id, userId } });
+    const provider = await this.providerRepository.findOne({
+      where: { id, userId },
+    });
     if (!provider) throw new NotFoundException('Provider not found');
 
     // Toggle provider active flag (single active provider)
     await this.providerRepository.update({ userId }, { isActive: false });
     await this.providerRepository.update(id, { isActive: true });
-    await this.userRepository.update(userId, { activeInboxType: 'PROVIDER', activeInboxId: id });
+    await this.userRepository.update(userId, {
+      activeInboxType: 'PROVIDER',
+      activeInboxId: id,
+    });
 
-    this.logger.log(`Set active inbox to PROVIDER ${provider.email} for user=${userId}`);
+    this.logger.log(
+      `Set active inbox to PROVIDER ${provider.email} for user=${userId}`,
+    );
     return this.listUserInboxes(userId);
   }
 }
-

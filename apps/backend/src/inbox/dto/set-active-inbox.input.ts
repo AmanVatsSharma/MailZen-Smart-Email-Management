@@ -14,4 +14,3 @@ export class SetActiveInboxInput {
   @IsString()
   id: string;
 }
-
