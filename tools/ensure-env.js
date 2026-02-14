@@ -77,7 +77,12 @@ function ensureFile(filePath, content) {
  */
 function buildBackendEnvTemplate() {
   const generatedJwtSecret = crypto.randomBytes(48).toString('hex'); // 96 chars
-  return `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mailzen?schema=public
+  return `# Database
+# - Fedora/Ubuntu local Postgres often uses peer auth via unix socket:
+#     postgresql:///mailzen?host=/var/run/postgresql
+# - Docker/local password auth often uses TCP:
+#     postgresql://postgres:postgres@localhost:5432/mailzen
+DATABASE_URL=postgresql:///mailzen?host=/var/run/postgresql
 
 # Server Configuration
 PORT=4000
@@ -94,6 +99,21 @@ JWT_EXPIRATION=86400
 ENABLE_EMAIL_WARMUP=true
 ENABLE_SMART_REPLIES=true
 ENABLE_EMAIL_TRACKING=true
+
+# SMTP Configuration (for sending)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+
+# Redis Configuration (for Bull queues)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# Google Cloud Storage (for attachments)
+GOOGLE_CLOUD_STORAGE_BUCKET=
+GOOGLE_CLOUD_PROJECT_ID=
+GOOGLE_CLOUD_KEYFILE=
 `;
 }
 
