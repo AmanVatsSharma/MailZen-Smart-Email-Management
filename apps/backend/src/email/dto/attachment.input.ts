@@ -40,4 +40,4 @@ export class DeleteAttachmentInput {
   @Field()
   @IsString()
   attachmentId: string;
-} 
+}

@@ -260,7 +260,7 @@ The Email Module requires the following environment variables:
 - `bull`: Queue system for scheduled emails
 - `nodemailer`: Email sending library
 - `class-validator`: Input validation
-- `prisma`: Database ORM
+- `typeorm`: Database ORM
 
 ## Best Practices
 
