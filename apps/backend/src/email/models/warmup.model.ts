@@ -79,4 +79,4 @@ export class EmailWarmup {
 
   @Field(() => [WarmupActivity])
   activities: WarmupActivity[];
-} 
+}

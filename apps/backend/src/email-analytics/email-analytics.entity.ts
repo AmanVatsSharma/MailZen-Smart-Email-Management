@@ -16,4 +16,4 @@ export class EmailAnalytics {
 
   @Field()
   lastUpdatedAt: Date;
-} 
+}
