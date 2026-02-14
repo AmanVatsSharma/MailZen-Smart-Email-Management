@@ -1,43 +1,120 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { MailServerService } from './mail-server.service';
+import { Mailbox } from './entities/mailbox.entity';
+import { User } from '../user/entities/user.entity';
 
 @Injectable()
 export class MailboxService {
-  constructor(private readonly prisma: PrismaService, private readonly mailServer: MailServerService) {}
+  private static readonly MAILZEN_DOMAIN = 'mailzen.com';
+  private static readonly LOCAL_PART_PATTERN =
+    /^[a-z0-9]+(?:[a-z0-9.]{1,28}[a-z0-9])?$/;
+
+  constructor(
+    @InjectRepository(Mailbox)
+    private readonly mailboxRepo: Repository<Mailbox>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+    private readonly mailServer: MailServerService,
+  ) {}
+
+  private normalizeHandle(raw: string): string {
+    return raw.trim().toLowerCase();
+  }
+
+  private validateDesiredLocalPart(raw: string): string {
+    const normalized = this.normalizeHandle(raw);
+    if (!MailboxService.LOCAL_PART_PATTERN.test(normalized)) {
+      throw new BadRequestException(
+        'Invalid mailbox handle. Use 3-30 lowercase letters/numbers/dots. Dot cannot start or end the handle.',
+      );
+    }
+    return normalized;
+  }
 
   async suggestLocalPart(base: string): Promise<string> {
-    const cleaned = base.toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.').replace(/^\.|\.$/g, '');
+    const cleanedBase = base
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '.')
+      .replace(/\.+/g, '.')
+      .replace(/^\.|\.$/g, '')
+      .slice(0, 30);
+    const cleaned = cleanedBase.length >= 3 ? cleanedBase : 'mailzen.user';
     let candidate = cleaned;
     let suffix = 0;
-    // ensure uniqueness
-    // eslint-disable-next-line no-constant-condition
+
     while (true) {
-      const exists = await this.prisma.mailbox.findFirst({ where: { localPart: candidate, domain: 'mailzen.com' } });
+      const exists = await this.mailboxRepo.findOne({
+        where: {
+          localPart: candidate,
+          domain: MailboxService.MAILZEN_DOMAIN,
+        },
+      });
       if (!exists) return candidate;
       suffix += 1;
-      candidate = `${cleaned}${suffix}`;
+      const maxBaseLength = Math.max(3, 30 - `${suffix}`.length);
+      const baseWithLimit = cleaned.slice(0, maxBaseLength).replace(/\.$/, '');
+      candidate = `${baseWithLimit}${suffix}`;
     }
   }
 
-  async createMailbox(userId: string, desiredLocalPart?: string): Promise<{ email: string; id: string }> {
-    const base = desiredLocalPart || (await this.deriveBaseFromUser(userId));
-    const localPart = await this.suggestLocalPart(base);
-    const email = `${localPart}@mailzen.com`;
-    const created = await this.prisma.mailbox.create({
-      data: { userId, localPart, domain: 'mailzen.com', email },
-    });
+  async createMailbox(
+    userId: string,
+    desiredLocalPart?: string,
+  ): Promise<{ email: string; id: string }> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    let localPart: string;
+    if (desiredLocalPart) {
+      localPart = this.validateDesiredLocalPart(desiredLocalPart);
+      const existing = await this.mailboxRepo.findOne({
+        where: {
+          localPart,
+          domain: MailboxService.MAILZEN_DOMAIN,
+        },
+      });
+      if (existing) {
+        throw new ConflictException(
+          'This @mailzen.com address is already taken',
+        );
+      }
+    } else {
+      const base = await this.deriveBaseFromUser(userId);
+      localPart = await this.suggestLocalPart(base);
+    }
+
+    const email = `${localPart}@${MailboxService.MAILZEN_DOMAIN}`;
+    const created = await this.mailboxRepo.save(
+      this.mailboxRepo.create({
+        userId,
+        localPart,
+        domain: MailboxService.MAILZEN_DOMAIN,
+        email,
+      }),
+    );
     // Provision on self-hosted server
     await this.mailServer.provisionMailbox(userId, localPart);
     return { email: created.email, id: created.id };
   }
 
   async getUserMailboxes(userId: string) {
-    return this.prisma.mailbox.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
+    return this.mailboxRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
   }
 
   private async deriveBaseFromUser(userId: string): Promise<string> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
     const name = user.name || user.email.split('@')[0];
     return name;

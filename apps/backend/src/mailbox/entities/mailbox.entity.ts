@@ -1,5 +1,15 @@
 import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index, Unique } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+  Unique,
+} from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 
 /**
@@ -18,7 +28,7 @@ export class Mailbox {
   @Index()
   userId: string;
 
-  @ManyToOne(() => User, user => user.mailboxes)
+  @ManyToOne(() => User, (user) => user.mailboxes)
   @JoinColumn({ name: 'userId' })
   user: User;
 
