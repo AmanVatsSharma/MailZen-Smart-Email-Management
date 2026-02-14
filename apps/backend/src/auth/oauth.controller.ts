@@ -1,9 +1,12 @@
 import { Controller, Get, Logger, Query, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { OAuth2Client } from 'google-auth-library';
-import { PrismaService } from '../prisma/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { AuthService } from './auth.service';
 import { buildOAuthState, verifyOAuthState } from './oauth-state.util';
+import { User } from '../user/entities/user.entity';
+import { AuditLog } from './entities/audit-log.entity';
 
 /**
  * Google OAuth login (code flow).
@@ -18,24 +21,30 @@ export class GoogleOAuthController {
   private readonly oauthClient: OAuth2Client;
 
   constructor(
-    private readonly prisma: PrismaService,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly authService: AuthService,
   ) {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
     const redirectUri = process.env.GOOGLE_REDIRECT_URI;
     if (!clientId || !clientSecret || !redirectUri) {
-      // Fail fast on boot in dev; in prod this should be configured.
-      this.logger.error('Missing Google OAuth env vars: GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_REDIRECT_URI');
+      // Don't block boot: OAuth can be configured at deploy-time.
+      this.logger.warn(
+        'Google OAuth not configured (missing GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_REDIRECT_URI)',
+      );
     }
-    this.oauthClient = new OAuth2Client(clientId, clientSecret, redirectUri);
+    this.oauthClient = new OAuth2Client(
+      clientId || '',
+      clientSecret || '',
+      redirectUri || '',
+    );
   }
 
   @Get('start')
-  async start(
-    @Res() res: Response,
-    @Query('redirect') redirect?: string,
-  ) {
+  async start(@Res() res: Response, @Query('redirect') redirect?: string) {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const redirectUri = process.env.GOOGLE_REDIRECT_URI;
     if (!clientId || !redirectUri) {
@@ -75,16 +84,31 @@ export class GoogleOAuthController {
 
     if (error) {
       this.logger.warn(`Google OAuth callback error from provider: ${error}`);
-      await this.prisma.auditLog.create({ data: { action: 'OAUTH_GOOGLE_FAILED', metadata: { error } as any } });
+      await this.auditLogRepo.save(
+        this.auditLogRepo.create({
+          action: 'OAUTH_GOOGLE_FAILED',
+          metadata: { error } as any,
+        }),
+      );
       if (outMode === 'json') return res.status(401).json({ ok: false, error });
-      return res.redirect(`${frontendUrl}/auth/login?error=${encodeURIComponent(error)}`);
+      return res.redirect(
+        `${frontendUrl}/auth/login?error=${encodeURIComponent(error)}`,
+      );
     }
 
     if (!code || !state) {
       this.logger.warn('Google OAuth callback missing code/state');
-      await this.prisma.auditLog.create({ data: { action: 'OAUTH_GOOGLE_FAILED', metadata: { reason: 'missing_code_or_state' } as any } });
-      if (outMode === 'json') return res.status(400).json({ ok: false, error: 'Missing code/state' });
-      return res.redirect(`${frontendUrl}/auth/login?error=${encodeURIComponent('Missing code/state')}`);
+      await this.auditLogRepo.save(
+        this.auditLogRepo.create({
+          action: 'OAUTH_GOOGLE_FAILED',
+          metadata: { reason: 'missing_code_or_state' } as any,
+        }),
+      );
+      if (outMode === 'json')
+        return res.status(400).json({ ok: false, error: 'Missing code/state' });
+      return res.redirect(
+        `${frontendUrl}/auth/login?error=${encodeURIComponent('Missing code/state')}`,
+      );
     }
 
     let redirectOverride: string | undefined;
@@ -92,17 +116,29 @@ export class GoogleOAuthController {
       const payload = verifyOAuthState(state, 10 * 60 * 1000);
       redirectOverride = payload.redirect;
     } catch (e: any) {
-      this.logger.warn(`Google OAuth state validation failed: ${e?.message || e}`);
-      await this.prisma.auditLog.create({ data: { action: 'OAUTH_GOOGLE_FAILED', metadata: { reason: 'invalid_state' } as any } });
-      if (outMode === 'json') return res.status(401).json({ ok: false, error: 'Invalid state' });
-      return res.redirect(`${frontendUrl}/auth/login?error=${encodeURIComponent('Invalid state')}`);
+      this.logger.warn(
+        `Google OAuth state validation failed: ${e?.message || e}`,
+      );
+      await this.auditLogRepo.save(
+        this.auditLogRepo.create({
+          action: 'OAUTH_GOOGLE_FAILED',
+          metadata: { reason: 'invalid_state' } as any,
+        }),
+      );
+      if (outMode === 'json')
+        return res.status(401).json({ ok: false, error: 'Invalid state' });
+      return res.redirect(
+        `${frontendUrl}/auth/login?error=${encodeURIComponent('Invalid state')}`,
+      );
     }
 
     try {
       // Exchange code for tokens.
       const { tokens } = await this.oauthClient.getToken(code);
       if (!tokens.id_token) {
-        throw new Error('Google did not return id_token (ensure openid scope is included)');
+        throw new Error(
+          'Google did not return id_token (ensure openid scope is included)',
+        );
       }
 
       // Verify id_token and extract user identity (no extra HTTP call required).
@@ -123,49 +159,62 @@ export class GoogleOAuthController {
       // Upsert user:
       // - Prefer matching by googleSub (stable)
       // - Fall back to email (common case for first-time linkage)
-      const existingBySub = await this.prisma.user.findFirst({ where: { googleSub } as any });
-      const existingByEmail = await this.prisma.user.findUnique({ where: { email } });
+      const existingBySub = await this.userRepo.findOne({
+        where: { googleSub } as any,
+      });
+      const existingByEmail = await this.userRepo.findOne({ where: { email } });
       const user = existingBySub || existingByEmail;
 
       let dbUser;
       if (!user) {
-        dbUser = await this.prisma.user.create({
-          data: {
+        dbUser = await this.userRepo.save(
+          this.userRepo.create({
             email,
-            password: null,
-            name,
+            password: undefined,
+            name: name || undefined,
             isEmailVerified: emailVerified,
             googleSub,
-          } as any,
-        });
+          } as any),
+        );
         this.logger.log(`Created new user via Google OAuth: ${email}`);
       } else {
         // Guard against accidental account takeover: if email matches but googleSub differs, reject.
         if ((user as any).googleSub && (user as any).googleSub !== googleSub) {
-          throw new Error('This email is already linked to a different Google account');
+          throw new Error(
+            'This email is already linked to a different Google account',
+          );
         }
-        dbUser = await this.prisma.user.update({
+        await this.userRepo.update({ id: user.id }, {
+          name: user.name || name || undefined,
+          googleSub,
+          isEmailVerified: user.isEmailVerified || emailVerified,
+          lastLoginAt: new Date(),
+          failedLoginAttempts: 0,
+          lockoutUntil: null,
+        } as any);
+        dbUser = (await this.userRepo.findOne({
           where: { id: user.id },
-          data: {
-            name: user.name || name,
-            googleSub,
-            isEmailVerified: user.isEmailVerified || emailVerified,
-            lastLoginAt: new Date(),
-            failedLoginAttempts: 0,
-            lockoutUntil: null,
-          } as any,
-        });
+        })) as any;
         this.logger.log(`Linked/updated user via Google OAuth: ${email}`);
       }
 
-      await this.prisma.auditLog.create({
-        data: { action: 'OAUTH_GOOGLE_SUCCESS', userId: dbUser.id, metadata: { email } as any },
-      });
+      await this.auditLogRepo.save(
+        this.auditLogRepo.create({
+          action: 'OAUTH_GOOGLE_SUCCESS',
+          userId: dbUser.id,
+          metadata: { email } as any,
+        }),
+      );
 
       const { accessToken } = this.authService.login(dbUser);
-      const refreshToken = await this.authService.generateRefreshToken(dbUser.id, req.headers['user-agent'], req.ip);
+      const refreshToken = await this.authService.generateRefreshToken(
+        dbUser.id,
+        req.headers['user-agent'],
+        req.ip,
+      );
 
-      const finalRedirect = redirectOverride || `${frontendUrl}/auth/oauth-success`;
+      const finalRedirect =
+        redirectOverride || `${frontendUrl}/auth/oauth-success`;
 
       if (outMode === 'json') {
         return res.json({
@@ -184,11 +233,21 @@ export class GoogleOAuthController {
       url.searchParams.set('refreshToken', refreshToken);
       return res.redirect(url.toString());
     } catch (e: any) {
-      this.logger.error(`Google OAuth login failed: ${e?.message || e}`, e?.stack);
-      await this.prisma.auditLog.create({ data: { action: 'OAUTH_GOOGLE_FAILED', metadata: { reason: e?.message || 'unknown' } as any } });
-      if (outMode === 'json') return res.status(500).json({ ok: false, error: 'OAuth login failed' });
-      return res.redirect(`${frontendUrl}/auth/login?error=${encodeURIComponent('OAuth login failed')}`);
+      this.logger.error(
+        `Google OAuth login failed: ${e?.message || e}`,
+        e?.stack,
+      );
+      await this.auditLogRepo.save(
+        this.auditLogRepo.create({
+          action: 'OAUTH_GOOGLE_FAILED',
+          metadata: { reason: e?.message || 'unknown' } as any,
+        }),
+      );
+      if (outMode === 'json')
+        return res.status(500).json({ ok: false, error: 'OAuth login failed' });
+      return res.redirect(
+        `${frontendUrl}/auth/login?error=${encodeURIComponent('OAuth login failed')}`,
+      );
     }
   }
 }
-

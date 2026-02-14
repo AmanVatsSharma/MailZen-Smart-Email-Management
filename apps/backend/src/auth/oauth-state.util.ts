@@ -29,7 +29,9 @@ function getStateSecret(): string {
   // Prefer a dedicated secret; fall back to JWT secret to keep setup simple.
   const secret = process.env.OAUTH_STATE_SECRET || process.env.JWT_SECRET;
   if (!secret || secret === 'default-secret') {
-    throw new Error('OAuth state secret not configured (set OAUTH_STATE_SECRET or JWT_SECRET)');
+    throw new Error(
+      'OAuth state secret not configured (set OAUTH_STATE_SECRET or JWT_SECRET)',
+    );
   }
   return secret;
 }
@@ -46,7 +48,10 @@ export function buildOAuthState(redirect?: string): string {
   return `${body}.${sig}`;
 }
 
-export function verifyOAuthState(state: string, maxAgeMs: number): OAuthStatePayload {
+export function verifyOAuthState(
+  state: string,
+  maxAgeMs: number,
+): OAuthStatePayload {
   if (!state || !state.includes('.')) {
     throw new Error('Missing or malformed OAuth state');
   }
@@ -59,8 +64,9 @@ export function verifyOAuthState(state: string, maxAgeMs: number): OAuthStatePay
   if (!ok) throw new Error('Invalid OAuth state signature');
 
   const payload = JSON.parse(base64UrlDecode(body)) as OAuthStatePayload;
-  if (!payload.ts || typeof payload.ts !== 'number') throw new Error('Invalid OAuth state payload');
-  if (Date.now() - payload.ts > maxAgeMs) throw new Error('OAuth state expired');
+  if (!payload.ts || typeof payload.ts !== 'number')
+    throw new Error('Invalid OAuth state payload');
+  if (Date.now() - payload.ts > maxAgeMs)
+    throw new Error('OAuth state expired');
   return payload;
 }
-
