@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Mail, Lock, User, AlertCircle, Check } from 'lucide-react';
-import { gql, useMutation } from '@apollo/client';
+import { useMutation } from '@apollo/client';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,17 +16,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-
-// GraphQL mutation for user registration returning token
-const REGISTER_MUTATION = gql`
-  mutation Register($email: String!, $password: String!, $name: String) {
-    register(registerInput: { email: $email, password: $password, name: $name }) {
-      token
-      refreshToken
-      user { id email name }
-    }
-  }
-`;
+import {
+  getGoogleOAuthStartUrl,
+  REGISTER_MUTATION,
+  resolvePostAuthRoute,
+  setUserData,
+} from '@/modules/auth';
 
 // Define the form schema with Zod
 const formSchema = z.object({
@@ -65,15 +60,23 @@ export default function RegisterForm() {
   // Use Apollo mutation for registration
   const [register, { loading }] = useMutation(REGISTER_MUTATION, {
     onCompleted: (data) => {
-      // Enterprise-grade session: server sets HttpOnly `token` cookie.
-      // We DO NOT store access tokens in localStorage.
-      localStorage.setItem('user', JSON.stringify(data.register.user));
-      console.log('[Register] success (token cookie should be set by backend)');
-      router.push('/');
+      setSuccess(true);
+      setUserData(data.register.user);
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[Register] success (token cookie should be set by backend)');
+      }
+      router.push(
+        resolvePostAuthRoute({
+          requiresAliasSetup: data.register.requiresAliasSetup,
+          nextStep: data.register.nextStep,
+        }),
+      );
     },
     onError: (error) => {
       setError(error.message || 'Registration failed. Please try again.');
-      console.error('Registration error:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Registration error:', error);
+      }
     }
   });
 
@@ -84,18 +87,22 @@ export default function RegisterForm() {
       // Execute the registration mutation
       await register({ 
         variables: { 
-          createUserInput: {
-            email: values.email,
-            name: values.name,
-            password: values.password
-          } 
+          email: values.email,
+          name: values.name,
+          password: values.password,
         } 
       });
       
     } catch (err) {
       setError('Registration failed. Please try again.');
-      console.error('Registration error:', err);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Registration error:', err);
+      }
     }
+  };
+
+  const handleGoogleSignUp = () => {
+    window.location.href = getGoogleOAuthStartUrl();
   };
 
   return (
@@ -246,9 +253,9 @@ export default function RegisterForm() {
                 type="submit" 
                 className="w-full" 
                 variant="premium"
-                disabled={form.formState.isSubmitting || success}
+                disabled={loading || form.formState.isSubmitting || success}
               >
-                {form.formState.isSubmitting ? "Creating account..." : "Create account"}
+                {loading || form.formState.isSubmitting ? "Creating account..." : "Create account"}
               </Button>
               
               <div className="relative my-4">
@@ -267,6 +274,7 @@ export default function RegisterForm() {
                   variant="outline"
                   type="button"
                   className="bg-background hover:bg-accent/50"
+                  onClick={handleGoogleSignUp}
                 >
                   <svg viewBox="0 0 24 24" className="h-5 w-5 mr-2" aria-hidden="true">
                     <path
@@ -292,6 +300,7 @@ export default function RegisterForm() {
                   variant="outline"
                   type="button"
                   className="bg-background hover:bg-accent/50"
+                  disabled
                 >
                   <svg viewBox="0 0 24 24" className="h-5 w-5 mr-2" aria-hidden="true">
                     <path

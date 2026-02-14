@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { gql, useMutation } from '@apollo/client';
+import { useMutation } from '@apollo/client';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,22 +10,12 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormField, FormItem, FormLabel, FormMessage, FormControl } from '@/components/ui/form';
-
-const SEND_OTP = gql`
-  mutation SignupSendOtp($phoneNumber: String!) {
-    signupSendOtp(input: { phoneNumber: $phoneNumber })
-  }
-`;
-
-const VERIFY_SIGNUP = gql`
-  mutation SignupVerify($input: VerifySignupInput!) {
-    signupVerify(input: $input) {
-      token
-      refreshToken
-      user { id email name phoneNumber isPhoneVerified }
-    }
-  }
-`;
+import {
+  resolvePostAuthRoute,
+  setUserData,
+  SIGNUP_SEND_OTP_MUTATION,
+  SIGNUP_VERIFY_MUTATION,
+} from '@/modules/auth';
 
 const step1Schema = z.object({
   phoneNumber: z.string().min(5, 'Enter a valid phone number'),
@@ -51,19 +41,24 @@ export default function SignupPhone() {
   const form1 = useForm<Step1>({ resolver: zodResolver(step1Schema), defaultValues: { phoneNumber: '' } });
   const form2 = useForm<Step2>({ resolver: zodResolver(step2Schema), defaultValues: { code: '', handle: '', password: '', name: '' } });
 
-  const [sendOtp, { loading: sending }] = useMutation(SEND_OTP, {
+  const [sendOtp, { loading: sending }] = useMutation(SIGNUP_SEND_OTP_MUTATION, {
     onError: (e) => setError(e.message),
     onCompleted: () => setStep(2),
   });
 
-  const [verifySignup, { loading: verifying }] = useMutation(VERIFY_SIGNUP, {
+  const [verifySignup, { loading: verifying }] = useMutation(SIGNUP_VERIFY_MUTATION, {
     onError: (e) => setError(e.message),
     onCompleted: (data) => {
-      // Enterprise-grade session: server sets HttpOnly `token` cookie.
-      // We DO NOT store access tokens in localStorage.
-      localStorage.setItem('user', JSON.stringify(data.signupVerify.user));
-      console.log('[SignupPhone] success (token cookie should be set by backend)');
-      router.push('/');
+      setUserData(data.signupVerify.user);
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[SignupPhone] success (token cookie should be set by backend)');
+      }
+      router.push(
+        resolvePostAuthRoute({
+          requiresAliasSetup: data.signupVerify.requiresAliasSetup,
+          nextStep: data.signupVerify.nextStep,
+        }),
+      );
     },
   });
 

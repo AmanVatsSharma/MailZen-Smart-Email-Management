@@ -8,27 +8,19 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
-import { gql, useMutation } from '@apollo/client';
+import { useMutation } from '@apollo/client';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-
-// Actual GraphQL login mutation
-const LOGIN_MUTATION = gql`
-  mutation Login($loginInput: LoginInput!) {
-    login(loginInput: $loginInput) {
-      token
-      user {
-        id
-        email
-        name
-      }
-    }
-  }
-`;
+import {
+  getGoogleOAuthStartUrl,
+  LOGIN_MUTATION,
+  resolvePostAuthRoute,
+  setUserData,
+} from '@/modules/auth';
 
 // Define the form schema with Zod
 const formSchema = z.object({
@@ -55,18 +47,24 @@ export default function LoginForm() {
   // Use Apollo mutation for login
   const [login, { loading }] = useMutation(LOGIN_MUTATION, {
     onCompleted: (data) => {
-      // Enterprise-grade session: server sets HttpOnly `token` cookie.
-      // We DO NOT store access tokens in localStorage.
-      localStorage.setItem('user', JSON.stringify(data.login.user));
+      setUserData(data.login.user);
 
-      console.log('[Login] success (token cookie should be set by backend)');
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[Login] success (token cookie should be set by backend)');
+      }
       
-      // Redirect to dashboard
-      router.push('/');
+      router.push(
+        resolvePostAuthRoute({
+          requiresAliasSetup: data.login.requiresAliasSetup,
+          nextStep: data.login.nextStep,
+        }),
+      );
     },
     onError: (error) => {
       setError(error.message || 'An error occurred during login. Please try again.');
-      console.error('Login error:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Login error:', error);
+      }
     }
   });
 
@@ -83,6 +81,10 @@ export default function LoginForm() {
         }
       } 
     });
+  };
+
+  const handleGoogleSignIn = () => {
+    window.location.href = getGoogleOAuthStartUrl();
   };
 
   return (
@@ -185,6 +187,7 @@ export default function LoginForm() {
                   variant="outline"
                   type="button"
                   className="bg-background hover:bg-accent/50"
+                  onClick={handleGoogleSignIn}
                 >
                   <svg viewBox="0 0 24 24" className="h-5 w-5 mr-2" aria-hidden="true">
                     <path
@@ -210,6 +213,7 @@ export default function LoginForm() {
                   variant="outline"
                   type="button"
                   className="bg-background hover:bg-accent/50"
+                  disabled
                 >
                   <svg viewBox="0 0 24 24" className="h-5 w-5 mr-2" aria-hidden="true">
                     <path
