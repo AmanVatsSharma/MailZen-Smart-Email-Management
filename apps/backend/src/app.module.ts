@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { UserModule } from './user/user.module';
 import { EmailModule } from './email/email.module';
@@ -20,6 +20,7 @@ import { UnifiedInboxModule } from './unified-inbox/unified-inbox.module';
 import { SmartReplyModule } from './smart-replies/smart-reply.module';
 import { LabelModule } from './organization/label.module';
 import { QuestionModule } from './question/question.module';
+import { buildTypeOrmModuleOptions } from './database/typeorm.config';
 
 @Module({
   imports: [
@@ -29,22 +30,13 @@ import { QuestionModule } from './question/question.module';
       envFilePath: '.env',
     }),
 
-    // TypeORM configuration for PostgreSQL
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      url: process.env.DATABASE_URL,
-      // Auto-sync entities with database (dev-only).
-      // In production, use migrations instead of schema sync.
-      synchronize: process.env.NODE_ENV !== 'production',
-      // Log only errors for cleaner console output
-      logging: ['error'],
-      // Auto-discover and load all entities from modules
-      autoLoadEntities: true,
-      // Connection pool settings for better performance
-      extra: {
-        max: 10, // Maximum pool size
-        idleTimeoutMillis: 30000,
-      },
+    // TypeORM configuration for PostgreSQL.
+    // Uses local-dev-only synchronize policy from centralized config.
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) =>
+        buildTypeOrmModuleOptions(configService),
     }),
 
     // NOTE: For local dev we explicitly avoid Apollo Server Express 5 integration requirements.
