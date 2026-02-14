@@ -1,8 +1,8 @@
 {
   "run": {
-    "command": "nx run-many -t build -p frontend backend",
-    "startTime": "2026-02-14T09:43:23.999Z",
-    "endTime": "2026-02-14T09:44:54.498Z",
+    "command": "nx build frontend",
+    "startTime": "2026-02-14T10:20:29.338Z",
+    "endTime": "2026-02-14T10:21:31.643Z",
     "inner": false
   },
   "tasks": [
@@ -10,31 +10,9 @@
       "taskId": "frontend:prepare-env",
       "target": "prepare-env",
       "projectName": "frontend",
-      "hash": "8309733230131818174",
-      "startTime": "2026-02-14T09:43:24.030Z",
-      "endTime": "2026-02-14T09:43:24.104Z",
-      "params": "",
-      "cacheStatus": "cache-miss",
-      "status": 0
-    },
-    {
-      "taskId": "backend:prepare-env",
-      "target": "prepare-env",
-      "projectName": "backend",
-      "hash": "10678667974063379201",
-      "startTime": "2026-02-14T09:43:24.030Z",
-      "endTime": "2026-02-14T09:43:24.154Z",
-      "params": "",
-      "cacheStatus": "cache-miss",
-      "status": 0
-    },
-    {
-      "taskId": "backend:build",
-      "target": "build",
-      "projectName": "backend",
-      "hash": "18130747218609025598",
-      "startTime": "2026-02-14T09:43:24.159Z",
-      "endTime": "2026-02-14T09:43:51.030Z",
+      "hash": "18056169340785472749",
+      "startTime": "2026-02-14T10:20:29.353Z",
+      "endTime": "2026-02-14T10:20:29.420Z",
       "params": "",
       "cacheStatus": "cache-miss",
       "status": 0
@@ -43,9 +21,9 @@
       "taskId": "frontend:build",
       "target": "build",
       "projectName": "frontend",
-      "hash": "158891063761631032",
-      "startTime": "2026-02-14T09:43:24.107Z",
-      "endTime": "2026-02-14T09:44:54.497Z",
+      "hash": "14007456546590291644",
+      "startTime": "2026-02-14T10:20:29.422Z",
+      "endTime": "2026-02-14T10:21:31.642Z",
       "params": "",
       "cacheStatus": "cache-miss",
       "status": 0

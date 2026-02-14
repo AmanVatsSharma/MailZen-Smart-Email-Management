@@ -129,6 +129,12 @@
               "start:dev",
               "start:debug",
               "start:prod",
+              "typeorm",
+              "migration:create",
+              "migration:generate",
+              "migration:run",
+              "migration:revert",
+              "migration:show",
               "test:watch",
               "test:cov",
               "test:debug"
@@ -196,6 +202,78 @@
             "metadata": {
               "scriptContent": "node dist/main",
               "runCommand": "npm run start:prod"
+            },
+            "configurations": {},
+            "parallelism": true
+          },
+          "typeorm": {
+            "executor": "nx:run-script",
+            "options": {
+              "script": "typeorm"
+            },
+            "metadata": {
+              "scriptContent": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
+              "runCommand": "npm run typeorm"
+            },
+            "configurations": {},
+            "parallelism": true
+          },
+          "migration:create": {
+            "executor": "nx:run-script",
+            "options": {
+              "script": "migration:create"
+            },
+            "metadata": {
+              "scriptContent": "npm run typeorm -- migration:create src/database/migrations/$npm_config_name",
+              "runCommand": "npm run migration:create"
+            },
+            "configurations": {},
+            "parallelism": true
+          },
+          "migration:generate": {
+            "executor": "nx:run-script",
+            "options": {
+              "script": "migration:generate"
+            },
+            "metadata": {
+              "scriptContent": "npm run typeorm -- migration:generate -d src/database/data-source.ts src/database/migrations/$npm_config_name",
+              "runCommand": "npm run migration:generate"
+            },
+            "configurations": {},
+            "parallelism": true
+          },
+          "migration:run": {
+            "executor": "nx:run-script",
+            "options": {
+              "script": "migration:run"
+            },
+            "metadata": {
+              "scriptContent": "npm run typeorm -- migration:run -d src/database/data-source.ts",
+              "runCommand": "npm run migration:run"
+            },
+            "configurations": {},
+            "parallelism": true
+          },
+          "migration:revert": {
+            "executor": "nx:run-script",
+            "options": {
+              "script": "migration:revert"
+            },
+            "metadata": {
+              "scriptContent": "npm run typeorm -- migration:revert -d src/database/data-source.ts",
+              "runCommand": "npm run migration:revert"
+            },
+            "configurations": {},
+            "parallelism": true
+          },
+          "migration:show": {
+            "executor": "nx:run-script",
+            "options": {
+              "script": "migration:show"
+            },
+            "metadata": {
+              "scriptContent": "npm run typeorm -- migration:show -d src/database/data-source.ts",
+              "runCommand": "npm run migration:show"
             },
             "configurations": {},
             "parallelism": true

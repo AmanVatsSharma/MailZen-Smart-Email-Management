@@ -7,7 +7,7 @@ MailZen is a comprehensive email management platform that integrates Gmail, cust
 ### Tech Stack
 
 - **Frontend:** Next.js (React, TypeScript, TailwindCSS, ShadCN)
-- **Backend:** NestJS (GraphQL, PostgreSQL, Prisma, BullMQ for queues)
+- **Backend:** NestJS (GraphQL, PostgreSQL, TypeORM, BullMQ for queues)
 - **Database:** PostgreSQL
 - **Authentication:** OAuth (Google, Outlook, Custom SMTP) & JWT
 - **Email APIs:** Nodemailer, Resend API, AWS SES, and Mailgun
