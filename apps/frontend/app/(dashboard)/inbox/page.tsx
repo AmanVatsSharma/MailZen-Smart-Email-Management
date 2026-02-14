@@ -1,19 +1,20 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { EmailList } from '@/components/email/EmailList';
 import { EmailDetail } from '@/components/email/EmailDetail';
 import { EmailComposer } from '@/components/email/EmailComposer';
-import { EmailNavigation } from '@/components/email/EmailNavigation';
 import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
+import { InboxAiWorkspace } from '@/components/email/InboxAiWorkspace';
 import { EmailFolder, EmailThread, EmailLabel } from '@/lib/email/email-types';
 import { mockLabels } from '@/lib/email/mock-data';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Filter, MoreVertical, Plus, Keyboard, X, PanelLeft } from 'lucide-react';
+import { RefreshCw, Filter, MoreVertical, Plus, Keyboard, Sparkles, X } from 'lucide-react';
 import { gql, useApolloClient, useQuery, useMutation } from '@apollo/client';
 import { GET_LABELS, UPDATE_EMAIL } from '@/lib/apollo/queries/emails';
 import { useToast } from '@/components/ui/use-toast';
 import { Surface } from '@/components/ui/surface';
+import { useSearchParams } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,8 @@ import {
   DialogTitle,
   DialogClose
 } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
 
 const GET_PROVIDERS_FOR_INBOX = gql`
   query InboxProviders {
@@ -56,15 +59,28 @@ type InboxProvider = {
 };
 
 export default function InboxPage() {
+  const searchParams = useSearchParams();
   const [selectedThread, setSelectedThread] = useState<EmailThread | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [composerMode, setComposerMode] = useState<'new' | 'reply' | 'forward'>('new');
-  const [currentFolder, setCurrentFolder] = useState<EmailFolder>('inbox');
-  const [currentLabel, setCurrentLabel] = useState<string | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'preview' | 'full'>('preview');
   const [isShortcutsDialogOpen, setIsShortcutsDialogOpen] = useState(false);
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isAiDockOpen, setIsAiDockOpen] = useState(true);
+  const [isAiMobileOpen, setIsAiMobileOpen] = useState(false);
+  const [aiDraftContent, setAiDraftContent] = useState('');
+
+  const requestedFolder = searchParams.get('folder');
+  const currentFolder: EmailFolder =
+    requestedFolder === 'inbox' ||
+    requestedFolder === 'sent' ||
+    requestedFolder === 'archive' ||
+    requestedFolder === 'trash' ||
+    requestedFolder === 'drafts' ||
+    requestedFolder === 'spam'
+      ? requestedFolder
+      : 'inbox';
+  const currentLabel = searchParams.get('label') ?? undefined;
   
   // Keep track of last selected thread index for keyboard navigation
   const lastSelectedThreadIndex = useRef<number>(-1);
@@ -86,22 +102,6 @@ export default function InboxPage() {
   const activeProvider = providers.find((p) => p.isActive) || providers[0];
   const [syncProvider] = useMutation(SYNC_PROVIDER_FOR_INBOX);
   
-  // Handle folder selection
-  const handleFolderSelect = (folder: EmailFolder) => {
-    setCurrentFolder(folder);
-    setCurrentLabel(undefined); // Clear label selection when folder changes
-    setSelectedThread(null); // Clear selected thread
-    lastSelectedThreadIndex.current = -1; // Reset last selected index
-  };
-  
-  // Handle label selection
-  const handleLabelSelect = (labelId: string) => {
-    setCurrentLabel(labelId);
-    setCurrentFolder('inbox'); // Default to inbox view when showing labeled emails
-    setSelectedThread(null); // Clear selected thread
-    lastSelectedThreadIndex.current = -1; // Reset last selected index
-  };
-  
   // Handle thread selection
   const handleSelectThread = (thread: EmailThread) => {
     setSelectedThread(thread);
@@ -109,12 +109,12 @@ export default function InboxPage() {
   };
   
   // Toggle between preview and full view
-  const toggleViewMode = () => {
-    setViewMode(viewMode === 'preview' ? 'full' : 'preview');
-  };
+  const toggleViewMode = useCallback(() => {
+    setViewMode(v => (v === 'preview' ? 'full' : 'preview'));
+  }, []);
   
   // Simulate refreshing inbox
-  const handleRefreshInbox = async () => {
+  const handleRefreshInbox = useCallback(async () => {
     setIsRefreshing(true);
     try {
       if (!activeProvider?.id) {
@@ -135,7 +135,9 @@ export default function InboxPage() {
         description: "Your inbox has been updated with the latest emails",
       });
     } catch (e) {
-      console.error('[Inbox Refresh] failed', e);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[Inbox Refresh] failed', e);
+      }
       toast({
         title: "Refresh failed",
         description: "Could not sync inbox. Check logs for details.",
@@ -144,7 +146,7 @@ export default function InboxPage() {
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [activeProvider?.id, apollo, syncProvider, toast]);
   
   // Handle reply to email
   const handleReply = (threadId: string) => {
@@ -166,12 +168,33 @@ export default function InboxPage() {
   
   // Handle new email
   const handleNewEmail = () => {
+    setAiDraftContent('');
     setComposerMode('new');
     setIsComposerOpen(true);
   };
+
+  const handleUseAiDraft = (draft: string) => {
+    setAiDraftContent(draft);
+    setComposerMode('new');
+    setIsComposerOpen(true);
+    setIsAiMobileOpen(false);
+  };
+
+  const handleComposerClose = () => {
+    setIsComposerOpen(false);
+    setAiDraftContent('');
+  };
+
+  const handleAiWorkspaceToggle = () => {
+    if (window.innerWidth >= 1280) {
+      setIsAiDockOpen((prev) => !prev);
+      return;
+    }
+    setIsAiMobileOpen(true);
+  };
   
   // Handle archiving an email
-  const handleArchive = (threadId: string) => {
+  const handleArchive = useCallback((threadId: string) => {
     // Would use a GraphQL mutation in a real app
     if (process.env.NODE_ENV !== 'production') {
       console.warn('[Inbox] archive thread', { threadId });
@@ -187,10 +210,10 @@ export default function InboxPage() {
     if (selectedThread?.id === threadId) {
       setSelectedThread(null);
     }
-  };
+  }, [selectedThread?.id, toast]);
   
   // Handle deleting an email
-  const handleDelete = (threadId: string) => {
+  const handleDelete = useCallback((threadId: string) => {
     // Would use a GraphQL mutation in a real app
     if (process.env.NODE_ENV !== 'production') {
       console.warn('[Inbox] delete thread', { threadId });
@@ -206,10 +229,10 @@ export default function InboxPage() {
     if (selectedThread?.id === threadId) {
       setSelectedThread(null);
     }
-  };
+  }, [selectedThread?.id, toast]);
   
   // Handle toggling star on an email
-  const handleToggleStar = (threadId: string, isStarred: boolean) => {
+  const handleToggleStar = useCallback((threadId: string, isStarred: boolean) => {
     // The component now uses GraphQL mutation internally
     if (process.env.NODE_ENV !== 'production') {
       console.warn('[Inbox] star toggled', { threadId, isStarred });
@@ -222,7 +245,7 @@ export default function InboxPage() {
         ? "The email has been added to starred" 
         : "The email has been removed from starred",
     });
-  };
+  }, [toast]);
   
   // Handle batch actions
   const handleBatchAction = async (action: string, threadIds: string[]) => {
@@ -282,6 +305,12 @@ export default function InboxPage() {
       });
     }
   };
+
+  useEffect(() => {
+    setSelectedThread(null);
+    lastSelectedThreadIndex.current = -1;
+    setAiDraftContent('');
+  }, [currentFolder, currentLabel]);
   
   // Setup keyboard shortcuts
   useEffect(() => {
@@ -369,27 +398,11 @@ export default function InboxPage() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedThread]);
+  }, [handleArchive, handleDelete, handleRefreshInbox, handleToggleStar, selectedThread, toggleViewMode]);
   
   return (
     <div className="h-full">
       <div className="flex h-full gap-4">
-        {/* Left panel: navigation */}
-        <Surface
-          className="hidden md:flex w-64 flex-col h-full"
-          variant="glass"
-          animateIn={false}
-        >
-          <EmailNavigation
-            currentFolder={currentFolder}
-            onFolderSelect={handleFolderSelect}
-            currentLabel={currentLabel}
-            onLabelSelect={handleLabelSelect}
-            onCompose={handleNewEmail}
-            className="h-full"
-          />
-        </Surface>
-
         {/* Right side: toolbar + list + preview/detail */}
         <div className="flex-1 flex flex-col h-full overflow-hidden gap-4 min-w-0">
           {/* Toolbar */}
@@ -407,16 +420,6 @@ export default function InboxPage() {
 
               <div className="flex items-center gap-2 shrink-0">
                 <Button
-                  variant="outline"
-                  size="icon"
-                  className="md:hidden"
-                  onClick={() => setIsMobileNavOpen(true)}
-                  aria-label="Open folders and labels"
-                  title="Folders & labels"
-                >
-                  <PanelLeft className="h-4 w-4" />
-                </Button>
-                <Button
                   variant="premium"
                   size="sm"
                   className="gap-1"
@@ -424,6 +427,15 @@ export default function InboxPage() {
                 >
                   <Plus className="h-4 w-4" />
                   New Email
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={handleAiWorkspaceToggle}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {isAiDockOpen ? 'Hide AI' : 'AI Workspace'}
                 </Button>
                 <Button
                   variant="outline"
@@ -510,6 +522,21 @@ export default function InboxPage() {
                 </div>
               )}
             </Surface>
+
+            <Surface
+              className={cn(
+                'hidden xl:flex w-[340px] min-w-[340px] overflow-hidden',
+                isAiDockOpen ? 'xl:flex' : 'xl:hidden',
+              )}
+              variant="glass"
+              animateIn={false}
+            >
+              <InboxAiWorkspace
+                selectedThread={selectedThread}
+                onUseDraft={handleUseAiDraft}
+                className="h-full"
+              />
+            </Surface>
           </div>
         </div>
       </div>
@@ -517,7 +544,7 @@ export default function InboxPage() {
       {/* Email Composer (Modal) */}
       <EmailComposer 
         isOpen={isComposerOpen}
-        onClose={() => setIsComposerOpen(false)}
+        onClose={handleComposerClose}
         mode={composerMode}
         replyToThread={composerMode !== 'new' && selectedThread ? selectedThread : undefined}
         threadRecipients={composerMode === 'reply' && selectedThread 
@@ -526,35 +553,28 @@ export default function InboxPage() {
         subject={composerMode !== 'new' && selectedThread 
           ? selectedThread.subject 
           : ''}
-        initialContent={composerMode === 'reply' && selectedThread 
-          ? `\n\n---\nOn ${new Date(selectedThread.lastMessageDate).toLocaleString()}, ${selectedThread.messages[selectedThread.messages.length - 1].from.name} wrote:\n\n${selectedThread.messages[selectedThread.messages.length - 1].contentPreview}...`
-          : ''}
+        initialContent={
+          composerMode === 'new'
+            ? aiDraftContent
+            : composerMode === 'reply' && selectedThread
+              ? `\n\n---\nOn ${new Date(selectedThread.lastMessageDate).toLocaleString()}, ${selectedThread.messages[selectedThread.messages.length - 1].from.name} wrote:\n\n${selectedThread.messages[selectedThread.messages.length - 1].contentPreview}...`
+              : ''
+        }
       />
 
-      {/* Mobile folders/labels navigation */}
-      <Dialog open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
-        <DialogContent className="p-0 overflow-hidden sm:max-w-[420px]">
-          <Surface variant="glass" className="rounded-none border-0 shadow-none bg-background/80">
-            <EmailNavigation
-              currentFolder={currentFolder}
-              onFolderSelect={(folder) => {
-                handleFolderSelect(folder);
-                setIsMobileNavOpen(false);
-              }}
-              currentLabel={currentLabel}
-              onLabelSelect={(labelId) => {
-                handleLabelSelect(labelId);
-                setIsMobileNavOpen(false);
-              }}
-              onCompose={() => {
-                setIsMobileNavOpen(false);
-                handleNewEmail();
-              }}
-              className="h-[75vh]"
-            />
-          </Surface>
-        </DialogContent>
-      </Dialog>
+      <Sheet open={isAiMobileOpen} onOpenChange={setIsAiMobileOpen}>
+        <SheetContent side="right" className="w-[92vw] max-w-[420px] p-0 xl:hidden">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Inbox AI Workspace</SheetTitle>
+            <SheetDescription>Smart reply and insight agents</SheetDescription>
+          </SheetHeader>
+          <InboxAiWorkspace
+            selectedThread={selectedThread}
+            onUseDraft={handleUseAiDraft}
+            className="h-full"
+          />
+        </SheetContent>
+      </Sheet>
       
       {/* Keyboard Shortcuts Dialog */}
       <Dialog open={isShortcutsDialogOpen} onOpenChange={setIsShortcutsDialogOpen}>

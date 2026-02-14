@@ -1,223 +1,282 @@
-//src/(dashboard)/sent/page.tsx
-
 'use client';
 
-import React, { useState } from 'react';
-import { EmailList } from '@/components/email/EmailList';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
-import { EmailDetail } from '@/components/email/EmailDetail';
+import React, { useEffect, useState } from 'react';
+import { useApolloClient, useMutation, useQuery } from '@apollo/client';
+import { useSearchParams } from 'next/navigation';
+import { Filter, MoreVertical, Plus, RefreshCw } from 'lucide-react';
 import { EmailComposer } from '@/components/email/EmailComposer';
-import { EmailNavigation } from '@/components/email/EmailNavigation';
-import { EmailFolder, EmailThread, EmailLabel } from '@/lib/email/email-types';
-import { mockLabels } from '@/lib/email/mock-data';
-import { useQuery, useMutation } from '@apollo/client';
-import { GET_LABELS, UPDATE_EMAIL } from '@/lib/apollo/queries/emails';
+import { EmailDetail } from '@/components/email/EmailDetail';
+import { EmailList } from '@/components/email/EmailList';
+import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
+import { Button } from '@/components/ui/button';
+import { Surface } from '@/components/ui/surface';
 import { useToast } from '@/components/ui/use-toast';
-import { Separator } from '@/components/ui/separator';
+import { GET_LABELS, UPDATE_EMAIL } from '@/lib/apollo/queries/emails';
+import { mockLabels } from '@/lib/email/mock-data';
+import { type EmailFolder, type EmailLabel, type EmailThread } from '@/lib/email/email-types';
 
 const SentPage = () => {
+  const searchParams = useSearchParams();
+  const apollo = useApolloClient();
+  const { toast } = useToast();
+
   const [selectedThread, setSelectedThread] = useState<EmailThread | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
-  const [currentFolder, setCurrentFolder] = useState<EmailFolder>('sent');
-  const [currentLabel, setCurrentLabel] = useState<string | undefined>(undefined);
+  const [composerMode, setComposerMode] = useState<'new' | 'reply' | 'forward'>('new');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<'preview' | 'full'>('preview');
 
-  // Fetch labels
+  const currentFolder: EmailFolder = 'sent';
+  const currentLabel = searchParams.get('label') ?? undefined;
+
   const { data: labelsData } = useQuery(GET_LABELS);
   const availableLabels = labelsData?.labels || mockLabels;
-  
-  // Get toast
-  const { toast } = useToast();
-  
-  // Get mutation
+
   const [updateEmail] = useMutation(UPDATE_EMAIL);
 
-  // Handle folder selection
-  const handleFolderSelect = (folder: EmailFolder) => {
-    setCurrentFolder(folder);
-    setCurrentLabel(undefined); // Clear label selection when folder changes
-    setSelectedThread(null); // Clear selected thread
-  };
-  
-  // Handle label selection
-  const handleLabelSelect = (labelId: string) => {
-    setCurrentLabel(labelId);
-    setCurrentFolder('sent'); // Default to sent view when showing labeled emails
-    setSelectedThread(null); // Clear selected thread
+  useEffect(() => {
+    setSelectedThread(null);
+    setViewMode('preview');
+  }, [currentLabel]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await apollo.refetchQueries({
+        include: ['GetEmails', 'GetLabels', 'GetFolders'],
+      });
+      toast({
+        title: 'Sent folder refreshed',
+        description: 'Latest sent activity is now loaded.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Refresh failed',
+        description: error instanceof Error ? error.message : 'Unable to refresh sent folder.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleSelectThread = (thread: EmailThread) => {
     setSelectedThread(thread);
+    setViewMode('preview');
   };
 
   const handleReply = (threadId: string) => {
-    // Implement reply functionality
-    console.log(`Reply to: ${threadId}`);
+    void threadId;
+    setComposerMode('reply');
+    setComposerOpen(true);
   };
 
   const handleForward = (threadId: string) => {
-    // Implement forward functionality
-    console.log(`Forward: ${threadId}`);
+    void threadId;
+    setComposerMode('forward');
+    setComposerOpen(true);
   };
 
-  const handleArchive = (threadId: string) => {
-    // Would use a GraphQL mutation in a real app
-    console.log(`Archive: ${threadId}`);
-    
-    // Show notification
-    toast({
-      title: "Email archived",
-      description: "The email has been moved to the archive",
+  const handleArchive = async (threadId: string) => {
+    await updateEmail({
+      variables: {
+        id: threadId,
+        input: { folder: 'archive' },
+      },
     });
-  };
-
-  const handleDelete = (threadId: string) => {
-    // Would use a GraphQL mutation in a real app
-    console.log(`Delete: ${threadId}`);
-    
-    // Show notification
     toast({
-      title: "Email deleted",
-      description: "The email has been moved to trash",
+      title: 'Email archived',
+      description: 'The email has been moved to archive.',
     });
-    
     if (selectedThread?.id === threadId) {
       setSelectedThread(null);
     }
   };
 
-  const handleToggleStar = (threadId: string, isStarred: boolean) => {
-    // The component now uses GraphQL mutation internally
-    console.log(`Star toggled: ${threadId} - ${isStarred}`);
-    
-    // Show notification
+  const handleDelete = async (threadId: string) => {
+    await updateEmail({
+      variables: {
+        id: threadId,
+        input: { folder: 'trash' },
+      },
+    });
     toast({
-      title: isStarred ? "Email starred" : "Email unstarred",
-      description: isStarred 
-        ? "The email has been added to starred" 
-        : "The email has been removed from starred",
+      title: 'Email moved to trash',
+      description: 'The selected email is now in trash.',
+    });
+    if (selectedThread?.id === threadId) {
+      setSelectedThread(null);
+    }
+  };
+
+  const handleToggleStar = async (threadId: string, isStarred: boolean) => {
+    await updateEmail({
+      variables: {
+        id: threadId,
+        input: { starred: isStarred },
+      },
+    });
+    toast({
+      title: isStarred ? 'Email starred' : 'Email unstarred',
+      description: 'Star state has been updated.',
     });
   };
-  
-  // Handle batch actions
+
+  type UpdateEmailInput = {
+    folder?: EmailFolder;
+    read?: boolean;
+    starred?: boolean;
+  };
+
   const handleBatchAction = async (action: string, threadIds: string[]) => {
     try {
-      // Define the input for each action type
-      const inputMap: Record<string, any> = {
+      const inputMap: Record<string, UpdateEmailInput> = {
         archive: { folder: 'archive' },
         delete: { folder: 'trash' },
         markRead: { read: true },
         markUnread: { read: false },
         star: { starred: true },
-        unstar: { starred: false }
+        unstar: { starred: false },
       };
-      
+
       const input = inputMap[action];
-      if (!input) {
-        console.error(`Unknown action: ${action}`);
-        return;
-      }
-      
-      // Process each thread ID sequentially
+      if (!input) return;
+
       for (const threadId of threadIds) {
         await updateEmail({
           variables: {
             id: threadId,
-            input
-          }
+            input,
+          },
         });
-        
-        // If the current selection is among the affected threads, deselect it
-        if (selectedThread && threadId === selectedThread.id) {
-          // For archive and delete, deselect the thread
-          if (action === 'archive' || action === 'delete') {
-            setSelectedThread(null);
-          }
-        }
       }
-      
-      // Success message
+
+      if (selectedThread && threadIds.includes(selectedThread.id)) {
+        setSelectedThread(null);
+      }
+
       toast({
-        title: "Action completed",
-        description: `Successfully applied "${action}" to ${threadIds.length} email(s)`,
+        title: 'Action completed',
+        description: `Applied "${action}" to ${threadIds.length} email(s).`,
       });
     } catch (error) {
-      // Show error message
-      console.error("Error performing batch action:", error);
       toast({
-        title: "Action failed",
-        description: `Failed to apply "${action}" to the selected emails`,
-        variant: "destructive"
+        title: 'Action failed',
+        description: error instanceof Error ? error.message : 'Unable to apply action.',
+        variant: 'destructive',
       });
     }
   };
 
   const handleComposeEmail = () => {
+    setComposerMode('new');
     setComposerOpen(true);
   };
 
+  const title =
+    currentLabel
+      ? availableLabels.find((label: EmailLabel) => label.id === currentLabel)?.name
+      : 'Sent';
+
   return (
     <div className="h-full">
-      <div className="flex h-full">
-        {/* Email Navigation Sidebar */}
-        <EmailNavigation 
-          currentFolder={currentFolder}
-          onFolderSelect={handleFolderSelect}
-          currentLabel={currentLabel}
-          onLabelSelect={handleLabelSelect}
-        />
-        
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          {/* Toolbar */}
-          <div className="py-4 px-6 flex items-center justify-between bg-background">
-            <h1 className="text-2xl font-bold">
-              {currentLabel 
-                ? availableLabels.find((l: EmailLabel) => l.id === currentLabel)?.name 
-                : currentFolder.charAt(0).toUpperCase() + currentFolder.slice(1)}
-            </h1>
-            <Button onClick={handleComposeEmail} className="gap-1">
-              <Plus className="h-4 w-4" />
-              Compose
-            </Button>
-          </div>
-
-          <Separator />
-
-          <div className="flex-1 overflow-hidden pt-4">
-            <div className="flex h-full">
-              <div className="w-1/3 pr-4">
-                <EmailList 
-                  onSelectThread={handleSelectThread}
-                  selectedThreadId={selectedThread?.id}
-                  className="h-full"
-                  onBatchAction={handleBatchAction}
-                  initialFolder={currentFolder}
-                  labelFilter={currentLabel}
-                />
-              </div>
-              
-              <div className="flex-1">
-                <EmailDetail 
-                  thread={selectedThread}
-                  availableLabels={availableLabels}
-                  onReply={handleReply}
-                  onForward={handleForward}
-                  onArchive={handleArchive}
-                  onDelete={handleDelete}
-                  onToggleStar={handleToggleStar}
-                  className="h-full"
-                />
+      <div className="flex h-full gap-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-hidden">
+          <Surface
+            variant="subtle"
+            className="sticky top-0 z-20 px-4 py-3 md:px-5 md:py-4"
+            animateIn={false}
+          >
+            <div className="flex items-center justify-between gap-4">
+              <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button variant="premium" size="sm" className="gap-1" onClick={handleComposeEmail}>
+                  <Plus className="h-4 w-4" />
+                  New Email
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  aria-label="Refresh sent emails"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </Button>
+                <Button variant="outline" size="icon" aria-label="Filters">
+                  <Filter className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" aria-label="More options">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
               </div>
             </div>
+          </Surface>
+
+          <div className="flex min-h-0 flex-1 gap-4 overflow-hidden">
+            <Surface
+              className="w-full min-w-0 overflow-hidden flex flex-col md:w-[420px] lg:w-[460px]"
+              variant="glass"
+              animateIn={false}
+            >
+              <EmailList
+                onSelectThread={handleSelectThread}
+                selectedThreadId={selectedThread?.id}
+                className="h-full"
+                onBatchAction={handleBatchAction}
+                initialFolder={currentFolder}
+                labelFilter={currentLabel}
+              />
+            </Surface>
+
+            <Surface
+              className="hidden md:flex min-w-0 flex-1 overflow-hidden"
+              variant="glass"
+              animateIn={false}
+            >
+              {selectedThread ? (
+                viewMode === 'preview' ? (
+                  <EmailPreviewPane
+                    thread={selectedThread}
+                    availableLabels={availableLabels}
+                    onViewFull={() => setViewMode('full')}
+                    onReply={handleReply}
+                    onForward={handleForward}
+                    onArchive={handleArchive}
+                    onDelete={handleDelete}
+                    onToggleStar={handleToggleStar}
+                    className="h-full"
+                  />
+                ) : (
+                  <EmailDetail
+                    thread={selectedThread}
+                    availableLabels={availableLabels}
+                    onReply={handleReply}
+                    onForward={handleForward}
+                    onArchive={handleArchive}
+                    onDelete={handleDelete}
+                    onToggleStar={handleToggleStar}
+                    className="h-full"
+                    onBackToPreview={() => setViewMode('preview')}
+                  />
+                )
+              ) : (
+                <div className="flex h-full items-center justify-center px-8 text-center text-muted-foreground">
+                  Select a sent email to view its full thread.
+                </div>
+              )}
+            </Surface>
           </div>
         </div>
       </div>
 
-      <EmailComposer 
-        isOpen={composerOpen} 
+      <EmailComposer
+        isOpen={composerOpen}
         onClose={() => setComposerOpen(false)}
-        mode="new"
+        mode={composerMode}
+        replyToThread={selectedThread ?? undefined}
+        threadRecipients={selectedThread?.participants}
+        subject={selectedThread?.subject ?? ''}
       />
     </div>
   );
