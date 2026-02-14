@@ -23,4 +23,3 @@ export class Inbox {
   @Field({ nullable: true })
   status?: string;
 }
-
