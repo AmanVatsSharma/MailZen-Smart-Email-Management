@@ -1,4 +1,12 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 
 /**
@@ -15,7 +23,7 @@ export class VerificationToken {
   @Index()
   userId: string;
 
-  @ManyToOne(() => User, user => user.verificationTokens)
+  @ManyToOne(() => User, (user) => user.verificationTokens)
   @JoinColumn({ name: 'userId' })
   user: User;
 
