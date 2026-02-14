@@ -11,4 +11,3 @@ export class EmailParticipant {
   @Field({ nullable: true })
   avatar?: string;
 }
-

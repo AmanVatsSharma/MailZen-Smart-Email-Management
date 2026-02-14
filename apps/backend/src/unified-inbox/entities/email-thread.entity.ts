@@ -47,4 +47,3 @@ export class EmailThread {
   @Field({ nullable: true })
   providerThreadId?: string;
 }
-

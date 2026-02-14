@@ -64,4 +64,3 @@ export class EmailMessage {
   @Field({ nullable: true })
   providerEmailId?: string;
 }
-
