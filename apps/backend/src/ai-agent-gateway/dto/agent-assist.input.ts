@@ -1,13 +1,13 @@
 /**
-* File: apps/backend/src/ai-agent-gateway/dto/agent-assist.input.ts
-* Module: ai-agent-gateway
-* Purpose: GraphQL input contracts for agent assist mutation.
-* Author: Aman Sharma / Novologic/ Codex
-* Last-updated: 2026-02-14
-* Notes:
-* - Validates chat payload boundaries before gateway execution.
-* - Read AgentAssistInput first.
-*/
+ * File: apps/backend/src/ai-agent-gateway/dto/agent-assist.input.ts
+ * Module: ai-agent-gateway
+ * Purpose: GraphQL input contracts for agent assist mutation.
+ * Author: Aman Sharma / Novologic/ Codex
+ * Last-updated: 2026-02-14
+ * Notes:
+ * - Validates chat payload boundaries before gateway execution.
+ * - Read AgentAssistInput first.
+ */
 import { Field, InputType } from '@nestjs/graphql';
 import {
   ArrayMaxSize,
