@@ -25,7 +25,9 @@ describe('ContactService', () => {
       create: jest.fn().mockResolvedValue(mockContact),
       findMany: jest.fn().mockResolvedValue([mockContact]),
       findFirst: jest.fn().mockResolvedValue(mockContact),
-      update: jest.fn().mockResolvedValue({...mockContact, name: 'Updated Name'}),
+      update: jest
+        .fn()
+        .mockResolvedValue({ ...mockContact, name: 'Updated Name' }),
       delete: jest.fn().mockResolvedValue(mockContact),
     },
   };
@@ -112,11 +114,14 @@ describe('ContactService', () => {
       // Arrange
       const userId = 'user-1';
       const contactId = 'non-existent';
-      jest.spyOn(prismaService.contact, 'findFirst').mockResolvedValueOnce(null);
+      jest
+        .spyOn(prismaService.contact, 'findFirst')
+        .mockResolvedValueOnce(null);
 
       // Act & Assert
-      await expect(service.getContactById(userId, contactId))
-        .rejects.toThrow(NotFoundException);
+      await expect(service.getContactById(userId, contactId)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(prismaService.contact.findFirst).toHaveBeenCalledWith({
         where: { id: contactId, userId },
       });
@@ -160,13 +165,16 @@ describe('ContactService', () => {
       const userId = 'user-1';
       const contactId = 'non-existent';
       const updateData = { name: 'Updated Name' };
-      jest.spyOn(service, 'getContactById').mockRejectedValueOnce(
-        new NotFoundException(`Contact with id ${contactId} not found`)
-      );
+      jest
+        .spyOn(service, 'getContactById')
+        .mockRejectedValueOnce(
+          new NotFoundException(`Contact with id ${contactId} not found`),
+        );
 
       // Act & Assert
-      await expect(service.updateContact(userId, contactId, updateData))
-        .rejects.toThrow(NotFoundException);
+      await expect(
+        service.updateContact(userId, contactId, updateData),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -203,13 +211,16 @@ describe('ContactService', () => {
       // Arrange
       const userId = 'user-1';
       const contactId = 'non-existent';
-      jest.spyOn(service, 'getContactById').mockRejectedValueOnce(
-        new NotFoundException(`Contact with id ${contactId} not found`)
-      );
+      jest
+        .spyOn(service, 'getContactById')
+        .mockRejectedValueOnce(
+          new NotFoundException(`Contact with id ${contactId} not found`),
+        );
 
       // Act & Assert
-      await expect(service.deleteContact(userId, contactId))
-        .rejects.toThrow(NotFoundException);
+      await expect(service.deleteContact(userId, contactId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
-}); 
+});

@@ -19,7 +19,9 @@ interface RequestContext {
 export class ContactResolver {
   constructor(private readonly contactService: ContactService) {}
 
-  @Query(() => [Contact], { description: 'Get all contacts for the current user' })
+  @Query(() => [Contact], {
+    description: 'Get all contacts for the current user',
+  })
   async getAllContacts(@Context() context: RequestContext): Promise<Contact[]> {
     return this.contactService.getAllContacts(context.req.user.id);
   }
@@ -27,7 +29,7 @@ export class ContactResolver {
   @Query(() => Contact, { description: 'Get a contact by id' })
   async getContact(
     @Args('id') id: string,
-    @Context() context: RequestContext
+    @Context() context: RequestContext,
   ): Promise<Contact> {
     return this.contactService.getContactById(context.req.user.id, id);
   }
@@ -35,15 +37,18 @@ export class ContactResolver {
   @Mutation(() => Contact, { description: 'Create a new contact' })
   async createContact(
     @Args('createContactInput') createContactInput: CreateContactInput,
-    @Context() context: RequestContext
+    @Context() context: RequestContext,
   ): Promise<Contact> {
-    return this.contactService.createContact(context.req.user.id, createContactInput);
+    return this.contactService.createContact(
+      context.req.user.id,
+      createContactInput,
+    );
   }
-  
+
   @Mutation(() => Contact, { description: 'Update an existing contact' })
   async updateContact(
     @Args('updateContactInput') updateContactInput: UpdateContactInput,
-    @Context() context: RequestContext
+    @Context() context: RequestContext,
   ): Promise<Contact> {
     return this.contactService.updateContact(
       context.req.user.id,
@@ -51,16 +56,16 @@ export class ContactResolver {
       {
         name: updateContactInput.name,
         email: updateContactInput.email,
-        phone: updateContactInput.phone
-      }
+        phone: updateContactInput.phone,
+      },
     );
   }
-  
+
   @Mutation(() => Contact, { description: 'Delete a contact' })
   async deleteContact(
     @Args('id') id: string,
-    @Context() context: RequestContext
+    @Context() context: RequestContext,
   ): Promise<Contact> {
     return this.contactService.deleteContact(context.req.user.id, id);
   }
-} 
+}
