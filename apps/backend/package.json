@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@as-integrations/express5": "^1.1.2",
     "@google-cloud/storage": "^7.15.2",
     "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/apollo": "^13.0.2",
