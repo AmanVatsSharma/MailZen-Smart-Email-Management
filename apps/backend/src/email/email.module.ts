@@ -30,6 +30,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { join } from 'path';
 import { ConfigModule } from '@nestjs/config';
 import { MailService } from './mail.service';
+import { User } from '../user/entities/user.entity';
+import { Template } from '../template/entities/template.entity';
 
 /**
  * EmailModule - Email sending, tracking, and management
@@ -48,6 +50,8 @@ import { MailService } from './mail.service';
       Attachment,
       EmailWarmup,
       WarmupActivity,
+      User,
+      Template,
     ]),
     ConfigModule,
     EmailProviderModule,

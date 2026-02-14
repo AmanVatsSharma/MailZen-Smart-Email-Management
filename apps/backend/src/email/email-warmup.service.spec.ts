@@ -1,84 +1,136 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Test, TestingModule } from '@nestjs/testing';
+import { Repository } from 'typeorm';
+import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { EmailService } from './email.service';
 import { EmailWarmupService } from './email.email-warmup.service';
+import { EmailWarmup } from './entities/email-warmup.entity';
+import { WarmupActivity } from './entities/warmup-activity.entity';
 
-describe('EmailWarmupService (smoke)', () => {
+describe('EmailWarmupService', () => {
   let service: EmailWarmupService;
-  let prismaService: any;
+  let emailProviderRepo: jest.Mocked<Repository<EmailProvider>>;
+  let emailWarmupRepo: jest.Mocked<Repository<EmailWarmup>>;
 
-  const mockProviderId = 'provider-1';
-  const mockUserId = 'user-1';
-
-  const mockWarmup = {
+  const providerId = 'provider-1';
+  const userId = 'user-1';
+  const warmup = {
     id: 'warmup-1',
-    providerId: mockProviderId,
+    providerId,
     status: 'ACTIVE',
     currentDailyLimit: 5,
     dailyIncrement: 5,
     maxDailyEmails: 100,
     minimumInterval: 15,
     targetOpenRate: 80,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  } as EmailWarmup;
 
   beforeEach(async () => {
-    prismaService = {
-      emailProvider: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: mockProviderId,
-          userId: mockUserId,
-          warmup: null,
-        }),
-      },
-      emailWarmup: {
-        create: jest.fn().mockResolvedValue(mockWarmup),
-        update: jest
-          .fn()
-          .mockResolvedValue({ ...mockWarmup, status: 'PAUSED' }),
-        findFirst: jest.fn().mockResolvedValue(mockWarmup),
-      },
-    };
+    const providerRepoMock = {
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<EmailProvider>>;
+
+    const warmupRepoMock = {
+      create: jest.fn(),
+      save: jest.fn(),
+      update: jest.fn(),
+      findOne: jest.fn(),
+      createQueryBuilder: jest.fn(),
+    } as unknown as jest.Mocked<Repository<EmailWarmup>>;
+
+    const activityRepoMock = {
+      create: jest.fn(),
+      save: jest.fn(),
+      update: jest.fn(),
+      createQueryBuilder: jest.fn(),
+    } as unknown as jest.Mocked<Repository<WarmupActivity>>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EmailWarmupService,
-        { provide: PrismaService, useValue: prismaService },
-        { provide: EmailService, useValue: { sendEmail: jest.fn() } },
+        {
+          provide: EmailService,
+          useValue: { sendEmail: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(EmailProvider),
+          useValue: providerRepoMock,
+        },
+        {
+          provide: getRepositoryToken(EmailWarmup),
+          useValue: warmupRepoMock,
+        },
+        {
+          provide: getRepositoryToken(WarmupActivity),
+          useValue: activityRepoMock,
+        },
       ],
     }).compile();
 
-    service = module.get(EmailWarmupService);
+    service = module.get<EmailWarmupService>(EmailWarmupService);
+    emailProviderRepo = module.get(getRepositoryToken(EmailProvider));
+    emailWarmupRepo = module.get(getRepositoryToken(EmailWarmup));
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
-  it('startWarmup creates a new warmup when none exists', async () => {
-    const res = await service.startWarmup(
-      { providerId: mockProviderId, config: { dailyIncrement: 5 } } as any,
-      mockUserId,
+  it('starts a new warmup when provider has no warmup row', async () => {
+    emailProviderRepo.findOne.mockResolvedValue({
+      id: providerId,
+      userId,
+      warmup: null,
+    } as any);
+    emailWarmupRepo.create.mockReturnValue(warmup);
+    emailWarmupRepo.save.mockResolvedValue(warmup);
+
+    const result = await service.startWarmup({ providerId } as any, userId);
+
+    expect(emailProviderRepo.findOne).toHaveBeenCalledWith({
+      where: { id: providerId, userId },
+      relations: ['warmup'],
+    });
+    expect(emailWarmupRepo.save).toHaveBeenCalledWith(warmup);
+    expect(result).toEqual(warmup);
+  });
+
+  it('pauses an existing warmup', async () => {
+    const queryBuilderMock = {
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(warmup),
+    };
+
+    emailWarmupRepo.createQueryBuilder.mockReturnValue(queryBuilderMock as any);
+    emailWarmupRepo.update.mockResolvedValue({} as any);
+    emailWarmupRepo.findOne.mockResolvedValue({
+      ...warmup,
+      status: 'PAUSED',
+    } as any);
+
+    const result = await service.pauseWarmup({ providerId } as any, userId);
+
+    expect(emailWarmupRepo.update).toHaveBeenCalledWith(
+      { id: warmup.id },
+      { status: 'PAUSED' },
     );
-    expect(prismaService.emailProvider.findFirst).toHaveBeenCalled();
-    expect(prismaService.emailWarmup.create).toHaveBeenCalled();
-    expect(res).toEqual(mockWarmup);
+    expect(result?.status).toBe('PAUSED');
   });
 
-  it('pauseWarmup updates warmup status', async () => {
-    const res = await service.pauseWarmup(
-      { providerId: mockProviderId } as any,
-      mockUserId,
-    );
-    expect(prismaService.emailWarmup.findFirst).toHaveBeenCalled();
-    expect(prismaService.emailWarmup.update).toHaveBeenCalled();
-    expect(res.status).toBe('PAUSED');
-  });
+  it('throws when pauseWarmup does not find a row', async () => {
+    const queryBuilderMock = {
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+    emailWarmupRepo.createQueryBuilder.mockReturnValue(queryBuilderMock as any);
 
-  it('pauseWarmup throws if not found', async () => {
-    prismaService.emailWarmup.findFirst.mockResolvedValueOnce(null);
     await expect(
-      service.pauseWarmup({ providerId: mockProviderId } as any, mockUserId),
+      service.pauseWarmup({ providerId } as any, userId),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });
