@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import LoginForm from '@/components/auth/LoginForm';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'Login | MailZen',
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function LoginPage() {
-  return <LoginForm />;
+  redirect('/auth/login');
 } 

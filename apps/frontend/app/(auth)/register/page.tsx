@@ -1,6 +1,5 @@
 import { Metadata } from 'next';
-import RegisterForm from '@/components/auth/RegisterForm';
-import SignupPhone from '@/components/auth/SignupPhone';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'Create an Account | MailZen',
@@ -8,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function RegisterPage() {
-  return <SignupPhone />;
+  redirect('/auth/register');
 }
