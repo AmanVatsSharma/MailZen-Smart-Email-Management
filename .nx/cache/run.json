@@ -1,21 +1,54 @@
 {
   "run": {
-    "command": "nx test:e2e backend",
-    "startTime": "2026-02-01T08:17:37.591Z",
-    "endTime": "2026-02-01T08:18:06.248Z",
+    "command": "nx run-many -t build -p frontend backend",
+    "startTime": "2026-02-14T09:43:23.999Z",
+    "endTime": "2026-02-14T09:44:54.498Z",
     "inner": false
   },
   "tasks": [
     {
-      "taskId": "backend:test:e2e",
-      "target": "test:e2e",
-      "projectName": "backend",
-      "hash": "1969966876448224794",
-      "startTime": "2026-02-01T08:17:37.640Z",
-      "endTime": "2026-02-01T08:18:06.246Z",
+      "taskId": "frontend:prepare-env",
+      "target": "prepare-env",
+      "projectName": "frontend",
+      "hash": "8309733230131818174",
+      "startTime": "2026-02-14T09:43:24.030Z",
+      "endTime": "2026-02-14T09:43:24.104Z",
       "params": "",
       "cacheStatus": "cache-miss",
-      "status": 1
+      "status": 0
+    },
+    {
+      "taskId": "backend:prepare-env",
+      "target": "prepare-env",
+      "projectName": "backend",
+      "hash": "10678667974063379201",
+      "startTime": "2026-02-14T09:43:24.030Z",
+      "endTime": "2026-02-14T09:43:24.154Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    },
+    {
+      "taskId": "backend:build",
+      "target": "build",
+      "projectName": "backend",
+      "hash": "18130747218609025598",
+      "startTime": "2026-02-14T09:43:24.159Z",
+      "endTime": "2026-02-14T09:43:51.030Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    },
+    {
+      "taskId": "frontend:build",
+      "target": "build",
+      "projectName": "frontend",
+      "hash": "158891063761631032",
+      "startTime": "2026-02-14T09:43:24.107Z",
+      "endTime": "2026-02-14T09:44:54.497Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
     }
   ]
 }
