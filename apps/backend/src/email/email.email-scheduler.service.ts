@@ -22,22 +22,20 @@ export class EmailSchedulerService {
       throw new Error('Cannot schedule email in the past');
     }
 
-    return this.emailQueue.add(
-      'send-email',
-      { input, userId },
-      { delay }
-    );
+    return this.emailQueue.add('send-email', { input, userId }, { delay });
   }
 
   @Process('send-email')
-  async processScheduledEmail(job: Job<{ input: SendEmailInput; userId: string }>) {
+  async processScheduledEmail(
+    job: Job<{ input: SendEmailInput; userId: string }>,
+  ) {
     const { input, userId } = job.data;
     return this.emailService.sendEmail(input, userId);
   }
 
   async getScheduledEmails(userId: string) {
     const jobs = await this.emailQueue.getJobs(['delayed']);
-    return jobs.filter(job => job.data.userId === userId);
+    return jobs.filter((job) => job.data.userId === userId);
   }
 
   async cancelScheduledEmail(jobId: string, userId: string) {
@@ -53,4 +51,4 @@ export class EmailSchedulerService {
     await job.remove();
     return { success: true };
   }
-} 
+}
