@@ -1,10 +1,11 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
-import { Loader2, Sparkles } from 'lucide-react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2, Mic, MicOff, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { createBrowserVoiceIO } from '@/lib/voice/voice-io';
 
 export type AgentAssistantMessage = {
   role: 'user' | 'assistant';
@@ -26,6 +27,7 @@ interface AgentAssistantProps {
   loading?: boolean;
   onSend: (message: string) => void | Promise<void>;
   onAction: (action: AgentAssistantAction) => void | Promise<void>;
+  enableVoice?: boolean;
 }
 
 export function AgentAssistant({
@@ -37,8 +39,23 @@ export function AgentAssistant({
   loading = false,
   onSend,
   onAction,
+  enableVoice = false,
 }: AgentAssistantProps) {
   const [draft, setDraft] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const voiceIo = useMemo(() => createBrowserVoiceIO(), []);
+  const stopListeningRef = useRef<(() => void) | null>(null);
+
+  const canUseVoice = enableVoice && voiceIo.isRecognitionSupported();
+  const canUseSpeechSynthesis = enableVoice && voiceIo.isSpeechSynthesisSupported();
+
+  useEffect(() => {
+    return () => {
+      stopListeningRef.current?.();
+      voiceIo.stopSpeaking();
+    };
+  }, [voiceIo]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -46,6 +63,38 @@ export function AgentAssistant({
     if (!value || loading) return;
     setDraft('');
     await onSend(value);
+  };
+
+  const startVoiceCapture = () => {
+    if (!canUseVoice || loading || isListening) return;
+    setVoiceError(null);
+    stopListeningRef.current = voiceIo.startListening({
+      onTranscript: (transcript) => {
+        setDraft(transcript);
+        void onSend(transcript);
+      },
+      onError: (message) => {
+        setVoiceError(message);
+      },
+      onStateChange: (state) => {
+        setIsListening(state);
+      },
+    });
+  };
+
+  const stopVoiceCapture = () => {
+    stopListeningRef.current?.();
+    stopListeningRef.current = null;
+    setIsListening(false);
+  };
+
+  const speakLastAssistantMessage = () => {
+    if (!canUseSpeechSynthesis) return;
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find((message) => message.role === 'assistant');
+    if (!lastAssistantMessage) return;
+    voiceIo.speak(lastAssistantMessage.content);
   };
 
   return (
@@ -103,6 +152,10 @@ export function AgentAssistant({
           </div>
         ) : null}
 
+        {voiceError ? (
+          <p className="text-xs text-destructive">{voiceError}</p>
+        ) : null}
+
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Input
             value={draft}
@@ -110,6 +163,44 @@ export function AgentAssistant({
             placeholder={placeholder}
             disabled={loading}
           />
+          {enableVoice ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={isListening ? stopVoiceCapture : startVoiceCapture}
+              disabled={loading || (!canUseVoice && !isListening)}
+              title={
+                canUseVoice
+                  ? isListening
+                    ? 'Stop voice capture'
+                    : 'Start voice capture'
+                  : 'Voice recognition not supported in this browser'
+              }
+            >
+              {isListening ? (
+                <MicOff className="h-4 w-4" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+            </Button>
+          ) : null}
+          {enableVoice ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={speakLastAssistantMessage}
+              disabled={loading || messages.length === 0 || !canUseSpeechSynthesis}
+              title="Read latest assistant message"
+            >
+              {canUseSpeechSynthesis ? (
+                <Volume2 className="h-4 w-4" />
+              ) : (
+                <VolumeX className="h-4 w-4" />
+              )}
+            </Button>
+          ) : null}
           <Button type="submit" disabled={loading || draft.trim().length === 0}>
             Send
           </Button>

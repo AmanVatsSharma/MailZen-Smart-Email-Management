@@ -194,6 +194,7 @@ export function LoginAssistantAdapter() {
         loading={loading}
         onSend={handleSend}
         onAction={handleAction}
+        enableVoice
       />
     </div>
   );
