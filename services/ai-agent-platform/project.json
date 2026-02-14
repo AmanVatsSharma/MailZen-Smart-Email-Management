@@ -1,0 +1,30 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "ai-agent-platform",
+  "projectType": "application",
+  "sourceRoot": "services/ai-agent-platform/app",
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "services/ai-agent-platform",
+        "command": "if [ -x .venv/bin/python ]; then .venv/bin/python -m uvicorn app.main:app --reload --port 8100; else python -m uvicorn app.main:app --reload --port 8100; fi"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "services/ai-agent-platform",
+        "command": "if [ -x .venv/bin/python ]; then .venv/bin/python -m pytest; else python -m pytest; fi"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "services/ai-agent-platform",
+        "command": "if [ -x .venv/bin/python ]; then .venv/bin/python -m compileall app; else python -m compileall app; fi"
+      }
+    }
+  },
+  "tags": ["scope:ai", "type:service"]
+}
