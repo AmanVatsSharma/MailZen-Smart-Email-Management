@@ -36,7 +36,7 @@ export class EmailService {
    */
   async sendEmail(input: SendEmailInput, userId: string) {
     console.log('[EmailService] Sending email from user:', userId);
-    
+
     // First save the email in database
     const email = this.emailRepository.create({
       subject: input.subject,
@@ -48,7 +48,7 @@ export class EmailService {
       userId,
       providerId: input.providerId,
     });
-    
+
     const savedEmail = await this.emailRepository.save(email);
     console.log('[EmailService] Email saved to database:', savedEmail.id);
 
@@ -76,7 +76,7 @@ export class EmailService {
       console.log('[EmailService] Provider not found:', input.providerId);
       throw new Error('Email provider not found');
     }
-    
+
     console.log('[EmailService] Using provider:', provider.type);
 
     // Configure transport based on provider type
@@ -109,14 +109,17 @@ export class EmailService {
 
     // Create transport and send email
     const transporter = nodemailer.createTransport(transportConfig);
-    
+
     try {
       // Add tracking pixel for open tracking
       const trackingPixel = `<img src="${process.env.API_URL || 'http://localhost:3000'}/email/track/${email.id}/open" width="1" height="1" />`;
       const bodyWithTracking = input.body + trackingPixel;
 
       // Add click tracking to links
-      const bodyWithClickTracking = this.addClickTracking(bodyWithTracking, email.id);
+      const bodyWithClickTracking = this.addClickTracking(
+        bodyWithTracking,
+        email.id,
+      );
 
       await transporter.sendMail({
         from: input.from,
@@ -145,9 +148,14 @@ export class EmailService {
    * @param userId - User ID
    * @returns Created email entity
    */
-  async sendTemplateEmail(template: string, to: string[], context: any, userId: string) {
+  async sendTemplateEmail(
+    template: string,
+    to: string[],
+    context: any,
+    userId: string,
+  ) {
     console.log('[EmailService] Sending template email:', template);
-    
+
     const email = await this.mailerService.sendMail({
       to: to.join(','),
       subject: context.subject,
@@ -163,10 +171,10 @@ export class EmailService {
       status: 'SENT',
       userId,
     });
-    
+
     const result = await this.emailRepository.save(savedEmail);
     console.log('[EmailService] Template email sent:', result.id);
-    
+
     return result;
   }
 
@@ -174,7 +182,7 @@ export class EmailService {
     const apiUrl = process.env.API_URL || 'http://localhost:3000';
     return html.replace(
       /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1/g,
-      `<a href="${apiUrl}/email/track/${emailId}/click?url=$2"`
+      `<a href="${apiUrl}/email/track/${emailId}/click?url=$2"`,
     );
   }
 
@@ -185,8 +193,10 @@ export class EmailService {
    */
   async trackOpen(emailId: string) {
     console.log('[EmailService] Tracking email open:', emailId);
-    
-    const analytics = await this.analyticsRepository.findOne({ where: { emailId } });
+
+    const analytics = await this.analyticsRepository.findOne({
+      where: { emailId },
+    });
     if (analytics) {
       analytics.openCount += 1;
       return this.analyticsRepository.save(analytics);
@@ -201,8 +211,10 @@ export class EmailService {
    */
   async trackClick(emailId: string) {
     console.log('[EmailService] Tracking email click:', emailId);
-    
-    const analytics = await this.analyticsRepository.findOne({ where: { emailId } });
+
+    const analytics = await this.analyticsRepository.findOne({
+      where: { emailId },
+    });
     if (analytics) {
       analytics.clickCount += 1;
       return this.analyticsRepository.save(analytics);
@@ -218,18 +230,18 @@ export class EmailService {
    */
   async getEmailsByUser(userId: string, providerId?: string | null) {
     console.log('[EmailService] Fetching emails for user:', userId);
-    
+
     const where: any = { userId };
     if (providerId) {
       where.providerId = providerId;
     }
-    
+
     const emails = await this.emailRepository.find({
       where,
       relations: ['provider', 'analytics'],
       order: { createdAt: 'DESC' },
     });
-    
+
     console.log('[EmailService] Found', emails.length, 'emails');
     return emails;
   }
@@ -242,7 +254,7 @@ export class EmailService {
    */
   async getEmailById(id: string, userId: string) {
     console.log('[EmailService] Fetching email:', id);
-    
+
     return this.emailRepository.findOne({
       where: { id, userId },
       relations: ['provider', 'analytics'],
@@ -256,7 +268,7 @@ export class EmailService {
    */
   async markEmailRead(emailId: string) {
     console.log('[EmailService] Marking email as read:', emailId);
-    
+
     await this.emailRepository.update(emailId, { status: 'READ' });
     return this.emailRepository.findOne({ where: { id: emailId } });
   }

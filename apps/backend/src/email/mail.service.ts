@@ -13,7 +13,9 @@ export class MailService {
    */
   constructor(private readonly mailerService: MailerService) {}
 
-  async sendRealEmail(createEmailInput: CreateEmailInput): Promise<SentMessageInfo> {
+  async sendRealEmail(
+    createEmailInput: CreateEmailInput,
+  ): Promise<SentMessageInfo> {
     const mailOptions = {
       from: '"MailZen" <no-reply@mailzen.com>',
       to: createEmailInput.recipientIds.join(', '),
@@ -22,6 +24,6 @@ export class MailService {
       // You can add html content here if needed
     };
     // MailerService is a thin wrapper around Nodemailer; `sendMail` returns Nodemailer info.
-    return (await this.mailerService.sendMail(mailOptions)) as SentMessageInfo;
+    return await this.mailerService.sendMail(mailOptions);
   }
-} 
+}
