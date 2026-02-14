@@ -1,4 +1,14 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index, Unique } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+  Unique,
+} from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { EmailProvider } from './email-provider.entity';
 
@@ -16,7 +26,7 @@ export class ExternalEmailMessage {
   @Index()
   userId: string;
 
-  @ManyToOne(() => User, user => user.externalMessages)
+  @ManyToOne(() => User, (user) => user.externalMessages)
   @JoinColumn({ name: 'userId' })
   user: User;
 
@@ -24,7 +34,7 @@ export class ExternalEmailMessage {
   @Index()
   providerId: string;
 
-  @ManyToOne(() => EmailProvider, provider => provider.externalMessages)
+  @ManyToOne(() => EmailProvider, (provider) => provider.externalMessages)
   @JoinColumn({ name: 'providerId' })
   provider: EmailProvider;
 
