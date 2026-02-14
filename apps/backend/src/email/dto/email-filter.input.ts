@@ -1,4 +1,4 @@
-import { Field, InputType } from '@nestjs/graphql';
+import { Field, InputType, registerEnumType } from '@nestjs/graphql';
 import { IsString, IsOptional, IsEnum, IsArray } from 'class-validator';
 
 export enum FilterCondition {
@@ -15,6 +15,10 @@ export enum FilterAction {
   APPLY_LABEL = 'APPLY_LABEL',
   FORWARD_TO = 'FORWARD_TO',
 }
+
+// Register enums with GraphQL so they can be used in @Field(() => EnumType)
+registerEnumType(FilterCondition, { name: 'FilterCondition' });
+registerEnumType(FilterAction, { name: 'FilterAction' });
 
 @InputType()
 export class EmailFilterRule {
@@ -49,4 +53,4 @@ export class CreateEmailFilterInput {
   @Field(() => [EmailFilterRule])
   @IsArray()
   rules: EmailFilterRule[];
-} 
+}

@@ -1,5 +1,5 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { IsString, IsOptional, IsObject } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 
 @InputType()
 export class CreateEmailTemplateInput {
@@ -15,9 +15,9 @@ export class CreateEmailTemplateInput {
   @IsString()
   body: string;
 
-  @Field(() => Object, { nullable: true })
+  // NOTE: GraphQL doesn't support arbitrary object inputs without a JSON scalar.
+  // For MVP we keep metadata off the schema.
   @IsOptional()
-  @IsObject()
   metadata?: Record<string, any>;
 }
 
@@ -38,8 +38,8 @@ export class UpdateEmailTemplateInput {
   @IsString()
   body?: string;
 
-  @Field(() => Object, { nullable: true })
+  // NOTE: GraphQL doesn't support arbitrary object inputs without a JSON scalar.
+  // For MVP we keep metadata off the schema.
   @IsOptional()
-  @IsObject()
   metadata?: Record<string, any>;
-} 
+}
