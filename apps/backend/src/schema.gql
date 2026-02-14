@@ -1,0 +1,628 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type EmailProvider {
+  id: ID!
+  type: String!
+  email: String!
+  displayName: String
+  isActive: Boolean!
+  lastSyncedAt: DateTime
+  status: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type Email {
+  id: ID!
+  subject: String!
+  body: String!
+  from: String!
+  to: [String!]!
+  status: String!
+  isImportant: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type User {
+  id: ID!
+  email: String!
+  name: String
+  role: String!
+  isEmailVerified: Boolean!
+  phoneNumber: String
+  isPhoneVerified: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type SendRealEmailResponse {
+  messageId: String!
+  accepted: [String!]!
+  rejected: [String!]!
+}
+
+type EmailTemplate {
+  id: String!
+  name: String!
+  subject: String!
+  body: String!
+  userId: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Attachment {
+  id: String!
+  filename: String!
+  contentType: String!
+  size: Int
+  url: String!
+  emailId: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type WarmupPerformanceMetrics {
+  averageOpenRate: Float!
+  totalEmailsSent: Int!
+  daysActive: Int!
+  currentPhase: String!
+}
+
+type WarmupActivity {
+  id: String!
+  warmupId: String!
+  emailsSent: Int!
+  openRate: Float!
+  date: DateTime!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type EmailWarmup {
+  id: String!
+  providerId: String!
+  status: String!
+  currentDailyLimit: Int!
+  dailyIncrement: Int!
+  maxDailyEmails: Int!
+  minimumInterval: Int!
+  targetOpenRate: Int!
+  startedAt: DateTime!
+  lastRunAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  activities: [WarmupActivity!]!
+}
+
+type Provider {
+  id: ID!
+  type: String!
+  name: String!
+  email: String!
+  isActive: Boolean!
+  lastSynced: String
+  status: String!
+}
+
+type ProviderActionResult {
+  success: Boolean!
+  message: String!
+}
+
+type InboxMessage {
+  id: ID!
+  providerId: String!
+  externalMessageId: String!
+  threadId: String
+  from: String
+  to: [String!]!
+  subject: String
+  snippet: String
+  internalDate: String
+  labels: [String!]!
+}
+
+type AuthResponse {
+  token: String!
+  refreshToken: String
+  user: User!
+}
+
+type Feature {
+  id: ID!
+  name: String!
+  isActive: Boolean!
+}
+
+type Template {
+  id: ID!
+  name: String!
+  subject: String!
+  body: String!
+}
+
+type ScheduledEmail {
+  id: ID!
+  subject: String!
+  body: String!
+  recipientIds: [String!]!
+  scheduledAt: DateTime!
+  status: String!
+}
+
+type EmailAnalytics {
+  id: ID!
+  emailId: String!
+  openCount: Int!
+  clickCount: Int!
+  lastUpdatedAt: DateTime!
+}
+
+type Contact {
+  id: ID!
+  name: String!
+  email: String!
+  phone: String
+  userId: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Inbox {
+  id: ID!
+  type: String!
+  address: String!
+  isActive: Boolean!
+  status: String
+}
+
+type EmailAttachment {
+  id: ID!
+  name: String!
+  type: String!
+  size: Float!
+  url: String
+}
+
+type EmailParticipant {
+  name: String!
+  email: String!
+  avatar: String
+}
+
+type EmailMessage {
+  id: ID!
+  threadId: String!
+  subject: String!
+  from: EmailParticipant!
+  to: [EmailParticipant!]!
+  cc: [EmailParticipant!]
+  bcc: [EmailParticipant!]
+  content: String!
+  contentPreview: String!
+  date: String!
+  folder: String!
+  isStarred: Boolean!
+  importance: String!
+  attachments: [EmailAttachment!]!
+  status: String!
+  labelIds: [String!]
+  providerId: String!
+  providerEmailId: String
+}
+
+type EmailThread {
+  id: ID!
+  subject: String!
+  participants: [EmailParticipant!]!
+  lastMessageDate: String!
+  isUnread: Boolean!
+  messages: [EmailMessage!]!
+  folder: String!
+  labelIds: [String!]
+  providerId: String!
+  providerThreadId: String
+}
+
+type EmailFolder {
+  id: ID!
+  name: String!
+  count: Float!
+  unreadCount: Float!
+}
+
+type EmailLabel {
+  id: ID!
+  name: String!
+  color: String!
+  count: Float!
+}
+
+type Query {
+  users: [User!]!
+  user(id: ID!): User
+  getMyEmails(providerId: String): [Email!]!
+  getEmailById(id: String!): Email!
+
+  """Returns JSON stringified filters for now"""
+  getEmailFilters: [String!]!
+  getEmailTemplates: [EmailTemplate!]!
+  getEmailTemplate(id: String!): EmailTemplate!
+  renderEmailTemplate(id: String!, variables: String): String!
+  getAttachments(emailId: String!): [Attachment!]!
+  getEmailWarmupStatus(providerId: String!): EmailWarmup
+  getWarmupPerformanceMetrics(warmupId: String!): WarmupPerformanceMetrics!
+  getProviderEmails(providerId: String!): [Email!]!
+  getAllProviders: [EmailProvider!]!
+  getProviderById(id: String!): EmailProvider!
+  validateProvider(id: String!): Boolean!
+  providers: [Provider!]!
+  getEmailProviders: [Provider!]!
+  getInboxMessages(inboxType: String!, inboxId: String!, limit: Int, offset: Int): [InboxMessage!]!
+  myMailboxes: [String!]!
+
+  """Get all features"""
+  getAllFeatures: [Feature!]!
+
+  """Get all templates"""
+  getAllTemplates: [Template!]!
+
+  """Get a template by id"""
+  getTemplate(id: String!): Template!
+
+  """Get all scheduled emails"""
+  getAllScheduledEmails: [ScheduledEmail!]!
+
+  """Get all email analytics records"""
+  getAllEmailAnalytics: [EmailAnalytics!]!
+
+  """Get all contacts for the current user"""
+  getAllContacts: [Contact!]!
+
+  """Get a contact by id"""
+  getContact(id: String!): Contact!
+  myInboxes: [Inbox!]!
+  emails(limit: Int, offset: Int, filter: EmailFilterInput, sort: EmailSortInput): [EmailThread!]!
+  email(id: String!): EmailThread!
+  folders: [EmailFolder!]!
+  labels: [EmailLabel!]!
+
+  """Generate a smart reply for a conversation"""
+  generateSmartReply(input: SmartReplyInput!): String!
+
+  """Get suggested replies for an email"""
+  getSuggestedReplies(emailBody: String!, count: Int! = 3): [String!]!
+}
+
+input EmailFilterInput {
+  search: String
+  folder: String
+  labelIds: [String!]
+  status: String
+  isStarred: Boolean
+  providerId: String
+}
+
+input EmailSortInput {
+  field: String!
+  direction: String!
+}
+
+input SmartReplyInput {
+  conversation: String!
+}
+
+type Mutation {
+  createUser(createUserInput: CreateUserInput!): User!
+  updateUser(updateUserInput: UpdateUserInput!): User!
+  sendEmail(input: SendEmailInput!): Email!
+  markEmailRead(markEmailReadInput: MarkEmailReadInput!): Email!
+  sendRealEmail(createEmailInput: CreateEmailInput!): SendRealEmailResponse!
+  createEmailFilter(input: CreateEmailFilterInput!): Boolean!
+  deleteEmailFilter(id: String!): Boolean!
+  createEmailTemplate(input: CreateEmailTemplateInput!): EmailTemplate!
+  updateEmailTemplate(id: String!, input: UpdateEmailTemplateInput!): EmailTemplate!
+  deleteEmailTemplate(id: String!): EmailTemplate!
+  uploadAttachment(input: CreateAttachmentInput!): Attachment!
+  deleteAttachment(input: DeleteAttachmentInput!): Boolean!
+  startEmailWarmup(input: StartWarmupInput!): EmailWarmup!
+  pauseEmailWarmup(input: PauseWarmupInput!): EmailWarmup!
+  adjustWarmupStrategy(warmupId: String!): EmailWarmup!
+  configureEmailProvider(providerInput: EmailProviderInput!): EmailProvider!
+  deleteProvider(input: DeleteProviderInput!): Boolean!
+  updateProviderCredentials(id: String!, input: EmailProviderInput!): EmailProvider!
+  connectGmail(code: String!): Provider!
+  connectOutlook(code: String!): Provider!
+  connectSmtp(settings: SmtpSettingsInput!): Provider!
+  disconnectProvider(id: String!): ProviderActionResult!
+  updateProvider(id: String!, isActive: Boolean): Provider!
+  syncProvider(id: String!): Provider!
+  updateProviderStatus(id: String!, isActive: Boolean): Provider!
+  syncGmailProvider(providerId: String!, maxMessages: Int): Boolean!
+  login(loginInput: LoginInput!): AuthResponse!
+  register(registerInput: CreateUserInput!): AuthResponse!
+  refresh(input: RefreshInput!): AuthResponse!
+  logout(input: RefreshInput): Boolean!
+  forgotPassword(input: ForgotPasswordInput!): Boolean!
+  resetPassword(input: ResetPasswordInput!): Boolean!
+  verifyEmail(input: VerifyEmailInput!): Boolean!
+  signupSendOtp(input: SignupPhoneInput!): Boolean!
+  signupVerify(input: VerifySignupInput!): AuthResponse!
+  createMyMailbox(desiredLocalPart: String): String!
+
+  """Create a new feature"""
+  createFeature(createFeatureInput: CreateFeatureInput!): Feature!
+
+  """Update a feature"""
+  updateFeature(updateFeatureInput: UpdateFeatureInput!): Feature!
+
+  """Delete a feature"""
+  deleteFeature(id: String!): Feature!
+
+  """Create a new template"""
+  createTemplate(createTemplateInput: CreateTemplateInput!): Template!
+
+  """Update a template"""
+  updateTemplate(updateTemplateInput: UpdateTemplateInput!): Template!
+
+  """Delete a template"""
+  deleteTemplate(id: String!): Template!
+
+  """Schedule a new email"""
+  createScheduledEmail(createScheduledEmailInput: CreateScheduledEmailInput!): ScheduledEmail!
+
+  """Create a new email analytics record"""
+  createEmailAnalytics(createEmailAnalyticsInput: CreateEmailAnalyticsInput!): EmailAnalytics!
+
+  """Create a new contact"""
+  createContact(createContactInput: CreateContactInput!): Contact!
+
+  """Update an existing contact"""
+  updateContact(updateContactInput: UpdateContactInput!): Contact!
+
+  """Delete a contact"""
+  deleteContact(id: String!): Contact!
+  sendPhoneOtp(phoneNumber: String!): Boolean!
+  verifyPhoneOtp(code: String!): Boolean!
+  setActiveInbox(input: SetActiveInboxInput!): [Inbox!]!
+  updateEmail(id: String!, input: EmailUpdateInput!): EmailThread!
+}
+
+input CreateUserInput {
+  email: String!
+  name: String
+  password: String!
+}
+
+input UpdateUserInput {
+  id: ID!
+  email: String
+  name: String
+}
+
+input SendEmailInput {
+  subject: String!
+  body: String!
+  from: String!
+  to: [String!]!
+  providerId: String
+  scheduledAt: DateTime
+}
+
+input MarkEmailReadInput {
+  emailId: String!
+}
+
+input CreateEmailInput {
+  senderId: String!
+  subject: String!
+  body: String!
+  recipientIds: [String!]!
+}
+
+input CreateEmailFilterInput {
+  name: String!
+  rules: [EmailFilterRule!]!
+}
+
+input EmailFilterRule {
+  field: String!
+  condition: FilterCondition!
+  value: String!
+  action: FilterAction!
+  actionValue: String
+}
+
+enum FilterCondition {
+  CONTAINS
+  EQUALS
+  STARTS_WITH
+  ENDS_WITH
+}
+
+enum FilterAction {
+  MARK_READ
+  MARK_IMPORTANT
+  MOVE_TO_FOLDER
+  APPLY_LABEL
+  FORWARD_TO
+}
+
+input CreateEmailTemplateInput {
+  name: String!
+  subject: String!
+  body: String!
+}
+
+input UpdateEmailTemplateInput {
+  name: String
+  subject: String
+  body: String
+}
+
+input CreateAttachmentInput {
+  emailId: String!
+  attachment: AttachmentInput!
+}
+
+input AttachmentInput {
+  filename: String!
+  contentType: String!
+  content: String!
+  size: Float
+}
+
+input DeleteAttachmentInput {
+  emailId: String!
+  attachmentId: String!
+}
+
+input StartWarmupInput {
+  providerId: String!
+  config: WarmupConfigInput
+}
+
+input WarmupConfigInput {
+  dailyIncrement: Int! = 5
+  maxDailyEmails: Int! = 100
+  minimumInterval: Int! = 15
+  targetOpenRate: Int = 80
+}
+
+input PauseWarmupInput {
+  providerId: String!
+}
+
+input EmailProviderInput {
+  providerType: String!
+  email: String!
+  password: String
+  host: String
+  port: Int
+  accessToken: String
+  refreshToken: String
+  tokenExpiry: Float
+  autoDetect: Boolean
+}
+
+input DeleteProviderInput {
+  id: String!
+}
+
+input SmtpSettingsInput {
+  email: String!
+  host: String!
+  port: Int!
+  username: String!
+  password: String!
+  secure: Boolean
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+input RefreshInput {
+  refreshToken: String!
+}
+
+input ForgotPasswordInput {
+  email: String!
+}
+
+input ResetPasswordInput {
+  token: String!
+  newPassword: String!
+}
+
+input VerifyEmailInput {
+  token: String!
+}
+
+input SignupPhoneInput {
+  phoneNumber: String!
+}
+
+input VerifySignupInput {
+  phoneNumber: String!
+  code: String!
+  email: String!
+  password: String!
+  name: String
+  desiredLocalPart: String
+}
+
+input CreateFeatureInput {
+  name: String!
+  isActive: Boolean! = false
+}
+
+input UpdateFeatureInput {
+  id: ID!
+  name: String
+  isActive: Boolean
+}
+
+input CreateTemplateInput {
+  name: String!
+  subject: String!
+  body: String!
+}
+
+input UpdateTemplateInput {
+  id: ID!
+  name: String
+  subject: String
+  body: String
+}
+
+input CreateScheduledEmailInput {
+  subject: String!
+  body: String!
+  recipientIds: [String!]!
+  scheduledAt: DateTime!
+  status: String! = "PENDING"
+}
+
+input CreateEmailAnalyticsInput {
+  emailId: String!
+  openCount: Int! = 0
+  clickCount: Int! = 0
+  lastUpdatedAt: DateTime!
+}
+
+input CreateContactInput {
+  name: String!
+  email: String!
+  phone: String
+}
+
+input UpdateContactInput {
+  id: ID!
+  name: String
+  email: String
+  phone: String
+}
+
+input SetActiveInboxInput {
+  type: String!
+  id: String!
+}
+
+input EmailUpdateInput {
+  read: Boolean
+  starred: Boolean
+  folder: String
+  addLabelIds: [String!]
+  removeLabelIds: [String!]
+}
