@@ -1,45 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
-import {
-  Play,
-  Pause,
-  Flame,
-  Thermometer,
-  Calendar,
-  ArrowUp,
-  ChevronDown,
-  BarChart3,
-  Clock,
-  RefreshCw,
-  Settings,
-  Mail,
-  Filter,
-  ChevronRight,
-  Layers,
-  Plus,
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery } from '@apollo/client';
+import { Play, Pause, Mail, Activity, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -47,76 +20,179 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useToast } from '@/components/ui/use-toast';
+import { GET_PROVIDERS } from '@/lib/apollo/queries/providers';
+import {
+  GET_EMAIL_WARMUP_STATUS,
+  GET_WARMUP_PERFORMANCE_METRICS,
+  PAUSE_EMAIL_WARMUP,
+  START_EMAIL_WARMUP,
+} from '@/lib/apollo/queries/warmup';
+import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 
-// Mock warmup data
-const mockWarmupData = {
-  status: 'active', // 'active', 'paused', 'completed'
-  startDate: '2023-09-15',
-  emailsSent: 128,
-  emailsReceived: 112,
-  openRate: 87,
-  replyRate: 23,
-  warmupLevel: 38, // percentage
-  dailyLimit: 25,
-  currentDay: 14,
-  totalDays: 30,
-  nextScheduled: '9:30 AM today',
-  healthScore: 82, // percentage
-  emailAccounts: [
-    {
-      id: '1',
-      email: 'john.smith@company.com',
-      provider: 'Gmail',
-      status: 'active',
-      warmupLevel: 45,
-      dailyLimit: 30,
-      healthScore: 85,
-    },
-    {
-      id: '2',
-      email: 'marketing@company.com',
-      provider: 'Outlook',
-      status: 'active',
-      warmupLevel: 32,
-      dailyLimit: 20,
-      healthScore: 78,
-    },
-  ],
-  recentActivity: [
-    { date: '2023-10-05', sent: 22, received: 19, opened: 18, replied: 5 },
-    { date: '2023-10-04', sent: 20, received: 17, opened: 15, replied: 4 },
-    { date: '2023-10-03', sent: 18, received: 15, opened: 13, replied: 3 },
-    { date: '2023-10-02', sent: 16, received: 14, opened: 12, replied: 3 },
-    { date: '2023-10-01', sent: 15, received: 13, opened: 11, replied: 2 },
-    { date: '2023-09-30', sent: 12, received: 10, opened: 9, replied: 2 },
-    { date: '2023-09-29', sent: 10, received: 9, opened: 8, replied: 2 },
-  ],
+type Provider = {
+  id: string;
+  email: string;
+  name: string;
+  isActive: boolean;
+};
+
+type WarmupStatus = {
+  id: string;
+  providerId: string;
+  status: 'ACTIVE' | 'PAUSED' | string;
+  currentDailyLimit: number;
+  dailyIncrement: number;
+  maxDailyEmails: number;
+  minimumInterval: number;
+  targetOpenRate: number;
+  startedAt: string;
+  lastRunAt?: string | null;
+  activities: {
+    id: string;
+    emailsSent: number;
+    openRate: number;
+    date: string;
+  }[];
+};
+
+type WarmupMetrics = {
+  averageOpenRate: number;
+  totalEmailsSent: number;
+  daysActive: number;
+  currentPhase: string;
 };
 
 const WarmupPage = () => {
-  const [isActive, setIsActive] = useState(mockWarmupData.status === 'active');
-  const [selectedAccount, setSelectedAccount] = useState(mockWarmupData.emailAccounts[0].id);
+  const { toast } = useToast();
+  const [selectedProviderId, setSelectedProviderId] = useState<string>('');
 
-  const getSelectedAccount = () => {
-    return mockWarmupData.emailAccounts.find(account => account.id === selectedAccount);
-  };
+  const { data: providersData, loading: loadingProviders } = useQuery(GET_PROVIDERS, {
+    fetchPolicy: 'network-only',
+  });
 
-  const handleToggleWarmup = () => {
-    setIsActive(!isActive);
+  const providers = useMemo<Provider[]>(() => providersData?.providers ?? [], [providersData]);
+
+  useEffect(() => {
+    if (selectedProviderId) return;
+    const activeProvider = providers.find((provider) => provider.isActive) ?? providers[0];
+    if (activeProvider?.id) {
+      setSelectedProviderId(activeProvider.id);
+    }
+  }, [providers, selectedProviderId]);
+
+  const {
+    data: warmupData,
+    loading: loadingWarmup,
+    error: warmupError,
+    refetch: refetchWarmup,
+  } = useQuery(GET_EMAIL_WARMUP_STATUS, {
+    variables: { providerId: selectedProviderId },
+    skip: !selectedProviderId,
+    fetchPolicy: 'network-only',
+  });
+
+  const warmup: WarmupStatus | null = warmupData?.getEmailWarmupStatus ?? null;
+
+  const {
+    data: metricsData,
+    loading: loadingMetrics,
+    refetch: refetchMetrics,
+  } = useQuery(GET_WARMUP_PERFORMANCE_METRICS, {
+    variables: { warmupId: warmup?.id ?? '' },
+    skip: !warmup?.id,
+    fetchPolicy: 'network-only',
+  });
+
+  const metrics: WarmupMetrics | null = metricsData?.getWarmupPerformanceMetrics ?? null;
+
+  const [startWarmup, { loading: startingWarmup }] = useMutation(START_EMAIL_WARMUP);
+  const [pauseWarmup, { loading: pausingWarmup }] = useMutation(PAUSE_EMAIL_WARMUP);
+
+  const busy = startingWarmup || pausingWarmup;
+  const selectedProvider = providers.find((provider) => provider.id === selectedProviderId);
+
+  const progress = useMemo(() => {
+    if (!warmup) return 0;
+    return Math.round((warmup.currentDailyLimit / warmup.maxDailyEmails) * 100);
+  }, [warmup]);
+
+  const handleToggleWarmup = async () => {
+    if (!selectedProviderId) {
+      toast({
+        title: 'Select provider first',
+        description: 'Choose an active provider to start warmup.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      if (!warmup || warmup.status === 'PAUSED') {
+        await startWarmup({
+          variables: {
+            input: {
+              providerId: selectedProviderId,
+            },
+          },
+        });
+        toast({
+          title: warmup ? 'Warmup resumed' : 'Warmup started',
+          description: 'Email warmup is now active for this provider.',
+        });
+      } else {
+        await pauseWarmup({
+          variables: {
+            input: {
+              providerId: selectedProviderId,
+            },
+          },
+        });
+        toast({
+          title: 'Warmup paused',
+          description: 'Warmup has been paused for this provider.',
+        });
+      }
+
+      await refetchWarmup();
+      if (warmup?.id) {
+        await refetchMetrics();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast({
+        title: 'Warmup action failed',
+        description: message,
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Email Warmup</h1>
-        <div className="flex items-center gap-2">
+    <DashboardPageShell
+      title="Email Warmup"
+      description="Monitor deliverability warmup progress using live backend data."
+      actions={(
+        <>
+          <Select value={selectedProviderId} onValueChange={setSelectedProviderId}>
+            <SelectTrigger className="w-[260px] md:w-[320px]">
+              <SelectValue placeholder="Select provider" />
+            </SelectTrigger>
+            <SelectContent>
+              {providers.map((provider) => (
+                <SelectItem key={provider.id} value={provider.id}>
+                  {provider.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
-            variant={isActive ? 'outline' : 'default'}
-            size="sm"
+            variant={warmup?.status === 'ACTIVE' ? 'outline' : 'default'}
             onClick={handleToggleWarmup}
+            disabled={busy || !selectedProviderId}
             className="gap-1"
           >
-            {isActive ? (
+            {warmup?.status === 'ACTIVE' ? (
               <>
                 <Pause className="h-4 w-4" />
                 Pause Warmup
@@ -124,341 +200,155 @@ const WarmupPage = () => {
             ) : (
               <>
                 <Play className="h-4 w-4" />
-                Resume Warmup
+                {warmup ? 'Resume Warmup' : 'Start Warmup'}
               </>
             )}
           </Button>
-          <Button variant="outline" size="icon" aria-label="Settings">
-            <Settings className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+        </>
+      )}
+      contentClassName="space-y-4"
+    >
 
-      {/* Overall Status */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+      {loadingProviders || loadingWarmup ? (
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Warmup Level</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-2">
-              <div className="text-2xl font-bold">{mockWarmupData.warmupLevel}%</div>
-              <Progress value={mockWarmupData.warmupLevel} className="h-2" />
-              <p className="text-xs text-muted-foreground">
-                Target: {mockWarmupData.dailyLimit} emails per day
-              </p>
-            </div>
+          <CardContent className="py-8 text-sm text-muted-foreground">
+            Loading warmup status...
           </CardContent>
         </Card>
-
+      ) : warmupError ? (
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Health Score</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-2">
-              <div className="text-2xl font-bold">{mockWarmupData.healthScore}%</div>
-              <Progress value={mockWarmupData.healthScore} className="h-2" />
-              <p className="text-xs text-muted-foreground">Based on open and reply rates</p>
-            </div>
+          <CardContent className="py-8 text-sm text-destructive">
+            Failed to load warmup status: {warmupError.message}
           </CardContent>
         </Card>
-
+      ) : !selectedProvider ? (
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-2">
-              <div className="text-2xl font-bold">
-                Day {mockWarmupData.currentDay}/{mockWarmupData.totalDays}
-              </div>
-              <Progress
-                value={(mockWarmupData.currentDay / mockWarmupData.totalDays) * 100}
-                className="h-2"
-              />
-              <p className="text-xs text-muted-foreground">Started on {mockWarmupData.startDate}</p>
-            </div>
+          <CardContent className="py-8 text-sm text-muted-foreground">
+            Connect an email provider first, then return to start warmup.
           </CardContent>
         </Card>
-
+      ) : !warmup ? (
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Next Scheduled</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-2">
-              <div className="text-2xl font-bold">{mockWarmupData.nextScheduled}</div>
-              <div className="flex items-center gap-1 text-xs">
-                <Clock className="h-3 w-3 text-muted-foreground" />
-                <span className="text-muted-foreground">
-                  {isActive ? 'Warmup is active' : 'Warmup is paused'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Auto-schedule</span>
-                <Switch checked={true} />
-              </div>
+          <CardContent className="py-8">
+            <div className="flex items-center gap-2 mb-2">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <p className="font-medium">No warmup active for {selectedProvider.email}</p>
             </div>
+            <p className="text-sm text-muted-foreground">
+              Start warmup to gradually build sender reputation and improve inbox placement.
+            </p>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="lg:col-span-2">
-          <Card className="h-full">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Warmup Performance</CardTitle>
-                <Select defaultValue="7days">
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Select period" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="7days">Last 7 days</SelectItem>
-                    <SelectItem value="14days">Last 14 days</SelectItem>
-                    <SelectItem value="30days">Last 30 days</SelectItem>
-                    <SelectItem value="alltime">All time</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <CardDescription>Track your email warmup progress over time</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px] flex items-center justify-center border rounded-md bg-muted/20">
-                <div className="text-center">
-                  <BarChart3 className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">Performance Chart Placeholder</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Warmup Status</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Badge variant={warmup.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                  {warmup.status}
+                </Badge>
+                <p className="text-xs text-muted-foreground">{selectedProvider.email}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Daily Limit</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="text-2xl font-bold">{warmup.currentDailyLimit}</div>
+                <Progress value={progress} className="h-2" />
+                <p className="text-xs text-muted-foreground">
+                  Target max: {warmup.maxDailyEmails}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Open Rate Target</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="text-2xl font-bold">{warmup.targetOpenRate}%</div>
+                <p className="text-xs text-muted-foreground">
+                  Current average: {metrics ? metrics.averageOpenRate.toFixed(1) : '--'}%
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Last Run</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="inline-flex items-center gap-1 text-sm">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  {warmup.lastRunAt ? new Date(warmup.lastRunAt).toLocaleString() : 'Not run yet'}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                <p className="text-xs text-muted-foreground">
+                  Interval: every {warmup.minimumInterval} minutes
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
-        <div className="lg:col-span-1">
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle>Email Accounts</CardTitle>
-              <CardDescription>Manage your accounts in warmup</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {mockWarmupData.emailAccounts.map(account => (
-                  <div
-                    key={account.id}
-                    className={`p-4 cursor-pointer hover:bg-muted/50 ${selectedAccount === account.id ? 'bg-muted/30' : ''}`}
-                    onClick={() => setSelectedAccount(account.id)}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="font-medium">{account.email}</div>
-                      <Badge
-                        variant={account.status === 'active' ? 'default' : 'secondary'}
-                        className="text-xs"
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Recent Warmup Activity</CardTitle>
+                <CardDescription>Latest activity records from backend warmup jobs.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {warmup.activities.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No activity records yet.</p>
+                ) : (
+                  <div className="divide-y rounded-md border">
+                    {warmup.activities.map((activity) => (
+                      <div
+                        key={activity.id}
+                        className="grid grid-cols-3 gap-3 px-4 py-3 text-sm"
                       >
-                        {account.status}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center text-xs text-muted-foreground mb-2">
-                      <span>{account.provider}</span>
-                      <span className="mx-2">•</span>
-                      <span>{account.dailyLimit} emails/day</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs mb-1">
-                      <span>Warmup Level</span>
-                      <span className="font-medium">{account.warmupLevel}%</span>
-                    </div>
-                    <Progress value={account.warmupLevel} className="h-1" />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-            <CardFooter className="border-t p-4">
-              <Button variant="outline" className="w-full gap-1">
-                <Mail className="h-4 w-4" />
-                Add Email Account
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
-      </div>
-
-      {/* Tabs Content */}
-      <Card>
-        <CardHeader className="pb-0">
-          <Tabs defaultValue="activity">
-            <TabsList>
-              <TabsTrigger value="activity">Activity</TabsTrigger>
-              <TabsTrigger value="settings">Warmup Settings</TabsTrigger>
-              <TabsTrigger value="templates">Email Templates</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </CardHeader>
-        <CardContent>
-          <TabsContent value="activity" className="pt-4">
-            <div className="space-y-1">
-              <div className="grid grid-cols-5 gap-4 py-2 px-4 text-xs font-medium text-muted-foreground">
-                <div>Date</div>
-                <div>Sent</div>
-                <div>Received</div>
-                <div>Opened</div>
-                <div>Replied</div>
-              </div>
-
-              <div className="space-y-1">
-                {mockWarmupData.recentActivity.map((day, index) => (
-                  <div
-                    key={index}
-                    className="grid grid-cols-5 gap-4 py-3 px-4 rounded-md hover:bg-muted/50"
-                  >
-                    <div className="font-medium">{day.date}</div>
-                    <div>{day.sent}</div>
-                    <div>{day.received}</div>
-                    <div>{day.opened}</div>
-                    <div>{day.replied}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="settings" className="pt-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Daily Warmup Schedule</label>
-                <Select defaultValue="automatic">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Schedule type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="automatic">Automatic (Recommended)</SelectItem>
-                    <SelectItem value="manual">Manual Times</SelectItem>
-                    <SelectItem value="fixed">Fixed Schedule</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Automatic mode adapts to your email usage patterns for a natural warmup.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">Warmup Intensity</label>
-                  <span className="text-sm">Medium</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs">Slow</span>
-                  <Progress value={50} className="h-2 flex-1" />
-                  <span className="text-xs">Fast</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Medium intensity increases by 3-5 emails daily and takes about 30 days to
-                  complete.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Advanced Settings</label>
-                <div className="rounded-md border divide-y">
-                  <div className="p-3 flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-medium">Weekend Warmup</div>
-                      <div className="text-xs text-muted-foreground">
-                        Include weekends in warmup schedule
+                        <span>{new Date(activity.date).toLocaleDateString()}</span>
+                        <span>Sent: {activity.emailsSent}</span>
+                        <span>Open rate: {activity.openRate.toFixed(1)}%</span>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Performance Snapshot</CardTitle>
+                <CardDescription>Computed warmup metrics.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingMetrics ? (
+                  <p className="text-sm text-muted-foreground">Loading metrics...</p>
+                ) : metrics ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Activity className="h-4 w-4 text-muted-foreground" />
+                      <span>Phase: {metrics.currentPhase}</span>
                     </div>
-                    <Switch defaultChecked={true} />
+                    <p className="text-sm">Days active: {metrics.daysActive}</p>
+                    <p className="text-sm">Emails sent: {metrics.totalEmailsSent}</p>
+                    <p className="text-sm">
+                      Avg open rate: {metrics.averageOpenRate.toFixed(1)}%
+                    </p>
                   </div>
-                  <div className="p-3 flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-medium">Open Delay</div>
-                      <div className="text-xs text-muted-foreground">
-                        Simulate natural email open patterns
-                      </div>
-                    </div>
-                    <Switch defaultChecked={true} />
-                  </div>
-                  <div className="p-3 flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-medium">Random Reply Length</div>
-                      <div className="text-xs text-muted-foreground">
-                        Vary reply lengths for authenticity
-                      </div>
-                    </div>
-                    <Switch defaultChecked={true} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="templates" className="pt-4">
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <div className="text-sm font-medium">Email Templates</div>
-                <Button size="sm" className="gap-1">
-                  <Plus className="h-3 w-3" />
-                  New Template
-                </Button>
-              </div>
-
-              <div className="rounded-md border divide-y">
-                <div className="p-4 hover:bg-muted/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="font-medium">Business Introduction</div>
-                    <Badge>Default</Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    Hello [Name], I hope this email finds you well. I wanted to introduce myself and
-                    my company...
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Metrics appear after warmup activity starts.
                   </p>
-                  <div className="flex justify-end mt-2">
-                    <Button variant="ghost" size="sm" className="gap-1">
-                      <ChevronRight className="h-4 w-4" />
-                      Edit
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="p-4 hover:bg-muted/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="font-medium">Follow-up Template</div>
-                    <Badge variant="outline">Custom</Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    Hi [Name], I'm just following up on our previous conversation about [Topic]. I
-                    wanted to check if...
-                  </p>
-                  <div className="flex justify-end mt-2">
-                    <Button variant="ghost" size="sm" className="gap-1">
-                      <ChevronRight className="h-4 w-4" />
-                      Edit
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="p-4 hover:bg-muted/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="font-medium">Meeting Request</div>
-                    <Badge variant="outline">Custom</Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    Dear [Name], I would like to schedule a meeting to discuss [Topic]. Would you be
-                    available for a...
-                  </p>
-                  <div className="flex justify-end mt-2">
-                    <Button variant="ghost" size="sm" className="gap-1">
-                      <ChevronRight className="h-4 w-4" />
-                      Edit
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-        </CardContent>
-      </Card>
-    </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
+    </DashboardPageShell>
   );
 };
 
