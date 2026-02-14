@@ -1,8 +1,12 @@
-import { Resolver, Mutation, Args, Context } from '@nestjs/graphql';
+import { Resolver, Mutation, Args, Context, Query } from '@nestjs/graphql';
 import { AuthService } from './auth.service';
 import { LoginInput } from './dto/login.input';
 import { UserService } from '../user/user.service';
-import { UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  UnauthorizedException,
+  BadRequestException,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthResponse } from './dto/auth-response';
 import { CreateUserInput } from '../user/dto/create-user.input';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -17,6 +21,13 @@ import { MailboxService } from '../mailbox/mailbox.service';
 import { SessionCookieService } from './session-cookie.service';
 import { User } from '../user/entities/user.entity';
 import * as bcrypt from 'bcryptjs';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { AuthMeResponse } from './dto/auth-me.response';
+
+interface RequestContext {
+  req: { user?: { id: string } };
+  res?: any;
+}
 
 @Resolver()
 export class AuthResolver {
@@ -29,10 +40,42 @@ export class AuthResolver {
     private readonly userRepo: Repository<User>,
   ) {}
 
+  private async getAliasSetupState(userId: string): Promise<{
+    hasMailzenAlias: boolean;
+    requiresAliasSetup: boolean;
+    nextStep: string;
+  }> {
+    const mailboxes = await this.mailboxService.getUserMailboxes(userId);
+    const hasMailzenAlias = mailboxes.length > 0;
+
+    return {
+      hasMailzenAlias,
+      requiresAliasSetup: !hasMailzenAlias,
+      nextStep: hasMailzenAlias ? '/' : '/auth/alias-select',
+    };
+  }
+
+  @Query(() => AuthMeResponse)
+  @UseGuards(JwtAuthGuard)
+  async authMe(@Context() ctx: RequestContext): Promise<AuthMeResponse> {
+    const userId = ctx?.req?.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException('Missing authenticated user');
+    }
+
+    const user = await this.userService.getUser(userId);
+    const aliasState = await this.getAliasSetupState(user.id);
+
+    return {
+      user,
+      ...aliasState,
+    };
+  }
+
   @Mutation(() => AuthResponse)
   async login(
     @Args('loginInput') loginInput: LoginInput,
-    @Context() ctx: any,
+    @Context() ctx: RequestContext,
   ): Promise<AuthResponse> {
     const user = await this.userService.validateUser(
       loginInput.email,
@@ -54,17 +97,20 @@ export class AuthResolver {
         '[AuthResolver.login] Missing res in GraphQL context; cannot set cookie',
       );
 
+    const aliasState = await this.getAliasSetupState(user.id);
+
     return {
       token: accessToken,
       refreshToken,
       user,
+      ...aliasState,
     };
   }
 
   @Mutation(() => AuthResponse)
   async register(
     @Args('registerInput') registerInput: CreateUserInput,
-    @Context() ctx: any,
+    @Context() ctx: RequestContext,
   ): Promise<AuthResponse> {
     if (!registerInput.email || !registerInput.password) {
       throw new BadRequestException('Email and password are required');
@@ -73,10 +119,7 @@ export class AuthResolver {
     const { accessToken } = this.authService.login(user);
     const refreshToken = await this.authService.generateRefreshToken(user.id);
     // Issue email verification token (returning as part of response for local dev)
-    const verifyToken = await this.authService.createVerificationToken(
-      user.id,
-      'EMAIL_VERIFY',
-    );
+    await this.authService.createVerificationToken(user.id, 'EMAIL_VERIFY');
 
     const res = ctx?.res;
     if (res) this.sessionCookie.setTokenCookie(res, accessToken);
@@ -85,7 +128,8 @@ export class AuthResolver {
         '[AuthResolver.register] Missing res in GraphQL context; cannot set cookie',
       );
 
-    return { token: accessToken, refreshToken, user };
+    const aliasState = await this.getAliasSetupState(user.id);
+    return { token: accessToken, refreshToken, user, ...aliasState };
   }
 
   @Mutation(() => AuthResponse)
@@ -94,7 +138,13 @@ export class AuthResolver {
       input.refreshToken,
     );
     const user = await this.userService.getUser(result.userId);
-    return { token: result.token, refreshToken: result.refreshToken, user };
+    const aliasState = await this.getAliasSetupState(user.id);
+    return {
+      token: result.token,
+      refreshToken: result.refreshToken,
+      user,
+      ...aliasState,
+    };
   }
 
   @Mutation(() => Boolean)
@@ -102,7 +152,7 @@ export class AuthResolver {
     // Explicit GraphQL type required (TS unions like `RefreshInput | undefined` can break reflection).
     @Args('input', { type: () => RefreshInput, nullable: true })
     input: RefreshInput,
-    @Context() ctx: any,
+    @Context() ctx: RequestContext,
   ): Promise<boolean> {
     // Always clear cookie so browser session ends.
     const res = ctx?.res;
@@ -171,7 +221,7 @@ export class AuthResolver {
   @Mutation(() => AuthResponse)
   async signupVerify(
     @Args('input') input: VerifySignupInput,
-    @Context() ctx: any,
+    @Context() ctx: RequestContext,
   ): Promise<AuthResponse> {
     await this.authService.verifySignupOtp(input.phoneNumber, input.code);
     // Create user account
@@ -191,6 +241,7 @@ export class AuthResolver {
       console.warn(
         '[AuthResolver.signupVerify] Missing res in GraphQL context; cannot set cookie',
       );
-    return { token: accessToken, refreshToken, user };
+    const aliasState = await this.getAliasSetupState(user.id);
+    return { token: accessToken, refreshToken, user, ...aliasState };
   }
 }

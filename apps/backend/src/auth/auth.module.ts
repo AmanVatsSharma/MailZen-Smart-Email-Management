@@ -12,6 +12,9 @@ import { UserModule } from '../user/user.module';
 import { MailboxModule } from '../mailbox/mailbox.module';
 import { GoogleOAuthController } from './oauth.controller';
 import { SessionCookieService } from './session-cookie.service';
+import { EmailProviderModule } from '../email-integration/email-provider.module';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { AdminGuard } from './guards/admin.guard';
 
 /**
  * Resolve JWT expiration from env in a type-safe way.
@@ -51,6 +54,7 @@ function getJwtExpiresInSeconds(): number {
     ]),
     UserModule,
     MailboxModule,
+    EmailProviderModule,
     JwtModule.register({
       // Enterprise hygiene: do NOT silently fall back to a default secret.
       // If JWT_SECRET isn't set, the app should fail fast during bootstrap.
@@ -59,7 +63,13 @@ function getJwtExpiresInSeconds(): number {
     }),
   ],
   controllers: [GoogleOAuthController],
-  providers: [AuthService, AuthResolver, SessionCookieService],
-  exports: [AuthService],
+  providers: [
+    AuthService,
+    AuthResolver,
+    SessionCookieService,
+    JwtAuthGuard,
+    AdminGuard,
+  ],
+  exports: [AuthService, JwtAuthGuard, AdminGuard],
 })
 export class AuthModule {}
