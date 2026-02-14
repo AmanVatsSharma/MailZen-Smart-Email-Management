@@ -20,14 +20,18 @@ export class FeatureResolver {
   @Mutation(() => Feature, { description: 'Create a new feature' })
   @SetMetadata('roles', ['ADMIN'])
   @UseGuards(AdminGuard)
-  createFeature(@Args('createFeatureInput') createFeatureInput: CreateFeatureInput): Feature {
+  createFeature(
+    @Args('createFeatureInput') createFeatureInput: CreateFeatureInput,
+  ): Feature {
     return this.featureService.createFeature(createFeatureInput);
   }
 
   @Mutation(() => Feature, { description: 'Update a feature' })
   @SetMetadata('roles', ['ADMIN'])
   @UseGuards(AdminGuard)
-  updateFeature(@Args('updateFeatureInput') updateFeatureInput: UpdateFeatureInput): Feature {
+  updateFeature(
+    @Args('updateFeatureInput') updateFeatureInput: UpdateFeatureInput,
+  ): Feature {
     return this.featureService.updateFeature(updateFeatureInput);
   }
 
@@ -37,4 +41,4 @@ export class FeatureResolver {
   deleteFeature(@Args('id') id: string): Feature {
     return this.featureService.deleteFeature(id);
   }
-} 
+}

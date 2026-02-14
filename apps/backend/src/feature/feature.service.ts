@@ -23,7 +23,7 @@ export class FeatureService {
   }
 
   getFeatureById(id: string): Feature {
-    const feature = this.features.find(f => f.id === id);
+    const feature = this.features.find((f) => f.id === id);
     if (!feature) {
       throw new NotFoundException(`Feature with id ${id} not found`);
     }
@@ -42,11 +42,11 @@ export class FeatureService {
   }
 
   deleteFeature(id: string): Feature {
-    const index = this.features.findIndex(f => f.id === id);
+    const index = this.features.findIndex((f) => f.id === id);
     if (index === -1) {
       throw new NotFoundException(`Feature with id ${id} not found`);
     }
     const [deleted] = this.features.splice(index, 1);
     return deleted;
   }
-} 
+}

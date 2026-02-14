@@ -9,9 +9,7 @@ import { FeatureResolver } from './feature.resolver';
  * Handles application feature toggles
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Feature]),
-  ],
+  imports: [TypeOrmModule.forFeature([Feature])],
   providers: [FeatureService, FeatureResolver],
   exports: [FeatureService],
 })

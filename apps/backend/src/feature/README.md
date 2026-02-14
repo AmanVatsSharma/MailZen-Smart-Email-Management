@@ -131,23 +131,27 @@ export class EmailService {
 
 ## Future Enhancements
 
-- **Prisma Integration**: Store features in the database using Prisma ORM
+- **TypeORM Integration**: Store features in the database using TypeORM
 - **User-Specific Features**: Enable features for specific users or user groups
 - **Percentage Rollout**: Gradually roll out features to a percentage of users
 - **Time-Based Activation**: Schedule feature activation and deactivation
 - **Metrics Collection**: Track feature usage and performance
 
-## Planned Database Schema
+## Database Entity
 
-The planned Feature model for Prisma schema:
+Feature flags are stored as a TypeORM entity:
 
-```prisma
-model Feature {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  isActive  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+```typescript
+@Entity('features')
+export class Feature {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ unique: true })
+  name: string;
+
+  @Column({ default: false })
+  isActive: boolean;
 }
 ```
 
