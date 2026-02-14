@@ -7,13 +7,14 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Mail, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
-import { gql, useMutation } from '@apollo/client';
+import { useMutation } from '@apollo/client';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { FORGOT_PASSWORD_MUTATION } from '@/modules/auth';
 
 // Define the form schema with Zod
 const formSchema = z.object({
@@ -22,12 +23,6 @@ const formSchema = z.object({
 
 // Form type from schema
 type FormValues = z.infer<typeof formSchema>;
-
-const FORGOT_PASSWORD = gql`
-  mutation ForgotPassword($email: String!) {
-    forgotPassword(input: { email: $email })
-  }
-`;
 
 export default function ForgotPasswordForm() {
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +36,7 @@ export default function ForgotPasswordForm() {
     },
   });
 
-  const [forgotPassword] = useMutation(FORGOT_PASSWORD, {
+  const [forgotPassword] = useMutation(FORGOT_PASSWORD_MUTATION, {
     onCompleted: () => setSuccess(true),
     onError: (e) => {
       setError(e.message || 'Failed to send reset email. Please try again.');
@@ -64,7 +59,7 @@ export default function ForgotPasswordForm() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl premium-text text-center">Forgot password?</CardTitle>
           <CardDescription className="text-center">
-            Enter your email address and we'll send you a link to reset your password
+            Enter your email address and we&apos;ll send you a link to reset your password
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -80,7 +75,7 @@ export default function ForgotPasswordForm() {
               <Alert className="bg-emerald-50 border-emerald-200 text-emerald-800">
                 <CheckCircle className="h-4 w-4 text-emerald-500" />
                 <AlertDescription>
-                  We've sent a password reset link to your email address. Please check your inbox.
+                  We&apos;ve sent a password reset link to your email address. Please check your inbox.
                 </AlertDescription>
               </Alert>
               
