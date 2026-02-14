@@ -10,6 +10,7 @@
   "scripts": {
     "start": "nx run-many -t serve -p frontend backend --parallel=2",
     "dev": "nx run-many -t serve -p frontend backend --parallel=2",
+    "dev:ai-agent": "nx serve ai-agent-platform",
     "install:all": "echo \"Deprecated: use 'npm install' at repo root (npm workspaces)\" && exit 1",
     "dev:frontend": "nx serve frontend",
     "dev:backend": "nx serve backend",
@@ -17,6 +18,8 @@
     "build:frontend": "nx build frontend",
     "build:backend": "nx build backend",
     "lint": "nx run-many -t lint -p frontend backend --parallel=2",
+    "lint:ai-agent": "nx lint ai-agent-platform",
+    "test:ai-agent": "nx test ai-agent-platform",
     "format": "nx run-many -t format -p frontend backend --parallel=2",
     "format:check": "nx run-many -t format:check -p frontend backend --parallel=2"
   },

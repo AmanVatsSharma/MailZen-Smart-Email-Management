@@ -2,6 +2,9 @@
 # Dependencies
 # ------------------------------
 node_modules/
+.venv/
+__pycache__/
+*.pyc
 
 # ------------------------------
 # Nx / monorepo local state

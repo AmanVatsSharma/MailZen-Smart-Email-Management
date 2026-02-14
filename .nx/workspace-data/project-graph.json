@@ -1,5 +1,51 @@
 {
   "nodes": {
+    "ai-agent-platform": {
+      "name": "ai-agent-platform",
+      "type": "app",
+      "data": {
+        "root": "services/ai-agent-platform",
+        "name": "ai-agent-platform",
+        "$schema": "../../node_modules/nx/schemas/project-schema.json",
+        "projectType": "application",
+        "sourceRoot": "services/ai-agent-platform/app",
+        "tags": [
+          "scope:ai",
+          "type:service"
+        ],
+        "targets": {
+          "serve": {
+            "executor": "nx:run-commands",
+            "options": {
+              "cwd": "services/ai-agent-platform",
+              "command": "if [ -x .venv/bin/python ]; then .venv/bin/python -m uvicorn app.main:app --reload --port 8100; else python -m uvicorn app.main:app --reload --port 8100; fi"
+            },
+            "configurations": {},
+            "parallelism": true,
+            "cache": false
+          },
+          "test": {
+            "executor": "nx:run-commands",
+            "options": {
+              "cwd": "services/ai-agent-platform",
+              "command": "if [ -x .venv/bin/python ]; then .venv/bin/python -m pytest; else python -m pytest; fi"
+            },
+            "configurations": {},
+            "parallelism": true
+          },
+          "lint": {
+            "executor": "nx:run-commands",
+            "options": {
+              "cwd": "services/ai-agent-platform",
+              "command": "if [ -x .venv/bin/python ]; then .venv/bin/python -m compileall app; else python -m compileall app; fi"
+            },
+            "configurations": {},
+            "parallelism": true
+          }
+        },
+        "implicitDependencies": []
+      }
+    },
     "frontend": {
       "name": "frontend",
       "type": "app",
@@ -14526,6 +14572,7 @@
     }
   },
   "dependencies": {
+    "ai-agent-platform": [],
     "frontend": [
       {
         "source": "frontend",

@@ -1,29 +1,18 @@
 {
   "run": {
-    "command": "nx build frontend",
-    "startTime": "2026-02-14T11:16:01.470Z",
-    "endTime": "2026-02-14T11:16:45.573Z",
+    "command": "nx lint ai-agent-platform",
+    "startTime": "2026-02-14T14:22:52.105Z",
+    "endTime": "2026-02-14T14:22:52.286Z",
     "inner": false
   },
   "tasks": [
     {
-      "taskId": "frontend:prepare-env",
-      "target": "prepare-env",
-      "projectName": "frontend",
-      "hash": "13575551942932872895",
-      "startTime": "2026-02-14T11:16:01.495Z",
-      "endTime": "2026-02-14T11:16:01.617Z",
-      "params": "",
-      "cacheStatus": "cache-miss",
-      "status": 0
-    },
-    {
-      "taskId": "frontend:build",
-      "target": "build",
-      "projectName": "frontend",
-      "hash": "12453094295299176706",
-      "startTime": "2026-02-14T11:16:01.622Z",
-      "endTime": "2026-02-14T11:16:45.573Z",
+      "taskId": "ai-agent-platform:lint",
+      "target": "lint",
+      "projectName": "ai-agent-platform",
+      "hash": "10174938037255962286",
+      "startTime": "2026-02-14T14:22:52.127Z",
+      "endTime": "2026-02-14T14:22:52.285Z",
       "params": "",
       "cacheStatus": "cache-miss",
       "status": 0
