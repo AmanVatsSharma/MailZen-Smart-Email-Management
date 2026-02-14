@@ -1,5 +1,13 @@
 import { ObjectType, Field, ID } from '@nestjs/graphql';
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+  Index,
+} from 'typeorm';
 import { Contact } from '../../contacts/entities/contact.entity';
 import { Email } from '../../email/entities/email.entity';
 import { EmailProvider } from '../../email-integration/entities/email-provider.entity';
@@ -92,45 +100,45 @@ export class User {
   updatedAt: Date;
 
   // Relationships
-  @OneToMany(() => Contact, contact => contact.user)
+  @OneToMany(() => Contact, (contact) => contact.user)
   contacts: Contact[];
 
-  @OneToMany(() => Email, email => email.user)
+  @OneToMany(() => Email, (email) => email.user)
   emails: Email[];
 
-  @OneToMany(() => EmailProvider, provider => provider.user)
+  @OneToMany(() => EmailProvider, (provider) => provider.user)
   providers: EmailProvider[];
 
-  @OneToMany(() => ExternalEmailMessage, message => message.user)
+  @OneToMany(() => ExternalEmailMessage, (message) => message.user)
   externalMessages: ExternalEmailMessage[];
 
-  @OneToMany(() => EmailFilter, filter => filter.user)
+  @OneToMany(() => EmailFilter, (filter) => filter.user)
   filters: EmailFilter[];
 
-  @OneToMany(() => EmailFolder, folder => folder.user)
+  @OneToMany(() => EmailFolder, (folder) => folder.user)
   folders: EmailFolder[];
 
-  @OneToMany(() => EmailLabel, label => label.user)
+  @OneToMany(() => EmailLabel, (label) => label.user)
   labels: EmailLabel[];
 
-  @OneToMany(() => ExternalEmailLabel, label => label.user)
+  @OneToMany(() => ExternalEmailLabel, (label) => label.user)
   externalLabels: ExternalEmailLabel[];
 
-  @OneToMany(() => Template, template => template.user)
+  @OneToMany(() => Template, (template) => template.user)
   templates: Template[];
 
-  @OneToMany(() => UserSession, session => session.user)
+  @OneToMany(() => UserSession, (session) => session.user)
   sessions: UserSession[];
 
-  @OneToMany(() => VerificationToken, token => token.user)
+  @OneToMany(() => VerificationToken, (token) => token.user)
   verificationTokens: VerificationToken[];
 
-  @OneToMany(() => AuditLog, log => log.user)
+  @OneToMany(() => AuditLog, (log) => log.user)
   auditLogs: AuditLog[];
 
-  @OneToMany(() => Mailbox, mailbox => mailbox.user)
+  @OneToMany(() => Mailbox, (mailbox) => mailbox.user)
   mailboxes: Mailbox[];
 
-  @OneToMany(() => PhoneVerification, verification => verification.user)
+  @OneToMany(() => PhoneVerification, (verification) => verification.user)
   phoneVerifications: PhoneVerification[];
 }
