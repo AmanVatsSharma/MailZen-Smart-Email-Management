@@ -14,7 +14,17 @@ const eslintConfig = [
   {
     files: ['**/*.ts', '**/*.tsx'],
     rules: {
-      'no-unused-vars': 'warn',
+      // Prefer the TS-aware rule; allow intentional underscores.
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          ignoreRestSiblings: true,
+        },
+      ],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'react-hooks/exhaustive-deps': 'warn',
     },

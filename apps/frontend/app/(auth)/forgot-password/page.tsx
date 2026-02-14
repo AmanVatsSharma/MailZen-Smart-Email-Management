@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'Forgot Password | MailZen',
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function ForgotPasswordPage() {
-  return <ForgotPasswordForm />;
+  redirect('/auth/forgot-password');
 } 
