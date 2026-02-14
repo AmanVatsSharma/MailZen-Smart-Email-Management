@@ -1,5 +1,12 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { IsEmail, IsNotEmpty, IsOptional, IsArray, IsString, IsDate } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsArray,
+  IsString,
+  IsDate,
+} from 'class-validator';
 
 @InputType()
 export class SendEmailInput {
@@ -31,4 +38,4 @@ export class SendEmailInput {
   @IsOptional()
   @IsDate()
   scheduledAt?: Date;
-} 
+}

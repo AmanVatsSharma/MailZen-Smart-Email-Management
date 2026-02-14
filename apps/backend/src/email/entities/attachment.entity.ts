@@ -1,4 +1,13 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { Email } from './email.entity';
 
 /**
@@ -26,7 +35,7 @@ export class Attachment {
   @Index()
   emailId: string;
 
-  @ManyToOne(() => Email, email => email.attachments)
+  @ManyToOne(() => Email, (email) => email.attachments)
   @JoinColumn({ name: 'emailId' })
   email: Email;
 

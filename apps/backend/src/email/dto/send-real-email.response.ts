@@ -10,4 +10,4 @@ export class SendRealEmailResponse {
 
   @Field(() => [String])
   rejected: string[];
-} 
+}

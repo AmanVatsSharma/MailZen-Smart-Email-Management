@@ -44,4 +44,4 @@ export class PauseWarmupInput {
   @Field()
   @IsString()
   providerId: string;
-} 
+}
