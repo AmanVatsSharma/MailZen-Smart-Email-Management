@@ -13,7 +13,7 @@ export interface Provider {
   isActive: boolean;
   lastSynced: string;
   status: ProviderStatus;
-  settings?: Record<string, any>;
+  settings?: Record<string, unknown>;
 }
 
 // SMTP Settings interface
@@ -42,7 +42,7 @@ const getBackendBaseUrl = (): string => {
     const u = new URL(gql);
     // Strip `/graphql` if present; keep scheme+host+port.
     return `${u.protocol}//${u.host}`;
-  } catch (e) {
+  } catch {
     // Dev-friendly fallback; avoids breaking UI if env is malformed.
     console.warn('[provider-utils] Invalid NEXT_PUBLIC_GRAPHQL_ENDPOINT; falling back to http://localhost:4000', { gql });
     return 'http://localhost:4000';

@@ -4,7 +4,7 @@
 
 Keep the Next.js frontend as a **pure UI + GraphQL client**:
 
-- No Prisma / DB code
+- No ORM / DB code
 - No Next.js API routes for OAuth callbacks
 - Provider linking (Gmail/Outlook) is handled by the **backend** using redirect-based REST endpoints
 
@@ -16,7 +16,7 @@ flowchart TD
   providersUI -->|redirect| backendStart[Backend_/email-integration/*/start]
   backendStart --> oauth[OAuthProvider]
   oauth -->|code+state| backendCb[Backend_/email-integration/*/callback]
-  backendCb --> db[(Prisma_DB)]
+  backendCb --> db[(TypeORM_DB)]
   backendCb -->|redirect_success_error| providersUI
   providersUI -->|GraphQL_providers_query| backendGql[Backend_/graphql]
 ```
