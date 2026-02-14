@@ -4,7 +4,7 @@
 
 Expose a **Gmail-like inbox contract** to the frontend while using a single, consistent backend source of truth for provider messages.
 
-- Provider sync stores inbound messages in **`ExternalEmailMessage`** (Prisma).
+- Provider sync stores inbound messages in **`ExternalEmailMessage`** (TypeORM entity).
 - Inbox UI reads via GraphQL **`emails/email/updateEmail/folders/labels`**.
 - Actions (read/star/archive/trash/labels) call **Gmail APIs** (for Gmail providers) and persist label state locally.
 
@@ -61,7 +61,7 @@ sequenceDiagram
   participant UI as FrontendInboxUI
   participant GQL as GraphQLUnifiedInboxResolver
   participant SVC as UnifiedInboxService
-  participant DB as PostgresPrisma
+  participant DB as PostgresTypeORM
   participant Gmail as GmailAPI
 
   UI->>GQL: emails(limit,offset,filter,sort)
@@ -89,7 +89,7 @@ sequenceDiagram
   participant UI as FrontendInboxUI
   participant GQL as GraphQLUnifiedInboxResolver
   participant SVC as UnifiedInboxService
-  participant DB as PostgresPrisma
+  participant DB as PostgresTypeORM
   participant Gmail as GmailAPI
 
   UI->>GQL: updateEmail(id,input)

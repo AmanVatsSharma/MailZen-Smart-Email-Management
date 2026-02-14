@@ -1,5 +1,14 @@
 import { ObjectType, Field, ID } from '@nestjs/graphql';
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 
 /**
@@ -25,7 +34,8 @@ export class Template {
   @Column({ type: 'text' })
   body: string;
 
-  @Field({ nullable: true })
+  // NOTE: GraphQL can't infer a safe type for `Record<string, any>` without a JSON scalar.
+  // For MVP, we keep metadata in the DB but do not expose it in the GraphQL schema.
   @Column({ type: 'jsonb', nullable: true, default: {} })
   metadata?: Record<string, any>;
 
@@ -33,7 +43,7 @@ export class Template {
   @Index()
   userId: string;
 
-  @ManyToOne(() => User, user => user.templates)
+  @ManyToOne(() => User, (user) => user.templates)
   @JoinColumn({ name: 'userId' })
   user: User;
 
