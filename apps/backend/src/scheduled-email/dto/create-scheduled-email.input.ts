@@ -16,4 +16,4 @@ export class CreateScheduledEmailInput {
 
   @Field({ defaultValue: 'PENDING' })
   status: string;
-} 
+}
