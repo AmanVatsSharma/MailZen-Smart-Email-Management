@@ -1,6 +1,57 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
+import axios from 'axios';
+import { randomUUID } from 'crypto';
 import { AppModule } from './app.module';
+
+const bootstrapLogger = new Logger('Bootstrap');
+
+function parseBooleanEnv(
+  value: string | undefined,
+  fallback: boolean,
+): boolean {
+  if (value === undefined) return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (['true', '1', 'yes'].includes(normalized)) return true;
+  if (['false', '0', 'no'].includes(normalized)) return false;
+  return fallback;
+}
+
+async function assertAgentPlatformReadiness(): Promise<void> {
+  const shouldCheck = parseBooleanEnv(
+    process.env.AI_AGENT_PLATFORM_CHECK_ON_STARTUP,
+    true,
+  );
+  if (!shouldCheck) return;
+
+  const platformUrl =
+    process.env.AI_AGENT_PLATFORM_URL || 'http://localhost:8100';
+  const healthUrl = `${platformUrl}/health`;
+  const required = parseBooleanEnv(
+    process.env.AI_AGENT_PLATFORM_REQUIRED,
+    false,
+  );
+  const timeoutMs = Number(process.env.AI_AGENT_PLATFORM_TIMEOUT_MS || 4000);
+
+  try {
+    await axios.get(healthUrl, {
+      timeout: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 4000,
+      headers: {
+        'x-request-id': `backend-startup-${randomUUID()}`,
+        ...(process.env.AI_AGENT_PLATFORM_KEY
+          ? { 'x-agent-platform-key': process.env.AI_AGENT_PLATFORM_KEY }
+          : {}),
+      },
+    });
+    bootstrapLogger.log(`AI platform reachable during startup at ${healthUrl}`);
+  } catch (error) {
+    const message = `AI platform readiness check failed at ${healthUrl}: ${String(
+      error,
+    )}`;
+    if (required) throw new Error(message);
+    bootstrapLogger.warn(message);
+  }
+}
 
 async function bootstrap() {
   // Fail fast on unsafe/missing configuration (enterprise-grade default).
@@ -12,6 +63,8 @@ async function bootstrap() {
       'JWT_SECRET is missing/too short. Set a strong JWT_SECRET (>= 32 chars) in apps/backend/.env',
     );
   }
+
+  await assertAgentPlatformReadiness();
 
   const app = await NestFactory.create(AppModule);
   app.useGlobalPipes(
@@ -32,4 +85,4 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT || 4000);
 }
-bootstrap();
+void bootstrap();

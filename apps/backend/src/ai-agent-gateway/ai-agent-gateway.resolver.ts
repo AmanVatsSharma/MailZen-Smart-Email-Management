@@ -8,11 +8,12 @@
  * - Exposes a mutation for skill-scoped assistant interactions.
  * - Read agentAssist() first.
  */
-import { Args, Context, Mutation, Resolver } from '@nestjs/graphql';
+import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { randomUUID } from 'crypto';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
 import { AgentAssistInput } from './dto/agent-assist.input';
 import { AgentAssistResponse } from './dto/agent-assist.response';
+import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
 
 interface RequestContext {
   req?: {
@@ -38,6 +39,12 @@ export class AiAgentGatewayResolver {
     return this.gatewayService.assist(input, {
       requestId,
       ip: ctx.req?.ip,
+      headers: ctx.req?.headers,
     });
+  }
+
+  @Query(() => AgentPlatformHealthResponse)
+  async agentPlatformHealth(): Promise<AgentPlatformHealthResponse> {
+    return this.gatewayService.getPlatformHealth();
   }
 }

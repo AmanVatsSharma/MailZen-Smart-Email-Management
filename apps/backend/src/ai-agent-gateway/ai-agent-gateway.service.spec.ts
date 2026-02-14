@@ -9,6 +9,10 @@
  * - Read assist() assertions first.
  */
 import axios from 'axios';
+import {
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
 import { User } from '../user/entities/user.entity';
@@ -121,5 +125,80 @@ describe('AiAgentGatewayService', () => {
       'PASSWORD_RESET',
     );
     expect(response.executedAction?.executed).toBe(true);
+  });
+
+  it('rejects authenticated skills without a bearer token', async () => {
+    const service = createService();
+
+    await expect(
+      service.assist(
+        {
+          skill: 'inbox',
+          messages: [{ role: 'user', content: 'summarize this thread' }],
+          context: { surface: 'inbox', locale: 'en-IN' },
+          allowedActions: ['inbox.summarize_thread'],
+          executeRequestedAction: false,
+        },
+        { requestId: 'req-unauth', headers: {} },
+      ),
+    ).rejects.toThrow('requires authentication token');
+  });
+
+  it('returns service unavailable when platform is down', async () => {
+    const service = createService();
+    mockedAxios.post.mockRejectedValueOnce(new Error('connection failed'));
+    mockedAxios.post.mockRejectedValueOnce(new Error('connection failed'));
+
+    await expect(
+      service.assist({
+        skill: 'auth',
+        messages: [{ role: 'user', content: 'help me login' }],
+        context: { surface: 'auth-login', locale: 'en-IN' },
+        allowedActions: ['auth.open_login'],
+        executeRequestedAction: false,
+      }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('rejects requested action when not suggested by agent output', async () => {
+    const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'auth',
+        assistantText: 'Open registration flow.',
+        intent: 'signup_help',
+        confidence: 0.82,
+        suggestedActions: [
+          { name: 'auth.open_register', label: 'Open registration flow' },
+        ],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+
+    await expect(
+      service.assist({
+        skill: 'auth',
+        messages: [{ role: 'user', content: 'forgot password' }],
+        context: {
+          surface: 'auth-login',
+          locale: 'en-IN',
+          email: 'user@example.com',
+        },
+        allowedActions: ['auth.forgot_password', 'auth.open_register'],
+        requestedAction: 'auth.forgot_password',
+        executeRequestedAction: true,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('reports health as down when platform probe fails', async () => {
+    const service = createService();
+    mockedAxios.get.mockRejectedValueOnce(new Error('health check failed'));
+
+    const health = await service.getPlatformHealth();
+    expect(health.reachable).toBe(false);
+    expect(health.status).toBe('down');
   });
 });
