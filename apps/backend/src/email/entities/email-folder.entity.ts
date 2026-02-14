@@ -1,4 +1,14 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { Email } from './email.entity';
 
@@ -18,11 +28,11 @@ export class EmailFolder {
   @Index()
   userId: string;
 
-  @ManyToOne(() => User, user => user.folders)
+  @ManyToOne(() => User, (user) => user.folders)
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @OneToMany(() => Email, email => email.folder)
+  @OneToMany(() => Email, (email) => email.folder)
   emails: Email[];
 
   @CreateDateColumn()

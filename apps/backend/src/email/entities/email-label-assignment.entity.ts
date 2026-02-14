@@ -1,4 +1,12 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, ManyToOne, JoinColumn, Unique } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Unique,
+} from 'typeorm';
 import { Email } from './email.entity';
 import { EmailLabel } from './email-label.entity';
 
@@ -15,14 +23,14 @@ export class EmailLabelAssignment {
   @Column()
   emailId: string;
 
-  @ManyToOne(() => Email, email => email.labels)
+  @ManyToOne(() => Email, (email) => email.labels)
   @JoinColumn({ name: 'emailId' })
   email: Email;
 
   @Column()
   labelId: string;
 
-  @ManyToOne(() => EmailLabel, label => label.emails)
+  @ManyToOne(() => EmailLabel, (label) => label.emails)
   @JoinColumn({ name: 'labelId' })
   label: EmailLabel;
 
