@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import { ProviderManagement } from '@/components/providers/ProviderManagement';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, CheckCircle } from 'lucide-react';
+import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 
 export const metadata: Metadata = {
   title: 'Email Providers | MailZen',
@@ -9,29 +10,27 @@ export const metadata: Metadata = {
 };
 
 interface EmailProvidersPageProps {
-  searchParams?: {
+  searchParams?: Promise<{
     provider?: string;
     success?: string;
     error?: string;
-  };
+  }>;
 }
 
-export default function EmailProvidersPage({ searchParams }: EmailProvidersPageProps) {
-  const { provider, success, error } = searchParams || {};
+export default async function EmailProvidersPage({ searchParams }: EmailProvidersPageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const { provider, success, error } = resolvedSearchParams;
   
   // Determine if we have a success or error message to display
   const showSuccess = success === 'true' && provider;
   const showError = !!error;
   
   return (
-    <div className="container py-6 space-y-6">
-      <div className="flex flex-col space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Email Providers</h1>
-        <p className="text-muted-foreground">
-          Connect and manage your email accounts from various providers
-        </p>
-      </div>
-      
+    <DashboardPageShell
+      title="Email Providers"
+      description="Connect and manage your email accounts from various providers."
+      contentClassName="space-y-6"
+    >
       {showSuccess && (
         <Alert
           variant="default"
@@ -59,6 +58,6 @@ export default function EmailProvidersPage({ searchParams }: EmailProvidersPageP
       <div className="grid grid-cols-1 gap-6">
         <ProviderManagement />
       </div>
-    </div>
+    </DashboardPageShell>
   );
 } 
