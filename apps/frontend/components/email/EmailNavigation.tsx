@@ -36,6 +36,10 @@ interface EmailNavigationProps {
    * Optional compose handler. When omitted, the button will log in dev.
    */
   onCompose?: () => void;
+  /**
+   * Controls whether the compose button is rendered.
+   */
+  showCompose?: boolean;
   className?: string;
 }
 
@@ -57,6 +61,7 @@ export function EmailNavigation({
   currentLabel,
   onLabelSelect,
   onCompose,
+  showCompose = true,
   className = '',
 }: EmailNavigationProps) {
   const [labelsExpanded, setLabelsExpanded] = useState(true);
@@ -66,6 +71,10 @@ export function EmailNavigation({
   
   // Fetch labels
   const { data: labelsData, loading: labelsLoading } = useQuery(GET_LABELS);
+
+  // Keep loading flags for future skeleton UI; suppress unused-var lint for now.
+  void foldersLoading;
+  void labelsLoading;
   
   // Get folder data with counts
   const folders = foldersData?.folders || [
@@ -108,26 +117,28 @@ export function EmailNavigation({
   return (
     <div className={cn("w-full flex flex-col h-full min-w-0", className)}>
       {/* Create new email button */}
-      <div className="p-4">
-        <Button
-          className="w-full gap-2"
-          size="sm"
-          variant="premium"
-          onClick={() => {
-            if (onCompose) {
-              onCompose();
-              return;
-            }
-            if (process.env.NODE_ENV !== 'production') {
-              // eslint-disable-next-line no-console
-              console.debug('[EmailNavigation] compose clicked (no handler provided)');
-            }
-          }}
-        >
-          <PlusCircle className="h-4 w-4" />
-          Compose
-        </Button>
-      </div>
+      {showCompose ? (
+        <div className="p-4">
+          <Button
+            className="w-full gap-2"
+            size="sm"
+            variant="premium"
+            onClick={() => {
+              if (onCompose) {
+                onCompose();
+                return;
+              }
+              if (process.env.NODE_ENV !== 'production') {
+                // eslint-disable-next-line no-console
+                console.debug('[EmailNavigation] compose clicked (no handler provided)');
+              }
+            }}
+          >
+            <PlusCircle className="h-4 w-4" />
+            Compose
+          </Button>
+        </div>
+      ) : null}
       
       {/* Folders list */}
       <ScrollArea className="flex-1">

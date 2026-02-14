@@ -1,18 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Star,
   StarOff,
-  Paperclip,
-  Clock,
   ChevronDown,
   MoreHorizontal,
   Trash2,
   Archive,
   Mail,
-  Tag,
   Inbox,
   Send,
   AlertCircle,
@@ -32,94 +29,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { EmailThread, EmailLabel, EmailFolder, EmailFilter, EmailSortOption } from '@/lib/email/email-types';
+import { EmailThread, EmailFolder, EmailFilter, EmailSortOption } from '@/lib/email/email-types';
 import { mockLabels } from '@/lib/email/mock-data';
 import { EmailThreadItem } from './EmailThreadItem';
 import { EmailSearch } from './EmailSearch';
 import { EmailListSkeleton } from './EmailListSkeleton';
 import { EmailPagination } from './EmailPagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_EMAILS, GET_LABELS, UPDATE_EMAIL } from '@/lib/apollo/queries/emails';
 import { useToast } from '@/components/ui/use-toast';
-
-// Mock email data for demonstration
-const mockEmails = [
-  {
-    id: '1',
-    from: { name: 'GitHub', email: 'noreply@github.com' },
-    subject: 'Action required: Your GitHub access will expire in 24 hours',
-    excerpt:
-      'Your GitHub password will expire in 24 hours. To create a new password, click the link below...',
-    time: '10:42 AM',
-    isUnread: true,
-    isStarred: false,
-    hasAttachment: false,
-    isScheduled: false,
-    labels: ['important'],
-  },
-  {
-    id: '2',
-    from: { name: 'Slack', email: 'notifications@slack.com' },
-    subject: 'New message from Jane in #general',
-    excerpt:
-      'Jane: Hey team, I just pushed the new UI updates to the staging environment. Please take a look...',
-    time: 'Yesterday',
-    isUnread: false,
-    isStarred: true,
-    hasAttachment: true,
-    isScheduled: false,
-    labels: ['work'],
-  },
-  {
-    id: '3',
-    from: { name: 'Netflix', email: 'info@netflix.com' },
-    subject: 'Your monthly Netflix subscription',
-    excerpt:
-      'Your monthly subscription has been processed successfully. Here are the details of your payment...',
-    time: 'Feb 28',
-    isUnread: false,
-    isStarred: false,
-    hasAttachment: false,
-    isScheduled: false,
-    labels: ['finance'],
-  },
-  {
-    id: '4',
-    from: { name: 'Amazon', email: 'orders@amazon.com' },
-    subject: 'Your Amazon.com order has shipped',
-    excerpt:
-      'Your order #302-5938604-2130727 has been shipped and is on its way. You can track your package...',
-    time: 'Feb 27',
-    isUnread: true,
-    isStarred: false,
-    hasAttachment: true,
-    isScheduled: false,
-    labels: [],
-  },
-  {
-    id: '5',
-    from: { name: 'LinkedIn', email: 'notifications@linkedin.com' },
-    subject: 'New connection request from John Smith',
-    excerpt:
-      'John Smith wants to connect with you on LinkedIn. Accept the request to expand your network...',
-    time: 'Feb 25',
-    isUnread: false,
-    isStarred: false,
-    hasAttachment: false,
-    isScheduled: true,
-    labels: ['personal'],
-  },
-];
-
-// Label color map
-const labelColors: Record<string, string> = {
-  important: 'bg-red-500',
-  work: 'bg-blue-500',
-  personal: 'bg-green-500',
-  finance: 'bg-purple-500',
-};
 
 interface EmailListProps {
   onSelectThread: (thread: EmailThread) => void;
@@ -201,12 +120,12 @@ export function EmailList({
     pageSize: PAGE_SIZE,
     hasMore: (data?.emails?.length || 0) === PAGE_SIZE,
   };
+
+  const visibleThreadIds = useMemo(() => {
+    return emails.items.map((thread: EmailThread) => thread.id);
+  }, [emails.items]);
   
   // Handle thread selection
-  const handleSelectThread = (thread: EmailThread) => {
-    onSelectThread(thread);
-  };
-
   // Handle starring/unstarring an email
   const handleToggleStar = (threadId: string, isStarred: boolean) => {
     // Call the GraphQL mutation to update the email
@@ -218,7 +137,9 @@ export function EmailList({
         }
       }
     }).catch(error => {
-      console.error('Error updating email star status:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error updating email star status:', error);
+      }
     });
   };
 
@@ -258,24 +179,21 @@ export function EmailList({
   };
   
   // Toggle select mode
-  const toggleSelectMode = () => {
-    if (isSelectMode) {
-      // Clear selections when exiting select mode
-      setSelectedThreadIds([]);
-    }
-    setIsSelectMode(!isSelectMode);
-  };
+  const toggleSelectMode = useCallback(() => {
+    setIsSelectMode(prev => {
+      if (prev) setSelectedThreadIds([]);
+      return !prev;
+    });
+  }, []);
   
   // Select all visible threads
-  const handleSelectAll = () => {
-    if (emails.items.length === selectedThreadIds.length) {
-      // If all are selected, deselect all
+  const handleSelectAll = useCallback(() => {
+    if (visibleThreadIds.length === selectedThreadIds.length) {
       setSelectedThreadIds([]);
-    } else {
-      // Otherwise, select all
-      setSelectedThreadIds(emails.items.map((thread: EmailThread) => thread.id));
+      return;
     }
-  };
+    setSelectedThreadIds(visibleThreadIds);
+  }, [selectedThreadIds.length, visibleThreadIds]);
   
   // Select range of emails (Shift+click functionality)
   const handleRangeSelect = (threadId: string, index: number) => {
@@ -307,7 +225,7 @@ export function EmailList({
   };
   
   // Handle batch actions
-  const handleBatchAction = (action: string) => {
+  const handleBatchAction = useCallback((action: string) => {
     if (selectedThreadIds.length === 0) {
       toast({
         title: "No emails selected",
@@ -339,7 +257,7 @@ export function EmailList({
     
     // Clear selections after action
     setSelectedThreadIds([]);
-  };
+  }, [onBatchAction, selectedThreadIds, toast]);
 
   // Add a handler for sorting
   const handleSort = (field: 'date' | 'from' | 'subject' | 'importance') => {
@@ -410,7 +328,7 @@ export function EmailList({
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSelectMode, selectedThreadIds, emails.items]);
+  }, [handleBatchAction, handleSelectAll, isSelectMode, selectedThreadIds, toggleSelectMode, visibleThreadIds]);
 
   return (
     <div className={cn('flex flex-col h-full p-4', className)}>
