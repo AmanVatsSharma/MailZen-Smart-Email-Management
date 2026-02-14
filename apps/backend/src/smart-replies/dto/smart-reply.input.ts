@@ -6,6 +6,8 @@ export class SmartReplyInput {
   @Field()
   @IsString()
   @IsNotEmpty({ message: 'Conversation text cannot be empty' })
-  @MaxLength(5000, { message: 'Conversation text is too long, maximum 5000 characters' })
+  @MaxLength(5000, {
+    message: 'Conversation text is too long, maximum 5000 characters',
+  })
   conversation: string;
-} 
+}
