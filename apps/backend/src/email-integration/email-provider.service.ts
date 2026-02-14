@@ -1,4 +1,11 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EmailProvider } from './entities/email-provider.entity';
@@ -13,7 +20,7 @@ interface SmtpConnectionPool {
   [key: string]: {
     transporter: Transporter;
     lastUsed: Date;
-  }
+  };
 }
 
 /**
@@ -25,21 +32,24 @@ export class EmailProviderService {
   private readonly logger = new Logger(EmailProviderService.name);
   private readonly googleOAuth2Client: OAuth2Client;
   private readonly smtpConnectionPool: SmtpConnectionPool = {};
-  private readonly connectionCache = new NodeCache({ stdTTL: 3600, checkperiod: 600 }); // 1 hour TTL, check every 10 minutes
-  
+  private readonly connectionCache = new NodeCache({
+    stdTTL: 3600,
+    checkperiod: 600,
+  }); // 1 hour TTL, check every 10 minutes
+
   constructor(
     @InjectRepository(EmailProvider)
     private readonly providerRepository: Repository<EmailProvider>,
   ) {
     console.log('[EmailProviderService] Initialized with TypeORM repository');
-    
+
     // Setup Google OAuth client
     this.googleOAuth2Client = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI
+      process.env.GOOGLE_REDIRECT_URI,
     );
-    
+
     // Start connection pool cleanup interval
     setInterval(() => this.cleanupConnectionPool(), 15 * 60 * 1000); // Run every 15 minutes
   }
@@ -50,8 +60,13 @@ export class EmailProviderService {
    *
    * This is used by inbox sync modules (Gmail/Outlook) that need API access.
    */
-  async getValidAccessToken(providerId: string, userId: string): Promise<string | null> {
-    const provider = await this.providerRepository.findOne({ where: { id: providerId, userId } });
+  async getValidAccessToken(
+    providerId: string,
+    userId: string,
+  ): Promise<string | null> {
+    const provider = await this.providerRepository.findOne({
+      where: { id: providerId, userId },
+    });
     if (!provider) throw new NotFoundException('Provider not found');
     if (!['GMAIL', 'OUTLOOK'].includes(provider.type)) return null;
 
@@ -64,7 +79,9 @@ export class EmailProviderService {
       }
     }
 
-    const updated = await this.providerRepository.findOne({ where: { id: providerId } });
+    const updated = await this.providerRepository.findOne({
+      where: { id: providerId },
+    });
     return updated?.accessToken || null;
   }
 
@@ -79,7 +96,9 @@ export class EmailProviderService {
     try {
       const clientId = process.env.GOOGLE_CLIENT_ID;
       const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-      const redirectUri = process.env.GOOGLE_PROVIDER_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URI;
+      const redirectUri =
+        process.env.GOOGLE_PROVIDER_REDIRECT_URI ||
+        process.env.GOOGLE_REDIRECT_URI;
       if (!clientId || !clientSecret || !redirectUri) {
         throw new BadRequestException('Google OAuth not configured');
       }
@@ -87,16 +106,23 @@ export class EmailProviderService {
       const oauth = new OAuth2Client(clientId, clientSecret, redirectUri);
       const { tokens } = await oauth.getToken(code);
       if (!tokens.access_token) {
-        throw new BadRequestException('Google OAuth did not return an access token');
+        throw new BadRequestException(
+          'Google OAuth did not return an access token',
+        );
       }
 
       // Use UserInfo endpoint to derive the provider email (frontend includes userinfo.email scope).
-      const me = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
-        headers: { Authorization: `Bearer ${tokens.access_token}` },
-      });
+      const me = await axios.get(
+        'https://www.googleapis.com/oauth2/v2/userinfo',
+        {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        },
+      );
       const email = (me.data?.email || '').toLowerCase();
       if (!email) {
-        throw new BadRequestException('Could not resolve Gmail account email from OAuth token');
+        throw new BadRequestException(
+          'Could not resolve Gmail account email from OAuth token',
+        );
       }
 
       const input: EmailProviderInput = {
@@ -104,18 +130,84 @@ export class EmailProviderService {
         email,
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token ?? undefined,
-        tokenExpiry: tokens.expiry_date ? Math.floor(tokens.expiry_date / 1000) : undefined,
+        tokenExpiry: tokens.expiry_date
+          ? Math.floor(tokens.expiry_date / 1000)
+          : undefined,
       };
 
       const created = await this.configureProvider(input, userId);
       // Set UI fields for provider management
       const displayName = `Gmail - ${email}`;
-      await this.providerRepository.update(created.id, { displayName, status: 'connected', lastSyncedAt: null });
+      const createdId = created.id;
+      await this.providerRepository.update(createdId, {
+        displayName,
+        status: 'connected',
+      });
+      return this.getProviderUi(createdId, userId);
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to connect Gmail: ${error.message}`,
+        error.stack,
+      );
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
+      )
+        throw error;
+      throw new InternalServerErrorException('Failed to connect Gmail');
+    }
+  }
+
+  async connectGmailFromOAuthTokens(
+    input: {
+      email: string;
+      accessToken: string;
+      refreshToken?: string;
+      expiryDate?: number;
+    },
+    userId: string,
+  ) {
+    try {
+      const normalizedEmail = (input.email || '').trim().toLowerCase();
+      if (!normalizedEmail) {
+        throw new BadRequestException('Google account email is required');
+      }
+      if (!input.accessToken) {
+        throw new BadRequestException('Google access token is required');
+      }
+
+      const providerInput: EmailProviderInput = {
+        providerType: 'GMAIL',
+        email: normalizedEmail,
+        accessToken: input.accessToken,
+        refreshToken: input.refreshToken,
+        tokenExpiry: input.expiryDate
+          ? Math.floor(input.expiryDate / 1000)
+          : undefined,
+      };
+
+      const created = await this.configureProvider(providerInput, userId);
+      const displayName = `Gmail - ${normalizedEmail}`;
+      await this.providerRepository.update(created.id, {
+        displayName,
+        status: 'connected',
+      });
+
       return this.getProviderUi(created.id, userId);
     } catch (error: any) {
-      this.logger.error(`Failed to connect Gmail: ${error.message}`, error.stack);
-      if (error instanceof BadRequestException || error instanceof ConflictException) throw error;
-      throw new InternalServerErrorException('Failed to connect Gmail');
+      this.logger.error(
+        `Failed to connect Gmail from OAuth tokens: ${error.message}`,
+        error.stack,
+      );
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        'Failed to connect Gmail from OAuth tokens',
+      );
     }
   }
 
@@ -123,12 +215,15 @@ export class EmailProviderService {
     try {
       const clientId = process.env.OUTLOOK_CLIENT_ID;
       const clientSecret = process.env.OUTLOOK_CLIENT_SECRET;
-      const redirectUri = process.env.OUTLOOK_PROVIDER_REDIRECT_URI || process.env.OUTLOOK_REDIRECT_URI;
+      const redirectUri =
+        process.env.OUTLOOK_PROVIDER_REDIRECT_URI ||
+        process.env.OUTLOOK_REDIRECT_URI;
       if (!clientId || !clientSecret || !redirectUri) {
         throw new BadRequestException('Outlook OAuth not configured');
       }
 
-      const tokenUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+      const tokenUrl =
+        'https://login.microsoftonline.com/common/oauth2/v2.0/token';
       const params = new URLSearchParams();
       params.append('client_id', clientId);
       params.append('client_secret', clientSecret);
@@ -143,16 +238,28 @@ export class EmailProviderService {
       const accessToken = response.data?.access_token;
       const refreshToken = response.data?.refresh_token;
       const expiresIn = response.data?.expires_in;
-      if (!accessToken) throw new BadRequestException('Outlook OAuth did not return access token');
+      if (!accessToken)
+        throw new BadRequestException(
+          'Outlook OAuth did not return access token',
+        );
 
       // Get email from Microsoft Graph
       const me = await axios.get('https://graph.microsoft.com/v1.0/me', {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const email = (me.data?.mail || me.data?.userPrincipalName || '').toLowerCase();
-      if (!email) throw new BadRequestException('Could not resolve Outlook account email from OAuth token');
+      const email = (
+        me.data?.mail ||
+        me.data?.userPrincipalName ||
+        ''
+      ).toLowerCase();
+      if (!email)
+        throw new BadRequestException(
+          'Could not resolve Outlook account email from OAuth token',
+        );
 
-      const tokenExpiry = expiresIn ? Math.floor(Date.now() / 1000) + Number(expiresIn) : undefined;
+      const tokenExpiry = expiresIn
+        ? Math.floor(Date.now() / 1000) + Number(expiresIn)
+        : undefined;
       const input: EmailProviderInput = {
         providerType: 'OUTLOOK',
         email,
@@ -163,11 +270,22 @@ export class EmailProviderService {
 
       const created = await this.configureProvider(input, userId);
       const displayName = `Outlook - ${email}`;
-      await this.providerRepository.update(created.id, { displayName, status: 'connected', lastSyncedAt: null });
-      return this.getProviderUi(created.id, userId);
+      const createdId = created.id;
+      await this.providerRepository.update(createdId, {
+        displayName,
+        status: 'connected',
+      });
+      return this.getProviderUi(createdId, userId);
     } catch (error: any) {
-      this.logger.error(`Failed to connect Outlook: ${error.message}`, error.stack);
-      if (error instanceof BadRequestException || error instanceof ConflictException) throw error;
+      this.logger.error(
+        `Failed to connect Outlook: ${error.message}`,
+        error.stack,
+      );
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
+      )
+        throw error;
       throw new InternalServerErrorException('Failed to connect Outlook');
     }
   }
@@ -184,18 +302,35 @@ export class EmailProviderService {
 
       const created = await this.configureProvider(input, userId);
       const displayName = `SMTP - ${settings.email}`;
-      await this.providerRepository.update(created.id, { displayName, status: 'connected', lastSyncedAt: null });
-      return this.getProviderUi(created.id, userId);
+      const createdId = created.id;
+      await this.providerRepository.update(createdId, {
+        displayName,
+        status: 'connected',
+      });
+      return this.getProviderUi(createdId, userId);
     } catch (error: any) {
-      this.logger.error(`Failed to connect SMTP: ${error.message}`, error.stack);
-      if (error instanceof BadRequestException || error instanceof ConflictException) throw error;
+      this.logger.error(
+        `Failed to connect SMTP: ${error.message}`,
+        error.stack,
+      );
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
+      )
+        throw error;
       throw new InternalServerErrorException('Failed to connect SMTP');
     }
   }
 
-  async setActiveProvider(providerId: string, userId: string, isActive?: boolean) {
+  async setActiveProvider(
+    providerId: string,
+    userId: string,
+    isActive?: boolean,
+  ) {
     try {
-      const provider = await this.providerRepository.findOne({ where: { id: providerId, userId } });
+      const provider = await this.providerRepository.findOne({
+        where: { id: providerId, userId },
+      });
       if (!provider) throw new NotFoundException('Provider not found');
 
       // If enabling, disable all other providers for this user.
@@ -208,7 +343,10 @@ export class EmailProviderService {
 
       return this.getProviderUi(providerId, userId);
     } catch (error: any) {
-      this.logger.error(`Failed to update provider active state: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to update provider active state: ${error.message}`,
+        error.stack,
+      );
       if (error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException('Failed to update provider');
     }
@@ -222,37 +360,51 @@ export class EmailProviderService {
 
   async syncProvider(providerId: string, userId: string) {
     // MVP: mark as syncing; gmail-sync module will do real syncing later.
-    const provider = await this.providerRepository.findOne({ where: { id: providerId, userId } });
+    const provider = await this.providerRepository.findOne({
+      where: { id: providerId, userId },
+    });
     if (!provider) throw new NotFoundException('Provider not found');
     await this.providerRepository.update(providerId, { status: 'syncing' });
     return this.getProviderUi(providerId, userId);
   }
 
   async listProvidersUi(userId: string) {
-    const providers = await this.providerRepository.find({ where: { userId }, order: { createdAt: 'DESC' } });
-    return providers.map(p => this.mapToProviderUi(p));
+    const providers = await this.providerRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+    return providers.map((p) => this.mapToProviderUi(p));
   }
 
   private async getProviderUi(providerId: string, userId: string) {
-    const provider = await this.providerRepository.findOne({ where: { id: providerId, userId } });
+    const provider = await this.providerRepository.findOne({
+      where: { id: providerId, userId },
+    });
     if (!provider) throw new NotFoundException('Provider not found');
     return this.mapToProviderUi(provider);
   }
 
   private mapToProviderUi(provider: any) {
     const typeLower =
-      provider.type === 'CUSTOM_SMTP' ? 'smtp' :
-      provider.type === 'GMAIL' ? 'gmail' :
-      provider.type === 'OUTLOOK' ? 'outlook' :
-      (provider.type || '').toLowerCase();
+      provider.type === 'CUSTOM_SMTP'
+        ? 'smtp'
+        : provider.type === 'GMAIL'
+          ? 'gmail'
+          : provider.type === 'OUTLOOK'
+            ? 'outlook'
+            : (provider.type || '').toLowerCase();
 
     return {
       id: provider.id,
       type: typeLower,
-      name: provider.displayName || `${typeLower.toUpperCase()} - ${provider.email}`,
+      name:
+        provider.displayName ||
+        `${typeLower.toUpperCase()} - ${provider.email}`,
       email: provider.email,
       isActive: !!provider.isActive,
-      lastSynced: provider.lastSyncedAt ? provider.lastSyncedAt.toISOString() : null,
+      lastSynced: provider.lastSyncedAt
+        ? provider.lastSyncedAt.toISOString()
+        : null,
       status: provider.status || 'connected',
     };
   }
@@ -263,20 +415,22 @@ export class EmailProviderService {
       if (config.autoDetect && config.email) {
         config.providerType = this.detectProviderType(config.email);
       }
-      
+
       // Check if provider already exists
       const existingProvider = await this.providerRepository.findOne({
         where: {
           email: config.email,
           type: config.providerType,
-          userId
-        }
+          userId,
+        },
       });
 
       if (existingProvider) {
-        throw new ConflictException(`Provider ${config.providerType} with email ${config.email} already exists`);
+        throw new ConflictException(
+          `Provider ${config.providerType} with email ${config.email} already exists`,
+        );
       }
-      
+
       switch (config.providerType) {
         case 'GMAIL':
           return this.configureGmail(config, userId);
@@ -285,25 +439,38 @@ export class EmailProviderService {
         case 'CUSTOM_SMTP':
           return this.configureSmtp(config, userId);
         default:
-          throw new BadRequestException(`Unsupported provider type: ${config.providerType}`);
+          throw new BadRequestException(
+            `Unsupported provider type: ${config.providerType}`,
+          );
       }
     } catch (error) {
-      this.logger.error(`Failed to configure provider: ${error.message}`, error.stack);
-      if (error instanceof BadRequestException || 
-          error instanceof ConflictException || 
-          error instanceof NotFoundException) {
+      this.logger.error(
+        `Failed to configure provider: ${error.message}`,
+        error.stack,
+      );
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ConflictException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to configure email provider');
+      throw new InternalServerErrorException(
+        'Failed to configure email provider',
+      );
     }
   }
 
   private detectProviderType(email: string): string {
     const domain = email.split('@')[1].toLowerCase();
-    
+
     if (domain === 'gmail.com') {
       return 'GMAIL';
-    } else if (domain === 'outlook.com' || domain === 'hotmail.com' || domain === 'live.com') {
+    } else if (
+      domain === 'outlook.com' ||
+      domain === 'hotmail.com' ||
+      domain === 'live.com'
+    ) {
       return 'OUTLOOK';
     } else {
       return 'CUSTOM_SMTP';
@@ -312,49 +479,69 @@ export class EmailProviderService {
 
   private async configureGmail(config: EmailProviderInput, userId: string) {
     if (!config.accessToken) {
-      throw new BadRequestException('Access token is required for Gmail providers');
+      throw new BadRequestException(
+        'Access token is required for Gmail providers',
+      );
     }
-    
+
     try {
       const provider = this.providerRepository.create({
         type: 'GMAIL',
         email: config.email,
         accessToken: config.accessToken,
         refreshToken: config.refreshToken,
-        tokenExpiry: config.tokenExpiry ? new Date(config.tokenExpiry * 1000) : null,
-        userId
+        tokenExpiry: config.tokenExpiry
+          ? new Date(config.tokenExpiry * 1000)
+          : undefined,
+        userId,
       });
       return await this.providerRepository.save(provider);
     } catch (error) {
-      this.logger.error(`Failed to configure Gmail provider: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('Failed to configure Gmail provider');
+      this.logger.error(
+        `Failed to configure Gmail provider: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        'Failed to configure Gmail provider',
+      );
     }
   }
 
   private async configureOutlook(config: EmailProviderInput, userId: string) {
     if (!config.accessToken) {
-      throw new BadRequestException('Access token is required for Outlook providers');
+      throw new BadRequestException(
+        'Access token is required for Outlook providers',
+      );
     }
-    
+
     try {
       const provider = this.providerRepository.create({
         type: 'OUTLOOK',
         email: config.email,
         accessToken: config.accessToken,
         refreshToken: config.refreshToken,
-        tokenExpiry: config.tokenExpiry ? new Date(config.tokenExpiry * 1000) : null,
-        userId
+        tokenExpiry: config.tokenExpiry
+          ? new Date(config.tokenExpiry * 1000)
+          : undefined,
+        userId,
       });
       return await this.providerRepository.save(provider);
     } catch (error) {
-      this.logger.error(`Failed to configure Outlook provider: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('Failed to configure Outlook provider');
+      this.logger.error(
+        `Failed to configure Outlook provider: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        'Failed to configure Outlook provider',
+      );
     }
   }
 
   private async configureSmtp(config: EmailProviderInput, userId: string) {
     if (!config.host || !config.port || !config.password) {
-      throw new BadRequestException('Host, port, and password are required for SMTP providers');
+      throw new BadRequestException(
+        'Host, port, and password are required for SMTP providers',
+      );
     }
 
     try {
@@ -364,23 +551,28 @@ export class EmailProviderService {
         host: config.host,
         port: config.port,
         password: config.password,
-        userId
+        userId,
       });
       return await this.providerRepository.save(provider);
     } catch (error) {
-      this.logger.error(`Failed to configure SMTP provider: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('Failed to configure SMTP provider');
+      this.logger.error(
+        `Failed to configure SMTP provider: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        'Failed to configure SMTP provider',
+      );
     }
   }
 
   async getProviderEmails(providerId: string, userId: string) {
     try {
       const provider = await this.providerRepository.findOne({
-        where: { 
+        where: {
           id: providerId,
-          userId
+          userId,
         },
-        relations: ['emails']
+        relations: ['emails'],
       });
 
       if (!provider) {
@@ -389,7 +581,10 @@ export class EmailProviderService {
 
       return provider.emails;
     } catch (error) {
-      this.logger.error(`Failed to get provider emails: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get provider emails: ${error.message}`,
+        error.stack,
+      );
       if (error instanceof NotFoundException) {
         throw error;
       }
@@ -401,10 +596,13 @@ export class EmailProviderService {
     try {
       return await this.providerRepository.find({
         where: { userId },
-        order: { createdAt: 'DESC' }
+        order: { createdAt: 'DESC' },
       });
     } catch (error) {
-      this.logger.error(`Failed to get all providers: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get all providers: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException('Failed to get email providers');
     }
   }
@@ -412,10 +610,10 @@ export class EmailProviderService {
   async getProviderById(id: string, userId: string) {
     try {
       const provider = await this.providerRepository.findOne({
-        where: { 
+        where: {
           id,
-          userId 
-        }
+          userId,
+        },
       });
 
       if (!provider) {
@@ -424,7 +622,10 @@ export class EmailProviderService {
 
       return provider;
     } catch (error) {
-      this.logger.error(`Failed to get provider: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get provider: ${error.message}`,
+        error.stack,
+      );
       if (error instanceof NotFoundException) {
         throw error;
       }
@@ -436,10 +637,10 @@ export class EmailProviderService {
     try {
       // First verify that the provider exists and belongs to the user
       const provider = await this.providerRepository.findOne({
-        where: { 
+        where: {
           id,
-          userId 
-        }
+          userId,
+        },
       });
 
       if (!provider) {
@@ -454,7 +655,10 @@ export class EmailProviderService {
 
       return true;
     } catch (error) {
-      this.logger.error(`Failed to delete provider: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to delete provider: ${error.message}`,
+        error.stack,
+      );
       if (error instanceof NotFoundException) {
         throw error;
       }
@@ -462,14 +666,18 @@ export class EmailProviderService {
     }
   }
 
-  async updateProviderCredentials(id: string, updatedData: Partial<EmailProviderInput>, userId: string) {
+  async updateProviderCredentials(
+    id: string,
+    updatedData: Partial<EmailProviderInput>,
+    userId: string,
+  ) {
     try {
       // First verify that the provider exists and belongs to the user
       const provider = await this.providerRepository.findOne({
-        where: { 
+        where: {
           id,
-          userId 
-        }
+          userId,
+        },
       });
 
       if (!provider) {
@@ -481,75 +689,86 @@ export class EmailProviderService {
 
       // Prepare update data based on provider type
       const updateData: any = {};
-      
+
       if (provider.type === 'CUSTOM_SMTP') {
         if (updatedData.host) updateData.host = updatedData.host;
         if (updatedData.port) updateData.port = updatedData.port;
         if (updatedData.password) updateData.password = updatedData.password;
       } else if (['GMAIL', 'OUTLOOK'].includes(provider.type)) {
-        if (updatedData.accessToken) updateData.accessToken = updatedData.accessToken;
-        if (updatedData.refreshToken) updateData.refreshToken = updatedData.refreshToken;
-        if (updatedData.tokenExpiry) updateData.tokenExpiry = new Date(updatedData.tokenExpiry * 1000);
+        if (updatedData.accessToken)
+          updateData.accessToken = updatedData.accessToken;
+        if (updatedData.refreshToken)
+          updateData.refreshToken = updatedData.refreshToken;
+        if (updatedData.tokenExpiry)
+          updateData.tokenExpiry = new Date(updatedData.tokenExpiry * 1000);
       }
 
       // Update the provider
       await this.providerRepository.update(id, updateData);
       return await this.providerRepository.findOne({ where: { id } });
     } catch (error) {
-      this.logger.error(`Failed to update provider credentials: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to update provider credentials: ${error.message}`,
+        error.stack,
+      );
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to update email provider credentials');
+      throw new InternalServerErrorException(
+        'Failed to update email provider credentials',
+      );
     }
   }
 
   async validateProvider(id: string, userId: string) {
     try {
       const provider = await this.getProviderById(id, userId);
-      
+
       // Try to get or create a transporter
       const transporter = await this.getTransporter(provider);
-      
+
       // Verify connection
       const verifyResult = await transporter.verify();
-      
+
       return {
         valid: !!verifyResult,
-        message: 'Provider connection validated successfully'
+        message: 'Provider connection validated successfully',
       };
     } catch (error) {
-      this.logger.error(`Provider validation failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `Provider validation failed: ${error.message}`,
+        error.stack,
+      );
       return {
         valid: false,
-        message: error.message || 'Provider validation failed'
+        message: error.message || 'Provider validation failed',
       };
     }
   }
-  
+
   async getTransporter(provider: any): Promise<Transporter> {
     const cacheKey = `transporter_${provider.id}`;
-    
+
     // Check if we have a cached transporter
     if (this.connectionCache.has(cacheKey)) {
       return this.smtpConnectionPool[provider.id].transporter;
     }
-    
+
     // If not in cache, check if we need to refresh OAuth token
     if (['GMAIL', 'OUTLOOK'].includes(provider.type) && provider.tokenExpiry) {
       const now = new Date();
       const expiry = new Date(provider.tokenExpiry);
-      
+
       // If token is expired or about to expire (within 5 minutes), refresh it
       if (expiry <= new Date(now.getTime() + 5 * 60 * 1000)) {
         await this.refreshOAuthToken(provider);
       }
     }
-    
+
     // Create a new transporter based on provider type
     let transporterConfig;
     let transporter;
-    
+
     switch (provider.type) {
       case 'GMAIL':
         transporterConfig = {
@@ -561,8 +780,10 @@ export class EmailProviderService {
             clientSecret: process.env.GOOGLE_CLIENT_SECRET,
             accessToken: provider.accessToken,
             refreshToken: provider.refreshToken,
-            expires: provider.tokenExpiry ? new Date(provider.tokenExpiry).getTime() : undefined
-          }
+            expires: provider.tokenExpiry
+              ? new Date(provider.tokenExpiry).getTime()
+              : undefined,
+          },
         };
         break;
       case 'OUTLOOK':
@@ -575,8 +796,10 @@ export class EmailProviderService {
             clientSecret: process.env.OUTLOOK_CLIENT_SECRET,
             accessToken: provider.accessToken,
             refreshToken: provider.refreshToken,
-            expires: provider.tokenExpiry ? new Date(provider.tokenExpiry).getTime() : undefined
-          }
+            expires: provider.tokenExpiry
+              ? new Date(provider.tokenExpiry).getTime()
+              : undefined,
+          },
         };
         break;
       case 'CUSTOM_SMTP':
@@ -586,110 +809,125 @@ export class EmailProviderService {
           secure: provider.port === 465,
           auth: {
             user: provider.email,
-            pass: provider.password
+            pass: provider.password,
           },
           pool: true,
           maxConnections: 5,
-          maxMessages: 100
+          maxMessages: 100,
         };
         break;
       default:
         throw new Error(`Unsupported provider type: ${provider.type}`);
     }
-    
+
     transporter = createTransport(transporterConfig);
-    
+
     // Add to connection pool
     this.smtpConnectionPool[provider.id] = {
       transporter,
-      lastUsed: new Date()
+      lastUsed: new Date(),
     };
-    
+
     // Add to cache with TTL
     this.connectionCache.set(cacheKey, true);
-    
+
     return transporter;
   }
-  
+
   private async refreshOAuthToken(provider: any) {
     try {
       if (provider.type === 'GMAIL' && provider.refreshToken) {
         // Refresh Google token
         this.googleOAuth2Client.setCredentials({
-          refresh_token: provider.refreshToken
+          refresh_token: provider.refreshToken,
         });
-        
-        const { credentials } = await this.googleOAuth2Client.refreshAccessToken();
-        
+
+        const { credentials } =
+          await this.googleOAuth2Client.refreshAccessToken();
+
         // Update provider with new token info
         await this.providerRepository.update(provider.id, {
-          accessToken: credentials.access_token,
-          tokenExpiry: credentials.expiry_date ? new Date(credentials.expiry_date) : null
+          accessToken: credentials.access_token || undefined,
+          tokenExpiry: credentials.expiry_date
+            ? new Date(credentials.expiry_date)
+            : undefined,
         });
-        
+
         // Update local reference
-        provider.accessToken = credentials.access_token;
-        provider.tokenExpiry = credentials.expiry_date ? new Date(credentials.expiry_date) : null;
-        
+        provider.accessToken = credentials.access_token || undefined;
+        provider.tokenExpiry = credentials.expiry_date
+          ? new Date(credentials.expiry_date)
+          : undefined;
       } else if (provider.type === 'OUTLOOK' && provider.refreshToken) {
         // Refresh Microsoft token
-        const tokenUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+        const tokenUrl =
+          'https://login.microsoftonline.com/common/oauth2/v2.0/token';
         const params = new URLSearchParams();
         params.append('client_id', process.env.OUTLOOK_CLIENT_ID || '');
         params.append('client_secret', process.env.OUTLOOK_CLIENT_SECRET || '');
         params.append('grant_type', 'refresh_token');
         params.append('refresh_token', provider.refreshToken);
-        
+
         const response = await axios.post(tokenUrl, params, {
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          }
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
         });
-        
+
         // Update provider with new token info
         const expiryDate = new Date();
-        expiryDate.setSeconds(expiryDate.getSeconds() + response.data.expires_in);
-        
+        expiryDate.setSeconds(
+          expiryDate.getSeconds() + response.data.expires_in,
+        );
+
         await this.providerRepository.update(provider.id, {
           accessToken: response.data.access_token,
           refreshToken: response.data.refresh_token || provider.refreshToken, // Some providers don't return a new refresh token
-          tokenExpiry: expiryDate
+          tokenExpiry: expiryDate,
         });
-        
+
         // Update local reference
         provider.accessToken = response.data.access_token;
-        provider.refreshToken = response.data.refresh_token || provider.refreshToken;
+        provider.refreshToken =
+          response.data.refresh_token || provider.refreshToken;
         provider.tokenExpiry = expiryDate;
       }
     } catch (error) {
-      this.logger.error(`Failed to refresh OAuth token: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to refresh OAuth token: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException('Failed to refresh OAuth token');
     }
   }
-  
+
   private cleanupConnectionPool() {
     const now = new Date();
     const idleTimeout = 30 * 60 * 1000; // 30 minutes
-    
+
     for (const [id, connection] of Object.entries(this.smtpConnectionPool)) {
       const idleTime = now.getTime() - connection.lastUsed.getTime();
-      
+
       if (idleTime > idleTimeout) {
         // Close the connection and remove from pool
         connection.transporter.close();
         delete this.smtpConnectionPool[id];
         this.connectionCache.del(`transporter_${id}`);
-        this.logger.debug(`Removed idle connection for provider ${id} from pool`);
+        this.logger.debug(
+          `Removed idle connection for provider ${id} from pool`,
+        );
       }
     }
   }
-  
+
   private removeFromConnectionPool(providerId: string) {
     if (this.smtpConnectionPool[providerId]) {
       this.smtpConnectionPool[providerId].transporter.close();
       delete this.smtpConnectionPool[providerId];
       this.connectionCache.del(`transporter_${providerId}`);
-      this.logger.debug(`Removed connection for provider ${providerId} from pool`);
+      this.logger.debug(
+        `Removed connection for provider ${providerId} from pool`,
+      );
     }
   }
-} 
+}

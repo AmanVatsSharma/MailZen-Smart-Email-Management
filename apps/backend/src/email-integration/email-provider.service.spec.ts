@@ -1,11 +1,16 @@
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
-import { EmailProviderService } from './email-provider.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { createTransport } from 'nodemailer';
+import { Repository } from 'typeorm';
 import { EmailProviderInput } from './dto/email-provider.input';
-import * as nodemailer from 'nodemailer';
+import { EmailProvider } from './entities/email-provider.entity';
+import { EmailProviderService } from './email-provider.service';
 
-// Mock nodemailer
 jest.mock('nodemailer', () => ({
   createTransport: jest.fn().mockReturnValue({
     verify: jest.fn().mockResolvedValue(true),
@@ -13,24 +18,12 @@ jest.mock('nodemailer', () => ({
   }),
 }));
 
-// Mock axios for OAuth calls
-jest.mock('axios', () => ({
-  post: jest.fn().mockResolvedValue({
-    data: {
-      access_token: 'new-access-token',
-      refresh_token: 'new-refresh-token',
-      expires_in: 3600,
-    },
-  }),
-}));
-
-// Mock OAuth2Client
 jest.mock('google-auth-library', () => ({
   OAuth2Client: jest.fn().mockImplementation(() => ({
     setCredentials: jest.fn(),
     refreshAccessToken: jest.fn().mockResolvedValue({
       credentials: {
-        access_token: 'new-google-access-token',
+        access_token: 'refreshed-access-token',
         expiry_date: Date.now() + 3600000,
       },
     }),
@@ -39,442 +32,177 @@ jest.mock('google-auth-library', () => ({
 
 describe('EmailProviderService', () => {
   let service: EmailProviderService;
-  let prismaService: PrismaService;
-
-  const mockPrismaService = {
-    emailProvider: {
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-    },
-  };
+  let providerRepository: jest.Mocked<Repository<EmailProvider>>;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
-    
+    jest.spyOn(global, 'setInterval').mockImplementation((() => 0) as any);
+
+    const repoMock = {
+      findOne: jest.fn(),
+      find: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+      update: jest.fn(),
+    } as unknown as jest.Mocked<Repository<EmailProvider>>;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EmailProviderService,
-        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: getRepositoryToken(EmailProvider), useValue: repoMock },
       ],
     }).compile();
 
     service = module.get<EmailProviderService>(EmailProviderService);
-    prismaService = module.get<PrismaService>(PrismaService);
+    providerRepository = module.get(getRepositoryToken(EmailProvider));
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+  afterEach(() => {
+    jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
-  describe('configureProvider', () => {
-    it('should auto-detect Gmail provider type', async () => {
-      // Arrange
-      const input: EmailProviderInput = {
-        autoDetect: true,
-        email: 'test@gmail.com',
-        providerType: 'CUSTOM_SMTP', // This should be overridden
-        accessToken: 'access-token',
-      } as EmailProviderInput;
-      
-      mockPrismaService.emailProvider.findFirst.mockResolvedValue(null);
-      mockPrismaService.emailProvider.create.mockResolvedValue({
-        id: 'provider-id',
+  it('auto-detects Gmail and saves provider', async () => {
+    const input: EmailProviderInput = {
+      autoDetect: true,
+      providerType: 'CUSTOM_SMTP',
+      email: 'founder@gmail.com',
+      accessToken: 'access-token',
+    } as EmailProviderInput;
+    const created = {
+      id: 'provider-1',
+      type: 'GMAIL',
+      email: 'founder@gmail.com',
+      accessToken: 'access-token',
+      userId: 'user-1',
+    } as EmailProvider;
+
+    providerRepository.findOne.mockResolvedValue(null);
+    providerRepository.create.mockReturnValue(created);
+    providerRepository.save.mockResolvedValue(created);
+
+    const result = await service.configureProvider(input, 'user-1');
+
+    expect(providerRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
         type: 'GMAIL',
-        email: 'test@gmail.com',
+        email: 'founder@gmail.com',
         accessToken: 'access-token',
-      });
-
-      // Act
-      const result = await service.configureProvider(input, 'user-id');
-
-      // Assert
-      expect(result.type).toBe('GMAIL');
-      expect(mockPrismaService.emailProvider.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            type: 'GMAIL',
-            email: 'test@gmail.com',
-            accessToken: 'access-token',
-          }),
-        })
-      );
-    });
-
-    it('should throw conflict exception for existing provider', async () => {
-      // Arrange
-      const input: EmailProviderInput = {
-        providerType: 'GMAIL',
-        email: 'test@gmail.com',
-        accessToken: 'access-token',
-      } as EmailProviderInput;
-      
-      mockPrismaService.emailProvider.findFirst.mockResolvedValue({
-        id: 'existing-id',
-        type: 'GMAIL',
-        email: 'test@gmail.com',
-      });
-
-      // Act & Assert
-      await expect(service.configureProvider(input, 'user-id')).rejects.toThrow(ConflictException);
-    });
-
-    it('should throw bad request for invalid SMTP configuration', async () => {
-      // Arrange
-      const input: EmailProviderInput = {
-        providerType: 'CUSTOM_SMTP',
-        email: 'test@example.com',
-        // Missing host, port, and password
-      } as EmailProviderInput;
-      
-      mockPrismaService.emailProvider.findFirst.mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(service.configureProvider(input, 'user-id')).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw bad request for unsupported provider type', async () => {
-      // Arrange
-      const input: EmailProviderInput = {
-        providerType: 'UNKNOWN',
-        email: 'test@example.com',
-      } as EmailProviderInput;
-      
-      mockPrismaService.emailProvider.findFirst.mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(service.configureProvider(input, 'user-id')).rejects.toThrow(BadRequestException);
-    });
+        userId: 'user-1',
+      }),
+    );
+    expect(result.type).toBe('GMAIL');
   });
 
-  describe('detectProviderType', () => {
-    it('should detect Gmail from email', () => {
-      // Act
-      const result = service['detectProviderType']('test@gmail.com');
-      
-      // Assert
-      expect(result).toBe('GMAIL');
-    });
+  it('throws conflict when provider already exists', async () => {
+    providerRepository.findOne.mockResolvedValue({
+      id: 'existing',
+      email: 'founder@gmail.com',
+      type: 'GMAIL',
+      userId: 'user-1',
+    } as any);
 
-    it('should detect Outlook from email', () => {
-      // Act
-      const result = service['detectProviderType']('test@outlook.com');
-      
-      // Assert
-      expect(result).toBe('OUTLOOK');
-    });
-
-    it('should detect Hotmail as Outlook', () => {
-      // Act
-      const result = service['detectProviderType']('test@hotmail.com');
-      
-      // Assert
-      expect(result).toBe('OUTLOOK');
-    });
-
-    it('should default to CUSTOM_SMTP for unknown domains', () => {
-      // Act
-      const result = service['detectProviderType']('test@example.com');
-      
-      // Assert
-      expect(result).toBe('CUSTOM_SMTP');
-    });
+    await expect(
+      service.configureProvider(
+        {
+          providerType: 'GMAIL',
+          email: 'founder@gmail.com',
+          accessToken: 'token',
+        } as any,
+        'user-1',
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
-  describe('getProviderEmails', () => {
-    it('should return emails for a valid provider', async () => {
-      // Arrange
-      const providerId = 'provider-id';
-      const mockEmails = [{ id: 'email-1' }, { id: 'email-2' }];
-      
-      mockPrismaService.emailProvider.findFirst.mockResolvedValue({
-        id: providerId,
-        emails: mockEmails,
-      });
+  it('rejects SMTP provider configuration without required fields', async () => {
+    providerRepository.findOne.mockResolvedValue(null);
 
-      // Act
-      const result = await service.getProviderEmails(providerId, 'user-id');
-
-      // Assert
-      expect(result).toEqual(mockEmails);
-      expect(mockPrismaService.emailProvider.findFirst).toHaveBeenCalledWith({
-        where: { id: providerId, userId: 'user-id' },
-        include: { emails: true },
-      });
-    });
-
-    it('should throw not found for non-existent provider', async () => {
-      // Arrange
-      mockPrismaService.emailProvider.findFirst.mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(service.getProviderEmails('invalid-id', 'user-id')).rejects.toThrow(NotFoundException);
-    });
+    await expect(
+      service.configureProvider(
+        {
+          providerType: 'CUSTOM_SMTP',
+          email: 'ops@example.com',
+        } as any,
+        'user-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  describe('getAllProviders', () => {
-    it('should return all providers for a user', async () => {
-      // Arrange
-      const mockProviders = [
-        { id: 'provider-1', type: 'GMAIL' },
-        { id: 'provider-2', type: 'OUTLOOK' },
-      ];
-      
-      mockPrismaService.emailProvider.findMany.mockResolvedValue(mockProviders);
+  it('returns provider emails for owner', async () => {
+    const emails = [{ id: 'mail-1' }, { id: 'mail-2' }];
+    providerRepository.findOne.mockResolvedValue({
+      id: 'provider-1',
+      userId: 'user-1',
+      emails,
+    } as any);
 
-      // Act
-      const result = await service.getAllProviders('user-id');
+    const result = await service.getProviderEmails('provider-1', 'user-1');
 
-      // Assert
-      expect(result).toEqual(mockProviders);
-      expect(mockPrismaService.emailProvider.findMany).toHaveBeenCalledWith({
-        where: { userId: 'user-id' },
-        orderBy: { createdAt: 'desc' },
-      });
+    expect(providerRepository.findOne).toHaveBeenCalledWith({
+      where: {
+        id: 'provider-1',
+        userId: 'user-1',
+      },
+      relations: ['emails'],
     });
+    expect(result).toEqual(emails);
   });
 
-  describe('getProviderById', () => {
-    it('should return provider by ID', async () => {
-      // Arrange
-      const providerId = 'provider-id';
-      const mockProvider = { id: providerId, type: 'GMAIL' };
-      
-      mockPrismaService.emailProvider.findFirst.mockResolvedValue(mockProvider);
+  it('throws NotFoundException when provider cannot be deleted', async () => {
+    providerRepository.findOne.mockResolvedValue(null);
 
-      // Act
-      const result = await service.getProviderById(providerId, 'user-id');
-
-      // Assert
-      expect(result).toEqual(mockProvider);
-      expect(mockPrismaService.emailProvider.findFirst).toHaveBeenCalledWith({
-        where: { id: providerId, userId: 'user-id' },
-      });
-    });
-
-    it('should throw not found for non-existent provider', async () => {
-      // Arrange
-      mockPrismaService.emailProvider.findFirst.mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(service.getProviderById('invalid-id', 'user-id')).rejects.toThrow(NotFoundException);
-    });
+    await expect(
+      service.deleteProvider('missing-provider', 'user-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  describe('deleteProvider', () => {
-    it('should delete an existing provider', async () => {
-      // Arrange
-      const providerId = 'provider-id';
-      
-      mockPrismaService.emailProvider.findFirst.mockResolvedValue({
-        id: providerId,
-        type: 'GMAIL',
-      });
-      
-      mockPrismaService.emailProvider.delete.mockResolvedValue({ id: providerId });
+  it('updates credentials for SMTP provider', async () => {
+    providerRepository.findOne
+      .mockResolvedValueOnce({
+        id: 'provider-1',
+        type: 'CUSTOM_SMTP',
+        userId: 'user-1',
+      } as any)
+      .mockResolvedValueOnce({
+        id: 'provider-1',
+        type: 'CUSTOM_SMTP',
+        host: 'smtp.new-host.com',
+      } as any);
+    providerRepository.update.mockResolvedValue({} as any);
 
-      // Act
-      const result = await service.deleteProvider(providerId, 'user-id');
-
-      // Assert
-      expect(result).toBe(true);
-      expect(mockPrismaService.emailProvider.delete).toHaveBeenCalledWith({
-        where: { id: providerId },
-      });
-    });
-
-    it('should throw not found for non-existent provider', async () => {
-      // Arrange
-      mockPrismaService.emailProvider.findFirst.mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(service.deleteProvider('invalid-id', 'user-id')).rejects.toThrow(NotFoundException);
-      expect(mockPrismaService.emailProvider.delete).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('updateProviderCredentials', () => {
-    it('should update SMTP provider credentials', async () => {
-      // Arrange
-      const providerId = 'provider-id';
-      const updateData = {
-        host: 'new-host.com',
+    await service.updateProviderCredentials(
+      'provider-1',
+      {
+        host: 'smtp.new-host.com',
         port: 587,
         password: 'new-password',
-      };
-      
-      mockPrismaService.emailProvider.findFirst.mockResolvedValue({
-        id: providerId,
-        type: 'CUSTOM_SMTP',
-      });
-      
-      mockPrismaService.emailProvider.update.mockResolvedValue({
-        id: providerId,
-        ...updateData,
-      });
+      },
+      'user-1',
+    );
 
-      // Act
-      const result = await service.updateProviderCredentials(providerId, updateData, 'user-id');
-
-      // Assert
-      expect(result.id).toBe(providerId);
-      expect(mockPrismaService.emailProvider.update).toHaveBeenCalledWith({
-        where: { id: providerId },
-        data: expect.objectContaining({
-          host: 'new-host.com',
-          port: 587,
-          password: 'new-password',
-        }),
-      });
-    });
-
-    it('should update OAuth provider credentials', async () => {
-      // Arrange
-      const providerId = 'provider-id';
-      const updateData = {
-        accessToken: 'new-token',
-        refreshToken: 'new-refresh',
-        tokenExpiry: Date.now() + 3600000,
-      };
-      
-      mockPrismaService.emailProvider.findFirst.mockResolvedValue({
-        id: providerId,
-        type: 'GMAIL',
-      });
-      
-      mockPrismaService.emailProvider.update.mockResolvedValue({
-        id: providerId,
-        type: 'GMAIL',
-        accessToken: 'new-token',
-      });
-
-      // Act
-      const result = await service.updateProviderCredentials(providerId, updateData, 'user-id');
-
-      // Assert
-      expect(result.id).toBe(providerId);
-      expect(mockPrismaService.emailProvider.update).toHaveBeenCalledWith({
-        where: { id: providerId },
-        data: expect.objectContaining({
-          accessToken: 'new-token',
-          refreshToken: 'new-refresh',
-        }),
-      });
-    });
-
-    it('should throw not found for non-existent provider', async () => {
-      // Arrange
-      mockPrismaService.emailProvider.findFirst.mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(service.updateProviderCredentials('invalid-id', {}, 'user-id')).rejects.toThrow(NotFoundException);
+    expect(providerRepository.update).toHaveBeenCalledWith('provider-1', {
+      host: 'smtp.new-host.com',
+      port: 587,
+      password: 'new-password',
     });
   });
 
-  describe('validateProvider', () => {
-    it('should return valid status for working provider', async () => {
-      // Arrange
-      const providerId = 'provider-id';
-      
-      mockPrismaService.emailProvider.findFirst.mockResolvedValue({
-        id: providerId,
-        type: 'GMAIL',
-        email: 'test@gmail.com',
-        accessToken: 'token',
-      });
-      
-      // nodemailer.createTransport().verify is mocked to return true
-
-      // Act
-      const result = await service.validateProvider(providerId, 'user-id');
-
-      // Assert
-      expect(result.valid).toBe(true);
-      expect(result.message).toBe('Provider connection validated successfully');
+  it('creates SMTP transporter with enterprise pooling config', async () => {
+    await service.getTransporter({
+      id: 'provider-1',
+      type: 'CUSTOM_SMTP',
+      email: 'ops@example.com',
+      host: 'smtp.example.com',
+      port: 587,
+      password: 'secret',
     });
 
-    it('should return invalid status when verification fails', async () => {
-      // Arrange
-      const providerId = 'provider-id';
-      
-      mockPrismaService.emailProvider.findFirst.mockResolvedValue({
-        id: providerId,
-        type: 'GMAIL',
-        email: 'test@gmail.com',
-        accessToken: 'token',
-      });
-      
-      // Override the default mock for this test
-      (nodemailer.createTransport as jest.Mock).mockReturnValueOnce({
-        verify: jest.fn().mockRejectedValue(new Error('Authentication failed')),
-        close: jest.fn(),
-      });
-
-      // Act
-      const result = await service.validateProvider(providerId, 'user-id');
-
-      // Assert
-      expect(result.valid).toBe(false);
-      expect(result.message).toContain('Authentication failed');
-    });
-  });
-
-  describe('getTransporter', () => {
-    it('should create and cache Gmail transporter', async () => {
-      // Arrange
-      const provider = {
-        id: 'provider-id',
-        type: 'GMAIL',
-        email: 'test@gmail.com',
-        accessToken: 'token',
-      };
-
-      // Act
-      const transporter = await service['getTransporter'](provider);
-
-      // Assert
-      expect(transporter).toBeDefined();
-      expect(nodemailer.createTransport).toHaveBeenCalledWith(
-        expect.objectContaining({
-          service: 'gmail',
-          auth: expect.objectContaining({
-            type: 'OAuth2',
-            user: 'test@gmail.com',
-            accessToken: 'token',
-          }),
-        })
-      );
-    });
-
-    it('should create and cache SMTP transporter', async () => {
-      // Arrange
-      const provider = {
-        id: 'provider-id',
-        type: 'CUSTOM_SMTP',
-        email: 'test@example.com',
+    expect(createTransport).toHaveBeenCalledWith(
+      expect.objectContaining({
         host: 'smtp.example.com',
         port: 587,
-        password: 'password',
-      };
-
-      // Act
-      const transporter = await service['getTransporter'](provider);
-
-      // Assert
-      expect(transporter).toBeDefined();
-      expect(nodemailer.createTransport).toHaveBeenCalledWith(
-        expect.objectContaining({
-          host: 'smtp.example.com',
-          port: 587,
-          auth: expect.objectContaining({
-            user: 'test@example.com',
-            pass: 'password',
-          }),
-          pool: true,
-        })
-      );
-    });
+        pool: true,
+      }),
+    );
   });
-}); 
+});

@@ -16,7 +16,7 @@ jest.mock('../common/guards/jwt-auth.guard', () => {
 
 describe('EmailProviderResolver', () => {
   let resolver: EmailProviderResolver;
-  
+
   const mockEmailProviderService = {
     configureProvider: jest.fn(),
     getProviderEmails: jest.fn(),
@@ -29,16 +29,16 @@ describe('EmailProviderResolver', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EmailProviderResolver,
         { provide: EmailProviderService, useValue: mockEmailProviderService },
       ],
     })
-    .overrideGuard(JwtAuthGuard)
-    .useValue({ canActivate: () => true })
-    .compile();
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     resolver = module.get<EmailProviderResolver>(EmailProviderResolver);
   });
@@ -53,18 +53,30 @@ describe('EmailProviderResolver', () => {
       const mockInput = {
         providerType: 'GMAIL',
         email: 'test@gmail.com',
-        accessToken: 'token'
+        accessToken: 'token',
       };
       const mockContext = { req: { user: { id: 'user-id' } } };
-      const mockProvider = { id: 'provider-id', type: 'GMAIL', email: 'test@gmail.com' };
-      mockEmailProviderService.configureProvider.mockResolvedValue(mockProvider);
+      const mockProvider = {
+        id: 'provider-id',
+        type: 'GMAIL',
+        email: 'test@gmail.com',
+      };
+      mockEmailProviderService.configureProvider.mockResolvedValue(
+        mockProvider,
+      );
 
       // Act
-      const result = await resolver.configureEmailProvider(mockInput, mockContext);
+      const result = await resolver.configureEmailProvider(
+        mockInput,
+        mockContext,
+      );
 
       // Assert
       expect(result).toEqual(mockProvider);
-      expect(mockEmailProviderService.configureProvider).toHaveBeenCalledWith(mockInput, 'user-id');
+      expect(mockEmailProviderService.configureProvider).toHaveBeenCalledWith(
+        mockInput,
+        'user-id',
+      );
     });
   });
 
@@ -81,7 +93,10 @@ describe('EmailProviderResolver', () => {
 
       // Assert
       expect(result).toEqual(mockEmails);
-      expect(mockEmailProviderService.getProviderEmails).toHaveBeenCalledWith(providerId, 'user-id');
+      expect(mockEmailProviderService.getProviderEmails).toHaveBeenCalledWith(
+        providerId,
+        'user-id',
+      );
     });
   });
 
@@ -100,7 +115,9 @@ describe('EmailProviderResolver', () => {
 
       // Assert
       expect(result).toEqual(mockProviders);
-      expect(mockEmailProviderService.getAllProviders).toHaveBeenCalledWith('user-id');
+      expect(mockEmailProviderService.getAllProviders).toHaveBeenCalledWith(
+        'user-id',
+      );
     });
   });
 
@@ -117,7 +134,10 @@ describe('EmailProviderResolver', () => {
 
       // Assert
       expect(result).toEqual(mockProvider);
-      expect(mockEmailProviderService.getProviderById).toHaveBeenCalledWith(providerId, 'user-id');
+      expect(mockEmailProviderService.getProviderById).toHaveBeenCalledWith(
+        providerId,
+        'user-id',
+      );
     });
   });
 
@@ -133,7 +153,10 @@ describe('EmailProviderResolver', () => {
 
       // Assert
       expect(result).toBe(true);
-      expect(mockEmailProviderService.deleteProvider).toHaveBeenCalledWith('provider-id', 'user-id');
+      expect(mockEmailProviderService.deleteProvider).toHaveBeenCalledWith(
+        'provider-id',
+        'user-id',
+      );
     });
   });
 
@@ -147,19 +170,27 @@ describe('EmailProviderResolver', () => {
         accessToken: 'new-token',
       };
       const mockContext = { req: { user: { id: 'user-id' } } };
-      const mockProvider = { id: providerId, type: 'GMAIL', accessToken: 'new-token' };
-      mockEmailProviderService.updateProviderCredentials.mockResolvedValue(mockProvider);
+      const mockProvider = {
+        id: providerId,
+        type: 'GMAIL',
+        accessToken: 'new-token',
+      };
+      mockEmailProviderService.updateProviderCredentials.mockResolvedValue(
+        mockProvider,
+      );
 
       // Act
-      const result = await resolver.updateProviderCredentials(providerId, mockInput, mockContext);
+      const result = await resolver.updateProviderCredentials(
+        providerId,
+        mockInput,
+        mockContext,
+      );
 
       // Assert
       expect(result).toEqual(mockProvider);
-      expect(mockEmailProviderService.updateProviderCredentials).toHaveBeenCalledWith(
-        providerId,
-        mockInput,
-        'user-id'
-      );
+      expect(
+        mockEmailProviderService.updateProviderCredentials,
+      ).toHaveBeenCalledWith(providerId, mockInput, 'user-id');
     });
   });
 
@@ -178,7 +209,10 @@ describe('EmailProviderResolver', () => {
 
       // Assert
       expect(result).toBe(true);
-      expect(mockEmailProviderService.validateProvider).toHaveBeenCalledWith(providerId, 'user-id');
+      expect(mockEmailProviderService.validateProvider).toHaveBeenCalledWith(
+        providerId,
+        'user-id',
+      );
     });
   });
-}); 
+});
