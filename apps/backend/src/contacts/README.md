@@ -10,7 +10,7 @@ The Contacts module provides functionality for managing user contacts within the
 - **User-Specific Contacts**: Each contact is associated with a specific user
 - **GraphQL API**: Expose contact operations through GraphQL
 - **Data Validation**: Validate contact data using class-validator
-- **Prisma Integration**: Store contacts in the database using Prisma ORM
+- **TypeORM Integration**: Store contacts in the database using TypeORM
 
 ## Architecture
 
@@ -20,7 +20,7 @@ The Contacts module follows a clean architecture pattern with the following comp
 - **ContactResolver**: GraphQL API for exposing contact functionality
 - **DTOs**: Data Transfer Objects for input validation
 - **Entity**: GraphQL object type representing a contact
-- **Prisma Integration**: Database access for storing contact data
+- **TypeORM Integration**: Database access for storing contact data
 
 ## API
 
@@ -145,26 +145,33 @@ export class EmailService {
 }
 ```
 
-## Database Schema
+## Database Entity
 
-The Contact model in the Prisma schema:
+The contact persistence model is implemented as a TypeORM entity:
 
-```prisma
-model Contact {
-  id        String   @id @default(uuid())
-  name      String
-  email     String
-  phone     String?
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+```typescript
+@Entity('contacts')
+export class Contact {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  name: string;
+
+  @Column()
+  email: string;
+
+  @Column({ nullable: true })
+  phone?: string;
+
+  @Column()
+  userId: string;
 }
 ```
 
 ## Dependencies
 
 - NestJS framework
-- Prisma ORM
+- TypeORM
 - GraphQL
 - Class Validator 

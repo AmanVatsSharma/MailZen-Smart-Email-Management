@@ -62,7 +62,7 @@ export class AuthService {
 
   login(user: any): { accessToken: string } {
     // Keep JWT payload minimal and stable across auth methods (password, OAuth, etc.)
-    // NOTE: Some older callers may pass `roles`; Prisma uses `role` (string).
+    // NOTE: Some older callers may pass `roles`; current auth payload uses `role` (string).
     const payload = {
       id: user.id,
       email: user.email,
