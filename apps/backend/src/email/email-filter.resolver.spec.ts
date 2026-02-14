@@ -13,7 +13,9 @@ describe('EmailFilterResolver (smoke)', () => {
 
   const mockEmailFilterService = {
     createFilter: jest.fn().mockResolvedValue({ id: 'f1' }),
-    getFilters: jest.fn().mockResolvedValue([{ id: 'f1', name: 'My Filter', rules: [] }]),
+    getFilters: jest
+      .fn()
+      .mockResolvedValue([{ id: 'f1', name: 'My Filter', rules: [] }]),
     deleteFilter: jest.fn().mockResolvedValue({ id: 'f1' }),
   };
 
@@ -23,7 +25,12 @@ describe('EmailFilterResolver (smoke)', () => {
         EmailFilterResolver,
         { provide: EmailFilterService, useValue: mockEmailFilterService },
         JwtAuthGuard,
-        { provide: AuthService, useValue: { validateToken: jest.fn().mockReturnValue({ id: userId }) } },
+        {
+          provide: AuthService,
+          useValue: {
+            validateToken: jest.fn().mockReturnValue({ id: userId }),
+          },
+        },
       ],
     }).compile();
 
@@ -34,8 +41,14 @@ describe('EmailFilterResolver (smoke)', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('createEmailFilter delegates to service.createFilter and returns true', async () => {
-    const ok = await resolver.createEmailFilter({ name: 'My Filter', rules: [] } as any, mockContext as any);
-    expect(service.createFilter).toHaveBeenCalledWith({ name: 'My Filter', rules: [] }, userId);
+    const ok = await resolver.createEmailFilter(
+      { name: 'My Filter', rules: [] } as any,
+      mockContext as any,
+    );
+    expect(service.createFilter).toHaveBeenCalledWith(
+      { name: 'My Filter', rules: [] },
+      userId,
+    );
     expect(ok).toBe(true);
   });
 

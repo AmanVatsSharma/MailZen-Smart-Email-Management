@@ -36,7 +36,10 @@ describe('EmailFilterService (smoke)', () => {
       providers: [
         EmailFilterService,
         { provide: PrismaService, useValue: prismaService },
-        { provide: EmailService, useValue: { markEmailRead: jest.fn(), sendEmail: jest.fn() } },
+        {
+          provide: EmailService,
+          useValue: { markEmailRead: jest.fn(), sendEmail: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -52,7 +55,9 @@ describe('EmailFilterService (smoke)', () => {
 
   it('getFilters returns user filters', async () => {
     const res = await service.getFilters(userId);
-    expect(prismaService.emailFilter.findMany).toHaveBeenCalledWith({ where: { userId } });
+    expect(prismaService.emailFilter.findMany).toHaveBeenCalledWith({
+      where: { userId },
+    });
     expect(res).toEqual([mockFilter]);
   });
 });

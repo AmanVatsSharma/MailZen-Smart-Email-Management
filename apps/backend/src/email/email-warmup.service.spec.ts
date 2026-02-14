@@ -27,11 +27,17 @@ describe('EmailWarmupService (smoke)', () => {
   beforeEach(async () => {
     prismaService = {
       emailProvider: {
-        findFirst: jest.fn().mockResolvedValue({ id: mockProviderId, userId: mockUserId, warmup: null }),
+        findFirst: jest.fn().mockResolvedValue({
+          id: mockProviderId,
+          userId: mockUserId,
+          warmup: null,
+        }),
       },
       emailWarmup: {
         create: jest.fn().mockResolvedValue(mockWarmup),
-        update: jest.fn().mockResolvedValue({ ...mockWarmup, status: 'PAUSED' }),
+        update: jest
+          .fn()
+          .mockResolvedValue({ ...mockWarmup, status: 'PAUSED' }),
         findFirst: jest.fn().mockResolvedValue(mockWarmup),
       },
     };
@@ -50,14 +56,20 @@ describe('EmailWarmupService (smoke)', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('startWarmup creates a new warmup when none exists', async () => {
-    const res = await service.startWarmup({ providerId: mockProviderId, config: { dailyIncrement: 5 } } as any, mockUserId);
+    const res = await service.startWarmup(
+      { providerId: mockProviderId, config: { dailyIncrement: 5 } } as any,
+      mockUserId,
+    );
     expect(prismaService.emailProvider.findFirst).toHaveBeenCalled();
     expect(prismaService.emailWarmup.create).toHaveBeenCalled();
     expect(res).toEqual(mockWarmup);
   });
 
   it('pauseWarmup updates warmup status', async () => {
-    const res = await service.pauseWarmup({ providerId: mockProviderId } as any, mockUserId);
+    const res = await service.pauseWarmup(
+      { providerId: mockProviderId } as any,
+      mockUserId,
+    );
     expect(prismaService.emailWarmup.findFirst).toHaveBeenCalled();
     expect(prismaService.emailWarmup.update).toHaveBeenCalled();
     expect(res.status).toBe('PAUSED');
@@ -65,6 +77,8 @@ describe('EmailWarmupService (smoke)', () => {
 
   it('pauseWarmup throws if not found', async () => {
     prismaService.emailWarmup.findFirst.mockResolvedValueOnce(null);
-    await expect(service.pauseWarmup({ providerId: mockProviderId } as any, mockUserId)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.pauseWarmup({ providerId: mockProviderId } as any, mockUserId),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

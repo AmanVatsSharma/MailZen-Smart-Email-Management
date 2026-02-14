@@ -25,9 +25,16 @@ describe('EmailWarmupResolver (smoke)', () => {
 
   const mockEmailWarmupService = {
     startWarmup: jest.fn().mockResolvedValue(mockWarmup),
-    pauseWarmup: jest.fn().mockResolvedValue({ ...mockWarmup, status: 'PAUSED' }),
+    pauseWarmup: jest
+      .fn()
+      .mockResolvedValue({ ...mockWarmup, status: 'PAUSED' }),
     getWarmupStatus: jest.fn().mockResolvedValue(mockWarmup),
-    getWarmupPerformanceMetrics: jest.fn().mockResolvedValue({ averageOpenRate: 0, totalEmailsSent: 0, daysActive: 0, currentPhase: 'Initial' }),
+    getWarmupPerformanceMetrics: jest.fn().mockResolvedValue({
+      averageOpenRate: 0,
+      totalEmailsSent: 0,
+      daysActive: 0,
+      currentPhase: 'Initial',
+    }),
     adjustWarmupStrategy: jest.fn().mockResolvedValue(mockWarmup),
   };
 
@@ -37,7 +44,12 @@ describe('EmailWarmupResolver (smoke)', () => {
         EmailWarmupResolver,
         { provide: EmailWarmupService, useValue: mockEmailWarmupService },
         JwtAuthGuard,
-        { provide: AuthService, useValue: { validateToken: jest.fn().mockReturnValue({ id: mockUserId }) } },
+        {
+          provide: AuthService,
+          useValue: {
+            validateToken: jest.fn().mockReturnValue({ id: mockUserId }),
+          },
+        },
       ],
     }).compile();
 
@@ -48,7 +60,10 @@ describe('EmailWarmupResolver (smoke)', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('startEmailWarmup passes input + userId', async () => {
-    const input = { providerId: mockProviderId, config: { dailyIncrement: 5 } } as any;
+    const input = {
+      providerId: mockProviderId,
+      config: { dailyIncrement: 5 },
+    } as any;
     const res = await resolver.startEmailWarmup(input, mockContext as any);
     expect(service.startWarmup).toHaveBeenCalledWith(input, mockUserId);
     expect(res).toEqual(mockWarmup);
@@ -62,8 +77,14 @@ describe('EmailWarmupResolver (smoke)', () => {
   });
 
   it('getEmailWarmupStatus calls service.getWarmupStatus', async () => {
-    const res = await resolver.getEmailWarmupStatus(mockProviderId, mockContext as any);
-    expect(service.getWarmupStatus).toHaveBeenCalledWith(mockProviderId, mockUserId);
+    const res = await resolver.getEmailWarmupStatus(
+      mockProviderId,
+      mockContext as any,
+    );
+    expect(service.getWarmupStatus).toHaveBeenCalledWith(
+      mockProviderId,
+      mockUserId,
+    );
     expect(res).toEqual(mockWarmup);
   });
 });
