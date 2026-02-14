@@ -9,9 +9,12 @@ export class EmailController {
   @Get('track/:emailId/open')
   async trackOpen(@Param('emailId') emailId: string, @Res() res: Response) {
     await this.emailService.trackOpen(emailId);
-    
+
     // Return a 1x1 transparent GIF
-    const transparentPixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+    const transparentPixel = Buffer.from(
+      'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+      'base64',
+    );
     res.writeHead(200, {
       'Content-Type': 'image/gif',
       'Content-Length': transparentPixel.length,

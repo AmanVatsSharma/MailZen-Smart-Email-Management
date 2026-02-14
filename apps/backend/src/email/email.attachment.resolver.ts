@@ -2,7 +2,10 @@ import { Resolver, Query, Mutation, Args, Context } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AttachmentService } from './email.attachment.service';
-import { CreateAttachmentInput, DeleteAttachmentInput } from './dto/attachment.input';
+import {
+  CreateAttachmentInput,
+  DeleteAttachmentInput,
+} from './dto/attachment.input';
 import { Attachment } from './models/attachment.model';
 
 interface RequestContext {
@@ -43,4 +46,4 @@ export class AttachmentResolver {
   ) {
     return this.attachmentService.getAttachments(emailId, context.req.user.id);
   }
-} 
+}

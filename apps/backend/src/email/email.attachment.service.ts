@@ -1,9 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateAttachmentInput, DeleteAttachmentInput } from './dto/attachment.input';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import {
+  CreateAttachmentInput,
+  DeleteAttachmentInput,
+} from './dto/attachment.input';
 import { Storage } from '@google-cloud/storage';
 import { ConfigService } from '@nestjs/config';
-import { Attachment } from '@prisma/client';
+import { Attachment } from './entities/attachment.entity';
+import { Email } from './entities/email.entity';
 
 @Injectable()
 export class AttachmentService {
@@ -11,7 +16,10 @@ export class AttachmentService {
   private bucket: string;
 
   constructor(
-    private readonly prisma: PrismaService,
+    @InjectRepository(Attachment)
+    private readonly attachmentRepo: Repository<Attachment>,
+    @InjectRepository(Email)
+    private readonly emailRepo: Repository<Email>,
     private readonly configService: ConfigService,
   ) {
     this.storage = new Storage({
@@ -21,12 +29,17 @@ export class AttachmentService {
         private_key: this.configService.get('GOOGLE_CLOUD_PRIVATE_KEY'),
       },
     });
-    this.bucket = this.configService.get('GOOGLE_CLOUD_STORAGE_BUCKET') || 'mailzen-attachments';
+    this.bucket =
+      this.configService.get('GOOGLE_CLOUD_STORAGE_BUCKET') ||
+      'mailzen-attachments';
   }
 
-  async uploadAttachment(input: CreateAttachmentInput, userId: string): Promise<Attachment> {
+  async uploadAttachment(
+    input: CreateAttachmentInput,
+    userId: string,
+  ): Promise<Attachment> {
     // Verify email ownership
-    const email = await this.prisma.email.findFirst({
+    const email = await this.emailRepo.findOne({
       where: { id: input.emailId, userId },
     });
 
@@ -50,56 +63,66 @@ export class AttachmentService {
     const url = `https://storage.googleapis.com/${this.bucket}/${filename}`;
 
     // Create attachment record
-    return this.prisma.attachment.create({
-      data: {
+    return this.attachmentRepo.save(
+      this.attachmentRepo.create({
         filename: input.attachment.filename,
         contentType: input.attachment.contentType,
         size: input.attachment.size,
         url,
         emailId: input.emailId,
-      },
-    });
+      }),
+    );
   }
 
-  async deleteAttachment(input: DeleteAttachmentInput, userId: string): Promise<boolean> {
+  async deleteAttachment(
+    input: DeleteAttachmentInput,
+    userId: string,
+  ): Promise<boolean> {
     // Verify ownership
-    const attachment = await this.prisma.attachment.findFirst({
-      where: {
-        id: input.attachmentId,
-        email: {
-          userId,
-        },
-      },
-    });
+    const attachment = await this.attachmentRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.email', 'e')
+      .where('a.id = :id', { id: input.attachmentId })
+      .andWhere('e.userId = :userId', { userId })
+      .getOne();
 
     if (!attachment) {
       throw new NotFoundException(`Attachment not found`);
     }
 
     // Delete from Google Cloud Storage
-    const filename = attachment.url.split('/').pop();
-    if (filename) {
-      await this.storage.bucket(this.bucket).file(filename).delete();
+    try {
+      const u = new URL(attachment.url);
+      // URL format: https://storage.googleapis.com/<bucket>/<objectPath>
+      const parts = u.pathname.split('/').filter(Boolean);
+      const objectPath = parts.length >= 2 ? parts.slice(1).join('/') : null;
+      if (objectPath) {
+        await this.storage.bucket(this.bucket).file(objectPath).delete();
+      }
+    } catch (e) {
+      // Best-effort: DB delete still proceeds for MVP.
+      console.warn(
+        '[AttachmentService] Failed to delete from storage (continuing)',
+        e,
+      );
     }
 
     // Delete from database
-    await this.prisma.attachment.delete({
-      where: { id: input.attachmentId },
-    });
+    await this.attachmentRepo.delete({ id: input.attachmentId });
 
     return true;
   }
 
   async getAttachments(emailId: string, userId: string): Promise<Attachment[]> {
-    const email = await this.prisma.email.findFirst({
+    const email = await this.emailRepo.findOne({
       where: { id: emailId, userId },
-      include: { attachments: true },
+      relations: ['attachments'],
     });
 
     if (!email) {
       throw new NotFoundException(`Email with ID ${emailId} not found`);
     }
 
-    return email.attachments;
+    return email.attachments || [];
   }
-} 
+}
