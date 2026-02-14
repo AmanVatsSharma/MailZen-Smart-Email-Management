@@ -10,9 +10,7 @@ import { UserService } from './user.service';
  * Provides user CRUD operations and validation
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([User, AuditLog]),
-  ],
+  imports: [TypeOrmModule.forFeature([User, AuditLog])],
   providers: [UserResolver, UserService],
   exports: [UserService],
 })
