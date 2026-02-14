@@ -21,7 +21,10 @@ export class LabelResolver {
   }
 
   @Mutation(() => Label, { description: 'Create a new label' })
-  createLabel(@Args('createLabelInput') createLabelInput: CreateLabelInput, @Context() ctx: any): Promise<Label> {
+  createLabel(
+    @Args('createLabelInput') createLabelInput: CreateLabelInput,
+    @Context() ctx: any,
+  ): Promise<Label> {
     return this.labelService.createLabel(ctx.req.user.id, createLabelInput);
   }
-} 
+}

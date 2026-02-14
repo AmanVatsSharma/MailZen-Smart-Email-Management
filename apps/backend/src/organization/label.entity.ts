@@ -10,4 +10,4 @@ export class Label {
 
   @Field({ nullable: true })
   color?: string; // Optional: to style the label
-} 
+}
