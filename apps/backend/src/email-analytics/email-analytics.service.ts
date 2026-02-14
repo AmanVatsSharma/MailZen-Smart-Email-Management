@@ -1,29 +1,46 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { EmailAnalytics } from './email-analytics.entity';
 import { CreateEmailAnalyticsInput } from './dto/create-email-analytics.input';
-import { PrismaService } from '../prisma/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { EmailAnalytics as EmailAnalyticsEntity } from './entities/email-analytics.entity';
+import { Email } from '../email/entities/email.entity';
 
 @Injectable()
 export class EmailAnalyticsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(EmailAnalyticsEntity)
+    private readonly analyticsRepo: Repository<EmailAnalyticsEntity>,
+    @InjectRepository(Email)
+    private readonly emailRepo: Repository<Email>,
+  ) {}
 
-  async createEmailAnalytics(userId: string, input: CreateEmailAnalyticsInput): Promise<EmailAnalytics> {
+  async createEmailAnalytics(
+    userId: string,
+    input: CreateEmailAnalyticsInput,
+  ): Promise<EmailAnalytics> {
     // Ownership: analytics is scoped to an internal Email record owned by user.
-    const email = await this.prisma.email.findFirst({ where: { id: input.emailId, userId } });
+    const email = await this.emailRepo.findOne({
+      where: { id: input.emailId, userId },
+    });
     if (!email) throw new NotFoundException('Email not found');
 
-    const rec = await this.prisma.emailAnalytics.upsert({
+    await this.analyticsRepo.upsert(
+      [
+        {
+          emailId: input.emailId,
+          openCount: input.openCount ?? 0,
+          clickCount: input.clickCount ?? 0,
+        },
+      ],
+      ['emailId'],
+    );
+
+    const rec = await this.analyticsRepo.findOne({
       where: { emailId: input.emailId },
-      create: {
-        emailId: input.emailId,
-        openCount: input.openCount ?? 0,
-        clickCount: input.clickCount ?? 0,
-      },
-      update: {
-        openCount: input.openCount ?? 0,
-        clickCount: input.clickCount ?? 0,
-      },
     });
+    if (!rec)
+      throw new NotFoundException('Email analytics not found after upsert');
 
     return {
       id: rec.id,
@@ -35,11 +52,13 @@ export class EmailAnalyticsService {
   }
 
   async getAllEmailAnalytics(userId: string): Promise<EmailAnalytics[]> {
-    const recs = await this.prisma.emailAnalytics.findMany({
-      where: { email: { userId } },
-      orderBy: { updatedAt: 'desc' },
-    });
-    return recs.map(r => ({
+    const recs = await this.analyticsRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.email', 'e')
+      .where('e.userId = :userId', { userId })
+      .orderBy('a.updatedAt', 'DESC')
+      .getMany();
+    return recs.map((r) => ({
       id: r.id,
       emailId: r.emailId,
       openCount: r.openCount,
@@ -49,4 +68,4 @@ export class EmailAnalyticsService {
   }
 
   // Additional methods (update, delete) can be added as needed.
-} 
+}

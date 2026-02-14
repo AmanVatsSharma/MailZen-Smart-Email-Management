@@ -10,16 +10,24 @@ import { CreateEmailAnalyticsInput } from './dto/create-email-analytics.input';
 export class EmailAnalyticsResolver {
   constructor(private readonly emailAnalyticsService: EmailAnalyticsService) {}
 
-  @Query(() => [EmailAnalytics], { description: 'Get all email analytics records' })
+  @Query(() => [EmailAnalytics], {
+    description: 'Get all email analytics records',
+  })
   getAllEmailAnalytics(@Context() ctx: any): Promise<EmailAnalytics[]> {
     return this.emailAnalyticsService.getAllEmailAnalytics(ctx.req.user.id);
   }
 
-  @Mutation(() => EmailAnalytics, { description: 'Create a new email analytics record' })
+  @Mutation(() => EmailAnalytics, {
+    description: 'Create a new email analytics record',
+  })
   createEmailAnalytics(
-    @Args('createEmailAnalyticsInput') createAnalyticsInput: CreateEmailAnalyticsInput,
+    @Args('createEmailAnalyticsInput')
+    createAnalyticsInput: CreateEmailAnalyticsInput,
     @Context() ctx: any,
   ): Promise<EmailAnalytics> {
-    return this.emailAnalyticsService.createEmailAnalytics(ctx.req.user.id, createAnalyticsInput);
+    return this.emailAnalyticsService.createEmailAnalytics(
+      ctx.req.user.id,
+      createAnalyticsInput,
+    );
   }
-} 
+}
