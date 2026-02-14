@@ -2,7 +2,7 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-export type InputProps = React.ComponentProps<'input'> & {
+export type InputProps = Omit<React.ComponentProps<'input'>, 'prefix' | 'suffix'> & {
   /**
    * Optional visual prefix rendered inside the input container (commonly an icon).
    * - Uses `pointer-events-none` by default so it doesn't block clicking the input.

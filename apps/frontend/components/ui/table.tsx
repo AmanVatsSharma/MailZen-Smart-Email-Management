@@ -1,10 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-const tableContainerVariants = {
+const tableContainerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: { 
     opacity: 1,
@@ -14,7 +14,7 @@ const tableContainerVariants = {
   }
 };
 
-const tableRowVariants = {
+const tableRowVariants: Variants = {
   hidden: { opacity: 0, x: -10 },
   visible: { 
     opacity: 1, 
@@ -69,7 +69,20 @@ function TableFooter({ className, ...props }: React.ComponentProps<'tfoot'>) {
   );
 }
 
-interface AnimatedTableRowProps extends React.ComponentProps<'tr'> {
+interface AnimatedTableRowProps
+  extends Omit<
+    React.ComponentProps<'tr'>,
+    | 'onDrag'
+    | 'onDragStart'
+    | 'onDragEnd'
+    | 'onDragEnter'
+    | 'onDragLeave'
+    | 'onDragOver'
+    | 'onDrop'
+    | 'onAnimationStart'
+    | 'onAnimationEnd'
+    | 'onAnimationIteration'
+  > {
   index?: number;
   isAnimated?: boolean;
 }
@@ -194,6 +207,8 @@ function AnimatedTableRow({
   index = 0, 
   ...props 
 }: AnimatedTableRowProps) {
+  // Used only to preserve deterministic stagger potential; suppress unused var lint for now.
+  void index;
   return (
     <motion.tr
       data-slot="table-row"

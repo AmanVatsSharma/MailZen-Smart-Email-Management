@@ -12,7 +12,20 @@ import { scaleIn, springPremium } from '@/lib/motion';
  * Use this for panels/containers (not necessarily for content cards),
  * so inbox panels + shell surfaces feel consistent and maintainable.
  */
-export interface SurfaceProps extends React.ComponentProps<'div'> {
+export interface SurfaceProps
+  extends Omit<
+    React.ComponentProps<'div'>,
+    | 'onDrag'
+    | 'onDragStart'
+    | 'onDragEnd'
+    | 'onDragEnter'
+    | 'onDragLeave'
+    | 'onDragOver'
+    | 'onDrop'
+    | 'onAnimationStart'
+    | 'onAnimationEnd'
+    | 'onAnimationIteration'
+  > {
   /**
    * Visual treatment for the surface.
    * - glass: translucent + blur + subtle gradients (default)
