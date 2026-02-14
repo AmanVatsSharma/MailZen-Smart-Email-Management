@@ -43,7 +43,7 @@ export const CONNECT_SMTP = gql`
 
 // Mutation to disconnect a provider
 export const DISCONNECT_PROVIDER = gql`
-  mutation DisconnectProvider($id: ID!) {
+  mutation DisconnectProvider($id: String!) {
     disconnectProvider(id: $id) {
       success
       message
@@ -53,7 +53,7 @@ export const DISCONNECT_PROVIDER = gql`
 
 // Mutation to update provider active status
 export const UPDATE_PROVIDER = gql`
-  mutation UpdateProvider($id: ID!, $isActive: Boolean) {
+  mutation UpdateProvider($id: String!, $isActive: Boolean) {
     updateProvider(id: $id, isActive: $isActive) {
       id
       isActive
@@ -64,7 +64,7 @@ export const UPDATE_PROVIDER = gql`
 
 // Mutation to sync a provider
 export const SYNC_PROVIDER = gql`
-  mutation SyncProvider($id: ID!) {
+  mutation SyncProvider($id: String!) {
     syncProvider(id: $id) {
       id
       lastSynced
