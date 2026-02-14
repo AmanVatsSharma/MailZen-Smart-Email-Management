@@ -35,4 +35,3 @@ export class Provider {
   @Field()
   status: string;
 }
-
