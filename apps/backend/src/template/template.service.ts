@@ -13,7 +13,7 @@ export class TemplateService {
       id: String(this.idCounter++),
       name: input.name,
       subject: input.subject,
-      body: input.body
+      body: input.body,
     };
     this.templates.push(template);
     return template;
@@ -24,7 +24,7 @@ export class TemplateService {
   }
 
   getTemplateById(id: string): Template {
-    const template = this.templates.find(t => t.id === id);
+    const template = this.templates.find((t) => t.id === id);
     if (!template) {
       throw new NotFoundException(`Template with id ${id} not found`);
     }
@@ -46,11 +46,11 @@ export class TemplateService {
   }
 
   deleteTemplate(id: string): Template {
-    const index = this.templates.findIndex(t => t.id === id);
+    const index = this.templates.findIndex((t) => t.id === id);
     if (index === -1) {
       throw new NotFoundException(`Template with id ${id} not found`);
     }
     const [deleted] = this.templates.splice(index, 1);
     return deleted;
   }
-} 
+}

@@ -13,4 +13,4 @@ export class UpdateTemplateInput {
 
   @Field({ nullable: true })
   body?: string;
-} 
+}
