@@ -25,7 +25,8 @@ export class SessionCookieService {
     // Keep cookie expiration aligned with JWT expiration
     const expSecondsRaw = process.env.JWT_EXPIRATION || '86400';
     const expSeconds = Number.parseInt(expSecondsRaw, 10);
-    const safeSeconds = Number.isFinite(expSeconds) && expSeconds > 0 ? expSeconds : 86400;
+    const safeSeconds =
+      Number.isFinite(expSeconds) && expSeconds > 0 ? expSeconds : 86400;
     return safeSeconds * 1000;
   }
 
@@ -36,7 +37,10 @@ export class SessionCookieService {
   setTokenCookie(res: Response, token: string): void {
     if (!token) {
       // Defensive: never set an empty cookie
-      if (!this.isProd()) console.warn('[SessionCookieService] setTokenCookie called with empty token');
+      if (!this.isProd())
+        console.warn(
+          '[SessionCookieService] setTokenCookie called with empty token',
+        );
       return;
     }
 
@@ -51,7 +55,11 @@ export class SessionCookieService {
     });
 
     if (!this.isProd()) {
-      console.log('[SessionCookieService] token cookie set', { httpOnly: true, sameSite: 'lax', secure });
+      console.log('[SessionCookieService] token cookie set', {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure,
+      });
     }
   }
 
@@ -73,4 +81,3 @@ export class SessionCookieService {
     }
   }
 }
-

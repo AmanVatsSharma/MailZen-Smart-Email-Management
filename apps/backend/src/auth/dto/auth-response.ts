@@ -11,4 +11,13 @@ export class AuthResponse {
 
   @Field(() => User)
   user: User;
-} 
+
+  @Field(() => Boolean, { defaultValue: false })
+  requiresAliasSetup: boolean;
+
+  @Field(() => Boolean, { defaultValue: true })
+  hasMailzenAlias: boolean;
+
+  @Field({ nullable: true })
+  nextStep?: string;
+}
