@@ -1,18 +1,18 @@
 {
   "run": {
-    "command": "nx lint ai-agent-platform",
-    "startTime": "2026-02-14T14:22:52.105Z",
-    "endTime": "2026-02-14T14:22:52.286Z",
+    "command": "nx test ai-agent-platform",
+    "startTime": "2026-02-14T16:58:50.011Z",
+    "endTime": "2026-02-14T16:58:53.446Z",
     "inner": false
   },
   "tasks": [
     {
-      "taskId": "ai-agent-platform:lint",
-      "target": "lint",
+      "taskId": "ai-agent-platform:test",
+      "target": "test",
       "projectName": "ai-agent-platform",
-      "hash": "10174938037255962286",
-      "startTime": "2026-02-14T14:22:52.127Z",
-      "endTime": "2026-02-14T14:22:52.285Z",
+      "hash": "1524283110969746739",
+      "startTime": "2026-02-14T16:58:50.038Z",
+      "endTime": "2026-02-14T16:58:53.445Z",
       "params": "",
       "cacheStatus": "cache-miss",
       "status": 0
