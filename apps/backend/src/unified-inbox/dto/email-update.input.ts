@@ -20,4 +20,3 @@ export class EmailUpdateInput {
   @Field(() => [String], { nullable: true })
   removeLabelIds?: string[];
 }
-

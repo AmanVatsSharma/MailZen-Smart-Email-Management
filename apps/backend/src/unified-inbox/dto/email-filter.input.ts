@@ -20,4 +20,3 @@ export class EmailFilterInput {
   @Field({ nullable: true })
   providerId?: string;
 }
-

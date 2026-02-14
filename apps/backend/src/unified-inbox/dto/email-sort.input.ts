@@ -8,4 +8,3 @@ export class EmailSortInput {
   @Field()
   direction: 'asc' | 'desc';
 }
-
