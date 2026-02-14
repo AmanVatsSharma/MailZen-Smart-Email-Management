@@ -1,4 +1,13 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Unique } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Unique,
+} from 'typeorm';
 import { EmailWarmup } from './email-warmup.entity';
 
 /**
@@ -14,7 +23,7 @@ export class WarmupActivity {
   @Column()
   warmupId: string;
 
-  @ManyToOne(() => EmailWarmup, warmup => warmup.activities)
+  @ManyToOne(() => EmailWarmup, (warmup) => warmup.activities)
   @JoinColumn({ name: 'warmupId' })
   warmup: EmailWarmup;
 

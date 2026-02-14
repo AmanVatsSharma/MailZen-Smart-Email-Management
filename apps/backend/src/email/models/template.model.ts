@@ -1,7 +1,7 @@
 import { Field, ObjectType } from '@nestjs/graphql';
 
-@ObjectType()
-export class Template {
+@ObjectType('EmailTemplate')
+export class EmailTemplate {
   @Field()
   id: string;
 
@@ -14,15 +14,16 @@ export class Template {
   @Field()
   body: string;
 
-  @Field(() => Object, { nullable: true })
+  // NOTE: GraphQL doesn't support arbitrary object output without a JSON scalar.
+  // For MVP we keep metadata in DB but do not expose it in GraphQL.
   metadata?: Record<string, any>;
 
   @Field()
   userId: string;
 
-  @Field()
+  @Field(() => Date)
   createdAt: Date;
 
-  @Field()
+  @Field(() => Date)
   updatedAt: Date;
-} 
+}
