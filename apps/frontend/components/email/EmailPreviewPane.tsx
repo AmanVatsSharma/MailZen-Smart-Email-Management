@@ -9,7 +9,6 @@ import {
   Archive,
   Reply,
   Forward,
-  MoreHorizontal,
   Paperclip,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -69,7 +68,7 @@ export function EmailPreviewPane({
     try {
       const date = new Date(dateStr);
       return formatDistanceToNow(date, { addSuffix: true });
-    } catch (error) {
+    } catch {
       return dateStr;
     }
   };

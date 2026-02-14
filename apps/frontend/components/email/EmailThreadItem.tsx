@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Star, StarOff, Paperclip, Tag } from 'lucide-react';
+import { Star, StarOff, Paperclip } from 'lucide-react';
 import { EmailThread, EmailLabel } from '@/lib/email/email-types';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,8 +10,8 @@ import { cn } from '@/lib/utils';
 interface EmailThreadItemProps {
   thread: EmailThread;
   isSelected: boolean;
-  onSelect: (thread: EmailThread) => void;
-  onToggleStar: (threadId: string, isStarred: boolean) => void;
+  onSelect: (_thread: EmailThread) => void;
+  onToggleStar: (_threadId: string, _isStarred: boolean) => void;
   availableLabels: EmailLabel[];
   className?: string;
 }
@@ -44,7 +44,7 @@ export function EmailThreadItem({
     try {
       const date = new Date(dateStr);
       return formatDistanceToNow(date, { addSuffix: true });
-    } catch (error) {
+    } catch {
       return dateStr;
     }
   };
