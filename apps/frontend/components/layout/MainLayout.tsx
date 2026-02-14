@@ -1,23 +1,33 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useQuery } from '@apollo/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './Sidebar';
 import Header from './Header';
 
 import { BackgroundGradient } from '@/components/ui/background-gradient';
 import { fadeIn, fadeInUp, springPremium } from '@/lib/motion';
+import { AUTH_ROUTES, MY_MAILBOXES_QUERY } from '@/modules/auth';
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const routeKey = useMemo(() => pathname || 'route:unknown', [pathname]);
   const isAuthRoute = pathname?.includes('/auth') ?? false;
+  const { data: mailboxData, loading: mailboxLoading, error: mailboxError } =
+    useQuery(MY_MAILBOXES_QUERY, {
+      fetchPolicy: 'network-only',
+      skip: isAuthRoute,
+    });
+
+  const hasMailzenAlias = (mailboxData?.myMailboxes?.length ?? 0) > 0;
 
   useEffect(() => {
     // Debug-only log to help trace routing/transition issues later.
@@ -26,6 +36,32 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       console.debug('[MainLayout] route change', { pathname });
     }
   }, [pathname]);
+
+  useEffect(() => {
+    // Keep mobile drawer behavior predictable when route changes.
+    setSidebarOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (isAuthRoute || mailboxLoading) {
+      return;
+    }
+
+    if (mailboxError) {
+      router.replace(AUTH_ROUTES.login);
+      return;
+    }
+
+    if (!hasMailzenAlias) {
+      router.replace(AUTH_ROUTES.aliasSelect);
+    }
+  }, [
+    hasMailzenAlias,
+    isAuthRoute,
+    mailboxError,
+    mailboxLoading,
+    router,
+  ]);
 
   const toggleSidebar = () => {
     setSidebarOpen((prev) => {
@@ -56,29 +92,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     return <>{children}</>;
   }
 
+  if (mailboxLoading || (!mailboxError && !hasMailzenAlias)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+        Checking your account setup...
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen overflow-hidden relative">
       <BackgroundGradient className="opacity-40" />
-      
-      {/* Mobile backdrop (click to close). Keeps interaction crisp and predictable on small screens. */}
-      <AnimatePresence>
-        {sidebarOpen ? (
-          <motion.button
-            type="button"
-            aria-label="Close sidebar"
-            className="fixed inset-0 z-30 bg-black/30 backdrop-blur-[2px] lg:hidden"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={closeSidebar}
-          />
-        ) : null}
-      </AnimatePresence>
 
-      {/* Sidebar */}
-      <AnimatePresence mode="wait">
-        <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
-      </AnimatePresence>
+      <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
 
       {/* Main Content */}
       <motion.div

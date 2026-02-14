@@ -4,8 +4,8 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Menu, Bell, Search, User, LogOut, Settings } from 'lucide-react';
-import { gql, useMutation } from '@apollo/client';
+import { Menu, Bell, Search, Users, LogOut, Settings } from 'lucide-react';
+import { useMutation } from '@apollo/client';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -17,23 +17,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { getUserData, logoutUser } from '@/lib/auth/auth-utils';
+import {
+  AUTH_ROUTES,
+  getUserData,
+  LOGOUT_MUTATION,
+  logoutUser,
+  type AuthUser,
+} from '@/modules/auth';
+import { InboxSwitcherModal } from './InboxSwitcherModal';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
 }
 
-// Cookie-based logout: backend clears HttpOnly token cookie.
-const LOGOUT_MUTATION = gql`
-  mutation Logout {
-    logout
-  }
-`;
-
 const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
 
   const [logout, { loading: logoutLoading }] = useMutation(LOGOUT_MUTATION, {
     onError: (e) => {
@@ -42,7 +41,6 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   });
 
   useEffect(() => {
-    setMounted(true);
     // Try to get user data if available
     const userData = getUserData();
     if (userData) {
@@ -63,7 +61,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
   const handleLogout = async () => {
     try {
-      console.log('[Logout] starting');
+      console.warn('[Logout] starting');
       // Clears HttpOnly cookie on backend (session ends server-side).
       await logout();
     } catch (e) {
@@ -71,7 +69,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       console.error('[Logout] failed (continuing with local cleanup)', e);
     } finally {
       logoutUser();
-      router.push('/auth/login');
+      router.push(AUTH_ROUTES.login);
     }
   };
 
@@ -106,7 +104,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         >
           <Link href="/" className="flex items-center gap-2">
             <motion.div 
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-purple-600 text-white font-bold"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-linear-to-br from-primary to-purple-600 text-white font-bold"
               whileHover={{ 
                 scale: 1.05,
                 boxShadow: "0 0 15px rgba(124, 58, 237, 0.5)"
@@ -115,7 +113,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               M
             </motion.div>
             <motion.span 
-              className="hidden text-xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent lg:inline-block"
+              className="hidden text-xl font-bold bg-linear-to-r from-primary to-purple-600 bg-clip-text text-transparent lg:inline-block"
               initial={{ opacity: 0, x: -5 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 }}
@@ -147,6 +145,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
         >
+          <InboxSwitcherModal />
           <Button variant="outline" size="icon" className="relative">
             <Bell className="h-4 w-4" />
             <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-white">
@@ -159,7 +158,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={user?.avatar || "/avatars/01.png"} alt={user?.name || "User"} />
-                  <AvatarFallback className="bg-gradient-to-br from-primary to-purple-600 text-white">
+                  <AvatarFallback className="bg-linear-to-br from-primary to-purple-600 text-white">
                     {getUserInitials()}
                   </AvatarFallback>
                 </Avatar>
@@ -171,13 +170,13 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                 <p className="px-2 py-1 text-xs text-muted-foreground truncate">{user.email}</p>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push('/profile')}>
-                <User className="mr-2 h-4 w-4" />
-                <span>Profile</span>
+              <DropdownMenuItem onClick={() => router.push('/contacts')}>
+                <Users className="mr-2 h-4 w-4" />
+                <span>Contacts</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/settings')}>
+              <DropdownMenuItem onClick={() => router.push('/settings/smart-replies')}>
                 <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
+                <span>Smart Replies Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
