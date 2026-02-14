@@ -1,5 +1,13 @@
 import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToOne,
+  JoinColumn,
+} from 'typeorm';
 import { Email } from '../../email/entities/email.entity';
 
 /**
@@ -17,7 +25,7 @@ export class EmailAnalytics {
   @Column({ unique: true })
   emailId: string;
 
-  @OneToOne(() => Email, email => email.analytics)
+  @OneToOne(() => Email, (email) => email.analytics)
   @JoinColumn({ name: 'emailId' })
   email: Email;
 

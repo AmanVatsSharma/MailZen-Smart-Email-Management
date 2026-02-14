@@ -3,18 +3,22 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EmailProvider } from './entities/email-provider.entity';
 import { EmailProviderService } from './email-provider.service';
 import { EmailProviderResolver } from './email-provider.resolver';
-import { EmailProviderController } from './email-provider.controller';
+import { ProviderOAuthController } from './provider-oauth.controller';
+import { EmailProviderConnectResolver } from './email-provider.connect.resolver';
+import { GmailSyncModule } from '../gmail-sync/gmail-sync.module';
 
 /**
  * EmailProviderModule - External email provider integration
  * Manages Gmail, Outlook, and SMTP provider connections
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([EmailProvider]),
+  imports: [TypeOrmModule.forFeature([EmailProvider]), GmailSyncModule],
+  controllers: [ProviderOAuthController],
+  providers: [
+    EmailProviderService,
+    EmailProviderResolver,
+    EmailProviderConnectResolver,
   ],
-  controllers: [EmailProviderController],
-  providers: [EmailProviderService, EmailProviderResolver],
   exports: [EmailProviderService],
 })
 export class EmailProviderModule {}
