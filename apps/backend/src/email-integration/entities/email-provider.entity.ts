@@ -1,5 +1,16 @@
 import { ObjectType, Field, ID } from '@nestjs/graphql';
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, OneToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  OneToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { Email } from '../../email/entities/email.entity';
 import { EmailWarmup } from '../../email/entities/email-warmup.entity';
@@ -66,20 +77,20 @@ export class EmailProvider {
   @Index()
   userId: string;
 
-  @ManyToOne(() => User, user => user.providers)
+  @ManyToOne(() => User, (user) => user.providers)
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @OneToMany(() => Email, email => email.provider)
+  @OneToMany(() => Email, (email) => email.provider)
   emails: Email[];
 
-  @OneToOne(() => EmailWarmup, warmup => warmup.provider, { nullable: true })
+  @OneToOne(() => EmailWarmup, (warmup) => warmup.provider, { nullable: true })
   warmup?: EmailWarmup;
 
-  @OneToMany(() => ExternalEmailMessage, message => message.provider)
+  @OneToMany(() => ExternalEmailMessage, (message) => message.provider)
   externalMessages: ExternalEmailMessage[];
 
-  @OneToMany(() => ExternalEmailLabel, label => label.provider)
+  @OneToMany(() => ExternalEmailLabel, (label) => label.provider)
   externalLabels: ExternalEmailLabel[];
 
   @Field()
