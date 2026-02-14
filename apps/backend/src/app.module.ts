@@ -18,6 +18,8 @@ import { InboxModule } from './inbox/inbox.module';
 import { GmailSyncModule } from './gmail-sync/gmail-sync.module';
 import { UnifiedInboxModule } from './unified-inbox/unified-inbox.module';
 import { SmartReplyModule } from './smart-replies/smart-reply.module';
+import { LabelModule } from './organization/label.module';
+import { QuestionModule } from './question/question.module';
 
 @Module({
   imports: [
@@ -69,6 +71,8 @@ import { SmartReplyModule } from './smart-replies/smart-reply.module';
     GmailSyncModule,
     UnifiedInboxModule,
     SmartReplyModule,
+    LabelModule,
+    QuestionModule,
   ],
   controllers: [],
   providers: [],
