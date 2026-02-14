@@ -10,4 +10,4 @@ export class CreateContactInput {
 
   @Field({ nullable: true })
   phone?: string;
-} 
+}

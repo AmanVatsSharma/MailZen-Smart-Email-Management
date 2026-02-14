@@ -1,5 +1,14 @@
 import { ObjectType, Field, ID } from '@nestjs/graphql';
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 
 /**
@@ -29,7 +38,7 @@ export class Contact {
   @Index()
   userId: string;
 
-  @ManyToOne(() => User, user => user.contacts)
+  @ManyToOne(() => User, (user) => user.contacts)
   @JoinColumn({ name: 'userId' })
   user: User;
 

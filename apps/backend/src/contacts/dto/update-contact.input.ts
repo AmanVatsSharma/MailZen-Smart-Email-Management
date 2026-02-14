@@ -21,4 +21,4 @@ export class UpdateContactInput {
   @IsOptional()
   @IsString()
   phone?: string;
-} 
+}
