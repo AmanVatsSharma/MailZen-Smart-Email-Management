@@ -7,4 +7,4 @@ export class DeleteProviderInput {
   @IsNotEmpty()
   @IsUUID()
   id: string;
-} 
+}

@@ -1,4 +1,12 @@
-import { Controller, Get, Logger, Query, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Logger,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { buildOAuthState, verifyOAuthState } from '../auth/oauth-state.util';
@@ -38,18 +46,25 @@ export class ProviderOAuthController {
   }
 
   @Get('google/start')
-  async googleStart(@Res() res: Response, @Query('redirect') redirect?: string) {
+  async googleStart(
+    @Res() res: Response,
+    @Query('redirect') redirect?: string,
+  ) {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const redirectUri = process.env.GOOGLE_PROVIDER_REDIRECT_URI;
     if (!clientId || !redirectUri) {
-      this.logger.error('Google provider OAuth not configured (missing GOOGLE_CLIENT_ID or GOOGLE_PROVIDER_REDIRECT_URI)');
+      this.logger.error(
+        'Google provider OAuth not configured (missing GOOGLE_CLIENT_ID or GOOGLE_PROVIDER_REDIRECT_URI)',
+      );
       return res.status(500).send('Google provider OAuth not configured');
     }
 
     // Minimal required scopes:
     // - mail.google.com for full mail access (sync + send via API/SMTP OAuth)
     // - userinfo.email so backend can resolve provider mailbox email from access token
-    const scope = process.env.GOOGLE_PROVIDER_OAUTH_SCOPES || 'https://mail.google.com/ https://www.googleapis.com/auth/userinfo.email';
+    const scope =
+      process.env.GOOGLE_PROVIDER_OAUTH_SCOPES ||
+      'https://mail.google.com/ https://www.googleapis.com/auth/userinfo.email';
     const state = buildOAuthState(redirect);
 
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
@@ -96,7 +111,9 @@ export class ProviderOAuthController {
       const payload = verifyOAuthState(state, 10 * 60 * 1000);
       redirectOverride = payload.redirect;
     } catch (e: any) {
-      this.logger.warn(`Google provider OAuth state validation failed: ${e?.message || e}`);
+      this.logger.warn(
+        `Google provider OAuth state validation failed: ${e?.message || e}`,
+      );
       const url = new URL(`${frontendUrl}/email-providers`);
       url.searchParams.set('error', 'Invalid state');
       return res.redirect(url.toString());
@@ -105,7 +122,9 @@ export class ProviderOAuthController {
     const userId = (req as any)?.user?.id;
     if (!userId) {
       // If this happens, cookie auth is not being sent to backend domain.
-      this.logger.warn('Google provider OAuth callback missing authenticated user (cookie not present?)');
+      this.logger.warn(
+        'Google provider OAuth callback missing authenticated user (cookie not present?)',
+      );
       const url = new URL(`${frontendUrl}/auth/login`);
       url.searchParams.set('redirect', encodeURIComponent('/email-providers'));
       url.searchParams.set('error', 'Session expired. Please login again.');
@@ -120,26 +139,41 @@ export class ProviderOAuthController {
       this.logger.log(`Google provider OAuth connected for user=${userId}`);
       return res.redirect(target.toString());
     } catch (e: any) {
-      this.logger.error(`Google provider OAuth connect failed: ${e?.message || e}`, e?.stack);
-      const target = new URL(this.safeRedirectTarget(redirectOverride) || `${frontendUrl}/email-providers`);
+      this.logger.error(
+        `Google provider OAuth connect failed: ${e?.message || e}`,
+        e?.stack,
+      );
+      const target = new URL(
+        this.safeRedirectTarget(redirectOverride) ||
+          `${frontendUrl}/email-providers`,
+      );
       target.searchParams.set('error', 'Failed to connect Gmail');
       return res.redirect(target.toString());
     }
   }
 
   @Get('microsoft/start')
-  async microsoftStart(@Res() res: Response, @Query('redirect') redirect?: string) {
+  async microsoftStart(
+    @Res() res: Response,
+    @Query('redirect') redirect?: string,
+  ) {
     const clientId = process.env.OUTLOOK_CLIENT_ID;
     const redirectUri = process.env.OUTLOOK_PROVIDER_REDIRECT_URI;
     if (!clientId || !redirectUri) {
-      this.logger.error('Microsoft provider OAuth not configured (missing OUTLOOK_CLIENT_ID or OUTLOOK_PROVIDER_REDIRECT_URI)');
+      this.logger.error(
+        'Microsoft provider OAuth not configured (missing OUTLOOK_CLIENT_ID or OUTLOOK_PROVIDER_REDIRECT_URI)',
+      );
       return res.status(500).send('Microsoft provider OAuth not configured');
     }
 
-    const scope = process.env.OUTLOOK_PROVIDER_OAUTH_SCOPES || 'offline_access Mail.Read Mail.Send User.Read';
+    const scope =
+      process.env.OUTLOOK_PROVIDER_OAUTH_SCOPES ||
+      'offline_access Mail.Read Mail.Send User.Read';
     const state = buildOAuthState(redirect);
 
-    const url = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
+    const url = new URL(
+      'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+    );
     url.searchParams.set('client_id', clientId);
     url.searchParams.set('redirect_uri', redirectUri);
     url.searchParams.set('response_type', 'code');
@@ -182,7 +216,9 @@ export class ProviderOAuthController {
       const payload = verifyOAuthState(state, 10 * 60 * 1000);
       redirectOverride = payload.redirect;
     } catch (e: any) {
-      this.logger.warn(`Microsoft provider OAuth state validation failed: ${e?.message || e}`);
+      this.logger.warn(
+        `Microsoft provider OAuth state validation failed: ${e?.message || e}`,
+      );
       const url = new URL(`${frontendUrl}/email-providers`);
       url.searchParams.set('error', 'Invalid state');
       return res.redirect(url.toString());
@@ -190,7 +226,9 @@ export class ProviderOAuthController {
 
     const userId = (req as any)?.user?.id;
     if (!userId) {
-      this.logger.warn('Microsoft provider OAuth callback missing authenticated user (cookie not present?)');
+      this.logger.warn(
+        'Microsoft provider OAuth callback missing authenticated user (cookie not present?)',
+      );
       const url = new URL(`${frontendUrl}/auth/login`);
       url.searchParams.set('redirect', encodeURIComponent('/email-providers'));
       url.searchParams.set('error', 'Session expired. Please login again.');
@@ -205,11 +243,16 @@ export class ProviderOAuthController {
       this.logger.log(`Microsoft provider OAuth connected for user=${userId}`);
       return res.redirect(target.toString());
     } catch (e: any) {
-      this.logger.error(`Microsoft provider OAuth connect failed: ${e?.message || e}`, e?.stack);
-      const target = new URL(this.safeRedirectTarget(redirectOverride) || `${frontendUrl}/email-providers`);
+      this.logger.error(
+        `Microsoft provider OAuth connect failed: ${e?.message || e}`,
+        e?.stack,
+      );
+      const target = new URL(
+        this.safeRedirectTarget(redirectOverride) ||
+          `${frontendUrl}/email-providers`,
+      );
       target.searchParams.set('error', 'Failed to connect Outlook');
       return res.redirect(target.toString());
     }
   }
 }
-

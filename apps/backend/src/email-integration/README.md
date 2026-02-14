@@ -29,7 +29,7 @@ All features have been implemented and tested:
 
 This module follows NestJS best practices and consists of:
 
-- **Service**: Handles business logic and interacts with database through Prisma
+- **Service**: Handles business logic and interacts with database through TypeORM
 - **Resolver**: Exposes GraphQL endpoints for client interaction
 - **DTOs**: Define input data structures with validation
 - **Entities**: Define GraphQL return types
@@ -84,7 +84,7 @@ flowchart TD
   oauth -->|code+state| apiCb[BackendProviderOAuthCallback]
   apiCb -->|validate_state| apiCb
   apiCb -->|exchange_code_for_tokens| oauth
-  apiCb --> db[(Postgres/Prisma)]
+  apiCb --> db[(PostgresTypeORM)]
   apiCb -->|redirect_success_error| frontend
 ```
 
