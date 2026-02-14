@@ -9,9 +9,7 @@ import { ContactResolver } from './contact.resolver';
  * Handles user contact book operations
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Contact]),
-  ],
+  imports: [TypeOrmModule.forFeature([Contact])],
   providers: [ContactService, ContactResolver],
   exports: [ContactService],
 })

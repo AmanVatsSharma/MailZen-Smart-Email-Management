@@ -11,15 +11,16 @@ export class Contact {
   @Field()
   email: string;
 
-  @Field({ nullable: true })
-  phone?: string | null;
+  // Explicit type required (union `string | null` can break GraphQL reflection).
+  @Field(() => String, { nullable: true })
+  phone?: string;
 
   @Field()
   userId: string;
 
-  @Field()
+  @Field(() => Date)
   createdAt: Date;
 
-  @Field()
+  @Field(() => Date)
   updatedAt: Date;
-} 
+}

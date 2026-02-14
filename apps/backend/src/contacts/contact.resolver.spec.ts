@@ -35,7 +35,9 @@ describe('ContactResolver', () => {
     createContact: jest.fn().mockResolvedValue(mockContact),
     getAllContacts: jest.fn().mockResolvedValue([mockContact]),
     getContactById: jest.fn().mockResolvedValue(mockContact),
-    updateContact: jest.fn().mockResolvedValue({...mockContact, name: 'Updated Name'}),
+    updateContact: jest
+      .fn()
+      .mockResolvedValue({ ...mockContact, name: 'Updated Name' }),
     deleteContact: jest.fn().mockResolvedValue(mockContact),
   };
 
@@ -46,7 +48,14 @@ describe('ContactResolver', () => {
         { provide: ContactService, useValue: mockContactService },
         // Resolver uses @UseGuards(JwtAuthGuard); include guard deps so TestingModule can compile.
         JwtAuthGuard,
-        { provide: AuthService, useValue: { validateToken: jest.fn().mockReturnValue({ id: mockContext.req.user.id }) } },
+        {
+          provide: AuthService,
+          useValue: {
+            validateToken: jest
+              .fn()
+              .mockReturnValue({ id: mockContext.req.user.id }),
+          },
+        },
       ],
     }).compile();
 
@@ -68,7 +77,9 @@ describe('ContactResolver', () => {
       const result = await resolver.getAllContacts(mockContext);
 
       // Assert
-      expect(service.getAllContacts).toHaveBeenCalledWith(mockContext.req.user.id);
+      expect(service.getAllContacts).toHaveBeenCalledWith(
+        mockContext.req.user.id,
+      );
       expect(result).toEqual([mockContact]);
     });
   });
@@ -82,7 +93,10 @@ describe('ContactResolver', () => {
       const result = await resolver.getContact(contactId, mockContext);
 
       // Assert
-      expect(service.getContactById).toHaveBeenCalledWith(mockContext.req.user.id, contactId);
+      expect(service.getContactById).toHaveBeenCalledWith(
+        mockContext.req.user.id,
+        contactId,
+      );
       expect(result).toEqual(mockContact);
     });
   });
@@ -97,12 +111,15 @@ describe('ContactResolver', () => {
       };
 
       // Act
-      const result = await resolver.createContact(createContactInput, mockContext);
+      const result = await resolver.createContact(
+        createContactInput,
+        mockContext,
+      );
 
       // Assert
       expect(service.createContact).toHaveBeenCalledWith(
         mockContext.req.user.id,
-        createContactInput
+        createContactInput,
       );
       expect(result).toEqual(mockContact);
     });
@@ -117,7 +134,10 @@ describe('ContactResolver', () => {
       };
 
       // Act
-      const result = await resolver.updateContact(updateContactInput, mockContext);
+      const result = await resolver.updateContact(
+        updateContactInput,
+        mockContext,
+      );
 
       // Assert
       expect(service.updateContact).toHaveBeenCalledWith(
@@ -127,7 +147,7 @@ describe('ContactResolver', () => {
           name: updateContactInput.name,
           email: updateContactInput.email,
           phone: updateContactInput.phone,
-        }
+        },
       );
       expect(result.name).toBe('Updated Name');
     });
@@ -142,8 +162,11 @@ describe('ContactResolver', () => {
       const result = await resolver.deleteContact(contactId, mockContext);
 
       // Assert
-      expect(service.deleteContact).toHaveBeenCalledWith(mockContext.req.user.id, contactId);
+      expect(service.deleteContact).toHaveBeenCalledWith(
+        mockContext.req.user.id,
+        contactId,
+      );
       expect(result).toEqual(mockContact);
     });
   });
-}); 
+});
