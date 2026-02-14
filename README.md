@@ -28,17 +28,20 @@ MailZen is an email management platform built with Next.js (frontend) and NestJS
    npm install
    ```
 
-3. Set up environment variables:
-   - Backend: Copy `apps/backend/env.example` to `apps/backend/.env` and update the values
-   - Frontend: Copy `apps/frontend/env.local.example` to `apps/frontend/.env.local` and update the values
+3. Set up environment variables (automatic for dev):
+   - `nx serve backend` and `nx serve frontend` run `tools/ensure-env.js` first.
+   - It creates:
+     - `apps/backend/.env`
+     - `apps/frontend/.env.local`
+   - It **never overwrites** existing files.
+     - If you want fresh defaults/secrets: delete the file and run `nx serve ...` again.
 
-   Note: Nx `serve` targets run `tools/ensure-env.js` first and will create default env files if they don't exist (it never overwrites).
-
-4. Set up the database:
-   ```bash
-   cd apps/backend
-   npx prisma migrate dev
-   ```
+4. Set up PostgreSQL:
+   - Ensure a database exists (default name: `mailzen`):
+     - `createdb mailzen`
+   - Default dev DB URL uses a unix socket (good for Linux peer auth):
+     - `DATABASE_URL=postgresql:///mailzen?host=/var/run/postgresql`
+   - For Docker/password auth, override `DATABASE_URL` to a TCP URL.
 
 ## Running the Application
 
@@ -67,6 +70,12 @@ nx serve frontend
 nx serve backend
 nx run-many -t serve -p frontend backend --parallel=2
 ```
+
+### “Product works” mode (no provider connections yet)
+
+- The app runs end-to-end **without connecting Gmail/Microsoft/SMTP**.
+- Inbox renders empty folders/labels/messages until a provider is connected.
+- Provider OAuth is intended to be configured at deploy-time.
 
 ### Production Build
 
@@ -108,6 +117,8 @@ The application uses JWT for authentication. To access protected routes, you nee
 1. Register or login to get a JWT token
 2. Include the token in the Authorization header for API requests
 
+Note: the browser app is designed around **HttpOnly cookies** for the session; the GraphQL API also supports Authorization headers for non-browser clients.
+
 ## Environment Variables
 
 ### Frontend (.env.local)
@@ -124,13 +135,27 @@ NEXT_PUBLIC_DEFAULT_THEME=system
 ### Backend (.env)
 
 ```
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mailzen?schema=public
+# Database
+# - Fedora/Ubuntu local Postgres often uses peer auth via unix socket:
+#     postgresql:///mailzen?host=/var/run/postgresql
+# - Docker/local password auth often uses TCP:
+#     postgresql://postgres:postgres@localhost:5432/mailzen
+DATABASE_URL=postgresql:///mailzen?host=/var/run/postgresql
 PORT=4000
 NODE_ENV=development
 FRONTEND_URL=http://localhost:3000
-JWT_SECRET=your_secret_key
+JWT_SECRET=<generated>
 JWT_EXPIRATION=86400
 ENABLE_EMAIL_WARMUP=true
 ENABLE_SMART_REPLIES=true
 ENABLE_EMAIL_TRACKING=true
 ``` 
+
+### Provider OAuth (deploy-time)
+
+- **Google login OAuth** (`/auth/google/*`)
+  - `GOOGLE_CLIENT_ID`
+  - `GOOGLE_CLIENT_SECRET`
+  - `GOOGLE_REDIRECT_URI`
+
+Without these, the server still boots; the Google OAuth endpoints will report “not configured”.

@@ -1,6 +1,0 @@
-> node tools/ensure-env.js --project frontend
-
-[ensure-env] repoRoot=/home/amansharma/Desktop/DevOPS/MailZen-Smart-Email-Management
-[ensure-env] project=frontend
-[ensure-env] OK: already exists: /home/amansharma/Desktop/DevOPS/MailZen-Smart-Email-Management/apps/frontend/.env.local
-[ensure-env] Done.

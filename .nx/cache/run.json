@@ -1,21 +1,21 @@
 {
   "run": {
-    "command": "nx run backend:prisma:generate",
-    "startTime": "2026-01-31T07:45:04.459Z",
-    "endTime": "2026-01-31T07:45:06.956Z",
+    "command": "nx test:e2e backend",
+    "startTime": "2026-02-01T08:17:37.591Z",
+    "endTime": "2026-02-01T08:18:06.248Z",
     "inner": false
   },
   "tasks": [
     {
-      "taskId": "backend:prisma:generate",
-      "target": "prisma:generate",
+      "taskId": "backend:test:e2e",
+      "target": "test:e2e",
       "projectName": "backend",
-      "hash": "10071429768021905996",
-      "startTime": "2026-01-31T07:45:04.471Z",
-      "endTime": "2026-01-31T07:45:06.956Z",
+      "hash": "1969966876448224794",
+      "startTime": "2026-02-01T08:17:37.640Z",
+      "endTime": "2026-02-01T08:18:06.246Z",
       "params": "",
       "cacheStatus": "cache-miss",
-      "status": 0
+      "status": 1
     }
   ]
 }
