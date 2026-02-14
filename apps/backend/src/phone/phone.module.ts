@@ -4,6 +4,7 @@ import { PhoneVerification } from './entities/phone-verification.entity';
 import { SignupVerification } from './entities/signup-verification.entity';
 import { PhoneService } from './phone.service';
 import { PhoneResolver } from './phone.resolver';
+import { User } from '../user/entities/user.entity';
 
 /**
  * PhoneModule - Phone verification management
@@ -11,7 +12,7 @@ import { PhoneResolver } from './phone.resolver';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PhoneVerification, SignupVerification]),
+    TypeOrmModule.forFeature([PhoneVerification, SignupVerification, User]),
   ],
   providers: [PhoneService, PhoneResolver],
   exports: [PhoneService],
