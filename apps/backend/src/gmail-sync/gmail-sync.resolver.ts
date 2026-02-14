@@ -1,4 +1,4 @@
-import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, Context, Mutation, Query, Resolver, Int } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { InboxMessage } from './entities/inbox-message.entity';
@@ -20,24 +20,33 @@ export class GmailSyncResolver {
   @Mutation(() => Boolean)
   async syncGmailProvider(
     @Args('providerId') providerId: string,
-    @Args('maxMessages', { nullable: true }) maxMessages: number | null,
+    @Args('maxMessages', { type: () => Int, nullable: true })
+    maxMessages: number,
     @Context() ctx: RequestContext,
   ) {
-    await this.gmailSyncService.syncGmailProvider(providerId, ctx.req.user.id, maxMessages ?? 25);
+    await this.gmailSyncService.syncGmailProvider(
+      providerId,
+      ctx.req.user.id,
+      maxMessages ?? 25,
+    );
     return true;
   }
 
   @Query(() => [InboxMessage])
   async getInboxMessages(
-    @Args('inboxType') inboxType: 'PROVIDER' | 'MAILBOX',
+    @Args('inboxType', { type: () => String }) inboxType: string,
     @Args('inboxId') inboxId: string,
-    @Args('limit', { nullable: true }) limit: number | null,
-    @Args('offset', { nullable: true }) offset: number | null,
+    @Args('limit', { type: () => Int, nullable: true }) limit: number,
+    @Args('offset', { type: () => Int, nullable: true }) offset: number,
     @Context() ctx: RequestContext,
   ) {
     // MVP: only PROVIDER is supported (Gmail messages live in ExternalEmailMessage).
     if (inboxType !== 'PROVIDER') return [];
-    return this.gmailSyncService.listInboxMessagesForProvider(inboxId, ctx.req.user.id, limit ?? 50, offset ?? 0);
+    return this.gmailSyncService.listInboxMessagesForProvider(
+      inboxId,
+      ctx.req.user.id,
+      limit ?? 50,
+      offset ?? 0,
+    );
   }
 }
-
