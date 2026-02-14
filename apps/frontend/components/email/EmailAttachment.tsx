@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { X, Paperclip, FileText, Image, FileArchive, Film, Music, Code, File } from 'lucide-react';
+import { X, Paperclip, FileText, Image as ImageIcon, FileArchive, Film, Music, Code, File } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
   Tooltip,
@@ -50,7 +50,7 @@ export function EmailAttachment({
 
   // Determine file icon based on mime type
   const getFileIcon = () => {
-    if (type.startsWith('image/')) return <Image className="h-5 w-5" />;
+    if (type.startsWith('image/')) return <ImageIcon className="h-5 w-5" />;
     if (type.startsWith('video/')) return <Film className="h-5 w-5" />;
     if (type.startsWith('audio/')) return <Music className="h-5 w-5" />;
     if (type.startsWith('text/')) return <FileText className="h-5 w-5" />;

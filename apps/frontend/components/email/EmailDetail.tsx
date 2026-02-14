@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   ArrowLeft,
   Trash2,
@@ -8,18 +8,8 @@ import {
   Reply,
   Forward,
   MoreHorizontal,
-  Paperclip,
-  Download,
   Star,
   Mail,
-  FileArchive,
-  FileAudio,
-  FileImage,
-  FileSpreadsheet,
-  FileText,
-  FileVideo,
-  File as FileIcon,
-  Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -33,41 +23,14 @@ import {
   DropdownMenuGroup,
 } from '@/components/ui/dropdown-menu';
 import { formatDistanceToNow } from 'date-fns';
-import { SmartReplySelector } from './SmartReplySelector';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { EmailThread, EmailLabel } from '@/lib/email/email-types';
-import { Separator } from '@/components/ui/separator';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_EMAIL, UPDATE_EMAIL } from '@/lib/apollo/queries/emails';
 import DOMPurify from 'dompurify';
 import { EmailAttachmentList } from './EmailAttachment';
-
-// Mock email data for demonstration
-const mockEmailDetails = {
-  id: '1',
-  from: {
-    name: 'GitHub',
-    email: 'noreply@github.com',
-    avatar: null,
-  },
-  to: [{ name: 'Me', email: 'me@example.com' }],
-  cc: [],
-  bcc: [],
-  subject: 'Action required: Your GitHub access will expire in 24 hours',
-  date: new Date(2023, 2, 15, 10, 42),
-  body: `
-    <p>Hello,</p>
-    <p>Your GitHub password will expire in 24 hours. To create a new password, click the link below:</p>
-    <p><a href="#">Reset your password</a></p>
-    <p>If you did not request this change, please contact us immediately.</p>
-    <p>Best regards,<br>The GitHub Team</p>
-  `,
-  attachments: [] as Array<{ name: string; size: string }>,
-  isStarred: false,
-  isImportant: true,
-};
 
 interface EmailDetailProps {
   thread: EmailThread | null;
@@ -92,37 +55,40 @@ export function EmailDetail({
   onBackToPreview,
   className = '',
 }: EmailDetailProps) {
-  const [expandedMessages, setExpandedMessages] = useState<Record<string, boolean>>({});
-  const [selectedSmartReply, setSelectedSmartReply] = useState<string | null>(null);
-  
   // Fetch detailed email data if we have a selected thread
   const { data: emailData, loading: emailLoading } = useQuery(GET_EMAIL, {
     variables: { id: thread?.id },
     skip: !thread?.id,
     fetchPolicy: 'network-only'
   });
+  const _emailLoading = emailLoading;
+  void _emailLoading;
 
   // Use server-fetched thread when available (ensures full messages/content are loaded).
   const effectiveThread = (emailData?.email as EmailThread | undefined) || thread;
+  const effectiveThreadId = effectiveThread?.id;
+  const effectiveIsUnread = !!effectiveThread?.isUnread;
   
   // Update email mutation
   const [updateEmail] = useMutation(UPDATE_EMAIL);
   
   // Mark email as read when opened
   useEffect(() => {
-    if (effectiveThread && effectiveThread.isUnread) {
+    if (effectiveThreadId && effectiveIsUnread) {
       updateEmail({
         variables: {
-          id: effectiveThread.id,
+          id: effectiveThreadId,
           input: {
             read: true
           }
         }
       }).catch(error => {
-        console.error('Error marking email as read:', error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('Error marking email as read:', error);
+        }
       });
     }
-  }, [effectiveThread?.id, effectiveThread?.isUnread, updateEmail]);
+  }, [effectiveThreadId, effectiveIsUnread, updateEmail]);
   
   // Handle toggling the star
   const handleToggleStar = () => {
@@ -140,7 +106,9 @@ export function EmailDetail({
         // Call the callback to update UI
         onToggleStar(effectiveThread.id, !lastMessage.isStarred);
       }).catch(error => {
-        console.error('Error updating star status:', error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('Error updating star status:', error);
+        }
       });
     }
   };
@@ -183,10 +151,6 @@ export function EmailDetail({
         if (images) {
           images.forEach(img => {
             img.classList.add('max-w-full', 'h-auto');
-            img.addEventListener('click', () => {
-              // Could implement lightbox here
-              console.log('Image clicked:', img.src);
-            });
           });
         }
       };
@@ -215,7 +179,7 @@ export function EmailDetail({
     try {
       const date = new Date(dateStr);
       return formatDistanceToNow(date, { addSuffix: true });
-    } catch (error) {
+    } catch {
       return dateStr;
     }
   };
@@ -224,7 +188,7 @@ export function EmailDetail({
   const getFullDate = (dateStr: string) => {
     try {
       return new Date(dateStr).toLocaleString();
-    } catch (error) {
+    } catch {
       return dateStr;
     }
   };
@@ -239,13 +203,6 @@ export function EmailDetail({
       .substring(0, 2);
   };
 
-  // Get file size in human-readable format
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return bytes + ' B';
-    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-    else return (bytes / 1048576).toFixed(1) + ' MB';
-  };
-
   // Get labels for the thread
   const threadLabels = effectiveThread.labelIds
     ? effectiveThread.labelIds
@@ -255,32 +212,6 @@ export function EmailDetail({
 
   // Last message in thread
   const lastMessage = effectiveThread.messages[effectiveThread.messages.length - 1];
-    
-  // Add a function to get appropriate icon for file type
-  const getFileIcon = (fileType: string) => {
-    const fileTypeMap: Record<string, React.ReactNode> = {
-      'image': <FileImage className="h-4 w-4" />,
-      'audio': <FileAudio className="h-4 w-4" />,
-      'video': <FileVideo className="h-4 w-4" />,
-      'application/pdf': <FileText className="h-4 w-4" />,
-      'application/msword': <FileText className="h-4 w-4" />,
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': <FileText className="h-4 w-4" />,
-      'application/vnd.ms-excel': <FileSpreadsheet className="h-4 w-4" />,
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': <FileSpreadsheet className="h-4 w-4" />,
-      'application/zip': <FileArchive className="h-4 w-4" />,
-      'application/x-zip-compressed': <FileArchive className="h-4 w-4" />,
-    };
-
-    // Check if type starts with any of the keys (for mime types like image/jpeg)
-    for (const key in fileTypeMap) {
-      if (fileType.startsWith(key)) {
-        return fileTypeMap[key];
-      }
-    }
-
-    // Default icon
-    return <FileIcon className="h-4 w-4" />;
-  };
 
   return (
     <div className={`flex flex-col h-full overflow-hidden ${className}`}>
@@ -305,7 +236,7 @@ export function EmailDetail({
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={() => onReply(thread.id)}
+            onClick={() => onReply(effectiveThread.id)}
             aria-label="Reply"
           >
             <Reply className="h-4 w-4" />
@@ -313,7 +244,7 @@ export function EmailDetail({
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={() => onForward(thread.id)}
+            onClick={() => onForward(effectiveThread.id)}
             aria-label="Forward"
           >
             <Forward className="h-4 w-4" />
@@ -321,7 +252,7 @@ export function EmailDetail({
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={() => onArchive(thread.id)}
+            onClick={() => onArchive(effectiveThread.id)}
             aria-label="Archive"
           >
             <Archive className="h-4 w-4" />
@@ -329,7 +260,7 @@ export function EmailDetail({
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={() => onDelete(thread.id)}
+            onClick={() => onDelete(effectiveThread.id)}
             aria-label="Delete"
           >
             <Trash2 className="h-4 w-4" />

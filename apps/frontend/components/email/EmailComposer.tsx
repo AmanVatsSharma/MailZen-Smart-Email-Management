@@ -39,12 +39,16 @@ import {
   MinusCircle,
   FileText,
   Image as ImageIcon,
-  Film
+  Film,
+  Sparkles,
 } from 'lucide-react';
-import { useMutation } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import { SEND_EMAIL } from '@/lib/apollo/queries/emails';
+import { GET_PROVIDERS } from '@/lib/apollo/queries/providers';
 import { useToast } from '@/components/ui/use-toast';
 import { EmailAttachmentList } from './EmailAttachment';
+import { SmartReplySelector } from './SmartReplySelector';
+import { getUserData } from '@/lib/auth/auth-utils';
 
 interface EmailComposerProps {
   isOpen: boolean;
@@ -82,10 +86,20 @@ export function EmailComposer({
   const [isScheduled, setIsScheduled] = useState<boolean>(false);
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
   const [isSending, setIsSending] = useState<boolean>(false);
+  const [showSmartReplies, setShowSmartReplies] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Apollo Client mutation for sending emails
   const [sendEmail] = useMutation(SEND_EMAIL);
+  const { data: providersData } = useQuery(GET_PROVIDERS, {
+    fetchPolicy: 'cache-first',
+  });
+  const providers =
+    ((providersData?.providers as
+      | { id: string; email: string; isActive: boolean }[]
+      | undefined) ?? []);
+  const activeProvider = providers.find((provider) => provider.isActive) ?? providers[0];
+  const fromAddress = activeProvider?.email || getUserData()?.email || '';
 
   const composerTitle = useMemo(() => {
     return mode === 'new' ? 'New Message' : mode === 'reply' ? 'Reply' : 'Forward';
@@ -97,6 +111,22 @@ export function EmailComposer({
       console.warn('[EmailComposer] open change', { isOpen, mode });
     }
   }, [isOpen, mode]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setTo(mode === 'reply' ? threadRecipients.map((recipient) => recipient.email).join(', ') : '');
+    setCc('');
+    setBcc('');
+    setEmailSubject(
+      mode === 'reply'
+        ? `Re: ${subject}`
+        : mode === 'forward'
+          ? `Fwd: ${subject}`
+          : subject,
+    );
+    setContent(initialContent);
+  }, [initialContent, isOpen, mode, subject, threadRecipients]);
 
   // Handle file selection for attachments
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,16 +154,12 @@ export function EmailComposer({
 
   // Handle sending the email
   const handleSendEmail = async () => {
-    // Parse the string inputs to create participant objects.
-    const parseRecipients = (recipientString: string): EmailParticipant[] => {
+    // Parse recipient strings as plain email arrays for backend SendEmailInput.
+    const parseRecipients = (recipientString: string): string[] => {
       return recipientString
         .split(',')
         .map((raw) => raw.trim())
-        .filter(Boolean)
-        .map((email) => ({
-          name: email.split('@')[0] || email,
-          email,
-        }));
+        .filter(Boolean);
     };
 
     const toRecipients = parseRecipients(to);
@@ -145,6 +171,24 @@ export function EmailComposer({
       toast({
         title: 'Add at least one recipient',
         description: 'Please enter a valid email in the “To” field.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!activeProvider?.id) {
+      toast({
+        title: 'No email provider connected',
+        description: 'Connect and activate a provider before sending emails.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!fromAddress) {
+      toast({
+        title: 'Missing sender address',
+        description: 'Unable to resolve your sender email address.',
         variant: 'destructive',
       });
       return;
@@ -176,20 +220,11 @@ export function EmailComposer({
         variables: {
           input: {
             subject: emailSubject,
-            content,
-            receiver: toRecipients,
-            cc: ccRecipients.length > 0 ? ccRecipients : undefined,
-            bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
-            attachments:
-              attachments.length > 0
-                ? attachments.map((file) => ({
-                    name: file.name,
-                    size: file.size,
-                    type: file.type,
-                  }))
-                : undefined,
-            scheduledDate: isScheduled ? scheduledDate?.toISOString() : undefined,
-            replyToMessageId: mode === 'reply' && replyToThread ? replyToThread.id : undefined,
+            body: content,
+            from: fromAddress,
+            to: toRecipients,
+            providerId: activeProvider.id,
+            scheduledAt: isScheduled ? scheduledDate?.toISOString() : undefined,
           },
         },
       });
@@ -346,6 +381,42 @@ export function EmailComposer({
               </div>
             </div>
           </div>
+
+          {mode === 'reply' && replyToThread && (
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => setShowSmartReplies(s => !s)}
+              >
+                <Sparkles className="h-4 w-4" />
+                {showSmartReplies ? 'Hide Smart Replies' : 'Show Smart Replies'}
+              </Button>
+
+              {showSmartReplies && (
+                <div className="mt-3">
+                  <SmartReplySelector
+                    emailContent={
+                      replyToThread.messages && replyToThread.messages.length > 0
+                        ? replyToThread.messages[replyToThread.messages.length - 1].contentPreview ||
+                          replyToThread.messages[replyToThread.messages.length - 1].content ||
+                          ''
+                        : ''
+                    }
+                    onSelectReply={(text) => {
+                      setContent(text);
+                      setShowSmartReplies(false);
+                      toast({
+                        title: 'Inserted',
+                        description: 'Smart reply inserted into your draft.',
+                      });
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Content editor */}
           <div className="mt-2 border rounded-md overflow-hidden">
