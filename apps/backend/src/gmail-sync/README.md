@@ -4,7 +4,7 @@
 
 Sync **received Gmail messages** into Postgres so the frontend can render an inbox-like experience.
 
-This module stores messages in `ExternalEmailMessage` (Prisma model) and supports:
+This module stores messages in `ExternalEmailMessage` (TypeORM entity) and supports:
 - trigger sync
 - fetch synced messages (legacy list API)
 - sync provider label metadata (for UI labels)
@@ -37,7 +37,7 @@ flowchart TD
   ui[Frontend] -->|Mutation syncProvider| api[EmailProviderConnectResolver]
   api --> sync[GmailSyncService]
   sync -->|GmailAPI labels.list| gmailLabels[GmailAPI]
-  sync --> db[(PostgresPrisma)]
+  sync --> db[(PostgresTypeORM)]
   sync -->|GmailAPI messages.list+messages.get(metadata)| gmailMsgs[GmailAPI]
   ui -->|Query emails/email| inboxGql[UnifiedInboxResolver]
   inboxGql --> db

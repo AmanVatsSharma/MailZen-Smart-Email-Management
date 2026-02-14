@@ -1,4 +1,8 @@
 import axios from 'axios';
+import { Repository } from 'typeorm';
+import { EmailProvider } from '../email-integration/entities/email-provider.entity';
+import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
+import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { GmailSyncService } from './gmail-sync.service';
 
 jest.mock('axios', () => ({
@@ -7,62 +11,84 @@ jest.mock('axios', () => ({
   get: jest.fn(),
 }));
 
-describe('GmailSyncService (smoke)', () => {
+describe('GmailSyncService', () => {
   const userId = 'user-1';
-  const providerId = 'prov-1';
+  const providerId = 'provider-1';
 
-  const makePrisma = () => ({
-    emailProvider: {
-      findFirst: jest.fn().mockResolvedValue({
-        id: providerId,
-        userId,
-        type: 'GMAIL',
-        accessToken: 'token',
-        refreshToken: null,
-        tokenExpiry: null,
-      }),
-      update: jest.fn().mockResolvedValue({}),
-    },
-    externalEmailLabel: {
-      upsert: jest.fn().mockResolvedValue({}),
-    },
-    externalEmailMessage: {
-      upsert: jest.fn().mockResolvedValue({}),
-    },
+  let emailProviderRepo: jest.Mocked<Repository<EmailProvider>>;
+  let labelRepo: jest.Mocked<Repository<ExternalEmailLabel>>;
+  let messageRepo: jest.Mocked<Repository<ExternalEmailMessage>>;
+  let service: GmailSyncService;
+
+  beforeEach(() => {
+    emailProviderRepo = {
+      findOne: jest.fn(),
+      update: jest.fn(),
+    } as unknown as jest.Mocked<Repository<EmailProvider>>;
+    labelRepo = {
+      upsert: jest.fn(),
+    } as unknown as jest.Mocked<Repository<ExternalEmailLabel>>;
+    messageRepo = {
+      upsert: jest.fn(),
+      find: jest.fn(),
+    } as unknown as jest.Mocked<Repository<ExternalEmailMessage>>;
+
+    service = new GmailSyncService(emailProviderRepo, labelRepo, messageRepo);
   });
 
-  it('syncGmailProvider best-effort syncs labels and upserts messages', async () => {
-    const prisma = makePrisma();
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
-    // labels list
+  it('syncs labels and upserts message metadata', async () => {
+    emailProviderRepo.findOne.mockResolvedValue({
+      id: providerId,
+      userId,
+      type: 'GMAIL',
+      accessToken: 'token',
+      refreshToken: null,
+      tokenExpiry: null,
+    } as any);
     (axios.get as any).mockImplementation((url: string) => {
-      if (url.includes('/labels')) {
-        return Promise.resolve({ data: { labels: [{ id: 'Label_1', name: 'Work', type: 'user' }] } });
+      if (url.endsWith('/labels')) {
+        return Promise.resolve({
+          data: { labels: [{ id: 'LBL_1', name: 'Work', type: 'user' }] },
+        });
       }
       if (url.endsWith('/messages')) {
-        return Promise.resolve({ data: { messages: [{ id: 'm1', threadId: 't1' }] } });
+        return Promise.resolve({
+          data: { messages: [{ id: 'msg-1', threadId: 'thread-1' }] },
+        });
       }
       if (url.includes('/messages/')) {
         return Promise.resolve({
           data: {
-            id: 'm1',
-            threadId: 't1',
+            id: 'msg-1',
+            threadId: 'thread-1',
             labelIds: ['INBOX'],
             snippet: 'hello',
             internalDate: String(Date.now()),
-            payload: { headers: [{ name: 'From', value: 'Alice <alice@example.com>' }, { name: 'To', value: 'you@example.com' }, { name: 'Subject', value: 'Hi' }] },
+            payload: {
+              headers: [
+                { name: 'From', value: 'Alice <alice@example.com>' },
+                { name: 'To', value: 'you@example.com' },
+                { name: 'Subject', value: 'Hi' },
+              ],
+            },
           },
         });
       }
-      throw new Error(`unexpected url: ${url}`);
+      throw new Error(`Unexpected URL: ${url}`);
     });
 
-    const svc = new GmailSyncService(prisma as any);
-    const res = await svc.syncGmailProvider(providerId, userId, 1);
+    const result = await service.syncGmailProvider(providerId, userId, 1);
 
-    expect(res.imported).toBe(1);
-    expect(prisma.externalEmailLabel.upsert).toHaveBeenCalled();
-    expect(prisma.externalEmailMessage.upsert).toHaveBeenCalled();
+    expect(result).toEqual({ imported: 1 });
+    expect(labelRepo.upsert).toHaveBeenCalled();
+    expect(messageRepo.upsert).toHaveBeenCalled();
+    expect(emailProviderRepo.update).toHaveBeenCalledWith(
+      { id: providerId },
+      { status: 'syncing' },
+    );
   });
 });
-
