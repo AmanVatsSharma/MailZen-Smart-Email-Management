@@ -74,6 +74,10 @@ interface AvatarProps
   animate?: boolean;
 }
 
+const MotionAvatarRoot = motion(
+  AvatarPrimitive.Root as unknown as React.ComponentType<Record<string, unknown>>
+);
+
 function Avatar({ 
   className, 
   size, 
@@ -83,19 +87,28 @@ function Avatar({
   animate = false,
   ...props 
 }: AvatarProps) {
-  const Component = animate ? motion(AvatarPrimitive.Root) : AvatarPrimitive.Root;
-  
+  const commonProps = {
+    'data-slot': 'avatar',
+    className: cn(avatarVariants({ size, status, statusPosition, hasBadge }), className),
+  } as const;
+
+  if (!animate) {
+    return <AvatarPrimitive.Root {...commonProps} {...props} />;
+  }
+
+  // Motion's `onDrag` prop type conflicts with DOM `onDrag` on Radix Root.
+  // Strip `onDrag` for the animated wrapper to avoid type incompatibilities.
+  const { onDrag: _onDrag, ...motionSafeProps } = props;
+  void _onDrag;
+
   return (
-    <Component
-      data-slot="avatar"
-      className={cn(avatarVariants({ size, status, statusPosition, hasBadge }), className)}
-      {...(animate && {
-        initial: { scale: 0.9, opacity: 0 },
-        animate: { scale: 1, opacity: 1 },
-        transition: { type: "spring", stiffness: 300, damping: 20 },
-        whileHover: { scale: 1.05 }
-      })}
-      {...props}
+    <MotionAvatarRoot
+      {...commonProps}
+      initial={{ scale: 0.9, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+      whileHover={{ scale: 1.05 }}
+      {...motionSafeProps}
     />
   );
 }

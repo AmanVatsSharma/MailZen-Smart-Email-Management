@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ChevronRight, Mail, AlertCircle } from 'lucide-react';
+import { Check, Mail, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { 
   EmailProvider, 
@@ -17,7 +16,7 @@ import {
 type WizardStep = 'provider-select' | 'connect' | 'configure' | 'success';
 
 interface ProviderWizardProps {
-  onComplete: (provider: EmailProvider, data: any) => void;
+  onComplete: (_provider: EmailProvider, _data: unknown) => void;
   onCancel: () => void;
 }
 
@@ -70,7 +69,7 @@ export function ProviderWizard({ onComplete, onCancel }: ProviderWizardProps) {
           ? getGoogleOAuthUrl('/email-providers')
           : getMicrosoftOAuthUrl('/email-providers');
       window.location.href = url;
-    } catch (error) {
+    } catch {
       setConnectionError('Failed to initiate OAuth flow. Please try again.');
       setIsConnecting(false);
     }
@@ -95,12 +94,6 @@ export function ProviderWizard({ onComplete, onCancel }: ProviderWizardProps) {
       setIsConnecting(false);
       setCurrentStep('success');
     }, 1500);
-  };
-
-  // Handle SMTP form submission
-  const handleSmtpSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setCurrentStep('success');
   };
 
   // Handle completion
@@ -137,7 +130,7 @@ export function ProviderWizard({ onComplete, onCancel }: ProviderWizardProps) {
       <CardHeader>
         <CardTitle className="text-2xl font-bold">Connect Email Provider</CardTitle>
         <CardDescription>
-          Connect your email accounts to use MailZen's powerful features
+          Connect your email accounts to use MailZen&apos;s powerful features
         </CardDescription>
         <Progress value={getProgressPercentage()} className="h-2 mt-2" />
       </CardHeader>
@@ -216,7 +209,7 @@ export function ProviderWizard({ onComplete, onCancel }: ProviderWizardProps) {
                 {selectedProvider === 'gmail' && (
                   <div className="text-center py-6">
                     <p className="mb-6">
-                      You'll be redirected to Google to authorize MailZen.
+                      You&apos;ll be redirected to Google to authorize MailZen.
                       We only request the permissions needed to manage your emails.
                     </p>
                     
@@ -240,7 +233,7 @@ export function ProviderWizard({ onComplete, onCancel }: ProviderWizardProps) {
                 {selectedProvider === 'outlook' && (
                   <div className="text-center py-6">
                     <p className="mb-6">
-                      You'll be redirected to Microsoft to authorize MailZen.
+                      You&apos;ll be redirected to Microsoft to authorize MailZen.
                       We only request the permissions needed to manage your emails.
                     </p>
                     
