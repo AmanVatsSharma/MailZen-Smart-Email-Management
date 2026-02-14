@@ -8,7 +8,6 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 5
-const TOAST_REMOVE_DELAY = 5000
 
 type ToasterToast = ToastProps & {
   id: string
@@ -114,7 +113,9 @@ const reducer = (state: State, action: Action): State => {
   }
 }
 
-const listeners: Array<(state: State) => void> = []
+type Listener = (state: State) => void
+
+const listeners: Listener[] = []
 
 let memoryState: State = { toasts: [] }
 
@@ -167,7 +168,7 @@ function useToast() {
         listeners.splice(index, 1)
       }
     }
-  }, [state])
+  }, [])
 
   return {
     ...state,
