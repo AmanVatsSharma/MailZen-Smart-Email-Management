@@ -34,9 +34,11 @@ const buttonVariants = cva(
   }
 );
 
-const MotionComp = motion(React.forwardRef<HTMLButtonElement, React.ComponentProps<'button'>>((props, ref) => {
+const MotionButton = React.forwardRef<HTMLButtonElement, React.ComponentProps<'button'>>((props, ref) => {
   return <button ref={ref} {...props} />;
-}));
+});
+MotionButton.displayName = 'MotionButton';
+const MotionComp = motion(MotionButton);
 
 function Button({
   className,
@@ -48,15 +50,48 @@ function Button({
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
   }) {
-  const Comp = asChild ? Slot : MotionComp;
+  if (asChild) {
+    return (
+      <Slot
+        data-slot="button"
+        className={cn(buttonVariants({ variant, size, className }))}
+        {...props}
+      />
+    );
+  }
+
+  // Motion's `onDrag` prop type conflicts with the DOM `onDrag` prop type.
+  const {
+    onDrag: _onDrag,
+    onDragStart: _onDragStart,
+    onDragEnd: _onDragEnd,
+    onDragEnter: _onDragEnter,
+    onDragLeave: _onDragLeave,
+    onDragOver: _onDragOver,
+    onDrop: _onDrop,
+    onAnimationStart: _onAnimationStart,
+    onAnimationEnd: _onAnimationEnd,
+    onAnimationIteration: _onAnimationIteration,
+    ...motionSafeProps
+  } = props;
+  void _onDrag;
+  void _onDragStart;
+  void _onDragEnd;
+  void _onDragEnter;
+  void _onDragLeave;
+  void _onDragOver;
+  void _onDrop;
+  void _onAnimationStart;
+  void _onAnimationEnd;
+  void _onAnimationIteration;
 
   return (
-    <Comp
+    <MotionComp
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       whileTap={{ scale: 0.98 }}
-      transition={{ type: "spring", stiffness: 400, damping: 17 }}
-      {...props}
+      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+      {...motionSafeProps}
     />
   );
 }
