@@ -1,4 +1,12 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 
 /**
@@ -14,7 +22,7 @@ export class PhoneVerification {
   @Index()
   userId: string;
 
-  @ManyToOne(() => User, user => user.phoneVerifications)
+  @ManyToOne(() => User, (user) => user.phoneVerifications)
   @JoinColumn({ name: 'userId' })
   user: User;
 
