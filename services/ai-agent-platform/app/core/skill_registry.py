@@ -3,6 +3,7 @@
 from collections.abc import Callable
 
 from app.skills.auth.skill import AuthSkill
+from app.skills.inbox.skill import InboxSkill
 
 
 SkillFactory = Callable[[], object]
@@ -15,6 +16,7 @@ class SkillRegistry:
         self._factories: dict[str, SkillFactory] = {
             "auth": AuthSkill,
             "auth-login": AuthSkill,
+            "inbox": InboxSkill,
         }
         self._cache: dict[str, object] = {}
 
