@@ -32,4 +32,3 @@ export class InboxMessage {
   @Field(() => [String])
   labels: string[];
 }
-

@@ -24,8 +24,14 @@ export class InboxResolver {
   }
 
   @Mutation(() => [Inbox])
-  async setActiveInbox(@Args('input') input: SetActiveInboxInput, @Context() ctx: RequestContext) {
-    return this.inboxService.setActiveInbox(ctx.req.user.id, input.type, input.id);
+  async setActiveInbox(
+    @Args('input') input: SetActiveInboxInput,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.inboxService.setActiveInbox(
+      ctx.req.user.id,
+      input.type,
+      input.id,
+    );
   }
 }
-

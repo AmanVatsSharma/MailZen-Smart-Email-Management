@@ -11,9 +11,7 @@ import { InboxResolver } from './inbox.resolver';
  * Handles inbox switching between mailboxes and providers
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([User, Mailbox, EmailProvider]),
-  ],
+  imports: [TypeOrmModule.forFeature([User, Mailbox, EmailProvider])],
   providers: [InboxService, InboxResolver],
   exports: [InboxService],
 })
