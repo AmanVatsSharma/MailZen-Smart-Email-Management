@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Sparkles, ThumbsUp, ThumbsDown, RefreshCw, Check, Cpu, ChevronDown } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Sparkles, ThumbsUp, ThumbsDown, RefreshCw, Check, Cpu, ChevronDown, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,63 +10,136 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-// Mock generated replies
-const mockReplies = [
-  {
-    id: '1',
-    text: "Thank you for reaching out. I appreciate your interest and will review your proposal. I'll get back to you with my thoughts by the end of the week.",
-    tone: 'Professional',
-    length: 'Medium',
-  },
-  {
-    id: '2',
-    text: "Thanks for your email! I'd be happy to discuss this further. How about we schedule a call next Tuesday?",
-    tone: 'Friendly',
-    length: 'Short',
-  },
-  {
-    id: '3',
-    text: "I've received your message and will carefully consider the information you've provided. Please allow me some time to review the details thoroughly before responding with a comprehensive answer.",
-    tone: 'Formal',
-    length: 'Long',
-  },
-];
+import { useLazyQuery, useQuery } from '@apollo/client';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useToast } from '@/components/ui/use-toast';
+import { GET_SUGGESTED_REPLIES } from '@/lib/apollo/queries/smart-replies';
+import { GET_SMART_REPLY_SETTINGS } from '@/lib/apollo/queries/smart-reply-settings';
 
 interface SmartReplyProps {
   emailContent?: string;
-  onSelectReply: (text: string) => void;
+  onSelectReply: (_text: string) => void;
+  autoGenerate?: boolean;
 }
 
-export function SmartReplySelector({ emailContent, onSelectReply }: SmartReplyProps) {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [replies, setReplies] = useState(mockReplies);
+interface ReplySuggestion {
+  id: string;
+  text: string;
+  tone: 'Professional' | 'Friendly' | 'Formal';
+  length: 'Short' | 'Medium' | 'Long';
+}
+
+export function SmartReplySelector({ emailContent, onSelectReply, autoGenerate = false }: SmartReplyProps) {
+  const { toast } = useToast();
+  const [replies, setReplies] = useState<ReplySuggestion[]>([]);
   const [replyTone, setReplyTone] = useState<'Professional' | 'Friendly' | 'Formal'>(
     'Professional'
   );
   const [replyLength, setReplyLength] = useState<number>(50); // 0-100 scale
+  const [lastError, setLastError] = useState<string | null>(null);
+  const { data: settingsData } = useQuery(GET_SMART_REPLY_SETTINGS, {
+    fetchPolicy: 'cache-first',
+  });
 
-  const handleGenerateReplies = () => {
-    setIsGenerating(true);
-    // In a real app, this would call an API to generate smart replies
-    setTimeout(() => {
-      setIsGenerating(false);
-    }, 1500);
-  };
-
-  const handleFeedback = (replyId: string, isPositive: boolean) => {
-    // In a real app, this would send feedback to train the AI model
-    console.log(`Feedback for reply ${replyId}: ${isPositive ? 'positive' : 'negative'}`);
-  };
-
-  const getLengthLabel = (value: number) => {
+  const getLengthLabel = (value: number): 'Short' | 'Medium' | 'Long' => {
     if (value < 33) return 'Short';
     if (value < 66) return 'Medium';
     return 'Long';
   };
+
+  const [getSuggestedReplies, { loading: suggestionsLoading, error: suggestionsError }] = useLazyQuery<{
+    getSuggestedReplies: string[];
+  }>(GET_SUGGESTED_REPLIES, {
+    fetchPolicy: 'no-cache',
+    onCompleted: (data) => {
+      const items = data?.getSuggestedReplies || [];
+      setReplies(
+        items.map((text, index) => ({
+          id: `reply-${index}`,
+          text,
+          tone: replyTone,
+          length: getLengthLabel(replyLength),
+        }))
+      );
+      setLastError(null);
+    },
+    onError: (err) => {
+      setLastError(err.message || 'Failed to generate smart replies');
+      toast({
+        title: 'Smart reply failed',
+        description: err.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const canGenerate = useMemo(() => {
+    return !!emailContent && emailContent.trim().length > 0;
+  }, [emailContent]);
+
+  const smartReplySettings = settingsData?.smartReplySettings;
+
+  const handleGenerateReplies = () => {
+    if (smartReplySettings && !smartReplySettings.enabled) {
+      toast({
+        title: 'Smart replies are disabled',
+        description: 'Enable Smart Replies in settings to generate suggestions.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!canGenerate) {
+      toast({
+        title: 'No email context',
+        description: 'Open an email (or provide content) to generate smart replies.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setLastError(null);
+    getSuggestedReplies({
+      variables: {
+        emailBody: emailContent!,
+        count: smartReplySettings?.maxSuggestions ?? 3,
+      },
+    });
+  };
+
+  const handleFeedback = (replyId: string, isPositive: boolean) => {
+    // In a real app, this would send feedback to train the AI model
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`Feedback for reply ${replyId}: ${isPositive ? 'positive' : 'negative'}`);
+    }
+    toast({
+      title: 'Feedback recorded',
+      description: 'Thanks — this helps improve suggestions.',
+    });
+  };
+
+  useEffect(() => {
+    if (autoGenerate && canGenerate) handleGenerateReplies();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoGenerate, canGenerate]);
+
+  useEffect(() => {
+    if (!smartReplySettings) return;
+    const tone = String(smartReplySettings.defaultTone || '').toLowerCase();
+    if (tone === 'friendly') setReplyTone('Friendly');
+    else if (tone === 'formal') setReplyTone('Formal');
+    else setReplyTone('Professional');
+
+    const length = String(smartReplySettings.defaultLength || '').toLowerCase();
+    if (length === 'short') setReplyLength(20);
+    else if (length === 'long') setReplyLength(80);
+    else setReplyLength(50);
+  }, [smartReplySettings]);
+
+  const isGenerating = suggestionsLoading;
+  const errorMessage = lastError || suggestionsError?.message || null;
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -144,6 +217,13 @@ export function SmartReplySelector({ emailContent, onSelectReply }: SmartReplyPr
         </div>
       </div>
 
+      {errorMessage && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid grid-cols-1 gap-3">
         {isGenerating ? (
           <div className="flex items-center justify-center py-10 border rounded-md bg-muted/20">
@@ -152,7 +232,7 @@ export function SmartReplySelector({ emailContent, onSelectReply }: SmartReplyPr
               <p className="text-sm text-muted-foreground">Generating smart replies...</p>
             </div>
           </div>
-        ) : (
+        ) : replies.length ? (
           replies.map(reply => (
             <Card
               key={reply.id}
@@ -200,6 +280,10 @@ export function SmartReplySelector({ emailContent, onSelectReply }: SmartReplyPr
               </div>
             </Card>
           ))
+        ) : (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            {canGenerate ? 'Click “Regenerate” to generate smart replies.' : 'Open an email to generate smart replies.'}
+          </div>
         )}
       </div>
     </div>
