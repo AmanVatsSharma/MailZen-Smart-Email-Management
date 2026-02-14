@@ -1,7 +1,18 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { OAuth2Client } from 'google-auth-library';
+import { Repository } from 'typeorm';
+import { EmailProvider } from '../email-integration/entities/email-provider.entity';
+import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
+import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
+import { User } from '../user/entities/user.entity';
 import { EmailFilterInput } from './dto/email-filter.input';
 import { EmailSortInput } from './dto/email-sort.input';
 import { EmailUpdateInput } from './dto/email-update.input';
@@ -37,15 +48,27 @@ export class UnifiedInboxService {
   private readonly logger = new Logger(UnifiedInboxService.name);
   private readonly googleOAuth2Client: OAuth2Client;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    @InjectRepository(EmailProvider)
+    private readonly emailProviderRepo: Repository<EmailProvider>,
+    @InjectRepository(ExternalEmailMessage)
+    private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
+    @InjectRepository(ExternalEmailLabel)
+    private readonly externalEmailLabelRepo: Repository<ExternalEmailLabel>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+  ) {
     this.googleOAuth2Client = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_PROVIDER_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URI,
+      process.env.GOOGLE_PROVIDER_REDIRECT_URI ||
+        process.env.GOOGLE_REDIRECT_URI,
     );
   }
 
-  private parseMailboxAddress(input: string | null | undefined): { name: string; email: string } | null {
+  private parseMailboxAddress(
+    input: string | null | undefined,
+  ): { name: string; email: string } | null {
     if (!input) return null;
     // Common cases:
     // - "Name <email@x.com>"
@@ -89,100 +112,154 @@ export class UnifiedInboxService {
     return labels.includes('STARRED');
   }
 
-  private async resolveActiveProviderId(userId: string, requestedProviderId?: string): Promise<string> {
+  private async resolveActiveProviderId(
+    userId: string,
+    requestedProviderId?: string,
+  ): Promise<string | null> {
     if (requestedProviderId) {
-      const p = await this.prisma.emailProvider.findFirst({ where: { id: requestedProviderId, userId } });
+      const p = await this.emailProviderRepo.findOne({
+        where: { id: requestedProviderId, userId },
+      });
       if (!p) throw new NotFoundException('Provider not found');
       return p.id;
     }
 
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.userRepo.findOne({ where: { id: userId } });
     const activeType = (user as any)?.activeInboxType as string | null;
     const activeId = (user as any)?.activeInboxId as string | null;
     if (activeType === 'PROVIDER' && activeId) {
-      const p = await this.prisma.emailProvider.findFirst({ where: { id: activeId, userId } });
+      const p = await this.emailProviderRepo.findOne({
+        where: { id: activeId, userId },
+      });
       if (p) return p.id;
     }
 
     // Fallback: first active provider, then newest provider.
-    const activeProvider = await this.prisma.emailProvider.findFirst({ where: { userId, isActive: true }, orderBy: { createdAt: 'desc' } });
+    const activeProvider = await this.emailProviderRepo.findOne({
+      where: { userId, isActive: true },
+      order: { createdAt: 'DESC' },
+    });
     if (activeProvider) return activeProvider.id;
-    const newestProvider = await this.prisma.emailProvider.findFirst({ where: { userId }, orderBy: { createdAt: 'desc' } });
-    if (!newestProvider) throw new NotFoundException('No email providers connected');
+    const newestProvider = await this.emailProviderRepo.findOne({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+    if (!newestProvider) return null;
     return newestProvider.id;
   }
 
-  async listThreads(userId: string, limit = 10, offset = 0, filter?: EmailFilterInput | null, sort?: EmailSortInput | null): Promise<EmailThread[]> {
-    const providerId = await this.resolveActiveProviderId(userId, filter?.providerId);
+  async listThreads(
+    userId: string,
+    limit = 10,
+    offset = 0,
+    filter?: EmailFilterInput | null,
+    sort?: EmailSortInput | null,
+  ): Promise<EmailThread[]> {
+    const providerId = await this.resolveActiveProviderId(
+      userId,
+      filter?.providerId,
+    );
+    if (!providerId) return [];
 
-    const where: any = { userId, providerId };
+    const qb = this.externalEmailMessageRepo
+      .createQueryBuilder('m')
+      .where('m.userId = :userId', { userId })
+      .andWhere('m.providerId = :providerId', { providerId });
+
     const search = filter?.search?.trim();
     if (search) {
-      where.OR = [
-        { subject: { contains: search, mode: 'insensitive' } },
-        { from: { contains: search, mode: 'insensitive' } },
-        { snippet: { contains: search, mode: 'insensitive' } },
-      ];
+      qb.andWhere(
+        '(m.subject ILIKE :q OR m."from" ILIKE :q OR m.snippet ILIKE :q)',
+        { q: `%${search}%` },
+      );
     }
 
+    // Label AND filter: require all specified labelIds.
     if (filter?.labelIds?.length) {
-      where.AND = (where.AND || []).concat(filter.labelIds.map(l => ({ labels: { has: l } })));
+      filter.labelIds.forEach((label, idx) => {
+        qb.andWhere(`:l${idx} = ANY(m.labels)`, { [`l${idx}`]: label });
+      });
     }
 
     if (filter?.status) {
-      where.labels = filter.status === 'unread' ? { has: 'UNREAD' } : { hasNone: ['UNREAD'] };
+      if (filter.status === 'unread') qb.andWhere(`'UNREAD' = ANY(m.labels)`);
+      else qb.andWhere(`NOT ('UNREAD' = ANY(m.labels))`);
     }
 
     if (typeof filter?.isStarred === 'boolean') {
-      where.labels = filter.isStarred ? { has: 'STARRED' } : { hasNone: ['STARRED'] };
+      if (filter.isStarred) qb.andWhere(`'STARRED' = ANY(m.labels)`);
+      else qb.andWhere(`NOT ('STARRED' = ANY(m.labels))`);
     }
 
     // Folder filtering via Gmail system labels.
     if (filter?.folder) {
       const f = filter.folder.toLowerCase();
-      if (f === 'inbox') where.labels = { has: 'INBOX' };
-      else if (f === 'sent') where.labels = { has: 'SENT' };
-      else if (f === 'trash') where.labels = { has: 'TRASH' };
-      else if (f === 'spam') where.labels = { has: 'SPAM' };
-      else if (f === 'archive') where.labels = { hasNone: ['INBOX', 'TRASH', 'SPAM'] };
-      else where.labels = { has: f.toUpperCase() };
+      if (f === 'inbox') qb.andWhere(`'INBOX' = ANY(m.labels)`);
+      else if (f === 'sent') qb.andWhere(`'SENT' = ANY(m.labels)`);
+      else if (f === 'trash') qb.andWhere(`'TRASH' = ANY(m.labels)`);
+      else if (f === 'spam') qb.andWhere(`'SPAM' = ANY(m.labels)`);
+      else if (f === 'archive') {
+        qb.andWhere(`NOT ('INBOX' = ANY(m.labels))`)
+          .andWhere(`NOT ('TRASH' = ANY(m.labels))`)
+          .andWhere(`NOT ('SPAM' = ANY(m.labels))`);
+      } else {
+        qb.andWhere(`:folderLabel = ANY(m.labels)`, {
+          folderLabel: f.toUpperCase(),
+        });
+      }
     }
 
-    const orderBy: any[] = [];
-    if (sort?.field === 'from') orderBy.push({ from: sort.direction });
-    else if (sort?.field === 'subject') orderBy.push({ subject: sort.direction });
-    else orderBy.push({ internalDate: sort?.direction || 'desc' });
-    orderBy.push({ createdAt: 'desc' });
+    if (sort?.field === 'from')
+      qb.orderBy(
+        'm."from"',
+        sort.direction?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC',
+      );
+    else if (sort?.field === 'subject')
+      qb.orderBy(
+        'm.subject',
+        sort.direction?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC',
+      );
+    else
+      qb.orderBy(
+        'm.internalDate',
+        sort?.direction?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC',
+      );
+    qb.addOrderBy('m.createdAt', 'DESC');
 
-    // We paginate at message-level then de-dupe into thread-level (MVP).
-    const page = await this.prisma.externalEmailMessage.findMany({
-      where,
-      orderBy,
-      skip: offset,
-      take: limit,
-      select: {
-        id: true,
-        userId: true,
-        providerId: true,
-        externalMessageId: true,
-        threadId: true,
-        from: true,
-        to: true,
-        subject: true,
-        snippet: true,
-        internalDate: true,
-        labels: true,
-      },
-    });
+    qb.select([
+      'm.id',
+      'm.userId',
+      'm.providerId',
+      'm.externalMessageId',
+      'm.threadId',
+      'm.from',
+      'm.to',
+      'm.subject',
+      'm.snippet',
+      'm.internalDate',
+      'm.labels',
+      'm.createdAt',
+    ]);
 
-    this.logger.log(`emails list user=${userId} provider=${providerId} limit=${limit} offset=${offset} returned=${page.length}`);
+    qb.skip(offset).take(limit);
 
-    return page.map(m => this.mapExternalMessageToThreadSummary(m));
+    const page = await qb.getMany();
+
+    this.logger.log(
+      `emails list user=${userId} provider=${providerId} limit=${limit} offset=${offset} returned=${page.length}`,
+    );
+
+    return page.map((m) => this.mapExternalMessageToThreadSummary(m as any));
   }
 
   private mapExternalMessageToThreadSummary(m: ExternalMessage): EmailThread {
-    const from = this.parseMailboxAddress(m.from) || { name: 'Unknown', email: 'unknown' };
-    const to = (m.to || []).map(x => this.parseMailboxAddress(x)).filter(Boolean) as Array<{ name: string; email: string }>;
+    const from = this.parseMailboxAddress(m.from) || {
+      name: 'Unknown',
+      email: 'unknown',
+    };
+    const to = (m.to || [])
+      .map((x) => this.parseMailboxAddress(x))
+      .filter(Boolean) as Array<{ name: string; email: string }>;
     const subject = m.subject || '(no subject)';
     const date = (m.internalDate || new Date()).toISOString();
     const labels = m.labels || [];
@@ -193,16 +270,20 @@ export class UnifiedInboxService {
     const content = `<p>${this.escapeHtml(contentPreview)}</p>`;
     const threadId = m.threadId || m.externalMessageId;
 
-    const participants = [from, ...to].reduce((acc, p) => {
-      if (!acc.find(x => x.email.toLowerCase() === p.email.toLowerCase())) acc.push(p);
-      return acc;
-    }, [] as Array<{ name: string; email: string }>);
+    const participants = [from, ...to].reduce(
+      (acc, p) => {
+        if (!acc.find((x) => x.email.toLowerCase() === p.email.toLowerCase()))
+          acc.push(p);
+        return acc;
+      },
+      [] as Array<{ name: string; email: string }>,
+    );
 
     return {
       id: threadId,
       providerThreadId: m.threadId || undefined,
       subject,
-      participants: participants.map(p => ({ name: p.name, email: p.email })),
+      participants: participants.map((p) => ({ name: p.name, email: p.email })),
       lastMessageDate: date,
       isUnread,
       folder,
@@ -214,7 +295,7 @@ export class UnifiedInboxService {
           threadId,
           subject,
           from: { name: from.name, email: from.email },
-          to: to.map(p => ({ name: p.name, email: p.email })),
+          to: to.map((p) => ({ name: p.name, email: p.email })),
           content,
           contentPreview,
           date,
@@ -232,12 +313,18 @@ export class UnifiedInboxService {
   }
 
   private sleep(ms: number) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private shouldRetryGmailStatus(status?: number): boolean {
     if (!status) return false;
-    return status === 429 || status === 503 || status === 500 || status === 502 || status === 504;
+    return (
+      status === 429 ||
+      status === 503 ||
+      status === 500 ||
+      status === 502 ||
+      status === 504
+    );
   }
 
   private async gmailRequest<T>(
@@ -292,8 +379,10 @@ export class UnifiedInboxService {
       if (!part) return;
       const mimeType = part.mimeType;
       const bodyData = part.body?.data;
-      if (mimeType === 'text/html' && bodyData && !acc.html) acc.html = this.decodeBase64Url(bodyData);
-      if (mimeType === 'text/plain' && bodyData && !acc.text) acc.text = this.decodeBase64Url(bodyData);
+      if (mimeType === 'text/html' && bodyData && !acc.html)
+        acc.html = this.decodeBase64Url(bodyData);
+      if (mimeType === 'text/plain' && bodyData && !acc.text)
+        acc.text = this.decodeBase64Url(bodyData);
       const parts = part.parts || [];
       for (const p of parts) walk(p, acc);
     };
@@ -305,17 +394,23 @@ export class UnifiedInboxService {
     return '';
   }
 
-  private parseAddressList(input: string | null | undefined): Array<{ name: string; email: string }> {
+  private parseAddressList(
+    input: string | null | undefined,
+  ): Array<{ name: string; email: string }> {
     if (!input) return [];
     // MVP split; good enough for most cases.
     return input
       .split(',')
-      .map(s => this.parseMailboxAddress(s))
+      .map((s) => this.parseMailboxAddress(s))
       .filter(Boolean) as Array<{ name: string; email: string }>;
   }
 
-  private extractAttachments(payload: any, messageId: string): Array<{ id: string; name: string; type: string; size: number }> {
-    const out: Array<{ id: string; name: string; type: string; size: number }> = [];
+  private extractAttachments(
+    payload: any,
+    messageId: string,
+  ): Array<{ id: string; name: string; type: string; size: number }> {
+    const out: Array<{ id: string; name: string; type: string; size: number }> =
+      [];
     const walk = (part: any) => {
       if (!part) return;
       const filename = part.filename;
@@ -338,7 +433,9 @@ export class UnifiedInboxService {
 
   private async ensureFreshGmailAccessToken(provider: any): Promise<string> {
     if (!provider.refreshToken && !provider.accessToken) {
-      throw new BadRequestException('Missing OAuth credentials for Gmail provider');
+      throw new BadRequestException(
+        'Missing OAuth credentials for Gmail provider',
+      );
     }
     if (!provider.tokenExpiry || !provider.refreshToken) {
       return provider.accessToken;
@@ -351,87 +448,139 @@ export class UnifiedInboxService {
     }
 
     try {
-      this.googleOAuth2Client.setCredentials({ refresh_token: provider.refreshToken });
-      const { credentials } = await this.googleOAuth2Client.refreshAccessToken();
-      if (!credentials.access_token) throw new Error('Google refresh did not return access_token');
-
-      await this.prisma.emailProvider.update({
-        where: { id: provider.id },
-        data: {
-          accessToken: credentials.access_token,
-          tokenExpiry: credentials.expiry_date ? new Date(credentials.expiry_date) : null,
-        },
+      this.googleOAuth2Client.setCredentials({
+        refresh_token: provider.refreshToken,
       });
+      const { credentials } =
+        await this.googleOAuth2Client.refreshAccessToken();
+      if (!credentials.access_token)
+        throw new Error('Google refresh did not return access_token');
+
+      await this.emailProviderRepo.update(
+        { id: provider.id },
+        {
+          accessToken: credentials.access_token,
+          tokenExpiry: credentials.expiry_date
+            ? new Date(credentials.expiry_date)
+            : undefined,
+        },
+      );
       return credentials.access_token;
     } catch (e: any) {
-      this.logger.error(`Failed to refresh Gmail access token: ${e?.message || e}`, e?.stack);
-      throw new InternalServerErrorException('Failed to refresh Gmail access token');
+      this.logger.error(
+        `Failed to refresh Gmail access token: ${e?.message || e}`,
+        e?.stack,
+      );
+      throw new InternalServerErrorException(
+        'Failed to refresh Gmail access token',
+      );
     }
   }
 
   private async getGmailProviderOrThrow(userId: string, providerId: string) {
-    const provider = await this.prisma.emailProvider.findFirst({ where: { id: providerId, userId } });
+    const provider = await this.emailProviderRepo.findOne({
+      where: { id: providerId, userId },
+    });
     if (!provider) throw new NotFoundException('Provider not found');
-    if (provider.type !== 'GMAIL') throw new BadRequestException('Provider is not Gmail');
+    if (provider.type !== 'GMAIL')
+      throw new BadRequestException('Provider is not Gmail');
     return provider;
   }
 
   async getThread(userId: string, threadId: string): Promise<EmailThread> {
     const providerId = await this.resolveActiveProviderId(userId);
+    if (!providerId)
+      throw new NotFoundException('No email providers connected');
 
-    const anchor = await this.prisma.externalEmailMessage.findFirst({
-      where: { userId, providerId, OR: [{ threadId }, { externalMessageId: threadId }] },
-      orderBy: [{ internalDate: 'desc' }, { createdAt: 'desc' }],
-    });
+    const anchor = await this.externalEmailMessageRepo
+      .createQueryBuilder('m')
+      .where('m.userId = :userId', { userId })
+      .andWhere('m.providerId = :providerId', { providerId })
+      .andWhere('(m.threadId = :threadId OR m.externalMessageId = :threadId)', {
+        threadId,
+      })
+      .orderBy('m.internalDate', 'DESC')
+      .addOrderBy('m.createdAt', 'DESC')
+      .getOne();
     if (!anchor) throw new NotFoundException('Email not found');
 
     const isThread = !!anchor.threadId;
-    const msgs = await this.prisma.externalEmailMessage.findMany({
-      where: isThread ? { userId, providerId, threadId: anchor.threadId } : { userId, providerId, externalMessageId: anchor.externalMessageId },
-      orderBy: [{ internalDate: 'asc' }, { createdAt: 'asc' }],
+    const msgs = await this.externalEmailMessageRepo.find({
+      where: isThread
+        ? { userId, providerId, threadId: anchor.threadId as any }
+        : { userId, providerId, externalMessageId: anchor.externalMessageId },
+      order: { internalDate: 'ASC', createdAt: 'ASC' },
     });
 
     // If Gmail, lazily hydrate full payloads for detail rendering.
-    const provider = await this.prisma.emailProvider.findFirst({ where: { id: providerId, userId } });
+    const provider = await this.emailProviderRepo.findOne({
+      where: { id: providerId, userId },
+    });
     const isGmail = provider?.type === 'GMAIL';
     let accessToken: string | null = null;
-    if (isGmail && provider) accessToken = await this.ensureFreshGmailAccessToken(provider);
+    if (isGmail && provider)
+      accessToken = await this.ensureFreshGmailAccessToken(provider);
 
     const mappedMessages: any[] = [];
     for (const m of msgs) {
       let raw: any = m.rawPayload;
-      const hasBody = !!raw?.payload?.body?.data || Array.isArray(raw?.payload?.parts);
+      const hasBody =
+        !!raw?.payload?.body?.data || Array.isArray(raw?.payload?.parts);
       if (isGmail && accessToken && !hasBody) {
         // Basic rate limiting: small delay between message fetches.
         await this.sleep(75);
         const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(m.externalMessageId)}`;
         const full = await this.gmailRequest<any>(
-          { method: 'GET', url, headers: { Authorization: `Bearer ${accessToken}` }, params: { format: 'full' } },
+          {
+            method: 'GET',
+            url,
+            headers: { Authorization: `Bearer ${accessToken}` },
+            params: { format: 'full' },
+          },
           { userId, providerId, op: 'messages.get(full)' },
         );
         raw = full;
-        await this.prisma.externalEmailMessage.update({ where: { id: m.id }, data: { rawPayload: full as any, snippet: full.snippet || m.snippet } });
+        await this.externalEmailMessageRepo.update(
+          { id: m.id },
+          {
+            rawPayload: full,
+            snippet: full.snippet || m.snippet || undefined,
+          },
+        );
       }
 
       const headers = raw?.payload?.headers || [];
-      const get = (name: string) => headers.find((h: any) => String(h.name).toLowerCase() === name.toLowerCase())?.value;
+      const get = (name: string) =>
+        headers.find(
+          (h: any) => String(h.name).toLowerCase() === name.toLowerCase(),
+        )?.value;
       const fromStr = get('From') || m.from || '';
       const toStr = get('To') || (m.to || []).join(', ');
       const ccStr = get('Cc') || '';
       const bccStr = get('Bcc') || '';
       const subject = get('Subject') || m.subject || '(no subject)';
-      const dateIso = m.internalDate ? m.internalDate.toISOString() : new Date().toISOString();
+      const dateIso = m.internalDate
+        ? m.internalDate.toISOString()
+        : new Date().toISOString();
       const labels = m.labels || [];
 
-      const from = this.parseMailboxAddress(fromStr) || { name: 'Unknown', email: 'unknown' };
+      const from = this.parseMailboxAddress(fromStr) || {
+        name: 'Unknown',
+        email: 'unknown',
+      };
       const to = this.parseAddressList(toStr);
       const cc = this.parseAddressList(ccStr);
       const bcc = this.parseAddressList(bccStr);
-      const content = this.extractBodyHtml(raw?.payload) || `<p>${this.escapeHtml(m.snippet || '')}</p>`;
+      const content =
+        this.extractBodyHtml(raw?.payload) ||
+        `<p>${this.escapeHtml(m.snippet || '')}</p>`;
       const contentPreview = m.snippet || '';
       const folder = this.labelsToFolder(labels);
 
-      const attachments = this.extractAttachments(raw?.payload, m.externalMessageId).map(a => ({
+      const attachments = this.extractAttachments(
+        raw?.payload,
+        m.externalMessageId,
+      ).map((a) => ({
         id: a.id,
         name: a.name,
         type: a.type,
@@ -440,12 +589,16 @@ export class UnifiedInboxService {
 
       mappedMessages.push({
         id: m.id,
-        threadId: (m.threadId || m.externalMessageId) as string,
+        threadId: m.threadId || m.externalMessageId,
         subject,
         from: { name: from.name, email: from.email },
-        to: to.map(p => ({ name: p.name, email: p.email })),
-        cc: cc.length ? cc.map(p => ({ name: p.name, email: p.email })) : undefined,
-        bcc: bcc.length ? bcc.map(p => ({ name: p.name, email: p.email })) : undefined,
+        to: to.map((p) => ({ name: p.name, email: p.email })),
+        cc: cc.length
+          ? cc.map((p) => ({ name: p.name, email: p.email }))
+          : undefined,
+        bcc: bcc.length
+          ? bcc.map((p) => ({ name: p.name, email: p.email }))
+          : undefined,
         content,
         contentPreview,
         date: dateIso,
@@ -464,19 +617,35 @@ export class UnifiedInboxService {
     const last = mappedMessages[mappedMessages.length - 1];
     const participants = new Map<string, { name: string; email: string }>();
     for (const msg of mappedMessages) {
-      participants.set(msg.from.email.toLowerCase(), { name: msg.from.name, email: msg.from.email });
-      for (const p of msg.to || []) participants.set(p.email.toLowerCase(), { name: p.name, email: p.email });
+      participants.set(msg.from.email.toLowerCase(), {
+        name: msg.from.name,
+        email: msg.from.email,
+      });
+      for (const p of msg.to || [])
+        participants.set(p.email.toLowerCase(), {
+          name: p.name,
+          email: p.email,
+        });
     }
 
     const threadKey = anchor.threadId || anchor.externalMessageId;
-    const threadLabels = (anchor.labels || []) as string[];
+    const threadLabels = anchor.labels || [];
     return {
       id: threadKey,
       providerThreadId: anchor.threadId || undefined,
       subject: last?.subject || anchor.subject || '(no subject)',
-      participants: Array.from(participants.values()).map(p => ({ name: p.name, email: p.email })),
-      lastMessageDate: last?.date || (anchor.internalDate ? anchor.internalDate.toISOString() : new Date().toISOString()),
-      isUnread: mappedMessages.some(x => x.status === 'unread' && x.folder === 'inbox'),
+      participants: Array.from(participants.values()).map((p) => ({
+        name: p.name,
+        email: p.email,
+      })),
+      lastMessageDate:
+        last?.date ||
+        (anchor.internalDate
+          ? anchor.internalDate.toISOString()
+          : new Date().toISOString()),
+      isUnread: mappedMessages.some(
+        (x) => x.status === 'unread' && x.folder === 'inbox',
+      ),
       messages: mappedMessages,
       folder: this.labelsToFolder(threadLabels),
       labelIds: threadLabels,
@@ -484,13 +653,25 @@ export class UnifiedInboxService {
     };
   }
 
-  async updateThread(userId: string, threadId: string, input: EmailUpdateInput): Promise<EmailThread> {
+  async updateThread(
+    userId: string,
+    threadId: string,
+    input: EmailUpdateInput,
+  ): Promise<EmailThread> {
     const providerId = await this.resolveActiveProviderId(userId);
+    if (!providerId)
+      throw new NotFoundException('No email providers connected');
 
-    const existing = await this.prisma.externalEmailMessage.findFirst({
-      where: { userId, providerId, OR: [{ threadId }, { externalMessageId: threadId }] },
-      orderBy: [{ internalDate: 'desc' }, { createdAt: 'desc' }],
-    });
+    const existing = await this.externalEmailMessageRepo
+      .createQueryBuilder('m')
+      .where('m.userId = :userId', { userId })
+      .andWhere('m.providerId = :providerId', { providerId })
+      .andWhere('(m.threadId = :threadId OR m.externalMessageId = :threadId)', {
+        threadId,
+      })
+      .orderBy('m.internalDate', 'DESC')
+      .addOrderBy('m.createdAt', 'DESC')
+      .getOne();
     if (!existing) throw new NotFoundException('Email not found');
 
     const key = existing.threadId || existing.externalMessageId;
@@ -527,7 +708,9 @@ export class UnifiedInboxService {
     }
 
     // Apply changes to Gmail (when provider is Gmail) and then persist local state.
-    const provider = await this.prisma.emailProvider.findFirst({ where: { id: providerId, userId } });
+    const provider = await this.emailProviderRepo.findOne({
+      where: { id: providerId, userId },
+    });
     const isGmail = provider?.type === 'GMAIL';
     if (isGmail && provider) {
       const accessToken = await this.ensureFreshGmailAccessToken(provider);
@@ -538,19 +721,24 @@ export class UnifiedInboxService {
             method: 'POST',
             url,
             headers: { Authorization: `Bearer ${accessToken}` },
-            data: { addLabelIds: Array.from(add), removeLabelIds: Array.from(remove) },
+            data: {
+              addLabelIds: Array.from(add),
+              removeLabelIds: Array.from(remove),
+            },
           },
           { userId, providerId, op: 'threads.modify' },
         );
         const apiMsgs = res?.messages || [];
         for (const gm of apiMsgs) {
           const labelIds = gm.labelIds || [];
-          await this.prisma.externalEmailMessage.updateMany({
-            where: { userId, providerId, externalMessageId: gm.id },
-            data: { labels: labelIds },
-          });
+          await this.externalEmailMessageRepo.update(
+            { userId, providerId, externalMessageId: gm.id },
+            { labels: labelIds },
+          );
         }
-        this.logger.log(`updateEmail gmail threads.modify user=${userId} provider=${providerId} thread=${existing.threadId} ok`);
+        this.logger.log(
+          `updateEmail gmail threads.modify user=${userId} provider=${providerId} thread=${existing.threadId} ok`,
+        );
       } else {
         const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(existing.externalMessageId)}/modify`;
         const res = await this.gmailRequest<any>(
@@ -558,16 +746,21 @@ export class UnifiedInboxService {
             method: 'POST',
             url,
             headers: { Authorization: `Bearer ${accessToken}` },
-            data: { addLabelIds: Array.from(add), removeLabelIds: Array.from(remove) },
+            data: {
+              addLabelIds: Array.from(add),
+              removeLabelIds: Array.from(remove),
+            },
           },
           { userId, providerId, op: 'messages.modify' },
         );
         const labelIds = res?.labelIds || [];
-        await this.prisma.externalEmailMessage.updateMany({
-          where: { userId, providerId, externalMessageId: existing.externalMessageId },
-          data: { labels: labelIds },
-        });
-        this.logger.log(`updateEmail gmail messages.modify user=${userId} provider=${providerId} message=${existing.externalMessageId} ok`);
+        await this.externalEmailMessageRepo.update(
+          { userId, providerId, externalMessageId: existing.externalMessageId },
+          { labels: labelIds },
+        );
+        this.logger.log(
+          `updateEmail gmail messages.modify user=${userId} provider=${providerId} message=${existing.externalMessageId} ok`,
+        );
       }
       return this.getThread(userId, key);
     }
@@ -577,24 +770,39 @@ export class UnifiedInboxService {
       ? { userId, providerId, threadId: existing.threadId }
       : { userId, providerId, externalMessageId: existing.externalMessageId };
 
-    const msgs = await this.prisma.externalEmailMessage.findMany({ where: targetWhere });
+    const msgs = await this.externalEmailMessageRepo.find({
+      where: targetWhere as any,
+    });
     for (const m of msgs) {
       const next = new Set(m.labels || []);
       for (const x of add) next.add(x);
       for (const x of remove) next.delete(x);
-      await this.prisma.externalEmailMessage.update({ where: { id: m.id }, data: { labels: Array.from(next) } });
+      await this.externalEmailMessageRepo.update(
+        { id: m.id },
+        { labels: Array.from(next) },
+      );
     }
 
-    this.logger.log(`updateEmail local user=${userId} provider=${providerId} thread=${key} add=${Array.from(add).join(',')} remove=${Array.from(remove).join(',')}`);
+    this.logger.log(
+      `updateEmail local user=${userId} provider=${providerId} thread=${key} add=${Array.from(add).join(',')} remove=${Array.from(remove).join(',')}`,
+    );
 
     return this.getThread(userId, key);
   }
 
   async listFolders(userId: string): Promise<EmailFolder[]> {
     const providerId = await this.resolveActiveProviderId(userId);
-    const msgs = await this.prisma.externalEmailMessage.findMany({
+    if (!providerId) {
+      return SYSTEM_FOLDERS.map((f) => ({
+        id: f.id,
+        name: f.name,
+        count: 0,
+        unreadCount: 0,
+      }));
+    }
+    const msgs = await this.externalEmailMessageRepo.find({
       where: { userId, providerId },
-      select: { labels: true },
+      select: { labels: true } as any,
     });
 
     const counts = new Map<string, { count: number; unread: number }>();
@@ -608,7 +816,7 @@ export class UnifiedInboxService {
       counts.set(folder, bucket);
     }
 
-    return SYSTEM_FOLDERS.map(f => ({
+    return SYSTEM_FOLDERS.map((f) => ({
       id: f.id,
       name: f.name,
       count: counts.get(f.id)?.count || 0,
@@ -618,14 +826,21 @@ export class UnifiedInboxService {
 
   async listLabels(userId: string): Promise<EmailLabel[]> {
     const providerId = await this.resolveActiveProviderId(userId);
+    if (!providerId) return [];
     const [msgs, meta] = await Promise.all([
-      this.prisma.externalEmailMessage.findMany({
+      this.externalEmailMessageRepo.find({
         where: { userId, providerId },
-        select: { labels: true },
+        select: { labels: true } as any,
       }),
-      this.prisma.externalEmailLabel.findMany({
+      this.externalEmailLabelRepo.find({
         where: { userId, providerId },
-        select: { externalLabelId: true, name: true, color: true, isSystem: true, type: true },
+        select: {
+          externalLabelId: true,
+          name: true,
+          color: true,
+          isSystem: true,
+          type: true,
+        } as any,
       }),
     ]);
 
@@ -634,13 +849,21 @@ export class UnifiedInboxService {
       for (const l of m.labels || []) counts.set(l, (counts.get(l) || 0) + 1);
     }
 
-    const metaById = new Map(meta.map(l => [l.externalLabelId, l]));
+    const metaById = new Map(meta.map((l) => [l.externalLabelId, l]));
 
     // Hide system labels from the UI label list; show only non-system or unknown labels.
-    const ids = Array.from(counts.keys()).filter(id => {
+    const ids = Array.from(counts.keys()).filter((id) => {
       const m = metaById.get(id);
       if (m?.isSystem) return false;
-      return !['INBOX', 'SENT', 'TRASH', 'SPAM', 'DRAFT', 'UNREAD', 'STARRED'].includes(id);
+      return ![
+        'INBOX',
+        'SENT',
+        'TRASH',
+        'SPAM',
+        'DRAFT',
+        'UNREAD',
+        'STARRED',
+      ].includes(id);
     });
 
     return ids.map((id, idx) => {
@@ -648,10 +871,11 @@ export class UnifiedInboxService {
       return {
         id,
         name: m?.name || id,
-        color: m?.color || ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][idx % 5],
+        color:
+          m?.color ||
+          ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][idx % 5],
         count: counts.get(id) || 0,
       };
     });
   }
 }
-

@@ -1,4 +1,4 @@
-import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, Context, Mutation, Query, Resolver, Int } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { EmailThread } from './entities/email-thread.entity';
@@ -29,13 +29,21 @@ export class UnifiedInboxResolver {
    */
   @Query(() => [EmailThread])
   async emails(
-    @Args('limit', { nullable: true }) limit: number | null,
-    @Args('offset', { nullable: true }) offset: number | null,
-    @Args('filter', { nullable: true }) filter: EmailFilterInput | null,
-    @Args('sort', { nullable: true }) sort: EmailSortInput | null,
+    @Args('limit', { type: () => Int, nullable: true }) limit: number,
+    @Args('offset', { type: () => Int, nullable: true }) offset: number,
+    @Args('filter', { type: () => EmailFilterInput, nullable: true })
+    filter: EmailFilterInput,
+    @Args('sort', { type: () => EmailSortInput, nullable: true })
+    sort: EmailSortInput,
     @Context() ctx: RequestContext,
   ) {
-    return this.unifiedInbox.listThreads(ctx.req.user.id, limit ?? 10, offset ?? 0, filter, sort);
+    return this.unifiedInbox.listThreads(
+      ctx.req.user.id,
+      limit ?? 10,
+      offset ?? 0,
+      filter,
+      sort,
+    );
   }
 
   /**
@@ -50,7 +58,11 @@ export class UnifiedInboxResolver {
    * Frontend contract: `updateEmail(id, input)` used by batch actions & detail.
    */
   @Mutation(() => EmailThread)
-  async updateEmail(@Args('id') id: string, @Args('input') input: EmailUpdateInput, @Context() ctx: RequestContext) {
+  async updateEmail(
+    @Args('id') id: string,
+    @Args('input') input: EmailUpdateInput,
+    @Context() ctx: RequestContext,
+  ) {
     return this.unifiedInbox.updateThread(ctx.req.user.id, id, input);
   }
 
@@ -64,4 +76,3 @@ export class UnifiedInboxResolver {
     return this.unifiedInbox.listLabels(ctx.req.user.id);
   }
 }
-
