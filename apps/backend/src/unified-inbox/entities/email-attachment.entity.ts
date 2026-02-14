@@ -17,4 +17,3 @@ export class EmailAttachment {
   @Field({ nullable: true })
   url?: string;
 }
-

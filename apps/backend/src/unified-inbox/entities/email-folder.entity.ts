@@ -14,4 +14,3 @@ export class EmailFolder {
   @Field()
   unreadCount: number;
 }
-

@@ -14,4 +14,3 @@ export class EmailLabel {
   @Field()
   count: number;
 }
-
