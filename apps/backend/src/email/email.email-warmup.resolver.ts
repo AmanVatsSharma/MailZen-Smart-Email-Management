@@ -41,7 +41,10 @@ export class EmailWarmupResolver {
     @Args('providerId') providerId: string,
     @Context() context: RequestContext,
   ) {
-    return this.emailWarmupService.getWarmupStatus(providerId, context.req.user.id);
+    return this.emailWarmupService.getWarmupStatus(
+      providerId,
+      context.req.user.id,
+    );
   }
 
   @Query(() => WarmupPerformanceMetrics)
@@ -61,4 +64,4 @@ export class EmailWarmupResolver {
   ) {
     return this.emailWarmupService.adjustWarmupStrategy(warmupId);
   }
-} 
+}
