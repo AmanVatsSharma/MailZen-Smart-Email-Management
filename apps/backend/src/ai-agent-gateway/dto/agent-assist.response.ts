@@ -1,13 +1,13 @@
 /**
-* File: apps/backend/src/ai-agent-gateway/dto/agent-assist.response.ts
-* Module: ai-agent-gateway
-* Purpose: GraphQL response contracts for agent assist mutation.
-* Author: Aman Sharma / Novologic/ Codex
-* Last-updated: 2026-02-14
-* Notes:
-* - Keeps payload frontend-friendly and transport-safe.
-* - Read AgentAssistResponse first.
-*/
+ * File: apps/backend/src/ai-agent-gateway/dto/agent-assist.response.ts
+ * Module: ai-agent-gateway
+ * Purpose: GraphQL response contracts for agent assist mutation.
+ * Author: Aman Sharma / Novologic/ Codex
+ * Last-updated: 2026-02-14
+ * Notes:
+ * - Keeps payload frontend-friendly and transport-safe.
+ * - Read AgentAssistResponse first.
+ */
 import { Field, Float, ObjectType } from '@nestjs/graphql';
 
 @ObjectType()

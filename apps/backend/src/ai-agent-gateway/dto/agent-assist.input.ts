@@ -55,6 +55,12 @@ export class AgentContextInput {
   @IsOptional()
   @IsEmail()
   email?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  metadataJson?: string;
 }
 
 @InputType()
