@@ -18,7 +18,7 @@ The Smart Replies module follows a clean architecture pattern with the following
 - **SmartReplyService**: Core business logic for generating replies
 - **SmartReplyResolver**: GraphQL API for exposing functionality
 - **DTOs**: Data Transfer Objects for input validation
-- **Prisma Integration**: Database access for storing conversation data
+- **TypeORM Integration**: Database-backed settings and conversation-related persistence
 
 ## API
 
@@ -91,6 +91,6 @@ export class EmailService {
 ## Dependencies
 
 - NestJS framework
-- Prisma ORM
+- TypeORM
 - GraphQL
 - Class Validator 

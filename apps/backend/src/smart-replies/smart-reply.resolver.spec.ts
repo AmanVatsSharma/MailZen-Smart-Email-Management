@@ -11,10 +11,16 @@ describe('SmartReplyResolver', () => {
 
   // Mock SmartReplyService
   const mockSmartReplyService = {
-    generateReply: jest.fn().mockImplementation(async (input) => 'Mocked smart reply'),
-    getSuggestedReplies: jest.fn().mockImplementation(async (emailBody, count) => 
-      Array(count).fill('').map((_, i) => `Suggestion ${i + 1}`)
-    ),
+    generateReply: jest
+      .fn()
+      .mockImplementation(async (input) => 'Mocked smart reply'),
+    getSuggestedReplies: jest
+      .fn()
+      .mockImplementation(async (emailBody, count) =>
+        Array(count)
+          .fill('')
+          .map((_, i) => `Suggestion ${i + 1}`),
+      ),
   };
 
   beforeEach(async () => {
@@ -23,7 +29,12 @@ describe('SmartReplyResolver', () => {
         SmartReplyResolver,
         { provide: SmartReplyService, useValue: mockSmartReplyService },
         JwtAuthGuard,
-        { provide: AuthService, useValue: { validateToken: jest.fn().mockReturnValue({ id: 'user-1' }) } },
+        {
+          provide: AuthService,
+          useValue: {
+            validateToken: jest.fn().mockReturnValue({ id: 'user-1' }),
+          },
+        },
       ],
     }).compile();
 
@@ -43,10 +54,10 @@ describe('SmartReplyResolver', () => {
     it('should call service.generateReply and return the result', async () => {
       // Arrange
       const input: SmartReplyInput = { conversation: 'Test conversation' };
-      
+
       // Act
       const result = await resolver.generateSmartReply(input);
-      
+
       // Assert
       expect(service.generateReply).toHaveBeenCalledWith(input);
       expect(result).toBe('Mocked smart reply');
@@ -58,24 +69,27 @@ describe('SmartReplyResolver', () => {
       // Arrange
       const emailBody = 'Test email body';
       const count = 3;
-      
+
       // Act
       const result = await resolver.getSuggestedReplies(emailBody, count);
-      
+
       // Assert
-      expect(service.getSuggestedReplies).toHaveBeenCalledWith(emailBody, count);
+      expect(service.getSuggestedReplies).toHaveBeenCalledWith(
+        emailBody,
+        count,
+      );
       expect(result).toEqual(['Suggestion 1', 'Suggestion 2', 'Suggestion 3']);
     });
 
     it('should use the default count when not explicitly provided', async () => {
       // Arrange
       const emailBody = 'Test email body';
-      
+
       // Act
       await resolver.getSuggestedReplies(emailBody, 3); // 3 is the default value
-      
+
       // Assert
       expect(service.getSuggestedReplies).toHaveBeenCalledWith(emailBody, 3);
     });
   });
-}); 
+});
