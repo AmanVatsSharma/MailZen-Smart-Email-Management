@@ -9,9 +9,7 @@ import { TemplateResolver } from './template.resolver';
  * Handles reusable email templates
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Template]),
-  ],
+  imports: [TypeOrmModule.forFeature([Template])],
   providers: [TemplateService, TemplateResolver],
   exports: [TemplateService],
 })

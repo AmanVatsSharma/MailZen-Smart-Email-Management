@@ -25,14 +25,18 @@ export class TemplateResolver {
   @Mutation(() => Template, { description: 'Create a new template' })
   @SetMetadata('roles', ['ADMIN'])
   @UseGuards(AdminGuard)
-  createTemplate(@Args('createTemplateInput') createTemplateInput: CreateTemplateInput): Template {
+  createTemplate(
+    @Args('createTemplateInput') createTemplateInput: CreateTemplateInput,
+  ): Template {
     return this.templateService.createTemplate(createTemplateInput);
   }
 
   @Mutation(() => Template, { description: 'Update a template' })
   @SetMetadata('roles', ['ADMIN'])
   @UseGuards(AdminGuard)
-  updateTemplate(@Args('updateTemplateInput') updateTemplateInput: UpdateTemplateInput): Template {
+  updateTemplate(
+    @Args('updateTemplateInput') updateTemplateInput: UpdateTemplateInput,
+  ): Template {
     return this.templateService.updateTemplate(updateTemplateInput);
   }
 
@@ -42,4 +46,4 @@ export class TemplateResolver {
   deleteTemplate(@Args('id') id: string): Template {
     return this.templateService.deleteTemplate(id);
   }
-} 
+}
