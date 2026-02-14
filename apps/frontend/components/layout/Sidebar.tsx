@@ -1,251 +1,276 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
-import {
-  LayoutDashboard,
-  Mail,
-  Users,
-  Filter,
-  Zap,
-  MessageSquareText,
-  Settings,
-  HelpCircle,
-  ChevronLeft,
-  Plus,
-  MailPlus,
-} from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { ChevronLeft, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { EmailNavigation } from '@/components/email/EmailNavigation';
+import type { EmailFolder } from '@/lib/email/email-types';
+import {
+  getSectionFromPathname,
+  isRouteActive,
+  mailFolderRoutes,
+  normalizePathname,
+  primaryNavItems,
+  secondaryPanelBySection,
+  type DashboardSectionId,
+  type PrimaryNavItem,
+  type RouteLink,
+} from './dashboard-nav.config';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose?: () => void;
 }
 
-const sidebarVariants = {
-  open: {
-    width: '240px',
-    transition: {
-      type: 'spring',
-      stiffness: 300,
-      damping: 30,
-    },
-  },
-  closed: {
-    width: '0px',
-    transition: {
-      type: 'spring',
-      stiffness: 300,
-      damping: 30,
-    },
-  },
+const iconRailButtonClass =
+  'h-11 w-11 rounded-xl border border-transparent text-muted-foreground transition-all hover:border-primary/20 hover:bg-primary/10 hover:text-primary';
+
+const folderFromPath = (pathname: string): EmailFolder => {
+  const normalized = normalizePathname(pathname);
+  const value = normalized.replace('/', '');
+
+  if (
+    value === 'inbox' ||
+    value === 'sent' ||
+    value === 'archive' ||
+    value === 'trash'
+  ) {
+    return value;
+  }
+
+  return 'inbox';
+};
+
+const SectionLinkItem = ({
+  item,
+  pathname,
+  onSelect,
+}: {
+  item: RouteLink;
+  pathname: string;
+  onSelect?: () => void;
+}) => {
+  const active = isRouteActive(pathname, item.href);
+
+  return (
+    <Link
+      href={item.href}
+      onClick={onSelect}
+      className={cn(
+        'block rounded-xl border px-3 py-2.5 transition-colors',
+        active
+          ? 'border-primary/35 bg-primary/10 text-primary'
+          : 'border-border/70 bg-background/25 text-foreground hover:bg-accent',
+      )}
+    >
+      <p className="text-sm font-medium">{item.label}</p>
+      {item.description ? (
+        <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
+      ) : null}
+    </Link>
+  );
+};
+
+const PrimaryRail = ({
+  activeSection,
+  onPrimarySelect,
+}: {
+  activeSection: DashboardSectionId;
+  onPrimarySelect: (item: PrimaryNavItem) => void;
+}) => {
+  return (
+    <div className="flex w-[76px] flex-col items-center border-r border-border/70 bg-background/90 px-3 py-4">
+      <Link href="/" className="mb-6 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+        <span className="text-sm font-bold">M</span>
+      </Link>
+
+      <div className="flex flex-1 flex-col items-center gap-2">
+        {primaryNavItems.map((item) => {
+          const Icon = item.icon as LucideIcon;
+          const active = item.id === activeSection;
+
+          return (
+            <Button
+              key={item.id}
+              type="button"
+              variant="ghost"
+              size="icon"
+              title={item.label}
+              aria-label={item.label}
+              onClick={() => onPrimarySelect(item)}
+              className={cn(
+                iconRailButtonClass,
+                active && 'border-primary/40 bg-primary/15 text-primary shadow-sm',
+              )}
+            >
+              <Icon className="h-5 w-5" />
+            </Button>
+          );
+        })}
+      </div>
+    </div>
+  );
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '/';
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const mainNavItems = [
-    {
-      title: 'Dashboard',
-      href: '/',
-      icon: <LayoutDashboard className="h-5 w-5" />,
-    },
-    {
-      title: 'Inbox',
-      href: '/inbox',
-      icon: <Mail className="h-5 w-5" />,
-      badge: 12,
-    },
-    {
-      title: 'Email Providers',
-      href: '/email-providers',
-      icon: <MailPlus className="h-5 w-5" />,
-    },
-    {
-      title: 'Contacts',
-      href: '/contacts',
-      icon: <Users className="h-5 w-5" />,
-    },
-    {
-      title: 'Filters',
-      href: '/filters',
-      icon: <Filter className="h-5 w-5" />,
-    },
-    {
-      title: 'Warmup',
-      href: '/warmup',
-      icon: <Zap className="h-5 w-5" />,
-    },
-    {
-      title: 'Smart Replies',
-      href: '/smart-replies',
-      icon: <MessageSquareText className="h-5 w-5" />,
-    },
-  ];
+  const routeSection = useMemo(() => getSectionFromPathname(pathname), [pathname]);
+  const [activeSection, setActiveSection] = useState<DashboardSectionId>(routeSection);
 
-  const utilityNavItems = [
-    {
-      title: 'Settings',
-      href: '/settings',
-      icon: <Settings className="h-5 w-5" />,
-    },
-    {
-      title: 'Help & Support',
-      href: '/help',
-      icon: <HelpCircle className="h-5 w-5" />,
-    },
-  ];
+  useEffect(() => {
+    setActiveSection(routeSection);
+  }, [routeSection]);
+
+  const currentFolder = useMemo<EmailFolder>(() => {
+    const requestedFolder = searchParams.get('folder');
+    if (
+      requestedFolder === 'inbox' ||
+      requestedFolder === 'sent' ||
+      requestedFolder === 'archive' ||
+      requestedFolder === 'trash' ||
+      requestedFolder === 'drafts' ||
+      requestedFolder === 'spam'
+    ) {
+      return requestedFolder;
+    }
+
+    return folderFromPath(pathname);
+  }, [pathname, searchParams]);
+
+  const currentLabel = searchParams.get('label') ?? undefined;
+  const activeSecondaryPanel = secondaryPanelBySection[activeSection];
+
+  const handlePrimarySelect = (item: PrimaryNavItem) => {
+    setActiveSection(item.id);
+    router.push(item.href);
+  };
+
+  const closeMobileDrawer = () => {
+    onClose?.();
+  };
+
+  const handleFolderSelect = (folder: EmailFolder) => {
+    if (mailFolderRoutes.has(`/${folder}`)) {
+      router.push(`/${folder}`);
+      closeMobileDrawer();
+      return;
+    }
+
+    const nextParams = new URLSearchParams();
+    nextParams.set('folder', folder);
+    router.push(`/inbox?${nextParams.toString()}`);
+    closeMobileDrawer();
+  };
+
+  const handleLabelSelect = (labelId: string) => {
+    const nextParams = new URLSearchParams();
+    nextParams.set('label', labelId);
+    const currentRoute = normalizePathname(pathname);
+    const baseRoute = mailFolderRoutes.has(currentRoute) ? currentRoute : '/inbox';
+    router.push(`${baseRoute}?${nextParams.toString()}`);
+    closeMobileDrawer();
+  };
+
+  const renderSecondaryPanel = (isMobile: boolean) => {
+    if (activeSection === 'mail') {
+      return (
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="border-b border-border/70 px-4 py-3">
+            <p className="text-sm font-semibold">{activeSecondaryPanel.title}</p>
+            <p className="text-xs text-muted-foreground">{activeSecondaryPanel.description}</p>
+          </div>
+          <div className="min-h-0 flex-1">
+            <EmailNavigation
+              currentFolder={currentFolder}
+              onFolderSelect={handleFolderSelect}
+              currentLabel={currentLabel}
+              onLabelSelect={handleLabelSelect}
+              showCompose={false}
+              className="h-full"
+            />
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="border-b border-border/70 px-4 py-3">
+          <p className="text-sm font-semibold">{activeSecondaryPanel.title}</p>
+          <p className="text-xs text-muted-foreground">{activeSecondaryPanel.description}</p>
+        </div>
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="space-y-2 p-3">
+            {activeSecondaryPanel.links.map((item) => (
+              <SectionLinkItem
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                onSelect={isMobile ? closeMobileDrawer : undefined}
+              />
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
+    );
+  };
 
   return (
-    <motion.div
-      className={cn(
-        // Premium glass sidebar (kept rectangular for edge-to-edge shell alignment).
-        'fixed inset-y-0 left-0 z-40 flex flex-col border-r bg-background/65 backdrop-blur-xl lg:relative',
-        isOpen ? 'w-60' : 'w-0 lg:w-60'
-      )}
-      variants={sidebarVariants}
-      initial={false}
-      animate={isOpen ? 'open' : 'closed'}
-    >
-      <div className="flex h-16 items-center justify-between px-4 py-4">
-        <Link href="/" className="flex items-center gap-2">
-          <motion.div 
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-purple-600 text-white font-bold"
-            whileHover={{ 
-              scale: 1.05,
-              boxShadow: "0 0 15px rgba(124, 58, 237, 0.5)"
-            }}
-          >
-            M
-          </motion.div>
-          <motion.span 
-            className="text-xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            MailZen
-          </motion.span>
-        </Link>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="lg:hidden"
-          onClick={onClose}
-          aria-label="Close sidebar"
-          type="button"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </Button>
-      </div>
-
-      <div className="px-3 py-2">
-        <Button variant="premium" className="w-full justify-start gap-2 shadow-lg">
-          <Plus className="h-4 w-4" />
-          <span>New Email</span>
-        </Button>
-      </div>
-
-      <ScrollArea className="flex-1 py-2">
-        <div className="px-3 py-2">
-          <div className="text-xs font-semibold text-muted-foreground pl-4 mb-2">Main</div>
-          <nav className="grid gap-1">
-            {mainNavItems.map((item, index) => (
-              <motion.div
-                key={item.href}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 * index, duration: 0.3 }}
-              >
-                <Link
-                  href={item.href}
-                  onClick={onClose}
-                  className={cn(
-                    'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-all',
-                    pathname === item.href
-                      ? 'bg-gradient-to-r from-primary/10 to-primary/5 text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  <motion.div
-                    whileHover={{ scale: 1.1 }}
-                    className={cn(
-                      'transition-colors',
-                      pathname === item.href ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
-                    )}
-                  >
-                    {item.icon}
-                  </motion.div>
-                  <span>{item.title}</span>
-                  {item.badge && (
-                    <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              </motion.div>
-            ))}
-          </nav>
+    <>
+      <aside className="hidden h-full border-r border-border/70 bg-background/60 backdrop-blur-xl lg:flex">
+        <PrimaryRail activeSection={activeSection} onPrimarySelect={handlePrimarySelect} />
+        <div className="w-[296px] min-w-[296px] bg-background/40">
+          {renderSecondaryPanel(false)}
         </div>
+      </aside>
 
-        <div className="px-3 py-2">
-          <div className="text-xs font-semibold text-muted-foreground pl-4 mb-2">Utility</div>
-          <nav className="grid gap-1">
-            {utilityNavItems.map((item, index) => (
-              <motion.div
-                key={item.href}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 + 0.1 * index, duration: 0.3 }}
-              >
-                <Link
-                  href={item.href}
-                  onClick={onClose}
-                  className={cn(
-                    'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-all',
-                    pathname === item.href
-                      ? 'bg-gradient-to-r from-primary/10 to-primary/5 text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
+      <Sheet
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeMobileDrawer();
+          }
+        }}
+      >
+        <SheetContent side="left" className="w-[92vw] max-w-[420px] p-0 lg:hidden">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Navigation</SheetTitle>
+            <SheetDescription>Primary and secondary dashboard navigation</SheetDescription>
+          </SheetHeader>
+          <div className="flex h-full min-h-0 bg-background">
+            <PrimaryRail activeSection={activeSection} onPrimarySelect={handlePrimarySelect} />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <div className="flex h-14 items-center justify-end border-b border-border/70 px-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={closeMobileDrawer}
+                  aria-label="Close navigation"
                 >
-                  <motion.div
-                    whileHover={{ scale: 1.1 }}
-                    className={cn(
-                      'transition-colors',
-                      pathname === item.href ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
-                    )}
-                  >
-                    {item.icon}
-                  </motion.div>
-                  <span>{item.title}</span>
-                </Link>
-              </motion.div>
-            ))}
-          </nav>
-        </div>
-      </ScrollArea>
-
-      <div className="mt-auto p-4">
-        <motion.div 
-          className="rounded-lg border bg-card/50 backdrop-blur-sm p-4 shadow-sm"
-          whileHover={{ y: -2, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}
-        >
-          <div className="flex items-center gap-4">
-            <div className="rounded-full bg-primary/10 p-1">
-              <Zap className="h-5 w-5 text-primary" />
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Upgrade to Pro</p>
-              <p className="text-xs text-muted-foreground">Get more features</p>
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+              </div>
+              <div className="min-h-0 flex-1">{renderSecondaryPanel(true)}</div>
             </div>
           </div>
-        </motion.div>
-      </div>
-    </motion.div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 };
 

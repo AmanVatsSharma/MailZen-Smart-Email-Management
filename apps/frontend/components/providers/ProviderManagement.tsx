@@ -1,14 +1,14 @@
 'use client'
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Trash2, RefreshCw, Settings, AlertCircle, CheckCircle, Mail } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Settings, Mail } from 'lucide-react';
 import { useQuery, useMutation } from '@apollo/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ProviderWizard } from './ProviderWizard';
-import { EmailProvider, Provider, ProviderStatus } from '@/lib/providers/provider-utils';
+import { EmailProvider, Provider } from '@/lib/providers/provider-utils';
 import { 
   GET_PROVIDERS, 
   DISCONNECT_PROVIDER, 
@@ -24,6 +24,8 @@ export function ProviderManagement() {
   // Fetch providers
   const { data, loading, error, refetch } = useQuery(GET_PROVIDERS);
   const providers = data?.providers || [];
+  void loading;
+  void error;
 
   // Fetch MailZen mailbox list
   const { data: mailboxData } = useQuery(gql`{ myMailboxes }`);
@@ -44,6 +46,10 @@ export function ProviderManagement() {
   const [syncProvider, { loading: syncLoading }] = useMutation(SYNC_PROVIDER, {
     onCompleted: () => refetch()
   });
+
+  // Keep loading flags wired for future UX improvements; suppress unused-var lint for now.
+  void disconnectLoading;
+  void syncLoading;
 
   // Add a new provider
   const handleAddProvider = () => {
@@ -159,7 +165,7 @@ export function ProviderManagement() {
             <Mail className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No Email Providers Connected</h3>
             <p className="text-muted-foreground mb-4">
-              Connect your email providers to start using MailZen's features
+              Connect your email providers to start using MailZen&apos;s features
             </p>
             <Button onClick={handleAddProvider}>
               <Plus className="mr-2 h-4 w-4" /> Add Provider

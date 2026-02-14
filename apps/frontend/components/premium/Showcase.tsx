@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React from 'react';
+import { motion, type Variants } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage, PremiumAvatar } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, PremiumAvatar } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -30,7 +30,7 @@ import {
   Paperclip
 } from 'lucide-react';
 
-const container = {
+const container: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -41,7 +41,7 @@ const container = {
   },
 };
 
-const item = {
+const item: Variants = {
   hidden: { opacity: 0, y: 20 },
   show: { 
     opacity: 1, 
@@ -617,7 +617,7 @@ export default function PremiumShowcase() {
                   className="placeholder-content text-muted-foreground"
                 >
                   <p>Dear Marketing Team,</p>
-                  <p className="mt-2">I've prepared a detailed proposal for our Q4 marketing strategy. The document outlines our key objectives, target audiences, and proposed budget allocation for the upcoming campaigns.</p>
+                  <p className="mt-2">I&apos;ve prepared a detailed proposal for our Q4 marketing strategy. The document outlines our key objectives, target audiences, and proposed budget allocation for the upcoming campaigns.</p>
                   <p className="mt-2">Looking forward to discussing this during our meeting on Friday.</p>
                   <p className="mt-4">Best regards,<br />Alex</p>
                 </motion.div>
