@@ -16,6 +16,7 @@ import {
 import { Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
+import { NotificationService } from '../notification/notification.service';
 import { User } from '../user/entities/user.entity';
 import { AgentAssistInput } from './dto/agent-assist.input';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
@@ -28,6 +29,7 @@ describe('AiAgentGatewayService', () => {
   const createVerificationTokenMock = jest.fn();
   const findOneMock = jest.fn();
   const findExternalMessagesMock = jest.fn();
+  const createNotificationMock = jest.fn();
 
   const authService = {
     createVerificationToken: createVerificationTokenMock,
@@ -43,12 +45,16 @@ describe('AiAgentGatewayService', () => {
   const externalEmailMessageRepo = {
     find: findExternalMessagesMock,
   } as unknown as Pick<Repository<ExternalEmailMessage>, 'find'>;
+  const notificationService = {
+    createNotification: createNotificationMock,
+  } as unknown as Pick<NotificationService, 'createNotification'>;
 
   const createService = () =>
     new AiAgentGatewayService(
       authService as AuthService,
       userRepo as Repository<User>,
       externalEmailMessageRepo as Repository<ExternalEmailMessage>,
+      notificationService as NotificationService,
     );
 
   beforeEach(() => {
@@ -320,5 +326,63 @@ describe('AiAgentGatewayService', () => {
     expect(response.executedAction?.executed).toBe(true);
     expect(response.executedAction?.message).toContain('Draft reply');
     expect(response.executedAction?.message).toContain('Vendor onboarding');
+  });
+
+  it('schedules follow-up reminder action when suggested and requested', async () => {
+    const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'inbox',
+        assistantText: 'I can schedule a follow-up reminder.',
+        intent: 'followup',
+        confidence: 0.9,
+        suggestedActions: [
+          {
+            name: 'inbox.schedule_followup',
+            label: 'Schedule follow-up',
+            payload: {},
+          },
+        ],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+    createNotificationMock.mockResolvedValueOnce({
+      id: 'notif-followup-1',
+    });
+
+    const response = await service.assist(
+      {
+        skill: 'inbox',
+        messages: [
+          { role: 'user', content: 'Remind me to follow up tomorrow.' },
+        ],
+        context: {
+          surface: 'inbox',
+          locale: 'en-IN',
+          metadataJson: JSON.stringify({
+            threadId: 'thread-111',
+            followupAtIso: '2026-02-16T10:00:00.000Z',
+          }),
+        },
+        allowedActions: ['inbox.schedule_followup'],
+        requestedAction: 'inbox.schedule_followup',
+        executeRequestedAction: true,
+      },
+      {
+        requestId: 'req-followup-1',
+        headers: { authorization: 'Bearer token-1' },
+      },
+    );
+
+    expect(createNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        type: 'AGENT_ACTION_REQUIRED',
+      }),
+    );
+    expect(response.executedAction?.executed).toBe(true);
+    expect(response.executedAction?.message).toContain('Follow-up reminder');
   });
 });

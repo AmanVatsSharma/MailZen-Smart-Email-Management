@@ -24,6 +24,7 @@ import { createClient, RedisClientType } from 'redis';
 import { Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
+import { NotificationService } from '../notification/notification.service';
 import { User } from '../user/entities/user.entity';
 import { AgentAssistInput, AgentMessageInput } from './dto/agent-assist.input';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
@@ -131,11 +132,13 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       allowedActions: new Set([
         'inbox.summarize_thread',
         'inbox.compose_reply_draft',
+        'inbox.schedule_followup',
         'inbox.open_thread',
       ]),
       serverExecutableActions: new Set([
         'inbox.summarize_thread',
         'inbox.compose_reply_draft',
+        'inbox.schedule_followup',
       ]),
     },
   };
@@ -146,6 +149,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     private readonly userRepo: Repository<User>,
     @InjectRepository(ExternalEmailMessage)
     private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -767,6 +771,41 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         action: requestedAction,
         executed: true,
         message: draft,
+      };
+    }
+
+    if (requestedAction === 'inbox.schedule_followup') {
+      if (!userId) {
+        throw new BadRequestException(
+          'Authenticated user is required for follow-up scheduling action',
+        );
+      }
+
+      const metadata = this.parseContextMetadata(input.context?.metadataJson);
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        '';
+      const followupAtIso = metadata.followupAt || metadata.followupAtIso;
+      const followupLabel = followupAtIso || 'the requested time';
+
+      await this.notificationService.createNotification({
+        userId,
+        type: 'AGENT_ACTION_REQUIRED',
+        title: 'Follow-up reminder scheduled',
+        message: `MailZen AI scheduled a follow-up reminder for ${followupLabel}.`,
+        metadata: {
+          threadId: threadId || undefined,
+          followupAt: followupAtIso || undefined,
+          sourceAction: requestedAction,
+        },
+      });
+
+      return {
+        action: requestedAction,
+        executed: true,
+        message: `Follow-up reminder scheduled for ${followupLabel}.`,
       };
     }
 

@@ -11,12 +11,16 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
+import { NotificationModule } from '../notification/notification.module';
 import { User } from '../user/entities/user.entity';
 import { AiAgentGatewayResolver } from './ai-agent-gateway.resolver';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, ExternalEmailMessage])],
+  imports: [
+    TypeOrmModule.forFeature([User, ExternalEmailMessage]),
+    NotificationModule,
+  ],
   providers: [AiAgentGatewayResolver, AiAgentGatewayService],
   exports: [AiAgentGatewayService],
 })
