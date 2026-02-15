@@ -42,6 +42,17 @@ type GmailLabelsResponse = {
   }[];
 };
 
+type GmailHistoryResponse = {
+  historyId?: string;
+  history?: Array<{
+    id?: string;
+    messages?: Array<{ id: string; threadId?: string }>;
+    messagesAdded?: Array<{
+      message?: { id: string; threadId?: string };
+    }>;
+  }>;
+};
+
 @Injectable()
 export class GmailSyncService {
   private readonly logger = new Logger(GmailSyncService.name);
@@ -156,11 +167,102 @@ export class GmailSyncService {
     }
   }
 
+  private async getLatestGmailHistoryId(
+    accessToken: string,
+  ): Promise<string | null> {
+    try {
+      const profile = await axios.get<{ historyId?: string }>(
+        'https://gmail.googleapis.com/gmail/v1/users/me/profile',
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      return profile.data.historyId || null;
+    } catch (e: any) {
+      this.logger.warn(
+        `Failed to read Gmail profile historyId: ${e?.message || e}`,
+      );
+      return null;
+    }
+  }
+
+  private async listMessageIdsForSync(input: {
+    accessToken: string;
+    maxMessages: number;
+    startHistoryId?: string | null;
+  }): Promise<{
+    ids: Array<{ id: string; threadId?: string }>;
+    mode: 'history' | 'full';
+    historyId: string | null;
+  }> {
+    const listUrl = 'https://gmail.googleapis.com/gmail/v1/users/me/messages';
+    const historyUrl = 'https://gmail.googleapis.com/gmail/v1/users/me/history';
+    const seen = new Set<string>();
+    const ids: Array<{ id: string; threadId?: string }> = [];
+
+    if (input.startHistoryId) {
+      try {
+        const history = await axios.get<GmailHistoryResponse>(historyUrl, {
+          headers: { Authorization: `Bearer ${input.accessToken}` },
+          params: {
+            startHistoryId: input.startHistoryId,
+            maxResults: input.maxMessages,
+            historyTypes: ['messageAdded', 'labelAdded', 'labelRemoved'],
+          },
+        });
+
+        for (const entry of history.data.history || []) {
+          for (const message of entry.messages || []) {
+            if (!message.id || seen.has(message.id)) continue;
+            seen.add(message.id);
+            ids.push({ id: message.id, threadId: message.threadId });
+          }
+          for (const added of entry.messagesAdded || []) {
+            const message = added.message;
+            if (!message?.id || seen.has(message.id)) continue;
+            seen.add(message.id);
+            ids.push({ id: message.id, threadId: message.threadId });
+          }
+        }
+
+        return {
+          ids,
+          mode: 'history',
+          historyId: history.data.historyId || null,
+        };
+      } catch (e: any) {
+        const status = e?.response?.status;
+        if (status === 404) {
+          this.logger.warn(
+            `Gmail history cursor expired provider startHistoryId=${input.startHistoryId}; falling back to full sync`,
+          );
+        } else {
+          this.logger.warn(
+            `Gmail history lookup failed (${status ?? 'n/a'}): ${e?.message || e}. Falling back to full sync`,
+          );
+        }
+      }
+    }
+
+    const list = await axios.get<GmailListResponse>(listUrl, {
+      headers: { Authorization: `Bearer ${input.accessToken}` },
+      params: { maxResults: input.maxMessages },
+    });
+    for (const message of list.data.messages || []) {
+      if (!message.id || seen.has(message.id)) continue;
+      seen.add(message.id);
+      ids.push({ id: message.id, threadId: message.threadId });
+    }
+    return { ids, mode: 'full', historyId: null };
+  }
+
   /**
-   * Sync recent Gmail messages into `ExternalEmailMessage`.
+   * Sync Gmail messages into `ExternalEmailMessage`.
    *
-   * MVP strategy: fetch the latest N message IDs, then fetch metadata for each.
-   * This is safe/idempotent via a unique constraint (providerId, externalMessageId).
+   * Strategy:
+   * - Prefer incremental sync using stored `gmailHistoryId`.
+   * - Fall back to full list sync when no cursor exists (or cursor expired).
+   * - Upsert is idempotent via unique (providerId, externalMessageId).
    */
   async syncGmailProvider(
     providerId: string,
@@ -187,16 +289,12 @@ export class GmailSyncService {
     // Best-effort label metadata sync (for UI label rendering).
     await this.syncGmailLabels(providerId, userId, accessToken);
 
-    const listUrl = 'https://gmail.googleapis.com/gmail/v1/users/me/messages';
-    const list = await axios.get<GmailListResponse>(listUrl, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      params: { maxResults: maxMessages },
+    const syncBatch = await this.listMessageIdsForSync({
+      accessToken,
+      maxMessages,
+      startHistoryId: provider.gmailHistoryId || null,
     });
-
-    const ids = (list.data.messages || []).map((m) => ({
-      id: m.id,
-      threadId: m.threadId,
-    }));
+    const ids = syncBatch.ids;
     let imported = 0;
 
     for (const msg of ids) {
@@ -255,13 +353,20 @@ export class GmailSyncService {
       }
     }
 
+    const latestHistoryId =
+      syncBatch.historyId || (await this.getLatestGmailHistoryId(accessToken));
+
     await this.emailProviderRepo.update(
       { id: providerId },
-      { lastSyncedAt: new Date(), status: 'connected' },
+      {
+        lastSyncedAt: new Date(),
+        status: 'connected',
+        gmailHistoryId: latestHistoryId || provider.gmailHistoryId,
+      },
     );
 
     this.logger.log(
-      `Finished Gmail sync provider=${providerId} imported=${imported}`,
+      `Finished Gmail sync provider=${providerId} mode=${syncBatch.mode} imported=${imported} historyId=${latestHistoryId || 'n/a'}`,
     );
     return { imported };
   }

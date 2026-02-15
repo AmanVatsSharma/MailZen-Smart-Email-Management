@@ -8,6 +8,7 @@ This module stores messages in `ExternalEmailMessage` (TypeORM entity) and suppo
 - trigger sync
 - fetch synced messages (legacy list API)
 - sync provider label metadata (for UI labels)
+- incremental sync using stored Gmail `historyId` cursor with fallback to full sync
 
 ## Required Google scopes
 
@@ -29,6 +30,13 @@ Notes:
 ## Label metadata sync
 
 On each `syncGmailProvider`, we best-effort sync Gmail labels into `ExternalEmailLabel` so the UI can render human label names and colors.
+
+## Incremental cursor behavior
+
+- `EmailProvider.gmailHistoryId` is used as the preferred sync cursor.
+- If cursor is present, sync calls Gmail `users.history.list` and imports changed message IDs.
+- If cursor is missing or expired (e.g. history 404), service falls back to full `messages.list` sync.
+- After each successful sync, provider cursor is refreshed from Gmail response/profile history id.
 
 ## Mermaid: provider sync
 

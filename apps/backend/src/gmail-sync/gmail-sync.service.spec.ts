@@ -91,4 +91,69 @@ describe('GmailSyncService', () => {
       { status: 'syncing' },
     );
   });
+
+  it('uses gmail history cursor for incremental sync when available', async () => {
+    emailProviderRepo.findOne.mockResolvedValue({
+      id: providerId,
+      userId,
+      type: 'GMAIL',
+      accessToken: 'token',
+      refreshToken: null,
+      tokenExpiry: null,
+      gmailHistoryId: 'hist-1',
+    } as any);
+    (axios.get as any).mockImplementation((url: string) => {
+      if (url.endsWith('/labels')) {
+        return Promise.resolve({
+          data: { labels: [{ id: 'LBL_1', name: 'Work', type: 'user' }] },
+        });
+      }
+      if (url.endsWith('/history')) {
+        return Promise.resolve({
+          data: {
+            historyId: 'hist-2',
+            history: [
+              {
+                messagesAdded: [
+                  {
+                    message: { id: 'msg-2', threadId: 'thread-2' },
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      }
+      if (url.includes('/messages/')) {
+        return Promise.resolve({
+          data: {
+            id: 'msg-2',
+            threadId: 'thread-2',
+            labelIds: ['INBOX', 'UNREAD'],
+            snippet: 'incremental',
+            internalDate: String(Date.now()),
+            payload: {
+              headers: [
+                { name: 'From', value: 'Bob <bob@example.com>' },
+                { name: 'To', value: 'you@example.com' },
+                { name: 'Subject', value: 'Incremental' },
+              ],
+            },
+          },
+        });
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await service.syncGmailProvider(providerId, userId, 10);
+
+    expect(result).toEqual({ imported: 1 });
+    expect(emailProviderRepo.update).toHaveBeenCalledWith(
+      { id: providerId },
+      expect.objectContaining({
+        status: 'connected',
+        gmailHistoryId: 'hist-2',
+      }),
+    );
+  });
 });
