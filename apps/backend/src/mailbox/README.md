@@ -34,6 +34,7 @@ This module covers:
   - validates webhook auth token + payload and stores inbound message rows
 - `mailbox-inbound.service.ts`
   - resolves mailbox owner/workspace
+  - enforces mailbox status/quota guardrails before persisting
   - persists inbound payload in `emails` table with `status=NEW`
   - updates mailbox `usedBytes`
   - emits `MAILBOX_INBOUND` notification metadata context
@@ -91,6 +92,9 @@ flowchart TD
 - If `SECRETS_KEY` is missing/short:
   - production: throws `InternalServerErrorException`
   - non-production: logs warning and uses local fallback key
+- If inbound target mailbox is suspended or exceeds quota:
+  - throws `BadRequestException`
+  - inbound email is not persisted
 
 ## Notes
 

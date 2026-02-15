@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/unbound-method */
-import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Repository, UpdateResult } from 'typeorm';
 import { Email } from '../email/entities/email.entity';
 import { UserNotification } from '../notification/entities/user-notification.entity';
@@ -56,6 +60,8 @@ describe('MailboxInboundService', () => {
       workspaceId: 'workspace-1',
       email: 'sales@mailzen.com',
       usedBytes: '120',
+      status: 'ACTIVE',
+      quotaLimitMb: 51200,
     } as Mailbox);
     emailRepo.create.mockImplementation((payload) => payload as Email);
     emailRepo.save.mockResolvedValue({
@@ -81,7 +87,10 @@ describe('MailboxInboundService', () => {
         messageId: '<msg-1@example.com>',
         sizeBytes: '200',
       },
-      { inboundTokenHeader: 'test-inbound-token' },
+      {
+        inboundTokenHeader: 'test-inbound-token',
+        sourceIp: '127.0.0.1',
+      },
     );
 
     expect(emailRepo.save).toHaveBeenCalledWith(
@@ -102,6 +111,7 @@ describe('MailboxInboundService', () => {
           mailboxId: 'mailbox-1',
           workspaceId: 'workspace-1',
           sizeBytes: '200',
+          sourceIp: '127.0.0.1',
         }),
       }),
     );
@@ -142,5 +152,56 @@ describe('MailboxInboundService', () => {
         { inboundTokenHeader: 'test-inbound-token' },
       ),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('rejects inbound payload when mailbox is suspended', async () => {
+    mailboxRepo.findOne.mockResolvedValue({
+      id: 'mailbox-1',
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      email: 'sales@mailzen.com',
+      usedBytes: '120',
+      status: 'SUSPENDED',
+      quotaLimitMb: 51200,
+    } as Mailbox);
+
+    await expect(
+      service.ingestInboundEvent(
+        {
+          mailboxEmail: 'sales@mailzen.com',
+          from: 'lead@example.com',
+          subject: 'New lead',
+          textBody: 'Hello',
+        },
+        { inboundTokenHeader: 'test-inbound-token' },
+      ),
+    ).rejects.toThrow(BadRequestException);
+    expect(emailRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects inbound payload when mailbox quota is exceeded', async () => {
+    mailboxRepo.findOne.mockResolvedValue({
+      id: 'mailbox-1',
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      email: 'sales@mailzen.com',
+      usedBytes: (2n * 1024n * 1024n - 1n).toString(),
+      status: 'ACTIVE',
+      quotaLimitMb: 2,
+    } as Mailbox);
+
+    await expect(
+      service.ingestInboundEvent(
+        {
+          mailboxEmail: 'sales@mailzen.com',
+          from: 'lead@example.com',
+          subject: 'New lead',
+          textBody: 'This payload exceeds the remaining mailbox quota',
+          sizeBytes: '2048',
+        },
+        { inboundTokenHeader: 'test-inbound-token' },
+      ),
+    ).rejects.toThrow(BadRequestException);
+    expect(emailRepo.save).not.toHaveBeenCalled();
   });
 });

@@ -125,12 +125,42 @@ export class MailboxInboundService {
     currentValue: string | undefined,
     incomingSizeBytes: bigint,
   ): string {
+    const currentUsage = this.resolveCurrentMailboxUsageBytes(currentValue);
+    return (currentUsage + incomingSizeBytes).toString();
+  }
+
+  private resolveCurrentMailboxUsageBytes(currentValue?: string): bigint {
     try {
-      const currentUsage = BigInt(currentValue || '0');
-      return (currentUsage + incomingSizeBytes).toString();
+      const parsed = BigInt(currentValue || '0');
+      if (parsed < 0n) return 0n;
+      return parsed;
     } catch {
-      return incomingSizeBytes.toString();
+      return 0n;
     }
+  }
+
+  private assertMailboxWritable(
+    mailbox: Mailbox,
+    inboundSizeBytes: bigint,
+  ): void {
+    const normalizedStatus = String(mailbox.status || '')
+      .trim()
+      .toUpperCase();
+    if (normalizedStatus && normalizedStatus !== 'ACTIVE') {
+      throw new BadRequestException('Mailbox is not active');
+    }
+
+    const quotaLimitMb = Number(mailbox.quotaLimitMb || 0);
+    if (!Number.isFinite(quotaLimitMb) || quotaLimitMb <= 0) return;
+
+    const quotaLimitBytes = BigInt(Math.floor(quotaLimitMb)) * 1024n * 1024n;
+    const currentUsageBytes = this.resolveCurrentMailboxUsageBytes(
+      mailbox.usedBytes,
+    );
+    const nextUsageBytes = currentUsageBytes + inboundSizeBytes;
+    if (nextUsageBytes <= quotaLimitBytes) return;
+
+    throw new BadRequestException('Mailbox storage quota exceeded');
   }
 
   async ingestInboundEvent(
@@ -147,6 +177,9 @@ export class MailboxInboundService {
     if (!mailbox) {
       throw new NotFoundException('Mailbox not found for inbound webhook');
     }
+
+    const inboundSizeBytes = this.resolveApproximateSizeBytes(input);
+    this.assertMailboxWritable(mailbox, inboundSizeBytes);
 
     const subject = input.subject?.trim() || '(no subject)';
     const body = input.htmlBody?.trim() || input.textBody?.trim() || '';
@@ -170,7 +203,6 @@ export class MailboxInboundService {
       }),
     );
 
-    const inboundSizeBytes = this.resolveApproximateSizeBytes(input);
     const nextUsage = this.resolveNextMailboxUsageBytes(
       mailbox.usedBytes,
       inboundSizeBytes,
@@ -188,11 +220,12 @@ export class MailboxInboundService {
         workspaceId: mailbox.workspaceId || null,
         sizeBytes: inboundSizeBytes.toString(),
         messageId: input.messageId || null,
+        sourceIp: auth.sourceIp || null,
       },
     });
 
     this.logger.log(
-      `mailbox-inbound: accepted mailbox=${mailbox.email} emailId=${email.id}`,
+      `mailbox-inbound: accepted mailbox=${mailbox.email} emailId=${email.id} sourceIp=${auth.sourceIp || 'unknown'}`,
     );
 
     return {
