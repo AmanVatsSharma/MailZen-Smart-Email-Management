@@ -326,15 +326,18 @@ describe('NotificationService', () => {
 
     const findInput = notificationRepo.find.mock.calls[0]?.[0] as
       | {
-          where?: Record<string, unknown>;
+          where?: Record<string, unknown> | Array<Record<string, unknown>>;
           take?: number;
         }
       | undefined;
     expect(findInput?.take).toBe(5);
-    expect(findInput?.where?.userId).toBe('user-1');
-    expect(findInput?.where?.workspaceId).toBe('workspace-1');
-    expect(findInput?.where?.type).toBeDefined();
-    expect(findInput?.where?.createdAt).toBeDefined();
+    const whereEntries = Array.isArray(findInput?.where) ? findInput.where : [];
+    expect(whereEntries).toHaveLength(2);
+    expect(whereEntries[0]?.userId).toBe('user-1');
+    expect(whereEntries[0]?.workspaceId).toBe('workspace-1');
+    expect(whereEntries[0]?.type).toBeDefined();
+    expect(whereEntries[0]?.createdAt).toBeDefined();
+    expect(whereEntries[1]?.workspaceId).toBeDefined();
     expect(result).toHaveLength(1);
   });
 });

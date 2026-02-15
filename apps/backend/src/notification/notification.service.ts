@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, MoreThanOrEqual, Repository } from 'typeorm';
+import { In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
 import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
 import { UserNotification } from './entities/user-notification.entity';
@@ -316,6 +316,7 @@ export class NotificationService {
       normalizedSinceHours === null
         ? null
         : new Date(Date.now() - normalizedSinceHours * 60 * 60 * 1000);
+    const normalizedWorkspaceId = String(input.workspaceId || '').trim();
     const normalizedTypes = (input.types || [])
       .map((type) =>
         String(type || '')
@@ -323,18 +324,23 @@ export class NotificationService {
           .toUpperCase(),
       )
       .filter((type) => type.length > 0);
+    const baseWhere = {
+      userId: input.userId,
+      ...(input.unreadOnly ? { isRead: false } : {}),
+      ...(normalizedTypes.length ? { type: In(normalizedTypes) } : {}),
+      ...(createdAfterDate
+        ? { createdAt: MoreThanOrEqual(createdAfterDate) }
+        : {}),
+    };
+    const whereClause = normalizedWorkspaceId
+      ? [
+          { ...baseWhere, workspaceId: normalizedWorkspaceId },
+          { ...baseWhere, workspaceId: IsNull() },
+        ]
+      : baseWhere;
+
     return this.notificationRepo.find({
-      where: {
-        userId: input.userId,
-        ...(String(input.workspaceId || '').trim()
-          ? { workspaceId: String(input.workspaceId).trim() }
-          : {}),
-        ...(input.unreadOnly ? { isRead: false } : {}),
-        ...(normalizedTypes.length ? { type: In(normalizedTypes) } : {}),
-        ...(createdAfterDate
-          ? { createdAt: MoreThanOrEqual(createdAfterDate) }
-          : {}),
-      },
+      where: whereClause,
       order: { createdAt: 'DESC' },
       take: limit,
     });

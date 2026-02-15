@@ -18,6 +18,8 @@ Provide a persistent notification foundation for user-visible product events
 
 - `myNotifications(limit, unreadOnly, workspaceId?, sinceHours?, types?)` → list recent
   notifications (optional workspace/time-window/type filtering)
+  - workspace filtering returns both matching workspace notifications and
+    global (`workspaceId = null`) notifications for complete operational context.
 - `myUnreadNotificationCount` → unread badge count
 - `myNotificationPreferences` → get per-user notification channel settings
 - `markNotificationRead(id)` → marks one notification as read
