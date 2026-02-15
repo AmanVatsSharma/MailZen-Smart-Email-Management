@@ -17,6 +17,7 @@ Provide a persistent notification foundation for user-visible product events
 - Provide reusable `createNotification` API for other backend modules
 - Publish realtime notification stream events for in-app consumers
 - Send periodic unread-notification digest emails for users with email channel enabled
+- Deliver optional webhook callbacks for external automation consumers
 
 ## GraphQL API
 
@@ -47,6 +48,20 @@ Provide a persistent notification foundation for user-visible product events
     - matching workspace events
     - global events (`workspaceId = null`)
 
+## Webhook channel
+
+When configured, notification writes emit webhook callbacks with retries:
+
+- `MAILZEN_NOTIFICATION_WEBHOOK_URL`
+- `MAILZEN_NOTIFICATION_WEBHOOK_TOKEN` (optional bearer token)
+- `MAILZEN_NOTIFICATION_WEBHOOK_TIMEOUT_MS` (default `3000`)
+- `MAILZEN_NOTIFICATION_WEBHOOK_RETRIES` (default `2`)
+- `MAILZEN_NOTIFICATION_WEBHOOK_SIGNING_KEY` (optional HMAC SHA256 signature)
+
+Webhook event types:
+- `NOTIFICATION_CREATED`
+- `NOTIFICATIONS_MARKED_READ`
+
 ## Email digest scheduler
 
 - `NotificationDigestScheduler` runs hourly (`0 * * * *`).
@@ -75,6 +90,7 @@ Digest tuning env vars:
   - scheduler stores last alert status/timestamp to enforce cooldown and clear
     stale alert state on SLA recovery
 - `NotificationDigestScheduler` emits digest emails (mailer channel) for unread events
+- `NotificationWebhookService` emits external webhook callbacks for notification lifecycle events
 - Emission respects stored user preferences:
   - `inAppEnabled`
   - `syncFailureEnabled`
@@ -116,7 +132,9 @@ flowchart TD
   NotificationService --> Repo[(user_notifications table)]
   NotificationService --> RealtimeBus[(in-memory realtime event bus)]
   NotificationService --> DigestScheduler[Hourly unread digest scheduler]
+  NotificationService --> WebhookService[Notification webhook dispatcher]
   DigestScheduler --> Mailer[SMTP mailer channel]
+  WebhookService --> WebhookTarget[External webhook endpoint]
   RealtimeBus --> NotificationStream[notifications/stream SSE]
   UserUI[Authenticated frontend] --> NotificationResolver
   UserUI --> NotificationStream

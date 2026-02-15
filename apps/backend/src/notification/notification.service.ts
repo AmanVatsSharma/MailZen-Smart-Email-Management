@@ -5,6 +5,7 @@ import { In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
 import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
 import { UserNotification } from './entities/user-notification.entity';
+import { NotificationWebhookService } from './notification-webhook.service';
 
 type CreateNotificationInput = {
   userId: string;
@@ -50,6 +51,7 @@ export class NotificationService {
     private readonly notificationRepo: Repository<UserNotification>,
     @InjectRepository(UserNotificationPreference)
     private readonly notificationPreferenceRepo: Repository<UserNotificationPreference>,
+    private readonly notificationWebhookService: NotificationWebhookService,
   ) {}
 
   private getDefaultPreference(userId: string): UserNotificationPreference {
@@ -360,6 +362,9 @@ export class NotificationService {
       notificationId: savedNotification.id,
       notificationType: savedNotification.type,
     });
+    await this.notificationWebhookService.dispatchNotificationCreated(
+      savedNotification,
+    );
     return savedNotification;
   }
 
@@ -463,6 +468,11 @@ export class NotificationService {
       workspaceId: savedNotification.workspaceId || null,
       markedCount: 1,
     });
+    await this.notificationWebhookService.dispatchNotificationsMarkedRead({
+      userId: savedNotification.userId,
+      workspaceId: savedNotification.workspaceId || null,
+      markedCount: 1,
+    });
     return savedNotification;
   }
 
@@ -511,6 +521,11 @@ export class NotificationService {
     if (affectedCount > 0) {
       this.publishRealtimeEvent({
         eventType: 'NOTIFICATIONS_MARKED_READ',
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId || null,
+        markedCount: affectedCount,
+      });
+      await this.notificationWebhookService.dispatchNotificationsMarkedRead({
         userId: input.userId,
         workspaceId: normalizedWorkspaceId || null,
         markedCount: affectedCount,

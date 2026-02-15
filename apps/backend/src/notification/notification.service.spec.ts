@@ -4,11 +4,18 @@ import { Repository } from 'typeorm';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
 import { UserNotification } from './entities/user-notification.entity';
 import { NotificationService } from './notification.service';
+import { NotificationWebhookService } from './notification-webhook.service';
 
 describe('NotificationService', () => {
   let service: NotificationService;
   let notificationRepo: jest.Mocked<Repository<UserNotification>>;
   let preferenceRepo: jest.Mocked<Repository<UserNotificationPreference>>;
+  let webhookService: jest.Mocked<
+    Pick<
+      NotificationWebhookService,
+      'dispatchNotificationCreated' | 'dispatchNotificationsMarkedRead'
+    >
+  >;
 
   beforeEach(() => {
     notificationRepo = {
@@ -24,8 +31,16 @@ describe('NotificationService', () => {
       save: jest.fn(),
       findOne: jest.fn(),
     } as unknown as jest.Mocked<Repository<UserNotificationPreference>>;
+    webhookService = {
+      dispatchNotificationCreated: jest.fn(),
+      dispatchNotificationsMarkedRead: jest.fn(),
+    };
 
-    service = new NotificationService(notificationRepo, preferenceRepo);
+    service = new NotificationService(
+      notificationRepo,
+      preferenceRepo,
+      webhookService as unknown as NotificationWebhookService,
+    );
     notificationRepo.createQueryBuilder.mockReturnValue({
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
@@ -96,6 +111,9 @@ describe('NotificationService', () => {
         workspaceId: 'workspace-1',
         isRead: false,
       }),
+    );
+    expect(webhookService.dispatchNotificationCreated).toHaveBeenCalledWith(
+      created,
     );
   });
 
@@ -235,6 +253,13 @@ describe('NotificationService', () => {
 
     const result = await service.markNotificationRead('notif-1', 'user-1');
     expect(result.isRead).toBe(true);
+    expect(webhookService.dispatchNotificationsMarkedRead).toHaveBeenCalledWith(
+      {
+        userId: 'user-1',
+        workspaceId: null,
+        markedCount: 1,
+      },
+    );
   });
 
   it('throws for missing notifications', async () => {
@@ -617,6 +642,13 @@ describe('NotificationService', () => {
         workspaceId: 'workspace-1',
         markedCount: 4,
       }),
+    );
+    expect(webhookService.dispatchNotificationsMarkedRead).toHaveBeenCalledWith(
+      {
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        markedCount: 4,
+      },
     );
   });
 });

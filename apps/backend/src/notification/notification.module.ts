@@ -9,6 +9,7 @@ import { UserNotification } from './entities/user-notification.entity';
 import { NotificationDigestScheduler } from './notification-digest.scheduler';
 import { NotificationResolver } from './notification.resolver';
 import { NotificationService } from './notification.service';
+import { NotificationWebhookService } from './notification-webhook.service';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { NotificationService } from './notification.service';
   controllers: [NotificationStreamController],
   providers: [
     NotificationService,
+    NotificationWebhookService,
     NotificationEventBusService,
     NotificationDigestScheduler,
     NotificationResolver,
