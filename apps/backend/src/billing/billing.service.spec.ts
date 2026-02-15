@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Repository } from 'typeorm';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
+import { BillingInvoice } from './entities/billing-invoice.entity';
 import { BillingPlan } from './entities/billing-plan.entity';
+import { BillingWebhookEvent } from './entities/billing-webhook-event.entity';
 import { UserAiCreditUsage } from './entities/user-ai-credit-usage.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
 import { BillingService } from './billing.service';
@@ -11,6 +13,8 @@ describe('BillingService', () => {
   let planRepo: jest.Mocked<Repository<BillingPlan>>;
   let subscriptionRepo: jest.Mocked<Repository<UserSubscription>>;
   let usageRepo: jest.Mocked<Repository<UserAiCreditUsage>>;
+  let invoiceRepo: jest.Mocked<Repository<BillingInvoice>>;
+  let webhookRepo: jest.Mocked<Repository<BillingWebhookEvent>>;
   let notificationEventBus: jest.Mocked<
     Pick<NotificationEventBusService, 'publishSafely'>
   >;
@@ -42,6 +46,21 @@ describe('BillingService', () => {
       upsert: jest.fn(),
       createQueryBuilder: jest.fn().mockReturnValue(queryBuilderMock),
     } as unknown as jest.Mocked<Repository<UserAiCreditUsage>>;
+    invoiceRepo = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+      create: jest.fn().mockImplementation((value) => value as BillingInvoice),
+      save: jest.fn().mockImplementation((value) => Promise.resolve(value)),
+    } as unknown as jest.Mocked<Repository<BillingInvoice>>;
+    webhookRepo = {
+      findOne: jest.fn(),
+      create: jest
+        .fn()
+        .mockImplementation((value) => value as BillingWebhookEvent),
+      save: jest
+        .fn()
+        .mockImplementation((value) => Promise.resolve(value as never)),
+    } as unknown as jest.Mocked<Repository<BillingWebhookEvent>>;
     notificationEventBus = {
       publishSafely: jest.fn(),
     };
@@ -50,6 +69,8 @@ describe('BillingService', () => {
       planRepo,
       subscriptionRepo,
       usageRepo,
+      invoiceRepo,
+      webhookRepo,
       notificationEventBus as unknown as NotificationEventBusService,
     );
   });
@@ -118,6 +139,8 @@ describe('BillingService', () => {
       id: 'plan-1',
       code: 'PRO',
       isActive: true,
+      priceMonthlyCents: 1900,
+      currency: 'USD',
       workspaceLimit: 5,
     } as BillingPlan);
     subscriptionRepo.findOne.mockResolvedValue(current);
@@ -129,6 +152,7 @@ describe('BillingService', () => {
 
     expect(result.planCode).toBe('PRO');
     expect(subscriptionRepo.save).toHaveBeenCalled();
+    expect(invoiceRepo.save).toHaveBeenCalled();
   });
 
   it('records upgrade intent notification', async () => {
@@ -183,7 +207,7 @@ describe('BillingService', () => {
       workspaceLimit: 5,
       aiCreditsPerMonth: 500,
     } as BillingPlan);
-    usageRepo.upsert.mockResolvedValue({} as any);
+    usageRepo.upsert.mockResolvedValue({} as never);
     usageRepo.findOne.mockResolvedValue({
       id: 'usage-1',
       userId: 'user-1',
@@ -220,7 +244,7 @@ describe('BillingService', () => {
       workspaceLimit: 1,
       aiCreditsPerMonth: 50,
     } as BillingPlan);
-    usageRepo.upsert.mockResolvedValue({} as any);
+    usageRepo.upsert.mockResolvedValue({} as never);
     usageRepo.findOne.mockResolvedValue({
       id: 'usage-1',
       userId: 'user-1',
@@ -237,5 +261,137 @@ describe('BillingService', () => {
 
     expect(result.allowed).toBe(false);
     expect(result.remainingCredits).toBe(0);
+  });
+
+  it('lists my billing invoices with bounded limit', async () => {
+    invoiceRepo.find.mockResolvedValue([
+      {
+        id: 'inv-1',
+        userId: 'user-1',
+        status: 'paid',
+      } as BillingInvoice,
+    ]);
+
+    const result = await service.listMyInvoices('user-1', 999);
+
+    expect(invoiceRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1' },
+        take: 100,
+      }),
+    );
+    expect(result).toHaveLength(1);
+  });
+
+  it('starts trial on paid plan and emits notification', async () => {
+    planRepo.count.mockResolvedValue(1);
+    planRepo.findOne.mockResolvedValue({
+      id: 'plan-1',
+      code: 'PRO',
+      isActive: true,
+      priceMonthlyCents: 1900,
+      currency: 'USD',
+    } as BillingPlan);
+    subscriptionRepo.findOne.mockResolvedValue({
+      id: 'sub-1',
+      userId: 'user-1',
+      planCode: 'FREE',
+      status: 'active',
+      isTrial: false,
+      trialEndsAt: null,
+    } as UserSubscription);
+    subscriptionRepo.save.mockImplementation((value: UserSubscription) =>
+      Promise.resolve(value),
+    );
+    notificationEventBus.publishSafely.mockResolvedValue(null);
+
+    const result = await service.startPlanTrial('user-1', 'pro', 10);
+
+    expect(result.planCode).toBe('PRO');
+    expect(result.isTrial).toBe(true);
+    expect(notificationEventBus.publishSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        type: 'BILLING_TRIAL_STARTED',
+      }),
+    );
+  });
+
+  it('ingests paid webhook events and marks them processed', async () => {
+    webhookRepo.findOne.mockResolvedValue(null);
+    webhookRepo.save
+      .mockResolvedValueOnce({
+        id: 'evt-1',
+        provider: 'STRIPE',
+        eventType: 'invoice.paid',
+        externalEventId: 'evt_external_1',
+        payload: {},
+        status: 'received',
+      } as BillingWebhookEvent)
+      .mockResolvedValueOnce({
+        id: 'evt-1',
+        provider: 'STRIPE',
+        eventType: 'invoice.paid',
+        externalEventId: 'evt_external_1',
+        payload: {},
+        status: 'processed',
+      } as BillingWebhookEvent);
+    planRepo.count.mockResolvedValue(1);
+    subscriptionRepo.findOne.mockResolvedValue({
+      id: 'sub-1',
+      userId: 'user-1',
+      planCode: 'PRO',
+      status: 'active',
+      startedAt: new Date('2026-02-01T00:00:00.000Z'),
+      cancelAtPeriodEnd: false,
+      isTrial: false,
+      trialEndsAt: null,
+      metadata: undefined,
+      createdAt: new Date('2026-02-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-01T00:00:00.000Z'),
+    } as UserSubscription);
+    subscriptionRepo.save.mockImplementation((value: UserSubscription) =>
+      Promise.resolve(value),
+    );
+
+    const result = await service.ingestBillingWebhook({
+      provider: 'stripe',
+      eventType: 'invoice.paid',
+      externalEventId: 'evt_external_1',
+      payloadJson: JSON.stringify({
+        userId: 'user-1',
+        planCode: 'BUSINESS',
+        amountCents: 5900,
+        currency: 'USD',
+      }),
+    });
+
+    expect(result.status).toBe('processed');
+    expect(invoiceRepo.save).toHaveBeenCalled();
+    expect(subscriptionRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        planCode: 'BUSINESS',
+        isTrial: false,
+      }),
+    );
+  });
+
+  it('returns existing webhook when external event already processed', async () => {
+    webhookRepo.findOne.mockResolvedValue({
+      id: 'evt-existing',
+      provider: 'STRIPE',
+      externalEventId: 'evt-existing',
+      status: 'processed',
+    } as BillingWebhookEvent);
+
+    const result = await service.ingestBillingWebhook({
+      provider: 'stripe',
+      eventType: 'invoice.paid',
+      externalEventId: 'evt-existing',
+      payloadJson: '{}',
+    });
+
+    expect(result.id).toBe('evt-existing');
+    expect(webhookRepo.save).not.toHaveBeenCalled();
   });
 });

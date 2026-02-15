@@ -5,56 +5,50 @@ import {
   Entity,
   Index,
   PrimaryGeneratedColumn,
+  Unique,
   UpdateDateColumn,
 } from 'typeorm';
 
+/**
+ * BillingWebhookEvent stores raw upstream billing events with processing state.
+ * This gives auditability + idempotency for provider webhook retries.
+ */
 @ObjectType()
-@Entity('user_subscriptions')
-export class UserSubscription {
+@Entity('billing_webhook_events')
+@Unique(['provider', 'externalEventId'])
+export class BillingWebhookEvent {
   @Field(() => ID)
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Field()
+  @Column()
+  provider: string;
+
+  @Field()
+  @Column()
+  eventType: string;
+
+  @Field()
   @Index()
   @Column()
-  userId: string;
+  externalEventId: string;
 
   @Field()
-  @Column()
-  planCode: string;
-
-  @Field()
-  @Column({ default: 'active' })
+  @Column({ default: 'received' })
   status: string;
 
-  @Field()
-  @Column({ type: 'timestamp' })
-  startedAt: Date;
-
   @Field({ nullable: true })
   @Column({ type: 'timestamp', nullable: true })
-  endsAt?: Date | null;
-
-  @Field()
-  @Column({ default: false })
-  isTrial: boolean;
+  processedAt?: Date | null;
 
   @Field({ nullable: true })
-  @Column({ type: 'timestamp', nullable: true })
-  trialEndsAt?: Date | null;
-
-  @Field()
-  @Column({ default: false })
-  cancelAtPeriodEnd: boolean;
-
-  @Field({ nullable: true })
-  @Column({ nullable: true })
-  billingProviderCustomerId?: string | null;
+  @Column({ type: 'text', nullable: true })
+  errorMessage?: string | null;
 
   @Field({ nullable: true })
   @Column({ type: 'jsonb', nullable: true })
-  metadata?: Record<string, unknown>;
+  payload?: Record<string, unknown> | null;
 
   @Field()
   @CreateDateColumn()

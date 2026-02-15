@@ -784,6 +784,7 @@ extend type Query {
   billingPlans: [BillingPlan!]!
   mySubscription: UserSubscription!
   myAiCreditBalance: AiCreditBalanceResponse!
+  myBillingInvoices(limit: Int): [BillingInvoice!]!
   myNotifications(limit: Int, unreadOnly: Boolean, workspaceId: String, sinceHours: Int, types: [String!]): [UserNotification!]!
   myMailboxInboundSlaIncidentStats(workspaceId: String, windowHours: Int): MailboxInboundSlaIncidentStatsResponse!
   myMailboxInboundSlaIncidentSeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [MailboxInboundSlaIncidentTrendPointResponse!]!
@@ -798,10 +799,17 @@ extend type Query {
 
 extend type Mutation {
   selectMyPlan(planCode: String!): UserSubscription!
+  startMyPlanTrial(planCode: String!, trialDays: Int): UserSubscription!
   requestMyPlanUpgrade(
     targetPlanCode: String!
     note: String
   ): BillingUpgradeIntentResponse!
+  ingestBillingWebhook(
+    provider: String!
+    eventType: String!
+    externalEventId: String!
+    payloadJson: String
+  ): BillingWebhookEvent!
   markNotificationRead(id: String!): UserNotification!
   markMyNotificationsRead(
     workspaceId: String
@@ -854,9 +862,44 @@ type UserSubscription {
   status: String!
   startedAt: DateTime!
   endsAt: DateTime
+  isTrial: Boolean!
+  trialEndsAt: DateTime
   cancelAtPeriodEnd: Boolean!
   billingProviderCustomerId: String
   metadata: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type BillingInvoice {
+  id: ID!
+  userId: String!
+  subscriptionId: String
+  planCode: String!
+  invoiceNumber: String!
+  provider: String!
+  providerInvoiceId: String
+  status: String!
+  amountCents: Int!
+  currency: String!
+  periodStart: DateTime!
+  periodEnd: DateTime!
+  dueAt: DateTime
+  paidAt: DateTime
+  metadata: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type BillingWebhookEvent {
+  id: ID!
+  provider: String!
+  eventType: String!
+  externalEventId: String!
+  status: String!
+  processedAt: DateTime
+  errorMessage: String
+  payload: String
   createdAt: DateTime!
   updatedAt: DateTime!
 }

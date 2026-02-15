@@ -45,6 +45,8 @@
   - `20260216024000-email-provider-sync-error-state.ts`
 - Added AI credit usage tracking migration:
   - `20260216025000-user-ai-credit-usages.ts`
+- Added billing invoices/webhook events + trial columns migration:
+  - `20260216031000-billing-invoices-webhooks-and-trials.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

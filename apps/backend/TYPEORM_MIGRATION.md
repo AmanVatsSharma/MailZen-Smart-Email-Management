@@ -691,3 +691,50 @@ FROM user_ai_credit_usages
 ORDER BY "updatedAt" DESC
 LIMIT 50;
 ```
+
+## Billing Invoices/Webhooks + Trial Columns Rollout Notes (2026-02-16)
+
+New migration: `20260216031000-billing-invoices-webhooks-and-trials.ts`
+
+This migration introduces:
+
+- trial state columns on `user_subscriptions`:
+  - `isTrial`
+  - `trialEndsAt`
+- invoice persistence table:
+  - `billing_invoices`
+- webhook audit/idempotency table:
+  - `billing_webhook_events`
+
+### Safe rollout sequence
+
+1. Deploy backend with billing invoice + webhook handlers and trial APIs.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- billing/billing.service.spec.ts billing/billing.resolver.spec.ts`
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Validate runtime behavior:
+   - `startMyPlanTrial` sets trial fields and emits billing notification.
+   - paid plan selection creates invoice rows.
+   - `ingestBillingWebhook` is idempotent by `(provider, externalEventId)`.
+
+### Staging verification SQL
+
+```sql
+SELECT id, "userId", "planCode", "status", "isTrial", "trialEndsAt"
+FROM user_subscriptions
+ORDER BY "updatedAt" DESC
+LIMIT 50;
+
+SELECT id, "userId", "provider", "status", "amountCents", "createdAt"
+FROM billing_invoices
+ORDER BY "createdAt" DESC
+LIMIT 50;
+
+SELECT id, "provider", "eventType", "externalEventId", "status", "processedAt"
+FROM billing_webhook_events
+ORDER BY "createdAt" DESC
+LIMIT 50;
+```

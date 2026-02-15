@@ -8,7 +8,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { AiCreditBalanceResponse } from './dto/ai-credit-balance.response';
+import { BillingInvoice } from './entities/billing-invoice.entity';
 import { BillingPlan } from './entities/billing-plan.entity';
+import { BillingWebhookEvent } from './entities/billing-webhook-event.entity';
 import { BillingUpgradeIntentResponse } from './dto/billing-upgrade-intent.response';
 import { UserAiCreditUsage } from './entities/user-ai-credit-usage.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
@@ -24,6 +26,10 @@ export class BillingService {
     private readonly userSubscriptionRepo: Repository<UserSubscription>,
     @InjectRepository(UserAiCreditUsage)
     private readonly userAiCreditUsageRepo: Repository<UserAiCreditUsage>,
+    @InjectRepository(BillingInvoice)
+    private readonly billingInvoiceRepo: Repository<BillingInvoice>,
+    @InjectRepository(BillingWebhookEvent)
+    private readonly billingWebhookEventRepo: Repository<BillingWebhookEvent>,
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
 
@@ -31,6 +37,63 @@ export class BillingService {
     const year = referenceDate.getUTCFullYear();
     const month = referenceDate.getUTCMonth();
     return new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+  }
+
+  private resolveCurrentPeriodBounds(referenceDate = new Date()): {
+    periodStart: Date;
+    periodEnd: Date;
+  } {
+    const year = referenceDate.getUTCFullYear();
+    const month = referenceDate.getUTCMonth();
+    const periodStart = new Date(Date.UTC(year, month, 1));
+    const periodEnd = new Date(Date.UTC(year, month + 1, 1));
+    return { periodStart, periodEnd };
+  }
+
+  private normalizePlanCode(planCode: string): string {
+    return String(planCode || '')
+      .trim()
+      .toUpperCase();
+  }
+
+  private trimErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message.trim().slice(0, 500);
+    }
+    const message = typeof error === 'string' ? error.trim() : '';
+    return (message || fallback).slice(0, 500);
+  }
+
+  private safeJsonParse(
+    payloadJson?: string,
+  ): Record<string, unknown> | undefined {
+    if (!payloadJson || !String(payloadJson).trim()) return undefined;
+    try {
+      const parsed: unknown = JSON.parse(payloadJson);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+      throw new BadRequestException(
+        'Billing webhook payload must be an object',
+      );
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      throw new BadRequestException(
+        'Billing webhook payload must be valid JSON',
+      );
+    }
+  }
+
+  private toSafeString(value: unknown): string | undefined {
+    if (typeof value !== 'string') return undefined;
+    const normalized = value.trim();
+    return normalized || undefined;
+  }
+
+  private toSafeNumber(value: unknown, fallback = 0): number {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.floor(parsed);
   }
 
   private getDefaultPlans(): Array<Partial<BillingPlan>> {
@@ -104,6 +167,8 @@ export class BillingService {
       planCode: 'FREE',
       status: 'active',
       startedAt: new Date(),
+      isTrial: false,
+      trialEndsAt: null,
       cancelAtPeriodEnd: false,
     });
     return this.userSubscriptionRepo.save(created);
@@ -114,9 +179,7 @@ export class BillingService {
     planCode: string,
   ): Promise<UserSubscription> {
     await this.ensureDefaultPlans();
-    const normalizedPlanCode = String(planCode || '')
-      .trim()
-      .toUpperCase();
+    const normalizedPlanCode = this.normalizePlanCode(planCode);
     if (!normalizedPlanCode) {
       throw new BadRequestException('Plan code is required');
     }
@@ -133,6 +196,7 @@ export class BillingService {
     const current = await this.getMySubscription(userId);
     if (current.planCode === normalizedPlanCode) return current;
 
+    const previousPlanCode = current.planCode;
     this.logger.log(
       `billing-service: userId=${userId} switching plan ${current.planCode} -> ${normalizedPlanCode}`,
     );
@@ -141,7 +205,27 @@ export class BillingService {
     current.cancelAtPeriodEnd = false;
     current.status = 'active';
     current.endsAt = null;
-    return this.userSubscriptionRepo.save(current);
+    current.isTrial = false;
+    current.trialEndsAt = null;
+    const updatedSubscription = await this.userSubscriptionRepo.save(current);
+
+    if (targetPlan.priceMonthlyCents > 0) {
+      await this.createInvoice({
+        userId,
+        subscriptionId: updatedSubscription.id,
+        planCode: targetPlan.code,
+        provider: 'INTERNAL',
+        status: 'open',
+        amountCents: targetPlan.priceMonthlyCents,
+        currency: targetPlan.currency || 'USD',
+        metadata: {
+          source: 'select_plan',
+          previousPlanCode,
+        },
+      });
+    }
+
+    return updatedSubscription;
   }
 
   async getEntitlements(userId: string): Promise<{
@@ -268,6 +352,284 @@ export class BillingService {
       allowed,
       requestedCredits: normalizedCredits,
     };
+  }
+
+  private async createInvoice(input: {
+    userId: string;
+    subscriptionId?: string | null;
+    planCode: string;
+    provider: string;
+    providerInvoiceId?: string | null;
+    status: string;
+    amountCents: number;
+    currency: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<BillingInvoice> {
+    const now = new Date();
+    const { periodStart, periodEnd } = this.resolveCurrentPeriodBounds(now);
+    const invoiceNumber = `MZ-${now.getUTCFullYear()}${String(
+      now.getUTCMonth() + 1,
+    ).padStart(2, '0')}-${String(Date.now()).slice(-6)}`;
+    const created = this.billingInvoiceRepo.create({
+      userId: input.userId,
+      subscriptionId: input.subscriptionId || null,
+      planCode: this.normalizePlanCode(input.planCode) || 'FREE',
+      invoiceNumber,
+      provider: this.toSafeString(input.provider)?.toUpperCase() || 'INTERNAL',
+      providerInvoiceId: this.toSafeString(input.providerInvoiceId || null),
+      status: this.toSafeString(input.status)?.toLowerCase() || 'open',
+      amountCents: Math.max(0, this.toSafeNumber(input.amountCents, 0)),
+      currency: this.toSafeString(input.currency)?.toUpperCase() || 'USD',
+      periodStart,
+      periodEnd,
+      dueAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+      metadata: input.metadata || null,
+    });
+    return this.billingInvoiceRepo.save(created);
+  }
+
+  async listMyInvoices(userId: string, limit = 20): Promise<BillingInvoice[]> {
+    const boundedLimit = Number.isFinite(limit)
+      ? Math.min(Math.max(Math.floor(limit), 1), 100)
+      : 20;
+    return this.billingInvoiceRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: boundedLimit,
+    });
+  }
+
+  async startPlanTrial(
+    userId: string,
+    planCode: string,
+    trialDays?: number,
+  ): Promise<UserSubscription> {
+    await this.ensureDefaultPlans();
+    const normalizedPlanCode = this.normalizePlanCode(planCode);
+    if (!normalizedPlanCode) {
+      throw new BadRequestException('Plan code is required to start trial');
+    }
+
+    const targetPlan = await this.billingPlanRepo.findOne({
+      where: { code: normalizedPlanCode, isActive: true },
+    });
+    if (!targetPlan) {
+      throw new NotFoundException(
+        `Billing plan '${normalizedPlanCode}' does not exist`,
+      );
+    }
+    if (targetPlan.code === 'FREE') {
+      throw new BadRequestException('FREE plan does not support trial mode');
+    }
+
+    const boundedTrialDays = Number.isFinite(trialDays)
+      ? Math.min(Math.max(Math.floor(trialDays ?? 14), 1), 30)
+      : 14;
+    const now = new Date();
+    const trialEndsAt = new Date(
+      now.getTime() + boundedTrialDays * 24 * 60 * 60 * 1000,
+    );
+
+    const subscription = await this.getMySubscription(userId);
+    if (
+      subscription.isTrial &&
+      subscription.trialEndsAt &&
+      subscription.trialEndsAt.getTime() > now.getTime()
+    ) {
+      throw new BadRequestException(
+        'An active trial already exists for this subscription',
+      );
+    }
+
+    subscription.planCode = targetPlan.code;
+    subscription.status = 'active';
+    subscription.startedAt = now;
+    subscription.endsAt = null;
+    subscription.cancelAtPeriodEnd = false;
+    subscription.isTrial = true;
+    subscription.trialEndsAt = trialEndsAt;
+
+    const savedSubscription =
+      await this.userSubscriptionRepo.save(subscription);
+    const trialMessage = [
+      `Started ${targetPlan.code} trial`,
+      `until ${trialEndsAt.toISOString()}.`,
+    ].join(' ');
+
+    await this.notificationEventBus.publishSafely({
+      userId,
+      type: 'BILLING_TRIAL_STARTED',
+      title: 'Plan trial started',
+      message: trialMessage,
+      metadata: {
+        planCode: targetPlan.code,
+        trialDays: boundedTrialDays,
+        trialEndsAt: trialEndsAt.toISOString(),
+      },
+    });
+
+    this.logger.log(
+      `billing-service: started trial userId=${userId} plan=${targetPlan.code} days=${boundedTrialDays}`,
+    );
+    return savedSubscription;
+  }
+
+  private normalizeWebhookEventType(eventType: string): string {
+    return String(eventType || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_');
+  }
+
+  private async processBillingWebhookEvent(input: {
+    provider: string;
+    eventType: string;
+    payload: Record<string, unknown>;
+  }): Promise<void> {
+    const normalizedEventType = this.normalizeWebhookEventType(input.eventType);
+    const supportedEventTypes = new Set([
+      'INVOICE_PAID',
+      'INVOICE_PAYMENT_FAILED',
+      'SUBSCRIPTION_CANCELLED',
+    ]);
+    if (!supportedEventTypes.has(normalizedEventType)) {
+      this.logger.log(
+        `billing-service: webhook ignored provider=${input.provider} eventType=${normalizedEventType}`,
+      );
+      return;
+    }
+
+    const payload = input.payload;
+    const userId = this.toSafeString(payload.userId);
+
+    if (!userId) {
+      throw new BadRequestException(
+        'Billing webhook payload must include string userId',
+      );
+    }
+
+    const planCode = this.normalizePlanCode(
+      this.toSafeString(payload.planCode) || '',
+    );
+    const normalizedPlanCode = planCode || 'FREE';
+    const amountCents = Math.max(0, this.toSafeNumber(payload.amountCents, 0));
+    const currency =
+      this.toSafeString(payload.currency)?.toUpperCase().slice(0, 10) || 'USD';
+    const providerInvoiceId =
+      this.toSafeString(payload.providerInvoiceId) ||
+      this.toSafeString(payload.invoiceId);
+    const subscription = await this.getMySubscription(userId);
+
+    if (normalizedEventType === 'INVOICE_PAID') {
+      await this.createInvoice({
+        userId,
+        subscriptionId: subscription.id,
+        planCode: normalizedPlanCode,
+        provider: input.provider,
+        providerInvoiceId: providerInvoiceId || null,
+        status: 'paid',
+        amountCents,
+        currency,
+        metadata: payload,
+      });
+      subscription.status = 'active';
+      subscription.cancelAtPeriodEnd = false;
+      subscription.endsAt = null;
+      subscription.isTrial = false;
+      subscription.trialEndsAt = null;
+      subscription.planCode = normalizedPlanCode;
+      await this.userSubscriptionRepo.save(subscription);
+      return;
+    }
+
+    if (normalizedEventType === 'INVOICE_PAYMENT_FAILED') {
+      await this.createInvoice({
+        userId,
+        subscriptionId: subscription.id,
+        planCode: normalizedPlanCode,
+        provider: input.provider,
+        providerInvoiceId: providerInvoiceId || null,
+        status: 'failed',
+        amountCents,
+        currency,
+        metadata: payload,
+      });
+      subscription.cancelAtPeriodEnd = true;
+      subscription.metadata = {
+        ...(subscription.metadata || {}),
+        lastPaymentFailureAtIso: new Date().toISOString(),
+      };
+      await this.userSubscriptionRepo.save(subscription);
+      return;
+    }
+
+    if (normalizedEventType === 'SUBSCRIPTION_CANCELLED') {
+      subscription.status = 'canceled';
+      subscription.endsAt = new Date();
+      subscription.cancelAtPeriodEnd = false;
+      await this.userSubscriptionRepo.save(subscription);
+    }
+  }
+
+  async ingestBillingWebhook(input: {
+    provider: string;
+    eventType: string;
+    externalEventId: string;
+    payloadJson?: string;
+  }): Promise<BillingWebhookEvent> {
+    const provider = this.toSafeString(input.provider)?.toUpperCase();
+    const eventType = this.toSafeString(input.eventType);
+    const externalEventId = this.toSafeString(input.externalEventId);
+
+    if (!provider) {
+      throw new BadRequestException('Webhook provider is required');
+    }
+    if (!eventType) {
+      throw new BadRequestException('Webhook event type is required');
+    }
+    if (!externalEventId) {
+      throw new BadRequestException('Webhook externalEventId is required');
+    }
+
+    const existingEvent = await this.billingWebhookEventRepo.findOne({
+      where: { provider, externalEventId },
+    });
+    if (existingEvent) return existingEvent;
+
+    const payload = this.safeJsonParse(input.payloadJson);
+    let event = this.billingWebhookEventRepo.create({
+      provider,
+      eventType,
+      externalEventId,
+      status: 'received',
+      payload: payload || null,
+      processedAt: null,
+      errorMessage: null,
+    });
+    event = await this.billingWebhookEventRepo.save(event);
+
+    try {
+      await this.processBillingWebhookEvent({
+        provider,
+        eventType,
+        payload: payload || {},
+      });
+      event.status = 'processed';
+      event.processedAt = new Date();
+      event.errorMessage = null;
+    } catch (error) {
+      event.status = 'failed';
+      event.processedAt = new Date();
+      event.errorMessage = this.trimErrorMessage(
+        error,
+        'Billing webhook processing failed',
+      );
+      this.logger.warn(
+        `billing-service: webhook processing failed provider=${provider} eventType=${eventType} externalEventId=${externalEventId} error=${event.errorMessage}`,
+      );
+    }
+
+    return this.billingWebhookEventRepo.save(event);
   }
 
   async requestUpgradeIntent(

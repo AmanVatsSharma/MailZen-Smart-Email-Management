@@ -1,11 +1,28 @@
 import { BillingResolver } from './billing.resolver';
+import { BillingService } from './billing.service';
+import { BillingInvoice } from './entities/billing-invoice.entity';
+import { BillingWebhookEvent } from './entities/billing-webhook-event.entity';
+import { UserSubscription } from './entities/user-subscription.entity';
 
 describe('BillingResolver', () => {
-  const billingServiceMock = {
+  const billingServiceMock: jest.Mocked<
+    Pick<
+      BillingService,
+      | 'getAiCreditBalance'
+      | 'listMyInvoices'
+      | 'startPlanTrial'
+      | 'ingestBillingWebhook'
+    >
+  > = {
     getAiCreditBalance: jest.fn(),
+    listMyInvoices: jest.fn(),
+    startPlanTrial: jest.fn(),
+    ingestBillingWebhook: jest.fn(),
   };
 
-  const resolver = new BillingResolver(billingServiceMock as any);
+  const resolver = new BillingResolver(
+    billingServiceMock as unknown as BillingService,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -23,11 +40,104 @@ describe('BillingResolver', () => {
 
     const result = await resolver.myAiCreditBalance({
       req: { user: { id: 'user-1' } },
-    } as any);
+    });
 
     expect(result.planCode).toBe('PRO');
     expect(billingServiceMock.getAiCreditBalance).toHaveBeenCalledWith(
       'user-1',
     );
+  });
+
+  it('delegates myBillingInvoices to billing service', async () => {
+    billingServiceMock.listMyInvoices.mockResolvedValue([
+      {
+        id: 'inv-1',
+        userId: 'user-1',
+        subscriptionId: 'sub-1',
+        planCode: 'PRO',
+        invoiceNumber: 'MZ-202602-000001',
+        provider: 'INTERNAL',
+        providerInvoiceId: null,
+        status: 'open',
+        amountCents: 1900,
+        currency: 'USD',
+        periodStart: new Date('2026-02-01T00:00:00.000Z'),
+        periodEnd: new Date('2026-03-01T00:00:00.000Z'),
+        dueAt: null,
+        paidAt: null,
+        metadata: null,
+        createdAt: new Date('2026-02-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-02-01T00:00:00.000Z'),
+      } as BillingInvoice,
+    ]);
+
+    const result = await resolver.myBillingInvoices(25, {
+      req: { user: { id: 'user-1' } },
+    });
+
+    expect(result).toHaveLength(1);
+    expect(billingServiceMock.listMyInvoices).toHaveBeenCalledWith(
+      'user-1',
+      25,
+    );
+  });
+
+  it('delegates startMyPlanTrial to billing service', async () => {
+    billingServiceMock.startPlanTrial.mockResolvedValue({
+      id: 'sub-1',
+      userId: 'user-1',
+      planCode: 'PRO',
+      status: 'active',
+      startedAt: new Date('2026-02-01T00:00:00.000Z'),
+      endsAt: null,
+      isTrial: true,
+      trialEndsAt: new Date('2026-02-15T00:00:00.000Z'),
+      cancelAtPeriodEnd: false,
+      billingProviderCustomerId: null,
+      metadata: undefined,
+      createdAt: new Date('2026-02-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-01T00:00:00.000Z'),
+    } as UserSubscription);
+
+    const result = await resolver.startMyPlanTrial('pro', 14, {
+      req: { user: { id: 'user-1' } },
+    });
+
+    expect(result.planCode).toBe('PRO');
+    expect(billingServiceMock.startPlanTrial).toHaveBeenCalledWith(
+      'user-1',
+      'pro',
+      14,
+    );
+  });
+
+  it('delegates ingestBillingWebhook to billing service', async () => {
+    billingServiceMock.ingestBillingWebhook.mockResolvedValue({
+      id: 'evt-1',
+      provider: 'STRIPE',
+      eventType: 'invoice.paid',
+      externalEventId: 'evt_1',
+      status: 'processed',
+      processedAt: new Date('2026-02-01T00:00:00.000Z'),
+      errorMessage: null,
+      payload: {},
+      createdAt: new Date('2026-02-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-01T00:00:00.000Z'),
+    } as BillingWebhookEvent);
+
+    const result = await resolver.ingestBillingWebhook(
+      'stripe',
+      'invoice.paid',
+      'evt_1',
+      '{"userId":"user-1"}',
+    );
+
+    expect(result.id).toBe('evt-1');
+    expect(billingServiceMock.ingestBillingWebhook).toHaveBeenCalledWith({
+      provider: 'stripe',
+      eventType: 'invoice.paid',
+      externalEventId: 'evt_1',
+      payloadJson: '{"userId":"user-1"}',
+    });
   });
 });
