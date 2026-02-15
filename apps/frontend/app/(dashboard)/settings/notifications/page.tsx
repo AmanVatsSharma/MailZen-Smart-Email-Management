@@ -34,6 +34,7 @@ type NotificationPreferences = {
   mailboxInboundSlaWarningRejectedPercent: number;
   mailboxInboundSlaCriticalRejectedPercent: number;
   mailboxInboundSlaAlertsEnabled: boolean;
+  mailboxInboundSlaAlertCooldownMinutes: number;
 };
 
 const DEFAULT_PREFERENCES: NotificationPreferences = {
@@ -48,6 +49,7 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   mailboxInboundSlaWarningRejectedPercent: 1,
   mailboxInboundSlaCriticalRejectedPercent: 5,
   mailboxInboundSlaAlertsEnabled: true,
+  mailboxInboundSlaAlertCooldownMinutes: 60,
 };
 
 const NotificationsSettingsPage = () => {
@@ -95,6 +97,8 @@ const NotificationsSettingsPage = () => {
         serverPreferences.mailboxInboundSlaCriticalRejectedPercent,
       mailboxInboundSlaAlertsEnabled:
         serverPreferences.mailboxInboundSlaAlertsEnabled,
+      mailboxInboundSlaAlertCooldownMinutes:
+        serverPreferences.mailboxInboundSlaAlertCooldownMinutes,
     });
   }, [data]);
 
@@ -105,6 +109,16 @@ const NotificationsSettingsPage = () => {
     return Math.round(rawValue * 100) / 100;
   };
   const parseThresholdInput = (rawValue: string, fallback: number) => {
+    const parsedValue = Number(rawValue);
+    return Number.isFinite(parsedValue) ? parsedValue : fallback;
+  };
+  const normalizeCooldownMinutes = (rawValue: number) => {
+    if (!Number.isFinite(rawValue)) return 1;
+    if (rawValue < 1) return 1;
+    if (rawValue > 24 * 60) return 24 * 60;
+    return Math.floor(rawValue);
+  };
+  const parseCooldownInput = (rawValue: string, fallback: number) => {
     const parsedValue = Number(rawValue);
     return Number.isFinite(parsedValue) ? parsedValue : fallback;
   };
@@ -138,6 +152,9 @@ const NotificationsSettingsPage = () => {
           mailboxInboundSlaCriticalRejectedPercent: normalizedCriticalThreshold,
           mailboxInboundSlaAlertsEnabled:
             preferences.mailboxInboundSlaAlertsEnabled,
+          mailboxInboundSlaAlertCooldownMinutes: normalizeCooldownMinutes(
+            preferences.mailboxInboundSlaAlertCooldownMinutes,
+          ),
         },
       },
     });
@@ -340,7 +357,7 @@ const NotificationsSettingsPage = () => {
               }
             />
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <h3 className="text-sm font-medium">Target success %</h3>
               <Input
@@ -407,6 +424,29 @@ const NotificationsSettingsPage = () => {
               />
               <p className="text-xs text-muted-foreground">
                 Rejection rate threshold where status flips to CRITICAL.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Alert cooldown (minutes)</h3>
+              <Input
+                type="number"
+                min={1}
+                max={24 * 60}
+                step={1}
+                value={preferences.mailboxInboundSlaAlertCooldownMinutes}
+                onChange={(event) =>
+                  setPreferences((prev) => ({
+                    ...prev,
+                    mailboxInboundSlaAlertCooldownMinutes: parseCooldownInput(
+                      event.target.value,
+                      prev.mailboxInboundSlaAlertCooldownMinutes,
+                    ),
+                  }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Minimum delay before same-status SLA alerts repeat.
               </p>
             </div>
           </div>

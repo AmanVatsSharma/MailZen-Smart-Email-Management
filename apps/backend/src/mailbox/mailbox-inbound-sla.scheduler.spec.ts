@@ -60,6 +60,7 @@ describe('MailboxInboundSlaScheduler', () => {
     id: 'pref-1',
     userId: 'user-1',
     mailboxInboundSlaAlertsEnabled: true,
+    mailboxInboundSlaAlertCooldownMinutes: 60,
     mailboxInboundSlaLastAlertStatus: null,
     mailboxInboundSlaLastAlertedAt: null,
   } as UserNotificationPreference;
@@ -125,6 +126,32 @@ describe('MailboxInboundSlaScheduler', () => {
     expect(
       notificationService.updateMailboxInboundSlaAlertState,
     ).not.toHaveBeenCalled();
+  });
+
+  it('uses per-user cooldown minutes when evaluating duplicates', async () => {
+    notificationService.getOrCreatePreferences.mockResolvedValue({
+      ...preferenceSnapshot,
+      mailboxInboundSlaAlertCooldownMinutes: 15,
+      mailboxInboundSlaLastAlertStatus: 'CRITICAL',
+      mailboxInboundSlaLastAlertedAt: new Date(Date.now() - 20 * 60 * 1000),
+    } as UserNotificationPreference);
+    mailboxService.getInboundEventStats.mockResolvedValue(criticalStats as any);
+    notificationService.createNotification.mockResolvedValue({} as any);
+    notificationService.updateMailboxInboundSlaAlertState.mockResolvedValue(
+      {} as any,
+    );
+
+    await scheduler.monitorMailboxInboundSla();
+
+    expect(notificationService.createNotification).toHaveBeenCalledTimes(1);
+    expect(
+      notificationService.updateMailboxInboundSlaAlertState,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        status: 'CRITICAL',
+      }),
+    );
   });
 
   it('emits alert immediately when status worsens even inside cooldown', async () => {

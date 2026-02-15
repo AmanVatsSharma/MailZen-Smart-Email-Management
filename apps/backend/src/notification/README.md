@@ -51,6 +51,7 @@ Provide a persistent notification foundation for user-visible product events
     - `mailboxInboundSlaWarningRejectedPercent`
     - `mailboxInboundSlaCriticalRejectedPercent`
   - `mailboxInboundSlaAlertsEnabled`
+  - `mailboxInboundSlaAlertCooldownMinutes`
 
 ### Metadata conventions
 

@@ -101,6 +101,8 @@ flowchart TD
   - rolling window used by SLA alert scheduler to evaluate user health
 - `MAILZEN_INBOUND_SLA_ALERT_COOLDOWN_MINUTES` (default `60`)
   - minimum delay before re-emitting same-status SLA alert for a user
+  - per-user notification preference `mailboxInboundSlaAlertCooldownMinutes`
+    overrides this fallback
 - `MAILZEN_INBOUND_SLA_ALERT_MAX_USERS_PER_RUN` (default `500`)
   - safety cap for monitored users in each scheduler cycle
 
@@ -136,7 +138,7 @@ flowchart TD
   filtered via notification preferences (`mailboxInbound*Enabled` fields).
 - `MailboxInboundSlaScheduler` evaluates `myMailboxInboundEventStats`-equivalent
   SLA status every 15 minutes and emits `MAILBOX_INBOUND_SLA_ALERT` notifications
-  when warning/critical thresholds are breached (with cooldown suppression).
+  when warning/critical thresholds are breached (with per-user cooldown suppression).
   Scheduler monitors both recently active users and users with persisted
   prior-alert state so recovered/no-data periods can clear stale alert flags.
 

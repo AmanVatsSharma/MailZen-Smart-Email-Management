@@ -58,6 +58,7 @@ describe('NotificationService', () => {
     mailboxInboundSlaWarningRejectedPercent: 1,
     mailboxInboundSlaCriticalRejectedPercent: 5,
     mailboxInboundSlaAlertsEnabled: true,
+    mailboxInboundSlaAlertCooldownMinutes: 60,
     mailboxInboundSlaLastAlertStatus: null,
     mailboxInboundSlaLastAlertedAt: null,
   } satisfies Partial<UserNotificationPreference>;
@@ -190,6 +191,21 @@ describe('NotificationService', () => {
     expect(result.mailboxInboundSlaTargetSuccessPercent).toBe(100);
     expect(result.mailboxInboundSlaWarningRejectedPercent).toBe(4);
     expect(result.mailboxInboundSlaCriticalRejectedPercent).toBe(10);
+  });
+
+  it('normalizes SLA alert cooldown minutes when preferences are updated', async () => {
+    preferenceRepo.findOne.mockResolvedValue({
+      ...basePreference,
+    } as UserNotificationPreference);
+    preferenceRepo.save.mockImplementation(
+      (value: UserNotificationPreference) => Promise.resolve(value),
+    );
+
+    const result = await service.updatePreferences('user-1', {
+      mailboxInboundSlaAlertCooldownMinutes: 0,
+    });
+
+    expect(result.mailboxInboundSlaAlertCooldownMinutes).toBe(1);
   });
 
   it('honors mailbox inbound accepted preference and mutes accepted alerts', async () => {

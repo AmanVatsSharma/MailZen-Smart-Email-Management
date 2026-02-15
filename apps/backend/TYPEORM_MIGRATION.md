@@ -371,3 +371,35 @@ SELECT
   COUNT(*) FILTER (WHERE "workspaceId" IS NOT NULL) AS workspace_tagged_notifications
 FROM user_notifications;
 ```
+
+## Notification Mailbox Inbound SLA Cooldown Rollout Notes (2026-02-16)
+
+New migration: `20260216011000-notification-mailbox-inbound-sla-cooldown.ts`
+
+This migration introduces:
+
+- `user_notification_preferences.mailboxInboundSlaAlertCooldownMinutes`
+
+### Safe rollout sequence
+
+1. Deploy backend containing cooldown preference migration + scheduler preference resolution.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- mailbox/mailbox-inbound-sla.scheduler.spec.ts notification/notification.service.spec.ts`
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Verify UI/API cooldown flows:
+   - `myNotificationPreferences`
+   - `updateMyNotificationPreferences`
+   - confirm duplicate SLA alerts are suppressed according to user-configured cooldown
+
+### Staging verification SQL (cooldown defaults + constraints)
+
+```sql
+SELECT
+  COUNT(*) FILTER (WHERE "mailboxInboundSlaAlertCooldownMinutes" = 60) AS cooldown_default_rows,
+  COUNT(*) FILTER (WHERE "mailboxInboundSlaAlertCooldownMinutes" < 1) AS invalid_low_rows,
+  COUNT(*) FILTER (WHERE "mailboxInboundSlaAlertCooldownMinutes" > 1440) AS invalid_high_rows
+FROM user_notification_preferences;
+```

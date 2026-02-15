@@ -1,4 +1,4 @@
-import { Field, Float, InputType } from '@nestjs/graphql';
+import { Field, Float, InputType, Int } from '@nestjs/graphql';
 
 @InputType()
 export class UpdateNotificationPreferencesInput {
@@ -34,4 +34,7 @@ export class UpdateNotificationPreferencesInput {
 
   @Field({ nullable: true })
   mailboxInboundSlaAlertsEnabled?: boolean;
+
+  @Field(() => Int, { nullable: true })
+  mailboxInboundSlaAlertCooldownMinutes?: number;
 }

@@ -24,6 +24,10 @@ export class NotificationService {
   private static readonly DEFAULT_MAILBOX_INBOUND_SLA_TARGET_SUCCESS_PERCENT = 99;
   private static readonly DEFAULT_MAILBOX_INBOUND_SLA_WARNING_REJECTED_PERCENT = 1;
   private static readonly DEFAULT_MAILBOX_INBOUND_SLA_CRITICAL_REJECTED_PERCENT = 5;
+  private static readonly DEFAULT_MAILBOX_INBOUND_SLA_ALERT_COOLDOWN_MINUTES = 60;
+  private static readonly MIN_MAILBOX_INBOUND_SLA_ALERT_COOLDOWN_MINUTES = 1;
+  private static readonly MAX_MAILBOX_INBOUND_SLA_ALERT_COOLDOWN_MINUTES =
+    24 * 60;
   private static readonly DEFAULT_MAILBOX_INBOUND_INCIDENT_WINDOW_HOURS = 24;
   private static readonly MAX_MAILBOX_INBOUND_INCIDENT_WINDOW_HOURS = 24 * 30;
   private static readonly DEFAULT_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES = 60;
@@ -55,6 +59,10 @@ export class NotificationService {
       warningRejectedPercent,
       criticalRejectedPercent,
     });
+    const alertCooldownMinutes = this.normalizeCooldownMinutes(
+      process.env.MAILZEN_INBOUND_SLA_ALERT_COOLDOWN_MINUTES,
+      NotificationService.DEFAULT_MAILBOX_INBOUND_SLA_ALERT_COOLDOWN_MINUTES,
+    );
     const row = this.notificationPreferenceRepo.create({
       userId,
       inAppEnabled: true,
@@ -71,6 +79,7 @@ export class NotificationService {
       mailboxInboundSlaCriticalRejectedPercent:
         normalizedThresholds.criticalRejectedPercent,
       mailboxInboundSlaAlertsEnabled: true,
+      mailboxInboundSlaAlertCooldownMinutes: alertCooldownMinutes,
       mailboxInboundSlaLastAlertStatus: null,
       mailboxInboundSlaLastAlertedAt: null,
     });
@@ -143,6 +152,13 @@ export class NotificationService {
       existing.mailboxInboundSlaAlertsEnabled =
         input.mailboxInboundSlaAlertsEnabled;
     }
+    if (typeof input.mailboxInboundSlaAlertCooldownMinutes === 'number') {
+      existing.mailboxInboundSlaAlertCooldownMinutes =
+        this.normalizeCooldownMinutes(
+          input.mailboxInboundSlaAlertCooldownMinutes,
+          existing.mailboxInboundSlaAlertCooldownMinutes,
+        );
+    }
     const normalizedThresholds = this.normalizeThresholdOrder({
       targetSuccessPercent: existing.mailboxInboundSlaTargetSuccessPercent,
       warningRejectedPercent: existing.mailboxInboundSlaWarningRejectedPercent,
@@ -188,6 +204,29 @@ export class NotificationService {
       warningRejectedPercent,
       criticalRejectedPercent,
     };
+  }
+
+  private normalizeCooldownMinutes(
+    rawValue: unknown,
+    fallback: number,
+  ): number {
+    const numericValue = Number(rawValue);
+    const candidate = Number.isFinite(numericValue)
+      ? Math.floor(numericValue)
+      : fallback;
+    if (
+      candidate <
+      NotificationService.MIN_MAILBOX_INBOUND_SLA_ALERT_COOLDOWN_MINUTES
+    ) {
+      return NotificationService.MIN_MAILBOX_INBOUND_SLA_ALERT_COOLDOWN_MINUTES;
+    }
+    if (
+      candidate >
+      NotificationService.MAX_MAILBOX_INBOUND_SLA_ALERT_COOLDOWN_MINUTES
+    ) {
+      return NotificationService.MAX_MAILBOX_INBOUND_SLA_ALERT_COOLDOWN_MINUTES;
+    }
+    return candidate;
   }
 
   private resolveMailboxInboundStatus(

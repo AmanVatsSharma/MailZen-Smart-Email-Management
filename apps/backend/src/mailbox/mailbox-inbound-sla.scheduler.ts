@@ -138,11 +138,16 @@ export class MailboxInboundSlaScheduler {
       );
       const previousAlertAt =
         preferences.mailboxInboundSlaLastAlertedAt || null;
+      const effectiveCooldownMinutes = this.resolveCooldownMinutes({
+        fallbackCooldownMinutes: input.cooldownMinutes,
+        preferenceCooldownMinutes:
+          preferences.mailboxInboundSlaAlertCooldownMinutes,
+      });
       const statusUnchanged = previousStatus === normalizedStatus;
       const cooldownActive =
         shouldAlert &&
         statusUnchanged &&
-        this.isCooldownActive(previousAlertAt, input.cooldownMinutes);
+        this.isCooldownActive(previousAlertAt, effectiveCooldownMinutes);
 
       if (cooldownActive) {
         this.logger.log(
@@ -246,5 +251,21 @@ export class MailboxInboundSlaScheduler {
     if (candidate < input.minimumValue) return input.minimumValue;
     if (candidate > input.maximumValue) return input.maximumValue;
     return candidate;
+  }
+
+  private resolveCooldownMinutes(input: {
+    fallbackCooldownMinutes: number;
+    preferenceCooldownMinutes?: number | null;
+  }): number {
+    return this.resolvePositiveInteger({
+      rawValue:
+        input.preferenceCooldownMinutes === null ||
+        input.preferenceCooldownMinutes === undefined
+          ? String(input.fallbackCooldownMinutes)
+          : String(input.preferenceCooldownMinutes),
+      fallbackValue: input.fallbackCooldownMinutes,
+      minimumValue: 1,
+      maximumValue: 24 * 60,
+    });
   }
 }

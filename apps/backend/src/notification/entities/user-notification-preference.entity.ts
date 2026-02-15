@@ -1,4 +1,4 @@
-import { Field, Float, ID, ObjectType } from '@nestjs/graphql';
+import { Field, Float, ID, Int, ObjectType } from '@nestjs/graphql';
 import {
   Column,
   CreateDateColumn,
@@ -63,6 +63,10 @@ export class UserNotificationPreference {
   @Field()
   @Column({ default: true })
   mailboxInboundSlaAlertsEnabled: boolean;
+
+  @Field(() => Int)
+  @Column({ default: 60 })
+  mailboxInboundSlaAlertCooldownMinutes: number;
 
   @Column({ nullable: true })
   mailboxInboundSlaLastAlertStatus?: string | null;

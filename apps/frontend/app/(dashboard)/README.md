@@ -75,6 +75,8 @@ flowchart TD
   to control warning/critical alert notifications.
 - 2026-02-15: Added notification-settings controls for mailbox inbound SLA
   thresholds consumed by dashboard observability health indicators.
+- 2026-02-15: Added per-user mailbox inbound SLA alert cooldown control in
+  notification settings to tune duplicate incident suppression.
 - 2026-02-15: Added threshold-aware SLA indicators to mailbox inbound dashboard
   health cards.
 - 2026-02-15: Scoped mailbox inbound dashboard health widgets to active
