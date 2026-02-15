@@ -1,5 +1,6 @@
 import {
   BellRing,
+  Building2,
   CreditCard,
   Contact,
   Filter,
@@ -114,6 +115,11 @@ export const secondaryPanelBySection: Record<DashboardSectionId, SecondaryPanelC
         description: 'Subscription plans and limits',
       },
       {
+        label: 'Workspaces',
+        href: '/settings/workspaces',
+        description: 'Team access and members',
+      },
+      {
         label: 'Notifications',
         href: '/settings/notifications',
         description: 'Notification channel preferences',
@@ -138,6 +144,7 @@ export const automationQuickLinks = [
   { label: 'Warmup', href: '/warmup', icon: Zap },
   { label: 'Smart Replies', href: '/settings/smart-replies', icon: MessageSquareText },
   { label: 'Billing', href: '/settings/billing', icon: CreditCard },
+  { label: 'Workspaces', href: '/settings/workspaces', icon: Building2 },
   { label: 'Notifications', href: '/settings/notifications', icon: BellRing },
 ];
 
@@ -168,6 +175,7 @@ export const getSectionFromPathname = (pathname: string): DashboardSectionId => 
     normalized === '/filters' ||
     normalized === '/warmup' ||
     normalized.startsWith('/settings/billing') ||
+    normalized.startsWith('/settings/workspaces') ||
     normalized.startsWith('/settings/smart-replies') ||
     normalized.startsWith('/settings/notifications')
   ) {

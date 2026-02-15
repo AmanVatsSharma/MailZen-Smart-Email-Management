@@ -24,8 +24,10 @@ modern two-level navigation system:
   - Notification bell now reads real backend notification feed (`myNotifications`)
     and unread count (`myUnreadNotificationCount`), and marks notifications
     read via `markNotificationRead`
+  - Workspace switcher now reads backend `myWorkspaces` and keeps local active
+    workspace selection skeleton for future scoped inbox/billing views
   - Account links route to dashboard destinations including smart-replies,
-    notifications, and billing settings
+    notifications, billing, and workspace settings
 - `InboxSwitcherModal.tsx`
   - Lists all user inbox sources via `myInboxes`
   - Switches active source via `setActiveInbox`

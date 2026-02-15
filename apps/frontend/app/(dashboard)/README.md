@@ -22,6 +22,7 @@ This route group contains all authenticated dashboard pages and renders inside
 - `contacts/page.tsx`: Contacts manager
 - `warmup/page.tsx`: Warmup controls and metrics
 - `settings/billing/page.tsx`: Plan catalog and subscription controls
+- `settings/workspaces/page.tsx`: Workspace and member management skeleton
 - `settings/smart-replies/page.tsx`: Smart reply settings
 - `settings/notifications/page.tsx`: Notification channel preferences
 - `design-system/page.tsx`: Design system showcase

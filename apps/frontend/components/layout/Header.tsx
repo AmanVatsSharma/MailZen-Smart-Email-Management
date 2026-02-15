@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import {
   Menu,
   Bell,
+  Building2,
   Search,
   Users,
   LogOut,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useMutation, useQuery } from '@apollo/client';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -38,6 +40,7 @@ import {
   GET_UNREAD_NOTIFICATION_COUNT,
   MARK_NOTIFICATION_READ,
 } from '@/lib/apollo/queries/notifications';
+import { GET_MY_WORKSPACES } from '@/lib/apollo/queries/workspaces';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -52,9 +55,19 @@ type DashboardNotification = {
   createdAt: string;
 };
 
+type DashboardWorkspace = {
+  id: string;
+  name: string;
+  slug: string;
+  isPersonal: boolean;
+};
+
 const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(
+    null,
+  );
 
   const [logout, { loading: logoutLoading }] = useMutation(LOGOUT_MUTATION, {
     onError: (e) => {
@@ -81,12 +94,26 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       console.error('[Notifications] markNotificationRead failed', error);
     },
   });
+  const { data: workspaceData } = useQuery(GET_MY_WORKSPACES, {
+    fetchPolicy: 'cache-and-network',
+    pollInterval: 60_000,
+  });
 
   useEffect(() => {
     // Try to get user data if available
     const userData = getUserData();
     if (userData) {
       setUser(userData);
+    }
+  }, []);
+
+  useEffect(() => {
+    const storedWorkspaceId =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('mailzen.selectedWorkspaceId')
+        : null;
+    if (storedWorkspaceId) {
+      setSelectedWorkspaceId(storedWorkspaceId);
     }
   }, []);
 
@@ -118,6 +145,18 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const notifications = (notificationsData?.myNotifications ||
     []) as DashboardNotification[];
   const unreadCount = Number(unreadCountData?.myUnreadNotificationCount || 0);
+  const workspaces = (workspaceData?.myWorkspaces || []) as DashboardWorkspace[];
+  const resolvedWorkspace =
+    workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ||
+    workspaces[0];
+
+  useEffect(() => {
+    if (!resolvedWorkspace?.id) return;
+    setSelectedWorkspaceId(resolvedWorkspace.id);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mailzen.selectedWorkspaceId', resolvedWorkspace.id);
+    }
+  }, [resolvedWorkspace?.id]);
 
   const handleNotificationClick = async (notification: DashboardNotification) => {
     if (notification.isRead) return;
@@ -126,6 +165,13 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       await Promise.all([refetchNotifications(), refetchUnreadCount()]);
     } catch (error) {
       console.error('[Notifications] click handler failed', error);
+    }
+  };
+
+  const handleWorkspaceSelect = (workspaceId: string) => {
+    setSelectedWorkspaceId(workspaceId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mailzen.selectedWorkspaceId', workspaceId);
     }
   };
 
@@ -201,6 +247,42 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
         >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="hidden md:inline-flex">
+                <Building2 className="mr-2 h-4 w-4" />
+                {resolvedWorkspace?.name || 'Workspace'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel>Workspace switcher</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {workspaces.length === 0 ? (
+                <div className="px-2 py-3 text-xs text-muted-foreground">
+                  No workspace found yet.
+                </div>
+              ) : (
+                workspaces.map((workspace) => (
+                  <DropdownMenuItem
+                    key={workspace.id}
+                    onClick={() => handleWorkspaceSelect(workspace.id)}
+                  >
+                    <div className="flex w-full items-center justify-between">
+                      <span className="truncate">{workspace.name}</span>
+                      {workspace.id === resolvedWorkspace?.id && (
+                        <Badge variant="outline">Active</Badge>
+                      )}
+                    </div>
+                  </DropdownMenuItem>
+                ))
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push('/settings/workspaces')}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Manage workspaces</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <InboxSwitcherModal />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -277,6 +359,10 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               <DropdownMenuItem onClick={() => router.push('/settings/billing')}>
                 <CreditCard className="mr-2 h-4 w-4" />
                 <span>Billing Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/settings/workspaces')}>
+                <Building2 className="mr-2 h-4 w-4" />
+                <span>Workspace Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
