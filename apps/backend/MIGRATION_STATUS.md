@@ -13,6 +13,8 @@
 - Added TypeORM DataSource in `src/database/data-source.ts`
 - Added migration scripts in `package.json`
 - Added baseline migration marker in `src/database/migrations`
+- Added workspace scope + entitlement migration:
+  - `20260215161000-workspace-scoping-and-entitlements.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 
@@ -34,3 +36,6 @@
 - Keep `synchronize` disabled outside local development
 - Generate migration for each schema change before release
 - Run migration checks in CI before deployment
+- Ensure workspace seeding/backfill strategy is executed in production:
+  - create personal workspace rows for existing users
+  - assign `workspaceId` to existing providers/mailboxes

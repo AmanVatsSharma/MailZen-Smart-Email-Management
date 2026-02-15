@@ -120,3 +120,31 @@ npm run migration:show
 - migrations reviewed and committed
 - migration run validated in CI
 - build + test passing before deploy
+
+## Workspace Scope Rollout Notes (2026-02-15)
+
+New migration: `20260215161000-workspace-scoping-and-entitlements.ts`
+
+This migration introduces:
+
+- `workspaces` table
+- `workspace_members` table
+- `users.activeWorkspaceId`
+- `email_providers.workspaceId`
+- `mailboxes.workspaceId`
+- `billing_plans.workspaceLimit`
+
+### Safe rollout sequence
+
+1. Deploy backend image containing migration and code.
+2. Run `npm run migration:run` before shifting traffic.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Verify workspace-aware GraphQL paths:
+   - `myWorkspaces`
+   - `myActiveWorkspace`
+   - `setActiveWorkspace`
+   - `providers(workspaceId)`
+   - `myMailboxes(workspaceId)`
