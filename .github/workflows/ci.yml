@@ -36,6 +36,8 @@ jobs:
           notification/notification-digest.scheduler.spec.ts
           notification/notification-webhook.service.spec.ts
           notification/notification-push.service.spec.ts
+          feature/feature.service.spec.ts
+          feature/feature.resolver.spec.ts
           smart-replies/smart-reply.service.spec.ts
           ai-agent-gateway/ai-agent-gateway.service.spec.ts
           common/rate-limit/request-rate-limiter.spec.ts

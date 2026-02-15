@@ -8,6 +8,7 @@ The Feature module provides functionality for managing feature flags within the 
 
 - **Feature Flag Management**: Create, read, update, and delete feature flags
 - **Feature Toggling**: Enable or disable features dynamically
+- **Targeted Rollouts**: Scope features by target type/value and percentage rollout
 - **Admin-Only Access**: Restrict feature management to admin users
 - **GraphQL API**: Expose feature operations through GraphQL
 - **Authentication & Authorization**: Secure feature operations with JWT authentication and role-based access control
@@ -22,6 +23,7 @@ The Feature module follows a clean architecture pattern with the following compo
 - **Entity**: GraphQL object type representing a feature
 - **Guards**: Role-based access control for admin-only operations
 - **TypeORM Repository**: Persistent feature storage in Postgres (`features` table)
+- **Context Resolver API**: Resolve effective flag state for current user/workspace
 
 ## API
 
@@ -35,11 +37,25 @@ query {
     id
     name
     isActive
+    targetType
+    targetValue
+    rolloutPercentage
   }
 }
 ```
 
 Returns an array of all features.
+
+#### Resolve Feature Enablement
+
+```graphql
+query {
+  isFeatureEnabled(name: "InboxAIAssist", workspaceId: "workspace-1")
+}
+```
+
+Returns `true` only when the feature is active and matches current
+user/workspace/environment targeting rules.
 
 ### GraphQL Mutations (Admin Only)
 
@@ -49,11 +65,17 @@ Returns an array of all features.
 mutation {
   createFeature(createFeatureInput: {
     name: "EmailTemplates",
-    isActive: true
+    isActive: true,
+    targetType: "WORKSPACE",
+    targetValue: "workspace-1",
+    rolloutPercentage: 100
   }) {
     id
     name
     isActive
+    targetType
+    targetValue
+    rolloutPercentage
   }
 }
 ```
@@ -66,11 +88,13 @@ Creates a new feature flag and returns the created feature.
 mutation {
   updateFeature(updateFeatureInput: {
     id: "feature-id",
-    isActive: false
+    isActive: false,
+    rolloutPercentage: 20
   }) {
     id
     name
     isActive
+    rolloutPercentage
   }
 }
 ```
@@ -116,10 +140,13 @@ export class EmailService {
   constructor(private readonly featureService: FeatureService) {}
 
   async sendEmail(emailData: any) {
-    const features = await this.featureService.getAllFeatures();
-    const emailTemplatesFeature = features.find((feature) => feature.name === 'EmailTemplates');
+    const isEnabled = await this.featureService.isFeatureEnabledForContext({
+      name: 'EmailTemplates',
+      userId: user.id,
+      workspaceId: workspace.id,
+    });
 
-    if (emailTemplatesFeature?.isActive) {
+    if (isEnabled) {
       // Use email templates functionality
     } else {
       // Use basic email sending
@@ -138,7 +165,9 @@ flowchart TD
   Resolver --> Guard[JwtAuthGuard + AdminGuard]
   Guard --> Service[FeatureService]
   Service --> Repo[(Feature TypeORM Repository)]
+  Service --> Evaluator[Target + rollout evaluator]
   Repo --> Service
+  Evaluator --> Service
   Service --> Resolver
   Resolver --> AdminUI
 ```
@@ -165,6 +194,15 @@ export class Feature {
 
   @Column({ default: false })
   isActive: boolean;
+
+  @Column({ default: 'GLOBAL' })
+  targetType: string;
+
+  @Column({ nullable: true })
+  targetValue?: string | null;
+
+  @Column({ type: 'integer', default: 100 })
+  rolloutPercentage: number;
 }
 ```
 

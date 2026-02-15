@@ -30,6 +30,9 @@ describe('FeatureService', () => {
       id: 'feature-1',
       name: 'inbox-ai',
       isActive: true,
+      targetType: 'GLOBAL',
+      targetValue: null,
+      rolloutPercentage: 100,
     });
 
     const result = await service.createFeature({
@@ -41,6 +44,9 @@ describe('FeatureService', () => {
       id: 'feature-1',
       name: 'inbox-ai',
       isActive: true,
+      targetType: 'GLOBAL',
+      targetValue: null,
+      rolloutPercentage: 100,
     });
   });
 
@@ -61,11 +67,17 @@ describe('FeatureService', () => {
       id: 'feature-1',
       name: 'inbox-ai',
       isActive: false,
+      targetType: 'GLOBAL',
+      targetValue: null,
+      rolloutPercentage: 100,
     });
     featureRepo.save.mockResolvedValue({
       id: 'feature-1',
       name: 'inbox-ai',
       isActive: true,
+      targetType: 'GLOBAL',
+      targetValue: null,
+      rolloutPercentage: 100,
     });
 
     const result = await service.updateFeature({
@@ -82,5 +94,63 @@ describe('FeatureService', () => {
     await expect(service.deleteFeature('missing')).rejects.toThrow(
       NotFoundException,
     );
+  });
+
+  it('resolves workspace-targeted feature enablement', async () => {
+    featureRepo.findOne.mockResolvedValue({
+      id: 'feature-1',
+      name: 'inbox-ai',
+      isActive: true,
+      targetType: 'WORKSPACE',
+      targetValue: 'workspace-1',
+      rolloutPercentage: 100,
+    });
+
+    const enabled = await service.isFeatureEnabledForContext({
+      name: 'inbox-ai',
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+    });
+    const disabled = await service.isFeatureEnabledForContext({
+      name: 'inbox-ai',
+      userId: 'user-1',
+      workspaceId: 'workspace-2',
+    });
+
+    expect(enabled).toBe(true);
+    expect(disabled).toBe(false);
+  });
+
+  it('applies deterministic rollout percentages', async () => {
+    featureRepo.findOne.mockResolvedValue({
+      id: 'feature-1',
+      name: 'inbox-ai',
+      isActive: true,
+      targetType: 'COHORT',
+      targetValue: 'early-access',
+      rolloutPercentage: 0,
+    });
+
+    const disabled = await service.isFeatureEnabledForContext({
+      name: 'inbox-ai',
+      userId: 'user-1',
+      workspaceId: null,
+    });
+    expect(disabled).toBe(false);
+
+    featureRepo.findOne.mockResolvedValue({
+      id: 'feature-1',
+      name: 'inbox-ai',
+      isActive: true,
+      targetType: 'COHORT',
+      targetValue: 'early-access',
+      rolloutPercentage: 100,
+    });
+    const enabled = await service.isFeatureEnabledForContext({
+      name: 'inbox-ai',
+      userId: 'user-1',
+      workspaceId: null,
+    });
+    expect(enabled).toBe(true);
   });
 });

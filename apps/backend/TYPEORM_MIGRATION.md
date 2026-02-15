@@ -501,3 +501,36 @@ SELECT
   COUNT(*) FILTER (WHERE "failureCount" > 0) AS failing_subscriptions
 FROM notification_push_subscriptions;
 ```
+
+## Feature Targeted Rollout Columns Notes (2026-02-16)
+
+New migration: `20260216019000-feature-targeted-rollout-columns.ts`
+
+This migration introduces:
+
+- `features.targetType` (`GLOBAL` default)
+- `features.targetValue` (nullable scope selector)
+- `features.rolloutPercentage` (integer default `100`)
+
+### Safe rollout sequence
+
+1. Deploy backend with updated feature entity/service/resolver logic.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- feature/feature.service.spec.ts feature/feature.resolver.spec.ts`
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Verify GraphQL behavior:
+   - `createFeature` and `updateFeature` support rollout fields.
+   - `isFeatureEnabled` returns context-aware enablement values.
+
+### Staging verification SQL
+
+```sql
+SELECT
+  COUNT(*) AS total_features,
+  COUNT(*) FILTER (WHERE "targetType" = 'GLOBAL') AS global_features,
+  COUNT(*) FILTER (WHERE "rolloutPercentage" < 100) AS partial_rollout_features
+FROM features;
+```

@@ -23,6 +23,18 @@ export class Feature {
   name: string;
 
   @Field()
+  @Column({ default: 'GLOBAL' })
+  targetType: string;
+
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  targetValue?: string | null;
+
+  @Field()
+  @Column({ type: 'integer', default: 100 })
+  rolloutPercentage: number;
+
+  @Field()
   @Column({ default: false })
   isActive: boolean;
 

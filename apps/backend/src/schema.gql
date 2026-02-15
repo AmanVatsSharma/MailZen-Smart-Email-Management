@@ -142,6 +142,9 @@ type AuthResponse {
 type Feature {
   id: ID!
   name: String!
+  targetType: String!
+  targetValue: String
+  rolloutPercentage: Int!
   isActive: Boolean!
 }
 
@@ -317,6 +320,7 @@ type Query {
 
   """Get all features"""
   getAllFeatures: [Feature!]!
+  isFeatureEnabled(name: String!, workspaceId: String): Boolean!
 
   """Get all templates"""
   getAllTemplates: [Template!]!
@@ -610,12 +614,18 @@ input VerifySignupInput {
 input CreateFeatureInput {
   name: String!
   isActive: Boolean! = false
+  targetType: String = "GLOBAL"
+  targetValue: String
+  rolloutPercentage: Int = 100
 }
 
 input UpdateFeatureInput {
   id: ID!
   name: String
   isActive: Boolean
+  targetType: String
+  targetValue: String
+  rolloutPercentage: Int
 }
 
 input CreateTemplateInput {

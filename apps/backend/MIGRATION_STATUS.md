@@ -35,6 +35,8 @@
   - `20260216015000-notification-digest-enabled.ts`
 - Added notification push subscription table migration:
   - `20260216017000-notification-push-subscriptions.ts`
+- Added feature targeted rollout fields migration:
+  - `20260216019000-feature-targeted-rollout-columns.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 
