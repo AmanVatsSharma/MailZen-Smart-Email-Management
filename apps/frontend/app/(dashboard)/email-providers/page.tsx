@@ -6,7 +6,8 @@ import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 
 export const metadata: Metadata = {
   title: 'Email Providers | MailZen',
-  description: 'Connect and manage your email providers in MailZen',
+  description:
+    'Connect and manage providers, MailZen aliases, and inbound observability telemetry in MailZen',
 };
 
 interface EmailProvidersPageProps {
@@ -28,7 +29,7 @@ export default async function EmailProvidersPage({ searchParams }: EmailProvider
   return (
     <DashboardPageShell
       title="Email Providers"
-      description="Connect and manage your email accounts from various providers."
+      description="Connect and manage providers, MailZen aliases, and inbound delivery telemetry."
       contentClassName="space-y-6"
     >
       {showSuccess && (

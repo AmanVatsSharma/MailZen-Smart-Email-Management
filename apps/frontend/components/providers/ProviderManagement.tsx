@@ -1,27 +1,92 @@
 'use client'
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Plus, Trash2, RefreshCw, Settings, Mail } from 'lucide-react';
+import {
+  AlertCircle,
+  Clock3,
+  Mail,
+  Plus,
+  RefreshCw,
+  Settings,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react';
 import { useQuery, useMutation } from '@apollo/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ProviderWizard } from './ProviderWizard';
 import { EmailProvider, Provider } from '@/lib/providers/provider-utils';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   GET_PROVIDERS, 
   DISCONNECT_PROVIDER, 
   UPDATE_PROVIDER, 
   SYNC_PROVIDER 
 } from '@/lib/apollo/queries/providers';
+import { GET_MY_INBOXES } from '@/lib/apollo/queries/inboxes';
+import {
+  GET_MY_MAILBOX_INBOUND_EVENTS,
+  GET_MY_MAILBOX_INBOUND_EVENT_STATS,
+} from '@/lib/apollo/queries/mailbox-observability';
 import { gql } from '@apollo/client';
+
+type MailboxObservabilityStatus = 'ACCEPTED' | 'DEDUPLICATED' | 'REJECTED';
+
+type MailboxObservabilityEvent = {
+  id: string;
+  mailboxId: string;
+  mailboxEmail?: string | null;
+  messageId?: string | null;
+  emailId?: string | null;
+  inboundThreadKey?: string | null;
+  status: MailboxObservabilityStatus;
+  sourceIp?: string | null;
+  signatureValidated: boolean;
+  errorReason?: string | null;
+  createdAt: string;
+};
+
+type MailboxObservabilityStats = {
+  mailboxId?: string | null;
+  mailboxEmail?: string | null;
+  windowHours: number;
+  totalCount: number;
+  acceptedCount: number;
+  deduplicatedCount: number;
+  rejectedCount: number;
+  lastProcessedAt?: string | null;
+};
+
+type InboxSource = {
+  id: string;
+  type: 'MAILBOX' | 'PROVIDER';
+  address: string;
+  isActive: boolean;
+  status?: string | null;
+};
+
+const OBSERVABILITY_MAILBOX_ALL = 'ALL_MAILBOXES';
+const OBSERVABILITY_EVENT_STATUS_ALL = 'ALL_STATUSES';
 
 export function ProviderManagement() {
   const [isAddingProvider, setIsAddingProvider] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState<string | null>(null);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  const [selectedMailboxId, setSelectedMailboxId] = useState(OBSERVABILITY_MAILBOX_ALL);
+  const [selectedEventStatus, setSelectedEventStatus] = useState(
+    OBSERVABILITY_EVENT_STATUS_ALL,
+  );
+  const [selectedWindowHours, setSelectedWindowHours] = useState('24');
 
   useEffect(() => {
     const storedWorkspaceId =
@@ -37,10 +102,9 @@ export function ProviderManagement() {
   });
   const providers = data?.providers || [];
   void loading;
-  void error;
 
   // Fetch MailZen mailbox list
-  const { data: mailboxData } = useQuery(
+  const { data: mailboxData, error: mailboxError } = useQuery(
     gql`
       query ProviderManagementMailboxes($workspaceId: String) {
         myMailboxes(workspaceId: $workspaceId)
@@ -51,6 +115,81 @@ export function ProviderManagement() {
     },
   );
   const mailzenBoxes: string[] = mailboxData?.myMailboxes || [];
+
+  const { data: inboxData } = useQuery<{ myInboxes: InboxSource[] }>(GET_MY_INBOXES, {
+    fetchPolicy: 'network-only',
+  });
+
+  const mailboxInboxes = useMemo(
+    () =>
+      (inboxData?.myInboxes || []).filter(
+        (source) => source.type === 'MAILBOX',
+      ) as InboxSource[],
+    [inboxData?.myInboxes],
+  );
+
+  useEffect(() => {
+    if (!mailboxInboxes.length) {
+      if (selectedMailboxId !== OBSERVABILITY_MAILBOX_ALL) {
+        setSelectedMailboxId(OBSERVABILITY_MAILBOX_ALL);
+      }
+      return;
+    }
+
+    const hasSelectedMailbox = mailboxInboxes.some(
+      (mailbox) => mailbox.id === selectedMailboxId,
+    );
+    if (!hasSelectedMailbox && selectedMailboxId !== OBSERVABILITY_MAILBOX_ALL) {
+      setSelectedMailboxId(OBSERVABILITY_MAILBOX_ALL);
+    }
+  }, [mailboxInboxes, selectedMailboxId]);
+
+  const selectedMailboxFilter =
+    selectedMailboxId === OBSERVABILITY_MAILBOX_ALL ? undefined : selectedMailboxId;
+  const selectedStatusFilter =
+    selectedEventStatus === OBSERVABILITY_EVENT_STATUS_ALL
+      ? undefined
+      : selectedEventStatus;
+  const selectedStatsWindowHours = Number(selectedWindowHours) || 24;
+
+  const {
+    data: observabilityEventsData,
+    loading: observabilityEventsLoading,
+    error: observabilityEventsError,
+    refetch: refetchObservabilityEvents,
+  } = useQuery<{ myMailboxInboundEvents: MailboxObservabilityEvent[] }>(
+    GET_MY_MAILBOX_INBOUND_EVENTS,
+    {
+      variables: {
+        mailboxId: selectedMailboxFilter,
+        status: selectedStatusFilter,
+        limit: 25,
+      },
+      skip: mailboxInboxes.length === 0,
+      fetchPolicy: 'network-only',
+    },
+  );
+
+  const {
+    data: observabilityStatsData,
+    loading: observabilityStatsLoading,
+    error: observabilityStatsError,
+    refetch: refetchObservabilityStats,
+  } = useQuery<{ myMailboxInboundEventStats: MailboxObservabilityStats }>(
+    GET_MY_MAILBOX_INBOUND_EVENT_STATS,
+    {
+      variables: {
+        mailboxId: selectedMailboxFilter,
+        windowHours: selectedStatsWindowHours,
+      },
+      skip: mailboxInboxes.length === 0,
+      fetchPolicy: 'network-only',
+    },
+  );
+
+  const observabilityEvents =
+    observabilityEventsData?.myMailboxInboundEvents || [];
+  const observabilityStats = observabilityStatsData?.myMailboxInboundEventStats;
 
   // Mutations
   const [disconnectProvider, { loading: disconnectLoading }] = useMutation(DISCONNECT_PROVIDER, {
@@ -193,6 +332,54 @@ export function ProviderManagement() {
     }
   };
 
+  const getObservabilityStatusBadge = (status: MailboxObservabilityStatus) => {
+    if (status === 'ACCEPTED') {
+      return (
+        <Badge
+          variant="outline"
+          className="border-emerald-200/60 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200"
+        >
+          Accepted
+        </Badge>
+      );
+    }
+    if (status === 'DEDUPLICATED') {
+      return (
+        <Badge
+          variant="outline"
+          className="border-blue-200/60 bg-blue-50 text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200"
+        >
+          Deduplicated
+        </Badge>
+      );
+    }
+    return (
+      <Badge
+        variant="outline"
+        className="border-destructive/20 bg-destructive/10 text-destructive dark:border-destructive/30 dark:bg-destructive/15"
+      >
+        Rejected
+      </Badge>
+    );
+  };
+
+  const formatIsoDate = (value?: string | null) => {
+    if (!value) return '—';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleString();
+  };
+
+  const formatMessageIdentifier = (value?: string | null) => {
+    if (!value) return 'n/a';
+    return value.length > 42 ? `${value.slice(0, 39)}...` : value;
+  };
+
+  const handleRefreshObservability = async () => {
+    if (mailboxInboxes.length === 0) return;
+    await Promise.all([refetchObservabilityEvents(), refetchObservabilityStats()]);
+  };
+
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -249,6 +436,203 @@ export function ProviderManagement() {
                 </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {(error || mailboxError) && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Unable to load provider settings</AlertTitle>
+          <AlertDescription>
+            {error?.message || mailboxError?.message || 'Please refresh and try again.'}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {mailboxInboxes.length > 0 && (
+        <Card>
+          <CardHeader className="space-y-2">
+            <CardTitle className="text-lg">Mailbox inbound observability</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Track inbound delivery outcomes, signature validation, and replay deduplication
+              for your MailZen aliases.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <Select
+                value={selectedMailboxId}
+                onValueChange={(nextValue) => setSelectedMailboxId(nextValue)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Mailbox scope" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={OBSERVABILITY_MAILBOX_ALL}>
+                    All mailboxes
+                  </SelectItem>
+                  {mailboxInboxes.map((mailbox) => (
+                    <SelectItem key={mailbox.id} value={mailbox.id}>
+                      {mailbox.address}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={selectedEventStatus}
+                onValueChange={(nextValue) => setSelectedEventStatus(nextValue)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Status scope" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={OBSERVABILITY_EVENT_STATUS_ALL}>
+                    All statuses
+                  </SelectItem>
+                  <SelectItem value="ACCEPTED">Accepted</SelectItem>
+                  <SelectItem value="DEDUPLICATED">Deduplicated</SelectItem>
+                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={selectedWindowHours}
+                onValueChange={(nextValue) => setSelectedWindowHours(nextValue)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Window" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="24">Last 24 hours</SelectItem>
+                  <SelectItem value="72">Last 72 hours</SelectItem>
+                  <SelectItem value="168">Last 7 days</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant="outline"
+                className="justify-center gap-2"
+                onClick={() => {
+                  void handleRefreshObservability();
+                }}
+                disabled={observabilityEventsLoading || observabilityStatsLoading}
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${
+                    observabilityEventsLoading || observabilityStatsLoading
+                      ? 'animate-spin'
+                      : ''
+                  }`}
+                />
+                Refresh telemetry
+              </Button>
+            </div>
+
+            {(observabilityEventsError || observabilityStatsError) && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Telemetry query failed</AlertTitle>
+                <AlertDescription>
+                  {observabilityEventsError?.message ||
+                    observabilityStatsError?.message ||
+                    'Unable to load mailbox inbound telemetry right now.'}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+              <Badge variant="outline" className="justify-center">
+                Total: {observabilityStats?.totalCount ?? 0}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="justify-center border-emerald-200/60 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200"
+              >
+                Accepted: {observabilityStats?.acceptedCount ?? 0}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="justify-center border-blue-200/60 bg-blue-50 text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200"
+              >
+                Deduplicated: {observabilityStats?.deduplicatedCount ?? 0}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="justify-center border-destructive/20 bg-destructive/10 text-destructive dark:border-destructive/30 dark:bg-destructive/15"
+              >
+                Rejected: {observabilityStats?.rejectedCount ?? 0}
+              </Badge>
+              <Badge variant="outline" className="justify-center">
+                Window: {observabilityStats?.windowHours ?? selectedStatsWindowHours}h
+              </Badge>
+            </div>
+
+            <div className="rounded-lg border">
+              <div className="grid grid-cols-12 border-b bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
+                <div className="col-span-3">Mailbox</div>
+                <div className="col-span-2">Status</div>
+                <div className="col-span-3">Message-ID</div>
+                <div className="col-span-2">Signed</div>
+                <div className="col-span-2">Processed at</div>
+              </div>
+              <div className="divide-y">
+                {observabilityEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="grid grid-cols-12 items-center gap-2 px-3 py-2 text-xs"
+                  >
+                    <div className="col-span-3">
+                      <p className="truncate font-medium">
+                        {event.mailboxEmail || event.mailboxId}
+                      </p>
+                      <p className="truncate text-muted-foreground">{event.sourceIp || '—'}</p>
+                    </div>
+                    <div className="col-span-2">
+                      {getObservabilityStatusBadge(event.status)}
+                    </div>
+                    <div className="col-span-3">
+                      <p className="truncate">{formatMessageIdentifier(event.messageId)}</p>
+                      {event.errorReason && (
+                        <p className="truncate text-destructive">{event.errorReason}</p>
+                      )}
+                    </div>
+                    <div className="col-span-2">
+                      <Badge variant={event.signatureValidated ? 'default' : 'secondary'}>
+                        <ShieldCheck className="mr-1 h-3 w-3" />
+                        {event.signatureValidated ? 'Yes' : 'No'}
+                      </Badge>
+                    </div>
+                    <div className="col-span-2 text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Clock3 className="h-3.5 w-3.5" />
+                        <span className="truncate">{formatIsoDate(event.createdAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {!observabilityEvents.length &&
+                  !observabilityEventsLoading &&
+                  !observabilityEventsError && (
+                    <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                      No inbound telemetry events found for the selected filters.
+                    </div>
+                  )}
+
+                {observabilityEventsLoading && (
+                  <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                    Loading inbound telemetry events...
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Last processed event:{' '}
+              {formatIsoDate(observabilityStats?.lastProcessedAt || null)}
+            </p>
           </CardContent>
         </Card>
       )}

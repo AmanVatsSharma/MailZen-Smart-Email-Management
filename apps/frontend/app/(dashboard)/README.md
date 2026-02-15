@@ -63,6 +63,8 @@ flowchart TD
 
 ## Changelog
 
+- 2026-02-15: Enhanced email provider management with mailbox inbound
+  observability filters and event timeline telemetry.
 - 2026-02-14: Migrated dashboard pages to shared scaffold patterns and removed
   duplicated page-level sidebars from mail routes.
 - 2026-02-14: Hardened mail-page responsive layouts (Sent/Archive/Trash), added

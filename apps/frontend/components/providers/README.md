@@ -11,6 +11,8 @@ monitoring subscription-aware limits.
   - Lists connected external providers and MailZen mailboxes
   - Supports optional workspace-scoped listing using active workspace selection
   - Supports provider connect/sync/pause/remove actions
+  - Surfaces mailbox inbound telemetry with status/mailbox/window filters
+  - Shows inbound event-store outcomes (accepted/deduplicated/rejected)
   - Shows live subscription plan usage:
     - provider usage (`used/limit`)
     - mailbox usage (`used/limit`)
@@ -23,6 +25,9 @@ monitoring subscription-aware limits.
 
 - `providers`
 - `myMailboxes`
+- `myInboxes`
+- `myMailboxInboundEvents`
+- `myMailboxInboundEventStats`
 - `mySubscription`
 - `billingPlans`
 - `myWorkspaces`
@@ -34,6 +39,8 @@ flowchart TD
   User --> ProviderManagement
   ProviderManagement --> ProvidersQuery[providers]
   ProviderManagement --> MailboxesQuery[myMailboxes]
+  ProviderManagement --> InboxesQuery[myInboxes]
+  ProviderManagement --> MailboxTelemetry[myMailboxInboundEvents + myMailboxInboundEventStats]
   ProviderManagement --> BillingQuery[mySubscription + billingPlans + myWorkspaces]
   ProviderManagement --> ProviderWizard
   ProviderWizard --> ConnectMutations[connectSmtp/connectGmail/connectOutlook]
