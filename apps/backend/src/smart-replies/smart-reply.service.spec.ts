@@ -1,12 +1,15 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Repository } from 'typeorm';
+import { SmartReplyModelProvider } from './smart-reply-model.provider';
 import { SmartReplyService } from './smart-reply.service';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
 
 describe('SmartReplyService', () => {
   let service: SmartReplyService;
   let settingsRepo: jest.Mocked<Repository<SmartReplySettings>>;
+  let modelProvider: jest.Mocked<SmartReplyModelProvider>;
 
   beforeEach(async () => {
     const repoMock = {
@@ -15,29 +18,73 @@ describe('SmartReplyService', () => {
       save: jest.fn(),
       merge: jest.fn(),
     } as unknown as jest.Mocked<Repository<SmartReplySettings>>;
+    const modelProviderMock = {
+      generateSuggestions: jest.fn(),
+    } as unknown as jest.Mocked<SmartReplyModelProvider>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SmartReplyService,
         { provide: getRepositoryToken(SmartReplySettings), useValue: repoMock },
+        { provide: SmartReplyModelProvider, useValue: modelProviderMock },
       ],
     }).compile();
 
     service = module.get<SmartReplyService>(SmartReplyService);
     settingsRepo = module.get(getRepositoryToken(SmartReplySettings));
+    modelProvider = module.get(SmartReplyModelProvider);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  it('generates a non-empty reply string', async () => {
-    const result = await service.generateReply({
-      conversation: 'Can you confirm the timeline for delivery?',
-    });
+  it('generates deterministic reply from model provider', async () => {
+    settingsRepo.findOne.mockResolvedValue({
+      id: 'settings-1',
+      userId: 'user-1',
+      enabled: true,
+      defaultTone: 'professional',
+      defaultLength: 'medium',
+      includeSignature: false,
+      maxSuggestions: 3,
+    } as SmartReplySettings);
+    modelProvider.generateSuggestions.mockReturnValue([
+      'Deterministic suggestion',
+      'Alternative',
+    ]);
 
-    expect(typeof result).toBe('string');
-    expect(result.length).toBeGreaterThan(0);
+    const result = await service.generateReply(
+      {
+        conversation: 'Can you confirm the timeline for delivery?',
+      },
+      'user-1',
+    );
+
+    expect(modelProvider.generateSuggestions).toHaveBeenCalled();
+    expect(result).toBe('Deterministic suggestion');
+  });
+
+  it('returns safety reply when sensitive content is present', async () => {
+    settingsRepo.findOne.mockResolvedValue({
+      id: 'settings-1',
+      userId: 'user-1',
+      enabled: true,
+      defaultTone: 'professional',
+      defaultLength: 'medium',
+      includeSignature: false,
+      maxSuggestions: 3,
+    } as SmartReplySettings);
+
+    const result = await service.generateReply(
+      {
+        conversation: 'Here is my password 1234, please use it.',
+      },
+      'user-1',
+    );
+
+    expect(modelProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(result).toContain('security reasons');
   });
 
   it('returns existing settings when present', async () => {
@@ -57,7 +104,10 @@ describe('SmartReplyService', () => {
   });
 
   it('creates default settings when no row exists', async () => {
-    const created = { id: 'settings-1', userId: 'user-1' } as SmartReplySettings;
+    const created = {
+      id: 'settings-1',
+      userId: 'user-1',
+    } as SmartReplySettings;
     settingsRepo.findOne.mockResolvedValue(null);
     settingsRepo.create.mockReturnValue(created);
     settingsRepo.save.mockResolvedValue(created);
@@ -94,5 +144,29 @@ describe('SmartReplyService', () => {
     expect(settingsRepo.merge).toHaveBeenCalled();
     expect(settingsRepo.save).toHaveBeenCalledWith(merged);
     expect(result).toEqual(merged);
+  });
+
+  it('uses maxSuggestions cap when generating suggestions', async () => {
+    settingsRepo.findOne.mockResolvedValue({
+      id: 'settings-1',
+      userId: 'user-1',
+      enabled: true,
+      defaultTone: 'friendly',
+      defaultLength: 'short',
+      includeSignature: false,
+      maxSuggestions: 2,
+    } as SmartReplySettings);
+    modelProvider.generateSuggestions.mockReturnValue(['One', 'Two']);
+
+    const result = await service.getSuggestedReplies(
+      'Can we schedule a meeting?',
+      5,
+      'user-1',
+    );
+
+    expect(modelProvider.generateSuggestions).toHaveBeenCalledWith(
+      expect.objectContaining({ count: 2 }),
+    );
+    expect(result).toEqual(['One', 'Two']);
   });
 });

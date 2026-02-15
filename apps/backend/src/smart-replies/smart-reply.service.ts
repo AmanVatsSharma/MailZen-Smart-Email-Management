@@ -4,80 +4,155 @@ import { Repository } from 'typeorm';
 import { SmartReplyInput } from './dto/smart-reply.input';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
 import { UpdateSmartReplySettingsInput } from './dto/update-smart-reply-settings.input';
+import { SmartReplyModelProvider } from './smart-reply-model.provider';
 
 @Injectable()
 export class SmartReplyService {
   private readonly logger = new Logger(SmartReplyService.name);
+  private readonly safeFallbackReply =
+    'Thank you for your message. I will review this and follow up shortly.';
+  private readonly disabledReply =
+    'Smart replies are disabled in your settings. Please enable them to generate suggestions.';
 
   constructor(
     @InjectRepository(SmartReplySettings)
     private readonly settingsRepo: Repository<SmartReplySettings>,
+    private readonly modelProvider: SmartReplyModelProvider,
   ) {}
 
-  async generateReply(input: SmartReplyInput): Promise<string> {
+  async generateReply(input: SmartReplyInput, userId: string): Promise<string> {
     try {
+      const settings = await this.getSettings(userId);
+      if (!settings.enabled) {
+        this.logger.warn(
+          `smart-reply-service: settings disabled for userId=${userId}`,
+        );
+        return this.disabledReply;
+      }
+
+      const normalizedConversation = this.normalizeConversation(
+        input.conversation,
+      );
+      if (this.containsSensitiveContext(normalizedConversation)) {
+        this.logger.warn(
+          `smart-reply-service: sensitive context blocked userId=${userId}`,
+        );
+        return this.getSafetyBlockedReply();
+      }
+
       this.logger.log(
-        `Generating smart reply for conversation: ${input.conversation.substring(0, 50)}...`,
+        `smart-reply-service: generating reply userId=${userId} tone=${settings.defaultTone} length=${settings.defaultLength}`,
       );
 
-      // Store the conversation in the database for future training
-      await this.storeConversation(input.conversation);
+      this.storeConversation(normalizedConversation, userId);
+      const suggestions = this.modelProvider.generateSuggestions({
+        conversation: normalizedConversation,
+        tone: settings.defaultTone,
+        length: settings.defaultLength,
+        count: Math.max(1, settings.maxSuggestions),
+        includeSignature: settings.includeSignature,
+        customInstructions: settings.customInstructions || undefined,
+      });
+      const first = suggestions[0];
+      if (!first) {
+        this.logger.warn(
+          `smart-reply-service: provider returned no suggestions userId=${userId}`,
+        );
+        return this.safeFallbackReply;
+      }
 
-      // Simple response templates based on conversation context
-      // In a real implementation, this would use AI/ML models
-      const templates = [
-        "Thank you for your email. I'll review and get back to you soon.",
-        'I appreciate your message. Let me look into this and respond shortly.',
-        "Thanks for reaching out. I'll handle this right away.",
-        "Got it! I'll process your request and follow up.",
-        "Thank you for the information. I'll take appropriate action.",
-      ];
-
-      // Get a "smart" reply (for demo purposes, just select randomly)
-      const smartReply =
-        templates[Math.floor(Math.random() * templates.length)];
-
-      return smartReply;
-    } catch (error) {
+      return first;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
-        `Error generating smart reply: ${error.message}`,
-        error.stack,
+        `smart-reply-service: failed generation userId=${userId} message=${message}`,
+        stack,
       );
-      return "I'm sorry, I couldn't generate a reply at this time.";
+      return this.safeFallbackReply;
     }
   }
 
-  private async storeConversation(conversation: string): Promise<void> {
+  private storeConversation(conversation: string, userId: string): void {
     try {
-      // In a real implementation, you would store this in a database
-      // For example, using a DB table + TypeORM repository:
+      // In future iterations this can be persisted to a dedicated conversation history table.
       /*
       await this.conversationLogRepo.save(
         this.conversationLogRepo.create({ text: conversation, timestamp: new Date() }),
       );
       */
 
-      // For now, just log that we would store it
-      this.logger.debug('Conversation stored for future training');
-    } catch (error) {
-      this.logger.error(`Error storing conversation: ${error.message}`);
+      this.logger.debug(
+        `smart-reply-service: conversation observed for training userId=${userId} chars=${conversation.length}`,
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `smart-reply-service: failed to track conversation userId=${userId} message=${message}`,
+      );
     }
   }
 
   async getSuggestedReplies(
     emailBody: string,
     count: number = 3,
+    userId: string,
   ): Promise<string[]> {
-    // This would integrate with an AI service in a real implementation
-    const suggestions = [
-      'Yes, that works for me.',
-      "I'll check and get back to you.",
-      'Can we discuss this further?',
-      'Thank you for the update.',
-      "Let's schedule a call to discuss.",
-    ];
+    const settings = await this.getSettings(userId);
+    if (!settings.enabled) {
+      this.logger.warn(
+        `smart-reply-service: skipped suggestions because disabled userId=${userId}`,
+      );
+      return [];
+    }
 
-    return suggestions.slice(0, count);
+    const normalizedConversation = this.normalizeConversation(emailBody);
+    if (!normalizedConversation) return [];
+
+    if (this.containsSensitiveContext(normalizedConversation)) {
+      this.logger.warn(
+        `smart-reply-service: blocked sensitive suggestion request userId=${userId}`,
+      );
+      return [this.getSafetyBlockedReply()];
+    }
+
+    const maxAllowedSuggestions = Math.max(1, settings.maxSuggestions);
+    const requestedCount = Math.max(1, Math.min(count, maxAllowedSuggestions));
+
+    try {
+      const suggestions = this.modelProvider.generateSuggestions({
+        conversation: normalizedConversation,
+        tone: settings.defaultTone,
+        length: settings.defaultLength,
+        count: requestedCount,
+        includeSignature: settings.includeSignature,
+        customInstructions: settings.customInstructions || undefined,
+      });
+      if (!suggestions.length) return [this.safeFallbackReply];
+      return suggestions;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `smart-reply-service: failed suggestions userId=${userId} message=${message}`,
+      );
+      return [this.safeFallbackReply];
+    }
+  }
+
+  private normalizeConversation(conversation: string): string {
+    return String(conversation || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private containsSensitiveContext(conversation: string): boolean {
+    return /\b(password|passcode|otp|api key|secret key|credit card|cvv|ssn|social security)\b/i.test(
+      conversation,
+    );
+  }
+
+  private getSafetyBlockedReply(): string {
+    return 'Thanks for your message. For security reasons, please avoid sharing sensitive credentials over email.';
   }
 
   async getSettings(userId: string): Promise<SmartReplySettings> {

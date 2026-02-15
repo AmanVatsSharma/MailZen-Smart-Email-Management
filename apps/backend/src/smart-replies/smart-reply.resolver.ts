@@ -24,16 +24,22 @@ export class SmartReplyResolver {
   })
   async generateSmartReply(
     @Args('input') input: SmartReplyInput,
+    @Context() context: RequestContext,
   ): Promise<string> {
-    return this.smartReplyService.generateReply(input);
+    return this.smartReplyService.generateReply(input, context.req.user.id);
   }
 
   @Query(() => [String], { description: 'Get suggested replies for an email' })
   async getSuggestedReplies(
     @Args('emailBody') emailBody: string,
     @Args('count', { type: () => Int, defaultValue: 3 }) count: number,
+    @Context() context: RequestContext,
   ): Promise<string[]> {
-    return this.smartReplyService.getSuggestedReplies(emailBody, count);
+    return this.smartReplyService.getSuggestedReplies(
+      emailBody,
+      count,
+      context.req.user.id,
+    );
   }
 
   @Query(() => SmartReplySettings, {
