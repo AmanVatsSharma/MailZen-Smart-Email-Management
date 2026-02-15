@@ -22,6 +22,8 @@ Provide a persistent notification foundation for user-visible product events
     global (`workspaceId = null`) notifications for complete operational context.
 - `myMailboxInboundSlaIncidentStats(workspaceId?, windowHours?)` → aggregated
   warning/critical incident counts and last-alert timestamp for SLA alerts
+- `myMailboxInboundSlaIncidentSeries(workspaceId?, windowHours?, bucketMinutes?)` →
+  bucketed warning/critical incident trend points for dashboards
 - `myUnreadNotificationCount` → unread badge count
 - `myNotificationPreferences` → get per-user notification channel settings
 - `markNotificationRead(id)` → marks one notification as read

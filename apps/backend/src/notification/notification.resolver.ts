@@ -2,7 +2,10 @@ import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
-import { MailboxInboundSlaIncidentStatsResponse } from './dto/mailbox-inbound-sla-incident-stats.response';
+import {
+  MailboxInboundSlaIncidentStatsResponse,
+  MailboxInboundSlaIncidentTrendPointResponse,
+} from './dto/mailbox-inbound-sla-incident-stats.response';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
 import { UserNotification } from './entities/user-notification.entity';
 import { NotificationService } from './notification.service';
@@ -64,6 +67,26 @@ export class NotificationResolver {
       userId: ctx.req.user.id,
       workspaceId,
       windowHours,
+    });
+  }
+
+  @Query(() => [MailboxInboundSlaIncidentTrendPointResponse], {
+    description:
+      'Mailbox inbound SLA alert trend buckets for current user over a rolling window',
+  })
+  async myMailboxInboundSlaIncidentSeries(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes: number,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.notificationService.getMailboxInboundSlaIncidentSeries({
+      userId: ctx.req.user.id,
+      workspaceId,
+      windowHours,
+      bucketMinutes,
     });
   }
 

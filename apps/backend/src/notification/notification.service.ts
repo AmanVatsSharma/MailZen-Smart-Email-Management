@@ -26,6 +26,9 @@ export class NotificationService {
   private static readonly DEFAULT_MAILBOX_INBOUND_SLA_CRITICAL_REJECTED_PERCENT = 5;
   private static readonly DEFAULT_MAILBOX_INBOUND_INCIDENT_WINDOW_HOURS = 24;
   private static readonly MAX_MAILBOX_INBOUND_INCIDENT_WINDOW_HOURS = 24 * 30;
+  private static readonly DEFAULT_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES = 60;
+  private static readonly MIN_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES = 5;
+  private static readonly MAX_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES = 24 * 60;
 
   constructor(
     @InjectRepository(UserNotification)
@@ -428,6 +431,90 @@ export class NotificationService {
     };
   }
 
+  async getMailboxInboundSlaIncidentSeries(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<
+    Array<{
+      bucketStart: Date;
+      totalCount: number;
+      warningCount: number;
+      criticalCount: number;
+    }>
+  > {
+    const normalizedWorkspaceId = String(input.workspaceId || '').trim();
+    const windowHours = this.normalizeIncidentWindowHours(input.windowHours);
+    const bucketMinutes = this.normalizeIncidentBucketMinutes(
+      input.bucketMinutes,
+    );
+    const windowStartDate = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const baseWhere = {
+      userId: input.userId,
+      type: 'MAILBOX_INBOUND_SLA_ALERT',
+      createdAt: MoreThanOrEqual(windowStartDate),
+    };
+    const whereClause = normalizedWorkspaceId
+      ? [
+          { ...baseWhere, workspaceId: normalizedWorkspaceId },
+          { ...baseWhere, workspaceId: IsNull() },
+        ]
+      : baseWhere;
+
+    const notifications = await this.notificationRepo.find({
+      where: whereClause,
+      order: { createdAt: 'ASC' },
+    });
+    const bucketSizeMs = bucketMinutes * 60 * 1000;
+    const nowMs = Date.now();
+    const windowStartMs =
+      Math.floor(windowStartDate.getTime() / bucketSizeMs) * bucketSizeMs;
+    const bucketAccumulator = new Map<
+      number,
+      { totalCount: number; warningCount: number; criticalCount: number }
+    >();
+    for (const notification of notifications) {
+      const bucketStartMs =
+        Math.floor(notification.createdAt.getTime() / bucketSizeMs) *
+        bucketSizeMs;
+      const currentBucket = bucketAccumulator.get(bucketStartMs) || {
+        totalCount: 0,
+        warningCount: 0,
+        criticalCount: 0,
+      };
+      currentBucket.totalCount += 1;
+      const status = this.resolveIncidentSlaStatus(notification);
+      if (status === 'CRITICAL') {
+        currentBucket.criticalCount += 1;
+      } else if (status === 'WARNING') {
+        currentBucket.warningCount += 1;
+      }
+      bucketAccumulator.set(bucketStartMs, currentBucket);
+    }
+
+    const series: Array<{
+      bucketStart: Date;
+      totalCount: number;
+      warningCount: number;
+      criticalCount: number;
+    }> = [];
+    for (let cursor = windowStartMs; cursor <= nowMs; cursor += bucketSizeMs) {
+      const bucketData = bucketAccumulator.get(cursor) || {
+        totalCount: 0,
+        warningCount: 0,
+        criticalCount: 0,
+      };
+      series.push({
+        bucketStart: new Date(cursor),
+        totalCount: bucketData.totalCount,
+        warningCount: bucketData.warningCount,
+        criticalCount: bucketData.criticalCount,
+      });
+    }
+    return series;
+  }
+
   async updateMailboxInboundSlaAlertState(input: {
     userId: string;
     status: MailboxInboundSlaStatus | null;
@@ -451,5 +538,38 @@ export class NotificationService {
       return NotificationService.MAX_MAILBOX_INBOUND_INCIDENT_WINDOW_HOURS;
     }
     return candidate;
+  }
+
+  private normalizeIncidentBucketMinutes(
+    bucketMinutes?: number | null,
+  ): number {
+    const candidate =
+      typeof bucketMinutes === 'number' && Number.isFinite(bucketMinutes)
+        ? Math.floor(bucketMinutes)
+        : NotificationService.DEFAULT_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES;
+    if (
+      candidate <
+      NotificationService.MIN_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES
+    ) {
+      return NotificationService.MIN_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES;
+    }
+    if (
+      candidate >
+      NotificationService.MAX_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES
+    ) {
+      return NotificationService.MAX_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES;
+    }
+    return candidate;
+  }
+
+  private resolveIncidentSlaStatus(
+    notification: UserNotification,
+  ): 'WARNING' | 'CRITICAL' | null {
+    const rawStatus = notification.metadata?.slaStatus;
+    if (typeof rawStatus !== 'string') return null;
+    const normalizedStatus = rawStatus.trim().toUpperCase();
+    if (normalizedStatus === 'WARNING') return 'WARNING';
+    if (normalizedStatus === 'CRITICAL') return 'CRITICAL';
+    return null;
   }
 }

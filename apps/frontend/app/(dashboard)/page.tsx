@@ -36,7 +36,10 @@ import {
   GET_MY_MAILBOX_INBOUND_EVENT_SERIES,
   GET_MY_MAILBOX_INBOUND_EVENT_STATS,
 } from '@/lib/apollo/queries/mailbox-observability';
-import { GET_MAILBOX_INBOUND_SLA_INCIDENT_STATS } from '@/lib/apollo/queries/notifications';
+import {
+  GET_MAILBOX_INBOUND_SLA_INCIDENT_SERIES,
+  GET_MAILBOX_INBOUND_SLA_INCIDENT_STATS,
+} from '@/lib/apollo/queries/notifications';
 
 type MailboxInboundTrendPoint = {
   bucketStart: string;
@@ -53,6 +56,13 @@ type MailboxInboundSlaIncidentStats = {
   warningCount: number;
   criticalCount: number;
   lastAlertAt?: string | null;
+};
+
+type MailboxInboundSlaIncidentTrendPoint = {
+  bucketStart: string;
+  totalCount: number;
+  warningCount: number;
+  criticalCount: number;
 };
 
 const container: Variants = {
@@ -130,6 +140,17 @@ export default function DashboardPage() {
     fetchPolicy: 'cache-and-network',
     pollInterval: 30_000,
   });
+  const { data: slaIncidentSeriesData } = useQuery<{
+    myMailboxInboundSlaIncidentSeries: MailboxInboundSlaIncidentTrendPoint[];
+  }>(GET_MAILBOX_INBOUND_SLA_INCIDENT_SERIES, {
+    variables: {
+      workspaceId: activeWorkspaceId || undefined,
+      windowHours: 24,
+      bucketMinutes: 60,
+    },
+    fetchPolicy: 'cache-and-network',
+    pollInterval: 30_000,
+  });
 
   const analytics = data?.getAllEmailAnalytics ?? [];
   const scheduledEmails = data?.getAllScheduledEmails ?? [];
@@ -191,6 +212,12 @@ export default function DashboardPage() {
   const warningAlertCount = Number(slaIncidentStats?.warningCount || 0);
   const criticalAlertCount = Number(slaIncidentStats?.criticalCount || 0);
   const latestSlaAlertAt = slaIncidentStats?.lastAlertAt || null;
+  const incidentTrendPoints =
+    slaIncidentSeriesData?.myMailboxInboundSlaIncidentSeries?.slice(-12) || [];
+  const incidentTrendMax = Math.max(
+    ...incidentTrendPoints.map((point) => Number(point.totalCount || 0)),
+    1,
+  );
 
   return (
     <DashboardPageShell
@@ -503,6 +530,51 @@ export default function DashboardPage() {
                   ? `Latest incident: ${new Date(latestSlaAlertAt).toLocaleString()}`
                   : 'No SLA incidents detected in the selected period.'}
             </p>
+            {incidentTrendPoints.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  Hourly incident trend (last 12 buckets)
+                </p>
+                <div className="grid grid-cols-12 items-end gap-1">
+                  {incidentTrendPoints.map((point) => {
+                    const totalHeight = Math.max(
+                      4,
+                      Math.round((point.totalCount / incidentTrendMax) * 40),
+                    );
+                    const criticalHeight = Math.max(
+                      0,
+                      Math.round((point.criticalCount / incidentTrendMax) * 40),
+                    );
+                    const warningHeight = Math.max(
+                      0,
+                      Math.round((point.warningCount / incidentTrendMax) * 40),
+                    );
+                    return (
+                      <div key={point.bucketStart} className="flex flex-col items-center gap-1">
+                        <div
+                          className="relative w-full rounded-sm bg-amber-500/25"
+                          style={{ height: `${totalHeight}px` }}
+                          title={`${new Date(point.bucketStart).toLocaleString()} • total ${point.totalCount}`}
+                        >
+                          {warningHeight > 0 && (
+                            <div
+                              className="absolute bottom-0 w-full rounded-sm bg-amber-500/55"
+                              style={{ height: `${warningHeight}px` }}
+                            />
+                          )}
+                          {criticalHeight > 0 && (
+                            <div
+                              className="absolute bottom-0 w-full rounded-sm bg-destructive/70"
+                              style={{ height: `${criticalHeight}px` }}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </CardContent>
           <CardFooter>
             <Button asChild variant="outline" className="w-full">

@@ -678,6 +678,7 @@ extend type Query {
   mySubscription: UserSubscription!
   myNotifications(limit: Int, unreadOnly: Boolean, workspaceId: String, sinceHours: Int, types: [String!]): [UserNotification!]!
   myMailboxInboundSlaIncidentStats(workspaceId: String, windowHours: Int): MailboxInboundSlaIncidentStatsResponse!
+  myMailboxInboundSlaIncidentSeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [MailboxInboundSlaIncidentTrendPointResponse!]!
   myUnreadNotificationCount: Int!
   myNotificationPreferences: UserNotificationPreference!
   myWorkspaces: [Workspace!]!
@@ -758,6 +759,13 @@ type MailboxInboundSlaIncidentStatsResponse {
   warningCount: Int!
   criticalCount: Int!
   lastAlertAt: DateTime
+}
+
+type MailboxInboundSlaIncidentTrendPointResponse {
+  bucketStart: DateTime!
+  totalCount: Int!
+  warningCount: Int!
+  criticalCount: Int!
 }
 
 type UserNotificationPreference {

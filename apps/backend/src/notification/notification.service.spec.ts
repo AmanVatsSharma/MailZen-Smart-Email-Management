@@ -391,4 +391,50 @@ describe('NotificationService', () => {
       lastAlertAt: new Date('2026-02-16T02:00:00.000Z'),
     });
   });
+
+  it('returns mailbox inbound SLA incident trend series buckets', async () => {
+    const nowMs = Date.now();
+    notificationRepo.find.mockResolvedValue([
+      {
+        id: 'notif-1',
+        userId: 'user-1',
+        title: 'warn',
+        message: 'warn',
+        isRead: false,
+        type: 'MAILBOX_INBOUND_SLA_ALERT',
+        workspaceId: 'workspace-1',
+        metadata: { slaStatus: 'WARNING' },
+        createdAt: new Date(nowMs - 80 * 60 * 1000),
+        updatedAt: new Date(nowMs - 80 * 60 * 1000),
+      } as UserNotification,
+      {
+        id: 'notif-2',
+        userId: 'user-1',
+        title: 'critical',
+        message: 'critical',
+        isRead: false,
+        type: 'MAILBOX_INBOUND_SLA_ALERT',
+        workspaceId: 'workspace-1',
+        metadata: { slaStatus: 'CRITICAL' },
+        createdAt: new Date(nowMs - 20 * 60 * 1000),
+        updatedAt: new Date(nowMs - 20 * 60 * 1000),
+      } as UserNotification,
+    ]);
+
+    const series = await service.getMailboxInboundSlaIncidentSeries({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 2,
+      bucketMinutes: 60,
+    });
+
+    expect(notificationRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order: { createdAt: 'ASC' },
+      }),
+    );
+    expect(series.length).toBeGreaterThanOrEqual(2);
+    expect(series.some((point) => point.warningCount > 0)).toBe(true);
+    expect(series.some((point) => point.criticalCount > 0)).toBe(true);
+  });
 });
