@@ -51,6 +51,34 @@ export function ProviderManagement() {
   void disconnectLoading;
   void syncLoading;
 
+  const { data: billingData } = useQuery(gql`
+    query ProviderManagementBillingSnapshot {
+      mySubscription {
+        planCode
+      }
+      billingPlans {
+        code
+        name
+        providerLimit
+        mailboxLimit
+        aiCreditsPerMonth
+      }
+    }
+  `);
+  const myPlanCode = billingData?.mySubscription?.planCode || 'FREE';
+  const planCatalog: Array<{
+    code: string;
+    name: string;
+    providerLimit: number;
+    mailboxLimit: number;
+    aiCreditsPerMonth: number;
+  }> = billingData?.billingPlans || [];
+  const activePlan =
+    planCatalog.find((plan) => plan.code === myPlanCode) ||
+    planCatalog.find((plan) => plan.code === 'FREE');
+  const usedProviderCount = providers.length;
+  const usedMailboxCount = mailzenBoxes.length;
+
   // Add a new provider
   const openAddProviderDialog = () => {
     setIsAddingProvider(true);
@@ -163,6 +191,34 @@ export function ProviderManagement() {
           <Plus className="mr-2 h-4 w-4" /> Add Provider
         </Button>
       </div>
+
+      {activePlan && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">
+                  Current plan: {activePlan.name} ({activePlan.code})
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Provider and mailbox limits are enforced by your subscription.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <Badge variant="outline">
+                  Providers: {usedProviderCount}/{activePlan.providerLimit}
+                </Badge>
+                <Badge variant="outline">
+                  Mailboxes: {usedMailboxCount}/{activePlan.mailboxLimit}
+                </Badge>
+                <Badge variant="outline">
+                  AI credits/month: {activePlan.aiCreditsPerMonth}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {providers.length === 0 && mailzenBoxes.length === 0 ? (
         <Card className="border-dashed border-2 p-6">
