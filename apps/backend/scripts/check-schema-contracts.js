@@ -23,6 +23,13 @@ const requiredContracts = [
   'myMailboxInboundEvents',
   'myMailboxInboundEventStats',
   'myMailboxInboundEventSeries',
+  'myNotificationPushSubscriptions',
+  'registerMyNotificationPushSubscription',
+  'unregisterMyNotificationPushSubscription',
+  'isFeatureEnabled',
+  'agentAssist',
+  'agentPlatformHealth',
+  'myAgentActionAudits',
 ];
 
 const run = () => {

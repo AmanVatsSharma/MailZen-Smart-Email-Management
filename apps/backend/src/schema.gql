@@ -350,6 +350,8 @@ type Query {
 
   """Get suggested replies for an email"""
   getSuggestedReplies(emailBody: String!, count: Int! = 3): [String!]!
+  agentPlatformHealth: AgentPlatformHealthResponse!
+  myAgentActionAudits(limit: Int): [AgentActionAudit!]!
 }
 
 input EmailFilterInput {
@@ -368,6 +370,93 @@ input EmailSortInput {
 
 input SmartReplyInput {
   conversation: String!
+}
+
+input AgentMessageInput {
+  role: String!
+  content: String!
+}
+
+input AgentContextInput {
+  surface: String
+  locale: String
+  email: String
+  metadataJson: String
+}
+
+input AgentAssistInput {
+  skill: String! = "auth"
+  messages: [AgentMessageInput!]!
+  context: AgentContextInput
+  allowedActions: [String!]
+  requestedAction: String
+  requestedActionApprovalToken: String
+  executeRequestedAction: Boolean! = false
+}
+
+type AgentSuggestedActionResponse {
+  name: String!
+  label: String!
+  payloadJson: String
+  requiresApproval: Boolean!
+  approvalToken: String
+  approvalTokenExpiresAtIso: String
+}
+
+type AgentSafetyFlagResponse {
+  code: String!
+  severity: String!
+  message: String!
+}
+
+type AgentActionExecutionResponse {
+  action: String!
+  executed: Boolean!
+  message: String!
+}
+
+type AgentAssistResponse {
+  version: String!
+  skill: String!
+  requestId: String!
+  assistantText: String!
+  intent: String!
+  confidence: Float!
+  suggestedActions: [AgentSuggestedActionResponse!]!
+  safetyFlags: [AgentSafetyFlagResponse!]!
+  uiHintsJson: String
+  executedAction: AgentActionExecutionResponse
+}
+
+type AgentPlatformHealthResponse {
+  status: String!
+  reachable: Boolean!
+  serviceUrl: String!
+  latencyMs: Float!
+  checkedAtIso: String!
+  requestCount: Int!
+  errorCount: Int!
+  timeoutErrorCount: Int!
+  errorRatePercent: Float!
+  avgLatencyMs: Float!
+  latencyWarnMs: Float!
+  errorRateWarnPercent: Float!
+  alertingState: String!
+}
+
+type AgentActionAudit {
+  id: ID!
+  userId: String
+  requestId: String!
+  skill: String!
+  action: String!
+  executed: Boolean!
+  approvalRequired: Boolean!
+  approvalTokenSuffix: String
+  message: String!
+  metadata: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
 }
 
 type Mutation {
@@ -444,6 +533,7 @@ type Mutation {
   verifyPhoneOtp(code: String!): Boolean!
   setActiveInbox(input: SetActiveInboxInput!): [Inbox!]!
   updateEmail(id: String!, input: EmailUpdateInput!): EmailThread!
+  agentAssist(input: AgentAssistInput!): AgentAssistResponse!
 }
 
 input CreateUserInput {
