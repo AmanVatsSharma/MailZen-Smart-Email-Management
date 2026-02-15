@@ -17,7 +17,9 @@ organization features.
 ## GraphQL Surface
 
 - `myWorkspaces`: list workspaces for authenticated user
+- `myActiveWorkspace`: current active workspace for authenticated user
 - `createWorkspace(name)`: create team workspace
+- `setActiveWorkspace(workspaceId)`: persist active workspace
 - `workspaceMembers(workspaceId)`: list members for workspace
 - `inviteWorkspaceMember(workspaceId, email, role?)`: add/invite a member
 

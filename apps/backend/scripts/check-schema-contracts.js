@@ -12,8 +12,10 @@ const requiredContracts = [
   'myNotificationPreferences',
   'updateMyNotificationPreferences',
   'myWorkspaces',
+  'myActiveWorkspace',
   'workspaceMembers',
   'createWorkspace',
+  'setActiveWorkspace',
   'inviteWorkspaceMember',
 ];
 

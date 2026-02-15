@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -40,7 +40,11 @@ import {
   GET_UNREAD_NOTIFICATION_COUNT,
   MARK_NOTIFICATION_READ,
 } from '@/lib/apollo/queries/notifications';
-import { GET_MY_WORKSPACES } from '@/lib/apollo/queries/workspaces';
+import {
+  GET_MY_ACTIVE_WORKSPACE,
+  GET_MY_WORKSPACES,
+  SET_ACTIVE_WORKSPACE,
+} from '@/lib/apollo/queries/workspaces';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -98,6 +102,15 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     fetchPolicy: 'cache-and-network',
     pollInterval: 60_000,
   });
+  const { data: activeWorkspaceData } = useQuery(GET_MY_ACTIVE_WORKSPACE, {
+    fetchPolicy: 'cache-and-network',
+    pollInterval: 60_000,
+  });
+  const [setActiveWorkspace] = useMutation(SET_ACTIVE_WORKSPACE, {
+    onError: (error) => {
+      console.error('[Workspace] setActiveWorkspace failed', error);
+    },
+  });
 
   useEffect(() => {
     // Try to get user data if available
@@ -145,18 +158,27 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const notifications = (notificationsData?.myNotifications ||
     []) as DashboardNotification[];
   const unreadCount = Number(unreadCountData?.myUnreadNotificationCount || 0);
-  const workspaces = (workspaceData?.myWorkspaces || []) as DashboardWorkspace[];
+  const workspaces = useMemo(
+    () => (workspaceData?.myWorkspaces || []) as DashboardWorkspace[],
+    [workspaceData?.myWorkspaces],
+  );
+  const backendActiveWorkspaceId = activeWorkspaceData?.myActiveWorkspace?.id as
+    | string
+    | undefined;
   const resolvedWorkspace =
     workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ||
+    workspaces.find((workspace) => workspace.id === backendActiveWorkspaceId) ||
     workspaces[0];
 
   useEffect(() => {
-    if (!resolvedWorkspace?.id) return;
-    setSelectedWorkspaceId(resolvedWorkspace.id);
+    if (selectedWorkspaceId) return;
+    const fallbackWorkspaceId = backendActiveWorkspaceId || workspaces[0]?.id;
+    if (!fallbackWorkspaceId) return;
+    setSelectedWorkspaceId(fallbackWorkspaceId);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('mailzen.selectedWorkspaceId', resolvedWorkspace.id);
+      localStorage.setItem('mailzen.selectedWorkspaceId', fallbackWorkspaceId);
     }
-  }, [resolvedWorkspace?.id]);
+  }, [selectedWorkspaceId, backendActiveWorkspaceId, workspaces]);
 
   const handleNotificationClick = async (notification: DashboardNotification) => {
     if (notification.isRead) return;
@@ -168,11 +190,14 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     }
   };
 
-  const handleWorkspaceSelect = (workspaceId: string) => {
+  const handleWorkspaceSelect = async (workspaceId: string) => {
     setSelectedWorkspaceId(workspaceId);
     if (typeof window !== 'undefined') {
       localStorage.setItem('mailzen.selectedWorkspaceId', workspaceId);
     }
+    await setActiveWorkspace({
+      variables: { workspaceId },
+    });
   };
 
   return (

@@ -34,14 +34,21 @@ export class InboxService {
 
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
+    const activeWorkspaceId = user.activeWorkspaceId || undefined;
+    const mailboxWhere = activeWorkspaceId
+      ? { userId, workspaceId: activeWorkspaceId }
+      : { userId };
+    const providerWhere = activeWorkspaceId
+      ? { userId, workspaceId: activeWorkspaceId }
+      : { userId };
 
     const [mailboxes, providers] = await Promise.all([
       this.mailboxRepository.find({
-        where: { userId },
+        where: mailboxWhere,
         order: { createdAt: 'DESC' },
       }),
       this.providerRepository.find({
-        where: { userId },
+        where: providerWhere,
         order: { createdAt: 'DESC' },
       }),
     ]);
@@ -94,16 +101,25 @@ export class InboxService {
       'for user:',
       userId,
     );
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    const activeWorkspaceId = user.activeWorkspaceId || undefined;
+    const resourceWhere = activeWorkspaceId
+      ? { id, userId, workspaceId: activeWorkspaceId }
+      : { id, userId };
+    const updateScope = activeWorkspaceId
+      ? { userId, workspaceId: activeWorkspaceId }
+      : { userId };
 
     // Ownership validation + consistent "active" flags
     if (type === 'MAILBOX') {
       const mailbox = await this.mailboxRepository.findOne({
-        where: { id, userId },
+        where: resourceWhere,
       });
       if (!mailbox) throw new NotFoundException('Mailbox not found');
 
       // Deactivate all external providers for UI consistency
-      await this.providerRepository.update({ userId }, { isActive: false });
+      await this.providerRepository.update(updateScope, { isActive: false });
       await this.userRepository.update(userId, {
         activeInboxType: 'MAILBOX',
         activeInboxId: id,
@@ -116,12 +132,12 @@ export class InboxService {
     }
 
     const provider = await this.providerRepository.findOne({
-      where: { id, userId },
+      where: resourceWhere,
     });
     if (!provider) throw new NotFoundException('Provider not found');
 
     // Toggle provider active flag (single active provider)
-    await this.providerRepository.update({ userId }, { isActive: false });
+    await this.providerRepository.update(updateScope, { isActive: false });
     await this.providerRepository.update(id, { isActive: true });
     await this.userRepository.update(userId, {
       activeInboxType: 'PROVIDER',

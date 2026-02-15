@@ -25,6 +25,14 @@ export class WorkspaceResolver {
     return this.workspaceService.listMyWorkspaces(context.req.user.id);
   }
 
+  @Query(() => Workspace, {
+    nullable: true,
+    description: 'Get active workspace for current user',
+  })
+  async myActiveWorkspace(@Context() context: RequestContext) {
+    return this.workspaceService.getActiveWorkspace(context.req.user.id);
+  }
+
   @Mutation(() => Workspace, {
     description: 'Create a new workspace for current user',
   })
@@ -62,6 +70,19 @@ export class WorkspaceResolver {
       context.req.user.id,
       email,
       role || 'MEMBER',
+    );
+  }
+
+  @Mutation(() => Workspace, {
+    description: 'Set active workspace for current user',
+  })
+  async setActiveWorkspace(
+    @Args('workspaceId') workspaceId: string,
+    @Context() context: RequestContext,
+  ) {
+    return this.workspaceService.setActiveWorkspace(
+      context.req.user.id,
+      workspaceId,
     );
   }
 }

@@ -132,6 +132,22 @@ export class WorkspaceService {
     return workspaces;
   }
 
+  async getActiveWorkspace(userId: string): Promise<Workspace | null> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    const workspaces = await this.listMyWorkspaces(userId);
+    if (!workspaces.length) return null;
+
+    const activeWorkspace =
+      workspaces.find((workspace) => workspace.id === user?.activeWorkspaceId) ||
+      workspaces.find((workspace) => workspace.isPersonal) ||
+      workspaces[0];
+
+    if (activeWorkspace && user?.activeWorkspaceId !== activeWorkspace.id) {
+      await this.userRepo.update(userId, { activeWorkspaceId: activeWorkspace.id });
+    }
+    return activeWorkspace || null;
+  }
+
   private async assertWorkspaceAccess(
     workspaceId: string,
     userId: string,
@@ -201,6 +217,19 @@ export class WorkspaceService {
       invitedByUserId: actorUserId,
     });
     return this.workspaceMemberRepo.save(member);
+  }
+
+  async setActiveWorkspace(
+    userId: string,
+    workspaceId: string,
+  ): Promise<Workspace> {
+    await this.assertWorkspaceAccess(workspaceId, userId);
+    await this.userRepo.update(userId, {
+      activeWorkspaceId: workspaceId,
+    });
+    const workspace = await this.workspaceRepo.findOne({ where: { id: workspaceId } });
+    if (!workspace) throw new NotFoundException('Workspace not found');
+    return workspace;
   }
 
   private async enforceWorkspaceLimit(userId: string): Promise<void> {

@@ -637,6 +637,7 @@ extend type Query {
   myUnreadNotificationCount: Int!
   myNotificationPreferences: UserNotificationPreference!
   myWorkspaces: [Workspace!]!
+  myActiveWorkspace: Workspace
   workspaceMembers(workspaceId: String!): [WorkspaceMember!]!
 }
 
@@ -651,6 +652,7 @@ extend type Mutation {
     input: UpdateNotificationPreferencesInput!
   ): UserNotificationPreference!
   createWorkspace(name: String!): Workspace!
+  setActiveWorkspace(workspaceId: String!): Workspace!
   inviteWorkspaceMember(
     workspaceId: String!
     email: String!

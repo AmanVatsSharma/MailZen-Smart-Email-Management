@@ -30,6 +30,7 @@ describe('WorkspaceService', () => {
     } as unknown as jest.Mocked<Repository<WorkspaceMember>>;
     userRepo = {
       findOne: jest.fn(),
+      update: jest.fn(),
     } as unknown as jest.Mocked<Repository<User>>;
     billingService = {
       getEntitlements: jest.fn().mockResolvedValue({
@@ -141,5 +142,30 @@ describe('WorkspaceService', () => {
     await expect(
       service.createWorkspace('user-1', 'Blocked Workspace'),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('sets active workspace for authorized member', async () => {
+    workspaceMemberRepo.findOne.mockResolvedValue({
+      id: 'member-1',
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+      role: 'OWNER',
+      status: 'active',
+    } as WorkspaceMember);
+    workspaceRepo.findOne.mockResolvedValue({
+      id: 'workspace-1',
+      ownerUserId: 'user-1',
+      name: 'Workspace One',
+      slug: 'workspace-one',
+      isPersonal: false,
+    } as Workspace);
+    userRepo.update.mockResolvedValue({} as any);
+
+    const result = await service.setActiveWorkspace('user-1', 'workspace-1');
+
+    expect(userRepo.update).toHaveBeenCalledWith('user-1', {
+      activeWorkspaceId: 'workspace-1',
+    });
+    expect(result.id).toBe('workspace-1');
   });
 });

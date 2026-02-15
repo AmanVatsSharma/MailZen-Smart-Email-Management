@@ -18,9 +18,11 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import {
   CREATE_WORKSPACE,
+  GET_MY_ACTIVE_WORKSPACE,
   GET_MY_WORKSPACES,
   GET_WORKSPACE_MEMBERS,
   INVITE_WORKSPACE_MEMBER,
+  SET_ACTIVE_WORKSPACE,
 } from '@/lib/apollo/queries/workspaces';
 
 type Workspace = {
@@ -57,11 +59,15 @@ const WorkspaceSettingsPage = () => {
     fetchPolicy: 'network-only',
     onCompleted: (payload) => {
       const firstWorkspaceId = payload?.myWorkspaces?.[0]?.id;
-      if (!selectedWorkspaceId && firstWorkspaceId) {
-        setSelectedWorkspaceId(firstWorkspaceId);
-      }
+      if (!selectedWorkspaceId && firstWorkspaceId) setSelectedWorkspaceId(firstWorkspaceId);
     },
   });
+  const { data: activeWorkspaceData, refetch: refetchActiveWorkspace } = useQuery(
+    GET_MY_ACTIVE_WORKSPACE,
+    {
+      fetchPolicy: 'cache-and-network',
+    },
+  );
 
   const [createWorkspace, { loading: creatingWorkspace }] = useMutation(
     CREATE_WORKSPACE,
@@ -102,9 +108,18 @@ const WorkspaceSettingsPage = () => {
       },
     },
   );
+  const [setActiveWorkspace, { loading: settingActiveWorkspace }] = useMutation(
+    SET_ACTIVE_WORKSPACE,
+    {
+      onCompleted: async () => {
+        await Promise.all([refetchActiveWorkspace(), refetchWorkspaces()]);
+      },
+    },
+  );
 
   const workspaces: Workspace[] = workspaceData?.myWorkspaces || [];
   const members: WorkspaceMember[] = membersData?.workspaceMembers || [];
+  const activeWorkspaceId: string | undefined = activeWorkspaceData?.myActiveWorkspace?.id;
   const selectedWorkspace = workspaces.find(
     (workspace) => workspace.id === selectedWorkspaceId,
   );
@@ -123,6 +138,11 @@ const WorkspaceSettingsPage = () => {
         role: inviteRole,
       },
     });
+  };
+
+  const handleSelectWorkspace = async (workspaceId: string) => {
+    setSelectedWorkspaceId(workspaceId);
+    await setActiveWorkspace({ variables: { workspaceId } });
   };
 
   return (
@@ -193,7 +213,7 @@ const WorkspaceSettingsPage = () => {
               <button
                 key={workspace.id}
                 type="button"
-                onClick={() => setSelectedWorkspaceId(workspace.id)}
+                onClick={() => handleSelectWorkspace(workspace.id)}
                 className={`w-full rounded-md border p-3 text-left transition ${
                   workspace.id === selectedWorkspaceId
                     ? 'border-primary/60 bg-primary/5'
@@ -202,7 +222,10 @@ const WorkspaceSettingsPage = () => {
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-medium">{workspace.name}</p>
-                  {workspace.isPersonal && <Badge variant="outline">Personal</Badge>}
+                  <div className="flex items-center gap-1">
+                    {workspace.isPersonal && <Badge variant="outline">Personal</Badge>}
+                    {workspace.id === activeWorkspaceId && <Badge>Active</Badge>}
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">slug: {workspace.slug}</p>
               </button>
@@ -252,6 +275,9 @@ const WorkspaceSettingsPage = () => {
 
             {membersLoading && (
               <p className="text-xs text-muted-foreground">Loading members...</p>
+            )}
+            {settingActiveWorkspace && (
+              <p className="text-xs text-muted-foreground">Updating active workspace...</p>
             )}
 
             {members.map((member) => (

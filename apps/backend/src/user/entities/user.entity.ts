@@ -91,6 +91,10 @@ export class User {
   @Column({ nullable: true })
   activeInboxId?: string;
 
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  activeWorkspaceId?: string;
+
   @Field()
   @CreateDateColumn()
   createdAt: Date;
