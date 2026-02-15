@@ -25,7 +25,8 @@ modern two-level navigation system:
     and unread count (`myUnreadNotificationCount`), and marks notifications
     read via `markNotificationRead`
   - Workspace switcher now reads backend `myWorkspaces` and keeps local active
-    workspace selection skeleton for future scoped inbox/billing views
+    workspace selection, and persists active workspace via
+    `setActiveWorkspace` / `myActiveWorkspace`
   - Account links route to dashboard destinations including smart-replies,
     notifications, billing, and workspace settings
 - `InboxSwitcherModal.tsx`

@@ -25,6 +25,8 @@ flowchart TD
 ## Notes
 
 - Active selection is persisted on `User` (`activeInboxType`, `activeInboxId`).
+- Listing/switching is now scoped by `User.activeWorkspaceId` when present.
+- Workspace activation is managed by `WorkspaceModule` (`myActiveWorkspace`, `setActiveWorkspace`).
 - When selecting a provider inbox, we also set `EmailProvider.isActive=true` for UI consistency.
 
 ## Relation to Unified Inbox
