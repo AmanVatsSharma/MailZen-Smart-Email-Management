@@ -771,3 +771,37 @@ WHERE type = 'OUTLOOK'
 ORDER BY "updatedAt" DESC
 LIMIT 50;
 ```
+
+## Gmail Push Watch State Rollout Notes (2026-02-16)
+
+New migration: `20260216035000-email-provider-gmail-watch-state.ts`
+
+This migration introduces:
+
+- `email_providers.gmailWatchExpirationAt`
+- `email_providers.gmailWatchLastRenewedAt`
+
+These fields support proactive Gmail Pub/Sub watch renewal and diagnostics.
+
+### Safe rollout sequence
+
+1. Deploy backend containing migration + Gmail watch renewal logic.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Configure push env vars where Gmail push is enabled:
+   - `GMAIL_PUSH_TOPIC_NAME`
+   - `GMAIL_PUSH_WATCH_RENEW_THRESHOLD_MINUTES`
+   - `GMAIL_PUSH_WATCH_LABEL_IDS`
+5. Run smoke checks:
+   - `npm run test -- gmail-sync/gmail-sync.service.spec.ts gmail-sync/gmail-sync-webhook.controller.spec.ts`
+   - `npm run build`
+
+### Staging verification SQL
+
+```sql
+SELECT id, email, "gmailHistoryId", "gmailWatchLastRenewedAt", "gmailWatchExpirationAt"
+FROM email_providers
+WHERE type = 'GMAIL'
+ORDER BY "updatedAt" DESC
+LIMIT 50;
+```

@@ -61,6 +61,11 @@ type GmailHistoryResponse = {
   }>;
 };
 
+type GmailWatchResponse = {
+  historyId?: string;
+  expiration?: string;
+};
+
 @Injectable()
 export class GmailSyncService {
   private readonly logger = new Logger(GmailSyncService.name);
@@ -290,6 +295,28 @@ export class GmailSyncService {
     return candidate;
   }
 
+  private resolveGmailPushWatchThresholdMinutes(): number {
+    const parsedValue = Number(
+      process.env.GMAIL_PUSH_WATCH_RENEW_THRESHOLD_MINUTES || 60,
+    );
+    const candidate = Number.isFinite(parsedValue)
+      ? Math.floor(parsedValue)
+      : 60;
+    if (candidate < 1) return 1;
+    if (candidate > 24 * 60) return 24 * 60;
+    return candidate;
+  }
+
+  private resolveGmailPushWatchLabelIds(): string[] {
+    const rawValue = String(process.env.GMAIL_PUSH_WATCH_LABEL_IDS || 'INBOX');
+    const normalized = rawValue
+      .split(',')
+      .map((label) => label.trim())
+      .filter((label) => label.length > 0);
+    if (!normalized.length) return ['INBOX'];
+    return Array.from(new Set(normalized));
+  }
+
   private normalizeHistoryId(rawValue?: string | null): string | null {
     const normalized = String(rawValue || '').trim();
     return normalized || null;
@@ -309,6 +336,84 @@ export class GmailSyncService {
     } catch {
       return incoming !== current;
     }
+  }
+
+  private async ensureGmailPushWatch(input: {
+    provider: EmailProvider;
+    accessToken: string;
+  }): Promise<void> {
+    const topicName = String(process.env.GMAIL_PUSH_TOPIC_NAME || '').trim();
+    if (!topicName) return;
+
+    const thresholdMinutes = this.resolveGmailPushWatchThresholdMinutes();
+    const thresholdMs = thresholdMinutes * 60 * 1000;
+    const expirationMs = input.provider.gmailWatchExpirationAt
+      ? new Date(input.provider.gmailWatchExpirationAt).getTime()
+      : 0;
+    if (expirationMs > Date.now() + thresholdMs) {
+      return;
+    }
+
+    try {
+      const watchResponse = await axios.post<GmailWatchResponse>(
+        'https://gmail.googleapis.com/gmail/v1/users/me/watch',
+        {
+          topicName,
+          labelIds: this.resolveGmailPushWatchLabelIds(),
+          labelFilterAction: 'include',
+        },
+        {
+          headers: { Authorization: `Bearer ${input.accessToken}` },
+        },
+      );
+
+      const incomingHistoryId = this.normalizeHistoryId(
+        watchResponse.data.historyId,
+      );
+      const watchExpirationMs = Number(watchResponse.data.expiration || 0);
+      const watchExpirationAt =
+        Number.isFinite(watchExpirationMs) && watchExpirationMs > 0
+          ? new Date(watchExpirationMs)
+          : null;
+      const shouldAdvanceHistory = this.shouldAdvanceHistoryCursor({
+        currentHistoryId: input.provider.gmailHistoryId || null,
+        incomingHistoryId,
+      });
+      await this.emailProviderRepo.update(
+        { id: input.provider.id },
+        {
+          gmailHistoryId: shouldAdvanceHistory
+            ? incomingHistoryId || input.provider.gmailHistoryId
+            : input.provider.gmailHistoryId,
+          gmailWatchLastRenewedAt: new Date(),
+          gmailWatchExpirationAt: watchExpirationAt || undefined,
+        },
+      );
+      this.logger.log(
+        `Gmail push watch renewed provider=${input.provider.id} expiration=${watchExpirationAt ? watchExpirationAt.toISOString() : 'n/a'}`,
+      );
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to renew Gmail push watch provider=${input.provider.id}: ${errorMessage}`,
+      );
+    }
+  }
+
+  async ensurePushWatchForProvider(
+    providerId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const provider = await this.emailProviderRepo.findOne({
+      where: { id: providerId, userId },
+    });
+    if (!provider) throw new NotFoundException('Provider not found');
+    if (provider.type !== 'GMAIL')
+      throw new BadRequestException('Provider is not Gmail');
+    const accessToken = await this.ensureFreshGmailAccessToken(provider);
+    await this.ensureGmailPushWatch({ provider, accessToken });
+    return true;
   }
 
   async processPushNotification(input: {
@@ -414,6 +519,11 @@ export class GmailSyncService {
     );
 
     try {
+      await this.ensureGmailPushWatch({
+        provider,
+        accessToken,
+      });
+
       // Best-effort label metadata sync (for UI label rendering).
       await this.syncGmailLabels(providerId, userId, accessToken);
 

@@ -10,6 +10,7 @@ This module stores messages in `ExternalEmailMessage` (TypeORM entity) and suppo
 - sync provider label metadata (for UI labels)
 - incremental sync using stored Gmail `historyId` cursor with fallback to full sync
 - process Gmail Pub/Sub push webhook notifications for near-real-time incremental sync
+- renew Gmail Pub/Sub watch subscriptions before expiration
 
 ## Required Google scopes
 
@@ -64,6 +65,9 @@ Scheduler hardening features:
 Push tuning env vars:
 - `GMAIL_PUSH_WEBHOOK_TOKEN` (optional shared secret query token)
 - `GMAIL_PUSH_SYNC_MAX_MESSAGES` (default `25`, clamped `1..200`)
+- `GMAIL_PUSH_TOPIC_NAME` (required to enable Gmail watch renewals)
+- `GMAIL_PUSH_WATCH_RENEW_THRESHOLD_MINUTES` (default `60`)
+- `GMAIL_PUSH_WATCH_LABEL_IDS` (default `INBOX`, comma-separated)
 
 ## Incremental cursor behavior
 

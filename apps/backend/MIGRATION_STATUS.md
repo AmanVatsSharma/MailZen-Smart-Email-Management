@@ -49,6 +49,8 @@
   - `20260216031000-billing-invoices-webhooks-and-trials.ts`
 - Added Outlook sync cursor persistence migration:
   - `20260216033000-email-provider-outlook-sync-cursor.ts`
+- Added Gmail push watch state migration:
+  - `20260216035000-email-provider-gmail-watch-state.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

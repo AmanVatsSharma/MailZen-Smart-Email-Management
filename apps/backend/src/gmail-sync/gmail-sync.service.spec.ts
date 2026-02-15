@@ -9,13 +9,15 @@ import { GmailSyncService } from './gmail-sync.service';
 
 jest.mock('axios', () => ({
   __esModule: true,
-  default: { get: jest.fn() },
+  default: { get: jest.fn(), post: jest.fn() },
   get: jest.fn(),
+  post: jest.fn(),
 }));
 
 describe('GmailSyncService', () => {
   const userId = 'user-1';
   const providerId = 'provider-1';
+  const originalPushTopicEnv = process.env.GMAIL_PUSH_TOPIC_NAME;
 
   let emailProviderRepo: jest.Mocked<Repository<EmailProvider>>;
   let labelRepo: jest.Mocked<Repository<ExternalEmailLabel>>;
@@ -52,6 +54,15 @@ describe('GmailSyncService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    delete process.env.GMAIL_PUSH_TOPIC_NAME;
+  });
+
+  afterAll(() => {
+    if (typeof originalPushTopicEnv === 'string') {
+      process.env.GMAIL_PUSH_TOPIC_NAME = originalPushTopicEnv;
+      return;
+    }
+    delete process.env.GMAIL_PUSH_TOPIC_NAME;
   });
 
   it('syncs labels and upserts message metadata', async () => {
@@ -274,5 +285,49 @@ describe('GmailSyncService', () => {
       skippedProviders: 1,
     });
     expect(syncSpy).not.toHaveBeenCalled();
+  });
+
+  it('renews gmail push watch for provider when topic configured', async () => {
+    process.env.GMAIL_PUSH_TOPIC_NAME = 'projects/mailzen/topics/gmail-push';
+    const axiosPostMock = axios.post as jest.MockedFunction<typeof axios.post>;
+    emailProviderRepo.findOne.mockResolvedValue({
+      id: providerId,
+      userId,
+      type: 'GMAIL',
+      accessToken: 'token',
+      refreshToken: null,
+      tokenExpiry: null,
+      gmailHistoryId: '100',
+      gmailWatchExpirationAt: new Date(Date.now() - 1000),
+    } as any);
+    axiosPostMock.mockResolvedValue({
+      data: {
+        historyId: '110',
+        expiration: String(Date.now() + 60 * 60 * 1000),
+      },
+    } as any);
+
+    const result = await service.ensurePushWatchForProvider(providerId, userId);
+
+    expect(result).toBe(true);
+    expect(axiosPostMock).toHaveBeenCalledWith(
+      'https://gmail.googleapis.com/gmail/v1/users/me/watch',
+      expect.objectContaining({
+        topicName: 'projects/mailzen/topics/gmail-push',
+      }),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer token',
+        }),
+      }),
+    );
+    expect(emailProviderRepo.update).toHaveBeenCalledWith(
+      { id: providerId },
+      expect.objectContaining({
+        gmailHistoryId: '110',
+        gmailWatchLastRenewedAt: expect.any(Date),
+        gmailWatchExpirationAt: expect.any(Date),
+      }),
+    );
   });
 });
