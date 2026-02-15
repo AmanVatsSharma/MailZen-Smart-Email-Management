@@ -27,6 +27,7 @@ export class NotificationResolver {
     @Args('unreadOnly', { type: () => Boolean, nullable: true })
     unreadOnly: boolean,
     @Context() ctx: RequestContext,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
     @Args('sinceHours', { type: () => Int, nullable: true })
     sinceHours?: number,
     @Args('types', { type: () => [String], nullable: true }) types?: string[],
@@ -35,6 +36,7 @@ export class NotificationResolver {
       userId: ctx.req.user.id,
       limit: limit ?? 20,
       unreadOnly: unreadOnly ?? false,
+      workspaceId: workspaceId || null,
       sinceHours: sinceHours ?? null,
       types: types || [],
     });

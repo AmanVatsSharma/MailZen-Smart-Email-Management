@@ -4,12 +4,14 @@ export const GET_MY_NOTIFICATIONS = gql`
   query MyNotifications(
     $limit: Int
     $unreadOnly: Boolean
+    $workspaceId: String
     $sinceHours: Int
     $types: [String!]
   ) {
     myNotifications(
       limit: $limit
       unreadOnly: $unreadOnly
+      workspaceId: $workspaceId
       sinceHours: $sinceHours
       types: $types
     ) {
@@ -18,6 +20,7 @@ export const GET_MY_NOTIFICATIONS = gql`
       title
       message
       isRead
+      workspaceId
       metadata
       createdAt
     }

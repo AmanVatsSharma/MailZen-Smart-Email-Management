@@ -54,6 +54,7 @@ interface HeaderProps {
 
 type DashboardNotification = {
   id: string;
+  workspaceId?: string | null;
   type: string;
   title: string;
   message: string;
@@ -100,7 +101,11 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const { data: notificationsData, refetch: refetchNotifications } = useQuery(
     GET_MY_NOTIFICATIONS,
     {
-      variables: { limit: 8, unreadOnly: false },
+      variables: {
+        limit: 8,
+        unreadOnly: false,
+        workspaceId: selectedWorkspaceId || undefined,
+      },
       fetchPolicy: 'cache-and-network',
       pollInterval: 30_000,
     },
@@ -249,7 +254,9 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const formatNotificationContext = (notification: DashboardNotification): string | null => {
     const metadata = resolveNotificationMetadata(notification);
     const workspaceId =
-      typeof metadata.workspaceId === 'string' ? metadata.workspaceId : null;
+      typeof metadata.workspaceId === 'string'
+        ? metadata.workspaceId
+        : notification.workspaceId || null;
     const providerType =
       typeof metadata.providerType === 'string' ? metadata.providerType : null;
     const mailboxEmail =

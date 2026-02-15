@@ -48,6 +48,7 @@ type MailboxInboundTrendPoint = {
 
 type DashboardNotification = {
   id: string;
+  workspaceId?: string | null;
   type: string;
   title: string;
   message: string;
@@ -127,6 +128,7 @@ export default function DashboardPage() {
       variables: {
         limit: 10,
         unreadOnly: false,
+        workspaceId: activeWorkspaceId || undefined,
         sinceHours: 24,
         types: ['MAILBOX_INBOUND_SLA_ALERT'],
       },

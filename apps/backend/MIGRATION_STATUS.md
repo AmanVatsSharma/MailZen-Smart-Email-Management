@@ -25,6 +25,8 @@
   - `20260216003000-notification-mailbox-inbound-sla-thresholds.ts`
 - Added mailbox inbound SLA alert-state preference migration:
   - `20260216005000-notification-mailbox-inbound-sla-alert-state.ts`
+- Added notification workspace scope migration:
+  - `20260216009000-notification-workspace-scope.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

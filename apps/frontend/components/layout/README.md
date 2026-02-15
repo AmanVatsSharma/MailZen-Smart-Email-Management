@@ -24,6 +24,7 @@ modern two-level navigation system:
   - Notification bell now reads real backend notification feed (`myNotifications`)
     and unread count (`myUnreadNotificationCount`), and marks notifications
     read via `markNotificationRead`
+  - Notification feed is scoped to active workspace context when selected
   - Notification dropdown renders workspace/provider context from notification
     metadata when available (e.g. sync-failure events), including safe parsing
     when metadata arrives as a JSON string

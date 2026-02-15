@@ -236,13 +236,24 @@ export class NotificationService {
     return null;
   }
 
+  private resolveWorkspaceId(
+    metadata?: Record<string, unknown>,
+  ): string | null {
+    const rawWorkspaceId = metadata?.workspaceId;
+    if (typeof rawWorkspaceId !== 'string') return null;
+    const normalizedWorkspaceId = rawWorkspaceId.trim();
+    return normalizedWorkspaceId || null;
+  }
+
   async createNotification(
     input: CreateNotificationInput,
   ): Promise<UserNotification> {
     const preference = await this.getOrCreatePreferences(input.userId);
+    const workspaceId = this.resolveWorkspaceId(input.metadata);
     if (!preference.inAppEnabled) {
       const muted = this.notificationRepo.create({
         userId: input.userId,
+        workspaceId,
         type: input.type,
         title: input.title,
         message: input.message,
@@ -262,6 +273,7 @@ export class NotificationService {
     if (ignoredPreferenceKey) {
       const ignored = this.notificationRepo.create({
         userId: input.userId,
+        workspaceId,
         type: input.type,
         title: input.title,
         message: input.message,
@@ -277,6 +289,7 @@ export class NotificationService {
 
     const notification = this.notificationRepo.create({
       userId: input.userId,
+      workspaceId,
       type: input.type,
       title: input.title,
       message: input.message,
@@ -292,6 +305,7 @@ export class NotificationService {
     unreadOnly?: boolean;
     types?: string[] | null;
     sinceHours?: number | null;
+    workspaceId?: string | null;
   }): Promise<UserNotification[]> {
     const limit = Math.max(1, Math.min(100, input.limit || 20));
     const normalizedSinceHours =
@@ -312,6 +326,9 @@ export class NotificationService {
     return this.notificationRepo.find({
       where: {
         userId: input.userId,
+        ...(String(input.workspaceId || '').trim()
+          ? { workspaceId: String(input.workspaceId).trim() }
+          : {}),
         ...(input.unreadOnly ? { isRead: false } : {}),
         ...(normalizedTypes.length ? { type: In(normalizedTypes) } : {}),
         ...(createdAfterDate

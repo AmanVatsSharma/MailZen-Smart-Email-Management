@@ -20,6 +20,11 @@ export class UserNotification {
   @Column()
   userId: string;
 
+  @Field({ nullable: true })
+  @Index()
+  @Column({ nullable: true })
+  workspaceId?: string | null;
+
   @Field()
   @Column()
   type: string;

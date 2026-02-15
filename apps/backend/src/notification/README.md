@@ -16,8 +16,8 @@ Provide a persistent notification foundation for user-visible product events
 
 ## GraphQL API
 
-- `myNotifications(limit, unreadOnly, sinceHours?, types?)` → list recent notifications
-  (optional time-window + type filtering)
+- `myNotifications(limit, unreadOnly, workspaceId?, sinceHours?, types?)` → list recent
+  notifications (optional workspace/time-window/type filtering)
 - `myUnreadNotificationCount` → unread badge count
 - `myNotificationPreferences` → get per-user notification channel settings
 - `markNotificationRead(id)` → marks one notification as read
@@ -58,6 +58,9 @@ Notification metadata is intentionally extensible. Current producers attach:
   - `successRatePercent`, `rejectionRatePercent`
   - `slaTargetSuccessPercent`, `slaWarningRejectedPercent`, `slaCriticalRejectedPercent`
   - `totalCount`, `acceptedCount`, `deduplicatedCount`, `rejectedCount`, `windowHours`
+
+Notifications also persist `workspaceId` as a first-class column (derived from
+metadata at write time) so workspace-scoped filtering is query-efficient.
 
 ## Flow
 

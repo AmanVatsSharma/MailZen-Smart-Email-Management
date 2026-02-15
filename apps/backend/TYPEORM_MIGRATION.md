@@ -340,3 +340,34 @@ SELECT
   COUNT(*) FILTER (WHERE "mailboxInboundSlaLastAlertStatus" IS NOT NULL) AS rows_with_alert_status
 FROM user_notification_preferences;
 ```
+
+## Notification Workspace Scope Rollout Notes (2026-02-16)
+
+New migration: `20260216009000-notification-workspace-scope.ts`
+
+This migration introduces:
+
+- `user_notifications.workspaceId`
+- index: `IDX_user_notifications_workspaceId`
+
+### Safe rollout sequence
+
+1. Deploy backend containing workspace-scoped notification query updates.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- notification/notification.service.spec.ts notification/notification.resolver.spec.ts`
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Verify workspace-scoped notifications behavior:
+   - emit any notification with `metadata.workspaceId`
+   - query `myNotifications(workspaceId: "...")` and validate filtered results
+
+### Staging verification SQL (notification workspace population)
+
+```sql
+SELECT
+  COUNT(*) AS total_notifications,
+  COUNT(*) FILTER (WHERE "workspaceId" IS NOT NULL) AS workspace_tagged_notifications
+FROM user_notifications;
+```
