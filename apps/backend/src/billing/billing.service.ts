@@ -6,7 +6,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { NotificationService } from '../notification/notification.service';
 import { BillingPlan } from './entities/billing-plan.entity';
+import { BillingUpgradeIntentResponse } from './dto/billing-upgrade-intent.response';
 import { UserSubscription } from './entities/user-subscription.entity';
 
 @Injectable()
@@ -18,6 +20,7 @@ export class BillingService {
     private readonly billingPlanRepo: Repository<BillingPlan>,
     @InjectRepository(UserSubscription)
     private readonly userSubscriptionRepo: Repository<UserSubscription>,
+    private readonly notificationService: NotificationService,
   ) {}
 
   private getDefaultPlans(): Array<Partial<BillingPlan>> {
@@ -150,6 +153,64 @@ export class BillingService {
       providerLimit: plan.providerLimit,
       mailboxLimit: plan.mailboxLimit,
       aiCreditsPerMonth: plan.aiCreditsPerMonth,
+    };
+  }
+
+  async requestUpgradeIntent(
+    userId: string,
+    targetPlanCode: string,
+    note?: string,
+  ): Promise<BillingUpgradeIntentResponse> {
+    await this.ensureDefaultPlans();
+    const normalizedTargetPlanCode = String(targetPlanCode || '')
+      .trim()
+      .toUpperCase();
+    if (!normalizedTargetPlanCode) {
+      throw new BadRequestException('Target plan code is required');
+    }
+
+    const targetPlan = await this.billingPlanRepo.findOne({
+      where: { code: normalizedTargetPlanCode, isActive: true },
+    });
+    if (!targetPlan) {
+      throw new NotFoundException(
+        `Billing plan '${normalizedTargetPlanCode}' does not exist`,
+      );
+    }
+
+    const subscription = await this.getMySubscription(userId);
+    if (subscription.planCode === normalizedTargetPlanCode) {
+      return {
+        success: true,
+        targetPlanCode: normalizedTargetPlanCode,
+        message: `You are already on the ${normalizedTargetPlanCode} plan.`,
+      };
+    }
+
+    const normalizedNote = String(note || '').trim();
+    const noteSuffix = normalizedNote ? ` Note: ${normalizedNote}` : '';
+
+    await this.notificationService.createNotification({
+      userId,
+      type: 'BILLING_UPGRADE_INTENT',
+      title: 'Plan upgrade requested',
+      message: `Requested upgrade from ${subscription.planCode} to ${normalizedTargetPlanCode}.${noteSuffix}`,
+      metadata: {
+        currentPlanCode: subscription.planCode,
+        targetPlanCode: normalizedTargetPlanCode,
+        note: normalizedNote || undefined,
+      },
+    });
+
+    this.logger.log(
+      `billing-service: recorded upgrade intent userId=${userId} from=${subscription.planCode} to=${normalizedTargetPlanCode}`,
+    );
+
+    return {
+      success: true,
+      targetPlanCode: normalizedTargetPlanCode,
+      message:
+        'Upgrade intent recorded. A billing workflow can process this request.',
     };
   }
 }

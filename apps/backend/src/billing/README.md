@@ -14,12 +14,14 @@ state, enabling entitlement-aware product rollouts.
   - listing plans
   - reading current subscription
   - selecting active plan
+  - recording upgrade intent (`requestMyPlanUpgrade`)
 
 ## GraphQL API
 
 - `billingPlans`: list active plans
 - `mySubscription`: get current user subscription (auto-provisions FREE plan)
 - `selectMyPlan(planCode)`: switch current user subscription to active plan
+- `requestMyPlanUpgrade(targetPlanCode, note?)`: records upgrade intent notification
 
 ## Flow
 
@@ -42,4 +44,5 @@ flowchart TD
 - Current integrations:
   - `EmailProviderService` enforces `providerLimit`
   - `MailboxService` enforces `mailboxLimit`
+  - `NotificationService` stores `BILLING_UPGRADE_INTENT` intents
 

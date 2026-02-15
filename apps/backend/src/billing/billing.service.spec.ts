@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Repository } from 'typeorm';
+import { NotificationService } from '../notification/notification.service';
+import { UserNotification } from '../notification/entities/user-notification.entity';
 import { BillingPlan } from './entities/billing-plan.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
 import { BillingService } from './billing.service';
@@ -8,6 +10,9 @@ describe('BillingService', () => {
   let service: BillingService;
   let planRepo: jest.Mocked<Repository<BillingPlan>>;
   let subscriptionRepo: jest.Mocked<Repository<UserSubscription>>;
+  let notificationService: jest.Mocked<
+    Pick<NotificationService, 'createNotification'>
+  >;
 
   beforeEach(() => {
     planRepo = {
@@ -22,8 +27,15 @@ describe('BillingService', () => {
       create: jest.fn(),
       save: jest.fn(),
     } as unknown as jest.Mocked<Repository<UserSubscription>>;
+    notificationService = {
+      createNotification: jest.fn(),
+    };
 
-    service = new BillingService(planRepo, subscriptionRepo);
+    service = new BillingService(
+      planRepo,
+      subscriptionRepo,
+      notificationService as unknown as NotificationService,
+    );
   });
 
   afterEach(() => {
@@ -100,5 +112,41 @@ describe('BillingService', () => {
 
     expect(result.planCode).toBe('PRO');
     expect(subscriptionRepo.save).toHaveBeenCalled();
+  });
+
+  it('records upgrade intent notification', async () => {
+    planRepo.count.mockResolvedValue(1);
+    planRepo.findOne.mockResolvedValue({
+      id: 'plan-1',
+      code: 'BUSINESS',
+      isActive: true,
+      providerLimit: 25,
+      mailboxLimit: 25,
+      aiCreditsPerMonth: 5000,
+    } as BillingPlan);
+    subscriptionRepo.findOne.mockResolvedValue({
+      id: 'sub-1',
+      userId: 'user-1',
+      planCode: 'PRO',
+      status: 'active',
+    } as UserSubscription);
+    notificationService.createNotification.mockResolvedValue(
+      {} as UserNotification,
+    );
+
+    const result = await service.requestUpgradeIntent(
+      'user-1',
+      'business',
+      'Need more seats',
+    );
+
+    expect(notificationService.createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        type: 'BILLING_UPGRADE_INTENT',
+      }),
+    );
+    expect(result.success).toBe(true);
+    expect(result.targetPlanCode).toBe('BUSINESS');
   });
 });

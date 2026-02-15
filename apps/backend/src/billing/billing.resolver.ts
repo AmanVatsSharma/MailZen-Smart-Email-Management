@@ -2,6 +2,7 @@ import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { BillingService } from './billing.service';
+import { BillingUpgradeIntentResponse } from './dto/billing-upgrade-intent.response';
 import { BillingPlan } from './entities/billing-plan.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
 
@@ -40,5 +41,20 @@ export class BillingResolver {
     @Context() context: RequestContext,
   ) {
     return this.billingService.selectPlan(context.req.user.id, planCode);
+  }
+
+  @Mutation(() => BillingUpgradeIntentResponse, {
+    description: 'Record a plan-upgrade intent for current user',
+  })
+  async requestMyPlanUpgrade(
+    @Args('targetPlanCode') targetPlanCode: string,
+    @Args('note', { nullable: true }) note: string,
+    @Context() context: RequestContext,
+  ) {
+    return this.billingService.requestUpgradeIntent(
+      context.req.user.id,
+      targetPlanCode,
+      note,
+    );
   }
 }
