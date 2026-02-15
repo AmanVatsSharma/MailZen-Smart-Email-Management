@@ -14,6 +14,7 @@ The Email Integration Module is responsible for managing email providers within 
 - **OAuth Token Management**: Automatic refresh of OAuth tokens for Gmail and Outlook
 - **Automatic Provider Detection**: Auto-detect provider type based on email address domain
 - **Connection Pooling**: Efficient SMTP connection management for improved performance
+- **Plan Entitlements**: Enforces provider count limits from user subscription plan
 
 ## Implementation Status
 

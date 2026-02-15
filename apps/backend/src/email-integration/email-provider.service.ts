@@ -15,6 +15,7 @@ import { createTransport, Transporter } from 'nodemailer';
 import * as NodeCache from 'node-cache';
 import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
+import { BillingService } from '../billing/billing.service';
 
 interface SmtpConnectionPool {
   [key: string]: {
@@ -40,6 +41,7 @@ export class EmailProviderService {
   constructor(
     @InjectRepository(EmailProvider)
     private readonly providerRepository: Repository<EmailProvider>,
+    private readonly billingService: BillingService,
   ) {
     console.log('[EmailProviderService] Initialized with TypeORM repository');
 
@@ -411,6 +413,8 @@ export class EmailProviderService {
 
   async configureProvider(config: EmailProviderInput, userId: string) {
     try {
+      await this.enforceProviderLimit(userId);
+
       // Auto-detect provider type if requested
       if (config.autoDetect && config.email) {
         config.providerType = this.detectProviderType(config.email);
@@ -459,6 +463,21 @@ export class EmailProviderService {
         'Failed to configure email provider',
       );
     }
+  }
+
+  private async enforceProviderLimit(userId: string): Promise<void> {
+    const entitlements = await this.billingService.getEntitlements(userId);
+    const currentProviderCount = await this.providerRepository.count({
+      where: { userId },
+    });
+    if (currentProviderCount < entitlements.providerLimit) return;
+
+    this.logger.warn(
+      `email-provider-service: provider limit reached userId=${userId} current=${currentProviderCount} limit=${entitlements.providerLimit}`,
+    );
+    throw new BadRequestException(
+      `Plan limit reached. Your ${entitlements.planCode} plan supports up to ${entitlements.providerLimit} connected providers.`,
+    );
   }
 
   private detectProviderType(email: string): string {

@@ -127,4 +127,29 @@ export class BillingService {
     current.endsAt = null;
     return this.userSubscriptionRepo.save(current);
   }
+
+  async getEntitlements(userId: string): Promise<{
+    planCode: string;
+    providerLimit: number;
+    mailboxLimit: number;
+    aiCreditsPerMonth: number;
+  }> {
+    await this.ensureDefaultPlans();
+    const subscription = await this.getMySubscription(userId);
+    const plan = await this.billingPlanRepo.findOne({
+      where: { code: subscription.planCode, isActive: true },
+    });
+    if (!plan) {
+      throw new NotFoundException(
+        `Entitlement plan '${subscription.planCode}' not found`,
+      );
+    }
+
+    return {
+      planCode: plan.code,
+      providerLimit: plan.providerLimit,
+      mailboxLimit: plan.mailboxLimit,
+      aiCreditsPerMonth: plan.aiCreditsPerMonth,
+    };
+  }
 }

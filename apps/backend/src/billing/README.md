@@ -39,4 +39,7 @@ flowchart TD
 
 - This module is intentionally payment-provider agnostic in its first iteration.
 - Stripe/webhook/invoice synchronization can be layered on top of this data model.
+- Current integrations:
+  - `EmailProviderService` enforces `providerLimit`
+  - `MailboxService` enforces `mailboxLimit`
 

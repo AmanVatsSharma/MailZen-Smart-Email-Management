@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { BillingService } from '../billing/billing.service';
 import { MailServerService } from './mail-server.service';
 import { Mailbox } from './entities/mailbox.entity';
 import { User } from '../user/entities/user.entity';
@@ -22,6 +23,7 @@ export class MailboxService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly mailServer: MailServerService,
+    private readonly billingService: BillingService,
   ) {}
 
   private normalizeHandle(raw: string): string {
@@ -68,6 +70,8 @@ export class MailboxService {
     userId: string,
     desiredLocalPart?: string,
   ): Promise<{ email: string; id: string }> {
+    await this.enforceMailboxLimit(userId);
+
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -118,5 +122,17 @@ export class MailboxService {
     if (!user) throw new NotFoundException('User not found');
     const name = user.name || user.email.split('@')[0];
     return name;
+  }
+
+  private async enforceMailboxLimit(userId: string): Promise<void> {
+    const entitlements = await this.billingService.getEntitlements(userId);
+    const currentMailboxCount = await this.mailboxRepo.count({
+      where: { userId },
+    });
+    if (currentMailboxCount < entitlements.mailboxLimit) return;
+
+    throw new BadRequestException(
+      `Plan limit reached. Your ${entitlements.planCode} plan supports up to ${entitlements.mailboxLimit} mailboxes.`,
+    );
   }
 }

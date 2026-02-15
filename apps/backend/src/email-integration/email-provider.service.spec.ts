@@ -7,6 +7,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { createTransport } from 'nodemailer';
 import { Repository } from 'typeorm';
+import { BillingService } from '../billing/billing.service';
 import { EmailProviderInput } from './dto/email-provider.input';
 import { EmailProvider } from './entities/email-provider.entity';
 import { EmailProviderService } from './email-provider.service';
@@ -33,6 +34,14 @@ jest.mock('google-auth-library', () => ({
 describe('EmailProviderService', () => {
   let service: EmailProviderService;
   let providerRepository: jest.Mocked<Repository<EmailProvider>>;
+  const billingServiceMock = {
+    getEntitlements: jest.fn().mockResolvedValue({
+      planCode: 'PRO',
+      providerLimit: 5,
+      mailboxLimit: 5,
+      aiCreditsPerMonth: 500,
+    }),
+  };
 
   beforeEach(async () => {
     jest.spyOn(global, 'setInterval').mockImplementation((() => 0) as any);
@@ -40,6 +49,7 @@ describe('EmailProviderService', () => {
     const repoMock = {
       findOne: jest.fn(),
       find: jest.fn(),
+      count: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
       delete: jest.fn(),
@@ -50,11 +60,13 @@ describe('EmailProviderService', () => {
       providers: [
         EmailProviderService,
         { provide: getRepositoryToken(EmailProvider), useValue: repoMock },
+        { provide: BillingService, useValue: billingServiceMock },
       ],
     }).compile();
 
     service = module.get<EmailProviderService>(EmailProviderService);
     providerRepository = module.get(getRepositoryToken(EmailProvider));
+    providerRepository.count.mockResolvedValue(0);
   });
 
   afterEach(() => {
@@ -92,6 +104,23 @@ describe('EmailProviderService', () => {
       }),
     );
     expect(result.type).toBe('GMAIL');
+  });
+
+  it('rejects provider creation when entitlement limit is reached', async () => {
+    providerRepository.count.mockResolvedValue(5);
+
+    await expect(
+      service.configureProvider(
+        {
+          providerType: 'CUSTOM_SMTP',
+          email: 'ops@example.com',
+          host: 'smtp.example.com',
+          port: 587,
+          password: 'secret',
+        } as EmailProviderInput,
+        'user-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('throws conflict when provider already exists', async () => {

@@ -6,6 +6,7 @@ Manage user-owned `@mailzen.com` aliases and provision mailbox credentials for t
 
 This module covers:
 - alias handle validation + creation
+- plan entitlement enforcement for mailbox count
 - mailbox persistence in Postgres (`mailboxes` table)
 - credential generation + encryption
 - optional external mail-server provisioning API call

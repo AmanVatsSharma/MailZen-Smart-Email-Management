@@ -5,6 +5,7 @@ import { EmailProviderService } from './email-provider.service';
 import { EmailProviderResolver } from './email-provider.resolver';
 import { ProviderOAuthController } from './provider-oauth.controller';
 import { EmailProviderConnectResolver } from './email-provider.connect.resolver';
+import { BillingModule } from '../billing/billing.module';
 import { GmailSyncModule } from '../gmail-sync/gmail-sync.module';
 import { OutlookSyncModule } from '../outlook-sync/outlook-sync.module';
 
@@ -15,6 +16,7 @@ import { OutlookSyncModule } from '../outlook-sync/outlook-sync.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([EmailProvider]),
+    BillingModule,
     GmailSyncModule,
     OutlookSyncModule,
   ],

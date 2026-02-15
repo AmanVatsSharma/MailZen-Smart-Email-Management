@@ -7,6 +7,7 @@ describe('MailboxService', () => {
     create: jest.fn(),
     save: jest.fn(),
     find: jest.fn(),
+    count: jest.fn(),
   };
   const userRepo = {
     findOne: jest.fn(),
@@ -14,15 +15,31 @@ describe('MailboxService', () => {
   const mailServer = {
     provisionMailbox: jest.fn(),
   };
+  const billingService = {
+    getEntitlements: jest.fn().mockResolvedValue({
+      planCode: 'PRO',
+      providerLimit: 5,
+      mailboxLimit: 5,
+      aiCreditsPerMonth: 500,
+    }),
+  };
 
   const service = new MailboxService(
     mailboxRepo as any,
     userRepo as any,
     mailServer as any,
+    billingService as any,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mailboxRepo.count.mockResolvedValue(0);
+    billingService.getEntitlements.mockResolvedValue({
+      planCode: 'PRO',
+      providerLimit: 5,
+      mailboxLimit: 5,
+      aiCreditsPerMonth: 500,
+    });
   });
 
   it('rejects invalid desired local part', async () => {
@@ -40,6 +57,16 @@ describe('MailboxService', () => {
 
     await expect(service.createMailbox('user-1', 'sales')).rejects.toThrow(
       ConflictException,
+    );
+    expect(mailboxRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects mailbox creation when entitlement limit is reached', async () => {
+    mailboxRepo.count.mockResolvedValue(5);
+    userRepo.findOne.mockResolvedValue({ id: 'user-1' });
+
+    await expect(service.createMailbox('user-1', 'sales')).rejects.toThrow(
+      BadRequestException,
     );
     expect(mailboxRepo.save).not.toHaveBeenCalled();
   });
