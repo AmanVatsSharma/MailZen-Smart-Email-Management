@@ -18,6 +18,7 @@ organization features.
 
 - `myWorkspaces`: list workspaces for authenticated user
 - `myActiveWorkspace`: current active workspace for authenticated user
+- `myWorkspaceDataExport(workspaceId)`: export workspace + membership snapshot JSON
 - `createWorkspace(name)`: create team workspace
 - `setActiveWorkspace(workspaceId)`: persist active workspace
 - `workspaceMembers(workspaceId)`: list members for workspace

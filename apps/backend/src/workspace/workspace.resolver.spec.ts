@@ -2,6 +2,7 @@ import { WorkspaceResolver } from './workspace.resolver';
 
 describe('WorkspaceResolver', () => {
   const workspaceServiceMock = {
+    exportWorkspaceData: jest.fn(),
     listPendingWorkspaceInvitations: jest.fn(),
     respondToWorkspaceInvitation: jest.fn(),
     updateWorkspaceMemberRole: jest.fn(),
@@ -28,6 +29,24 @@ describe('WorkspaceResolver', () => {
     ).toHaveBeenCalledWith('user-1');
   });
 
+  it('forwards workspace data export query to workspace service', async () => {
+    workspaceServiceMock.exportWorkspaceData.mockResolvedValue({
+      generatedAtIso: '2026-02-16T00:00:00.000Z',
+      dataJson: '{"workspace":{"id":"workspace-1"}}',
+    });
+
+    const result = await resolver.myWorkspaceDataExport(
+      'workspace-1',
+      context as any,
+    );
+
+    expect(result.generatedAtIso).toBe('2026-02-16T00:00:00.000Z');
+    expect(workspaceServiceMock.exportWorkspaceData).toHaveBeenCalledWith({
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+    });
+  });
+
   it('forwards invitation response mutation to workspace service', async () => {
     workspaceServiceMock.respondToWorkspaceInvitation.mockResolvedValue({
       id: 'member-1',
@@ -44,13 +63,13 @@ describe('WorkspaceResolver', () => {
       id: 'member-1',
       status: 'active',
     });
-    expect(workspaceServiceMock.respondToWorkspaceInvitation).toHaveBeenCalledWith(
-      {
-        workspaceMemberId: 'member-1',
-        userId: 'user-1',
-        accept: true,
-      },
-    );
+    expect(
+      workspaceServiceMock.respondToWorkspaceInvitation,
+    ).toHaveBeenCalledWith({
+      workspaceMemberId: 'member-1',
+      userId: 'user-1',
+      accept: true,
+    });
   });
 
   it('forwards role update mutation to workspace service', async () => {

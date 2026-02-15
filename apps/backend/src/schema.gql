@@ -803,6 +803,7 @@ extend type Query {
   myNotificationPushSubscriptions(workspaceId: String): [NotificationPushSubscription!]!
   myWorkspaces: [Workspace!]!
   myActiveWorkspace: Workspace
+  myWorkspaceDataExport(workspaceId: String!): WorkspaceDataExportResponse!
   workspaceMembers(workspaceId: String!): [WorkspaceMember!]!
   myPendingWorkspaceInvitations: [WorkspaceMember!]!
 }
@@ -1091,4 +1092,9 @@ type WorkspaceMember {
   invitedByUserId: String!
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+type WorkspaceDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
 }

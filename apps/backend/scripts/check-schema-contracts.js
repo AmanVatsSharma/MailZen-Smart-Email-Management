@@ -27,6 +27,7 @@ const requiredContracts = [
   'purgeMyMailboxInboundRetentionData',
   'myWorkspaces',
   'myActiveWorkspace',
+  'myWorkspaceDataExport',
   'workspaceMembers',
   'myPendingWorkspaceInvitations',
   'createWorkspace',

@@ -30,6 +30,7 @@ describe('WorkspaceService', () => {
     } as unknown as jest.Mocked<Repository<WorkspaceMember>>;
     userRepo = {
       findOne: jest.fn(),
+      find: jest.fn(),
       update: jest.fn(),
     } as unknown as jest.Mocked<Repository<User>>;
     billingService = {
@@ -207,7 +208,7 @@ describe('WorkspaceService', () => {
       status: 'pending',
     } as WorkspaceMember);
     workspaceMemberRepo.save.mockImplementation(
-      async (member: WorkspaceMember) => member,
+      (member: WorkspaceMember) => Promise.resolve(member),
     );
 
     const result = await service.respondToWorkspaceInvitation({
@@ -218,6 +219,62 @@ describe('WorkspaceService', () => {
 
     expect(result.status).toBe('active');
     expect(result.userId).toBe('user-1');
+  });
+
+  it('exports workspace membership snapshot for authorized user', async () => {
+    workspaceMemberRepo.findOne.mockResolvedValue({
+      id: 'member-actor-1',
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+      role: 'OWNER',
+      status: 'active',
+    } as WorkspaceMember);
+    workspaceRepo.findOne.mockResolvedValue({
+      id: 'workspace-1',
+      ownerUserId: 'user-1',
+      name: 'Sales Team',
+      slug: 'sales-team',
+      isPersonal: false,
+      createdAt: new Date('2026-02-16T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-16T00:00:00.000Z'),
+    } as Workspace);
+    workspaceMemberRepo.find.mockResolvedValue([
+      {
+        id: 'member-actor-1',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        email: 'owner@mailzen.com',
+        role: 'OWNER',
+        status: 'active',
+        invitedByUserId: 'user-1',
+        createdAt: new Date('2026-02-16T00:00:00.000Z'),
+        updatedAt: new Date('2026-02-16T00:00:00.000Z'),
+      } as WorkspaceMember,
+    ]);
+    userRepo.find.mockResolvedValue([
+      {
+        id: 'user-1',
+        email: 'owner@mailzen.com',
+        name: 'Owner',
+        activeWorkspaceId: 'workspace-1',
+      } as User,
+    ]);
+
+    const result = await service.exportWorkspaceData({
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+    });
+    const parsedPayload = JSON.parse(result.dataJson) as {
+      workspace: { id: string; name: string };
+      members: Array<{ role: string }>;
+    };
+
+    expect(parsedPayload.workspace).toMatchObject({
+      id: 'workspace-1',
+      name: 'Sales Team',
+    });
+    expect(parsedPayload.members).toHaveLength(1);
+    expect(parsedPayload.members[0]?.role).toBe('OWNER');
   });
 
   it('rejects invitation response when email does not match user', async () => {
@@ -258,7 +315,7 @@ describe('WorkspaceService', () => {
         status: 'active',
       } as WorkspaceMember);
     workspaceMemberRepo.save.mockImplementation(
-      async (member: WorkspaceMember) => member,
+      (member: WorkspaceMember) => Promise.resolve(member),
     );
 
     const updated = await service.updateWorkspaceMemberRole({
@@ -321,7 +378,7 @@ describe('WorkspaceService', () => {
         status: 'active',
       } as WorkspaceMember);
     workspaceMemberRepo.save.mockImplementation(
-      async (member: WorkspaceMember) => member,
+      (member: WorkspaceMember) => Promise.resolve(member),
     );
     userRepo.update.mockResolvedValue({} as any);
 
@@ -360,7 +417,7 @@ describe('WorkspaceService', () => {
       isPersonal: false,
     } as Workspace);
     workspaceMemberRepo.save.mockImplementation(
-      async (member: WorkspaceMember) => member,
+      (member: WorkspaceMember) => Promise.resolve(member),
     );
 
     const reinvited = await service.inviteWorkspaceMember(

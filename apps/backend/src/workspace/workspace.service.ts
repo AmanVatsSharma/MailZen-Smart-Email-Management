@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { BillingService } from '../billing/billing.service';
 import { User } from '../user/entities/user.entity';
+import { WorkspaceDataExportResponse } from './workspace-data-export.response';
 import { Workspace } from './entities/workspace.entity';
 import { WorkspaceMember } from './entities/workspace-member.entity';
 
@@ -150,12 +151,16 @@ export class WorkspaceService {
     if (!workspaces.length) return null;
 
     const activeWorkspace =
-      workspaces.find((workspace) => workspace.id === user?.activeWorkspaceId) ||
+      workspaces.find(
+        (workspace) => workspace.id === user?.activeWorkspaceId,
+      ) ||
       workspaces.find((workspace) => workspace.isPersonal) ||
       workspaces[0];
 
     if (activeWorkspace && user?.activeWorkspaceId !== activeWorkspace.id) {
-      await this.userRepo.update(userId, { activeWorkspaceId: activeWorkspace.id });
+      await this.userRepo.update(userId, {
+        activeWorkspaceId: activeWorkspace.id,
+      });
     }
     return activeWorkspace || null;
   }
@@ -213,6 +218,80 @@ export class WorkspaceService {
       },
       order: { createdAt: 'ASC' },
     });
+  }
+
+  async exportWorkspaceData(input: {
+    workspaceId: string;
+    userId: string;
+  }): Promise<WorkspaceDataExportResponse> {
+    const membership = await this.assertWorkspaceAccess(
+      input.workspaceId,
+      input.userId,
+    );
+    const workspace = await this.workspaceRepo.findOne({
+      where: { id: input.workspaceId },
+    });
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const members = await this.workspaceMemberRepo.find({
+      where: { workspaceId: input.workspaceId },
+      order: { createdAt: 'ASC' },
+    });
+    const memberUserIds = members
+      .map((member) => String(member.userId || '').trim())
+      .filter((memberUserId) => memberUserId.length > 0);
+    const memberUsers = memberUserIds.length
+      ? await this.userRepo.find({
+          where: { id: In(memberUserIds) },
+        })
+      : [];
+    const userById = new Map(memberUsers.map((user) => [user.id, user]));
+    const generatedAt = new Date();
+
+    const payload = {
+      generatedAtIso: generatedAt.toISOString(),
+      workspace: {
+        id: workspace.id,
+        ownerUserId: workspace.ownerUserId,
+        name: workspace.name,
+        slug: workspace.slug,
+        isPersonal: workspace.isPersonal,
+        createdAtIso: workspace.createdAt.toISOString(),
+        updatedAtIso: workspace.updatedAt.toISOString(),
+      },
+      requester: {
+        userId: input.userId,
+        role: membership.role,
+      },
+      members: members.map((member) => {
+        const user = member.userId ? userById.get(member.userId) : undefined;
+        return {
+          id: member.id,
+          userId: member.userId || null,
+          email: member.email,
+          role: member.role,
+          status: member.status,
+          invitedByUserId: member.invitedByUserId || null,
+          createdAtIso: member.createdAt.toISOString(),
+          updatedAtIso: member.updatedAt.toISOString(),
+          userProfile: user
+            ? {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                activeWorkspaceId: user.activeWorkspaceId || null,
+              }
+            : null,
+        };
+      }),
+    };
+
+    return {
+      generatedAtIso: generatedAt.toISOString(),
+      dataJson: JSON.stringify(payload),
+    };
   }
 
   async inviteWorkspaceMember(
@@ -289,7 +368,9 @@ export class WorkspaceService {
       throw new NotFoundException('Workspace invitation not found');
     }
     if (invitation.status !== 'pending') {
-      throw new BadRequestException('Workspace invitation is no longer pending');
+      throw new BadRequestException(
+        'Workspace invitation is no longer pending',
+      );
     }
 
     const invitationEmail = String(invitation.email || '')
@@ -380,7 +461,9 @@ export class WorkspaceService {
     member.status = 'removed';
     const saved = await this.workspaceMemberRepo.save(member);
     if (member.userId) {
-      await this.userRepo.update(member.userId, { activeWorkspaceId: undefined });
+      await this.userRepo.update(member.userId, {
+        activeWorkspaceId: undefined,
+      });
     }
     return saved;
   }
@@ -393,7 +476,9 @@ export class WorkspaceService {
     await this.userRepo.update(userId, {
       activeWorkspaceId: workspaceId,
     });
-    const workspace = await this.workspaceRepo.findOne({ where: { id: workspaceId } });
+    const workspace = await this.workspaceRepo.findOne({
+      where: { id: workspaceId },
+    });
     if (!workspace) throw new NotFoundException('Workspace not found');
     return workspace;
   }

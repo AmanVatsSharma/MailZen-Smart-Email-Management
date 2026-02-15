@@ -3,6 +3,7 @@ import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { WorkspaceMember } from './entities/workspace-member.entity';
 import { Workspace } from './entities/workspace.entity';
+import { WorkspaceDataExportResponse } from './workspace-data-export.response';
 import { WorkspaceService } from './workspace.service';
 
 interface RequestContext {
@@ -31,6 +32,20 @@ export class WorkspaceResolver {
   })
   async myActiveWorkspace(@Context() context: RequestContext) {
     return this.workspaceService.getActiveWorkspace(context.req.user.id);
+  }
+
+  @Query(() => WorkspaceDataExportResponse, {
+    description:
+      'Export workspace metadata and memberships for legal/compliance workflows',
+  })
+  async myWorkspaceDataExport(
+    @Args('workspaceId') workspaceId: string,
+    @Context() context: RequestContext,
+  ) {
+    return this.workspaceService.exportWorkspaceData({
+      workspaceId,
+      userId: context.req.user.id,
+    });
   }
 
   @Mutation(() => Workspace, {
