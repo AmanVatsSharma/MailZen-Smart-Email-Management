@@ -304,89 +304,111 @@ export class GmailSyncService {
       { status: 'syncing' },
     );
 
-    // Best-effort label metadata sync (for UI label rendering).
-    await this.syncGmailLabels(providerId, userId, accessToken);
+    try {
+      // Best-effort label metadata sync (for UI label rendering).
+      await this.syncGmailLabels(providerId, userId, accessToken);
 
-    const syncBatch = await this.listMessageIdsForSync({
-      accessToken,
-      maxMessages,
-      startHistoryId: provider.gmailHistoryId || null,
-    });
-    const ids = syncBatch.ids;
-    let imported = 0;
+      const syncBatch = await this.listMessageIdsForSync({
+        accessToken,
+        maxMessages,
+        startHistoryId: provider.gmailHistoryId || null,
+      });
+      const ids = syncBatch.ids;
+      let imported = 0;
 
-    for (const msg of ids) {
-      try {
-        const msgUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(msg.id)}`;
-        const details = await axios.get<GmailMessageResponse>(msgUrl, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          params: {
-            format: 'metadata',
-            metadataHeaders: ['From', 'To', 'Subject', 'Date'],
-          },
-        });
-
-        const headers = details.data.payload?.headers || [];
-        const get = (name: string) =>
-          headers.find((h) => h.name.toLowerCase() === name.toLowerCase())
-            ?.value;
-        const from = get('From') || null;
-        const toRaw = get('To') || '';
-        const to = toRaw
-          ? toRaw
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean)
-          : [];
-        const subject = get('Subject') || null;
-        const internalDate = details.data.internalDate
-          ? new Date(Number(details.data.internalDate))
-          : null;
-        const labels = details.data.labelIds || [];
-
-        await this.externalEmailMessageRepo.upsert(
-          [
-            {
-              userId,
-              providerId,
-              externalMessageId: details.data.id,
-              threadId: details.data.threadId || msg.threadId || undefined,
-              from: from || undefined,
-              to,
-              subject: subject || undefined,
-              snippet: details.data.snippet || undefined,
-              internalDate: internalDate || undefined,
-              labels,
-              rawPayload: details.data as any,
+      for (const msg of ids) {
+        try {
+          const msgUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(msg.id)}`;
+          const details = await axios.get<GmailMessageResponse>(msgUrl, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            params: {
+              format: 'metadata',
+              metadataHeaders: ['From', 'To', 'Subject', 'Date'],
             },
-          ],
-          ['providerId', 'externalMessageId'],
-        );
+          });
 
-        imported += 1;
-      } catch (e: any) {
-        this.logger.warn(
-          `Failed to import message ${msg.id}: ${e?.message || e}`,
-        );
+          const headers = details.data.payload?.headers || [];
+          const get = (name: string) =>
+            headers.find((h) => h.name.toLowerCase() === name.toLowerCase())
+              ?.value;
+          const from = get('From') || null;
+          const toRaw = get('To') || '';
+          const to = toRaw
+            ? toRaw
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : [];
+          const subject = get('Subject') || null;
+          const internalDate = details.data.internalDate
+            ? new Date(Number(details.data.internalDate))
+            : null;
+          const labels = details.data.labelIds || [];
+
+          await this.externalEmailMessageRepo.upsert(
+            [
+              {
+                userId,
+                providerId,
+                externalMessageId: details.data.id,
+                threadId: details.data.threadId || msg.threadId || undefined,
+                from: from || undefined,
+                to,
+                subject: subject || undefined,
+                snippet: details.data.snippet || undefined,
+                internalDate: internalDate || undefined,
+                labels,
+                rawPayload: details.data as any,
+              },
+            ],
+            ['providerId', 'externalMessageId'],
+          );
+
+          imported += 1;
+        } catch (e: any) {
+          this.logger.warn(
+            `Failed to import message ${msg.id}: ${e?.message || e}`,
+          );
+        }
       }
+
+      const latestHistoryId =
+        syncBatch.historyId || (await this.getLatestGmailHistoryId(accessToken));
+
+      await this.emailProviderRepo.update(
+        { id: providerId },
+        {
+          lastSyncedAt: new Date(),
+          status: 'connected',
+          gmailHistoryId: latestHistoryId || provider.gmailHistoryId,
+          syncLeaseExpiresAt: null,
+        },
+      );
+
+      this.logger.log(
+        `Finished Gmail sync provider=${providerId} mode=${syncBatch.mode} imported=${imported} historyId=${latestHistoryId || 'n/a'}`,
+      );
+      return { imported };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Gmail sync failed provider=${providerId} user=${userId}: ${message}`,
+      );
+      await this.emailProviderRepo.update(
+        { id: providerId },
+        {
+          status: 'error',
+          syncLeaseExpiresAt: null,
+        },
+      );
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to sync Gmail provider');
     }
-
-    const latestHistoryId =
-      syncBatch.historyId || (await this.getLatestGmailHistoryId(accessToken));
-
-    await this.emailProviderRepo.update(
-      { id: providerId },
-      {
-        lastSyncedAt: new Date(),
-        status: 'connected',
-        gmailHistoryId: latestHistoryId || provider.gmailHistoryId,
-      },
-    );
-
-    this.logger.log(
-      `Finished Gmail sync provider=${providerId} mode=${syncBatch.mode} imported=${imported} historyId=${latestHistoryId || 'n/a'}`,
-    );
-    return { imported };
   }
 
   async listInboxMessagesForProvider(

@@ -94,7 +94,10 @@ describe('OutlookSyncService', () => {
     );
     expect(providerUpdateMock).toHaveBeenCalledWith(
       { id: providerId },
-      expect.objectContaining({ status: 'connected' }),
+      expect.objectContaining({
+        status: 'connected',
+        syncLeaseExpiresAt: null,
+      }),
     );
   });
 
@@ -139,5 +142,32 @@ describe('OutlookSyncService', () => {
     };
     expect(tokenUpdatePayload.accessToken).toMatch(/^enc:v2:/);
     expect(tokenUpdatePayload.refreshToken).toMatch(/^enc:v2:/);
+  });
+
+  it('marks provider as error and clears lease when sync fails', async () => {
+    const axiosGetMock = axios.get as jest.MockedFunction<typeof axios.get>;
+    const providerUpdateMock = emailProviderRepo.update as unknown as jest.Mock;
+
+    emailProviderRepo.findOne.mockResolvedValue({
+      id: providerId,
+      userId,
+      type: 'OUTLOOK',
+      accessToken: 'token',
+      refreshToken: null,
+      tokenExpiry: null,
+    } as unknown as EmailProvider);
+    axiosGetMock.mockRejectedValue(new Error('graph unavailable'));
+
+    await expect(
+      service.syncOutlookProvider(providerId, userId, 1),
+    ).rejects.toThrow('Failed to sync Outlook provider');
+
+    expect(providerUpdateMock).toHaveBeenCalledWith(
+      { id: providerId },
+      {
+        status: 'error',
+        syncLeaseExpiresAt: null,
+      },
+    );
   });
 });

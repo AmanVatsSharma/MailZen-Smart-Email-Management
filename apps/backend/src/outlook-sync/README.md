@@ -23,6 +23,15 @@ label metadata into `ExternalEmailLabel`, similar to Gmail sync.
 - `outlook-sync.scheduler.ts`
 - `outlook-sync.module.ts`
 
+## Scheduler hardening
+
+`OutlookSyncScheduler` now includes provider-level lease/retry controls:
+
+- DB lease via `email_providers.syncLeaseExpiresAt` (prevents duplicate workers)
+- retry with backoff (`OUTLOOK_SYNC_SCHEDULER_RETRIES`, `OUTLOOK_SYNC_SCHEDULER_RETRY_BACKOFF_MS`)
+- jitter (`OUTLOOK_SYNC_SCHEDULER_JITTER_MS`) to smooth burst traffic
+- failure notifications include `attempts` and short error context
+
 ## Graph API flow
 
 ```mermaid
@@ -32,6 +41,8 @@ flowchart TD
   Service --> TokenCheck{token expiring?}
   TokenCheck -->|yes| RefreshToken[POST microsoft token endpoint]
   TokenCheck -->|no| UseToken[Use current access token]
+  Service --> Lease[ProviderSyncLeaseService acquire lease]
+  Lease --> ProviderRepo
   RefreshToken --> GraphList[GET graph /me/messages]
   UseToken --> GraphList
   GraphList --> UpsertMessages[upsert ExternalEmailMessage]

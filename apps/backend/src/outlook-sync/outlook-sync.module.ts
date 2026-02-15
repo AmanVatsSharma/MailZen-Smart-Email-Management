@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
+import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
 import { NotificationModule } from '../notification/notification.module';
 import { OutlookSyncScheduler } from './outlook-sync.scheduler';
 import { OutlookSyncService } from './outlook-sync.service';
@@ -16,7 +17,11 @@ import { OutlookSyncService } from './outlook-sync.service';
     ]),
     NotificationModule,
   ],
-  providers: [OutlookSyncService, OutlookSyncScheduler],
+  providers: [
+    OutlookSyncService,
+    OutlookSyncScheduler,
+    ProviderSyncLeaseService,
+  ],
   exports: [OutlookSyncService],
 })
 export class OutlookSyncModule {}

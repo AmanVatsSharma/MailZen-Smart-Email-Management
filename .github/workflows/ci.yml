@@ -48,6 +48,7 @@ jobs:
           gmail-sync/gmail-sync.scheduler.spec.ts
           outlook-sync/outlook-sync.service.spec.ts
           outlook-sync/outlook-sync.scheduler.spec.ts
+          email-integration/provider-sync-lease.service.spec.ts
           gmail-sync/gmail-sync.service.spec.ts
           email-integration/email-provider.service.spec.ts
           mailbox/mailbox.service.spec.ts

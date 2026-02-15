@@ -39,6 +39,8 @@
   - `20260216019000-feature-targeted-rollout-columns.ts`
 - Added AI agent action audit trail migration:
   - `20260216021000-agent-action-audits.ts`
+- Added provider sync lease expiry column migration:
+  - `20260216023000-email-provider-sync-lease.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

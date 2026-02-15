@@ -73,6 +73,9 @@ export class EmailProvider {
   @Column({ nullable: true })
   gmailHistoryId?: string;
 
+  @Column({ type: 'timestamp', nullable: true })
+  syncLeaseExpiresAt?: Date | null;
+
   @Column()
   @Index()
   userId: string;

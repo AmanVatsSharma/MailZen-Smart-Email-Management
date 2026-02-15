@@ -153,7 +153,42 @@ describe('GmailSyncService', () => {
       expect.objectContaining({
         status: 'connected',
         gmailHistoryId: 'hist-2',
+        syncLeaseExpiresAt: null,
       }),
+    );
+  });
+
+  it('marks provider as error and clears lease when sync fails', async () => {
+    emailProviderRepo.findOne.mockResolvedValue({
+      id: providerId,
+      userId,
+      type: 'GMAIL',
+      accessToken: 'token',
+      refreshToken: null,
+      tokenExpiry: null,
+    } as any);
+    (axios.get as any).mockImplementation((url: string) => {
+      if (url.endsWith('/labels')) {
+        return Promise.resolve({
+          data: { labels: [] },
+        });
+      }
+      if (url.endsWith('/messages')) {
+        return Promise.reject(new Error('gmail unavailable'));
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    await expect(service.syncGmailProvider(providerId, userId, 1)).rejects.toThrow(
+      'Failed to sync Gmail provider',
+    );
+
+    expect(emailProviderRepo.update).toHaveBeenCalledWith(
+      { id: providerId },
+      {
+        status: 'error',
+        syncLeaseExpiresAt: null,
+      },
     );
   });
 });

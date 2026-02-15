@@ -276,7 +276,11 @@ export class OutlookSyncService {
 
       await this.emailProviderRepo.update(
         { id: providerId },
-        { status: 'connected', lastSyncedAt: new Date() },
+        {
+          status: 'connected',
+          lastSyncedAt: new Date(),
+          syncLeaseExpiresAt: null,
+        },
       );
 
       this.logger.log(
@@ -290,7 +294,10 @@ export class OutlookSyncService {
       );
       await this.emailProviderRepo.update(
         { id: providerId },
-        { status: 'error' },
+        {
+          status: 'error',
+          syncLeaseExpiresAt: null,
+        },
       );
       throw new InternalServerErrorException('Failed to sync Outlook provider');
     }

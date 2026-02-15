@@ -6,6 +6,7 @@ import { GmailSyncScheduler } from './gmail-sync.scheduler';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
+import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
 import { NotificationModule } from '../notification/notification.module';
 
 @Module({
@@ -17,7 +18,12 @@ import { NotificationModule } from '../notification/notification.module';
     ]),
     NotificationModule,
   ],
-  providers: [GmailSyncService, GmailSyncResolver, GmailSyncScheduler],
+  providers: [
+    GmailSyncService,
+    GmailSyncResolver,
+    GmailSyncScheduler,
+    ProviderSyncLeaseService,
+  ],
   exports: [GmailSyncService],
 })
 export class GmailSyncModule {}

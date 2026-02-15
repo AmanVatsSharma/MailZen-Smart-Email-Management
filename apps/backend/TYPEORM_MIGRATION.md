@@ -567,3 +567,43 @@ SELECT
   COUNT(*) FILTER (WHERE "approvalRequired" = true) AS approval_required_actions
 FROM agent_action_audits;
 ```
+
+## Provider Sync Lease Rollout Notes (2026-02-16)
+
+New migration: `20260216023000-email-provider-sync-lease.ts`
+
+This migration introduces:
+
+- `email_providers.syncLeaseExpiresAt` timestamp column
+- index on `syncLeaseExpiresAt` for lease-expiry scans/updates
+
+### Safe rollout sequence
+
+1. Deploy backend with scheduler lease acquisition logic.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- gmail-sync/gmail-sync.scheduler.spec.ts outlook-sync/outlook-sync.scheduler.spec.ts email-integration/provider-sync-lease.service.spec.ts`
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Validate runtime behavior:
+   - duplicate scheduler workers skip provider when active lease exists
+   - failed sync clears lease with `status=error`
+   - successful sync clears lease with `status=connected`
+
+### Staging verification SQL
+
+```sql
+SELECT
+  COUNT(*) AS providers_with_active_lease
+FROM email_providers
+WHERE "syncLeaseExpiresAt" IS NOT NULL
+  AND "syncLeaseExpiresAt" > NOW();
+
+SELECT
+  status,
+  COUNT(*) AS total
+FROM email_providers
+GROUP BY status
+ORDER BY status;
+```

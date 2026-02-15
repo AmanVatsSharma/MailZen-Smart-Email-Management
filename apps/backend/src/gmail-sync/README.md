@@ -38,6 +38,12 @@ On each `syncGmailProvider`, we best-effort sync Gmail labels into `ExternalEmai
 - `providerId`
 - `providerType`
 - `workspaceId` (when available)
+- `attempts` (number of retry attempts exhausted)
+
+Scheduler hardening features:
+- provider-level DB lease (`email_providers.syncLeaseExpiresAt`) to prevent duplicate workers
+- retry with backoff (`GMAIL_SYNC_SCHEDULER_RETRIES`, `GMAIL_SYNC_SCHEDULER_RETRY_BACKOFF_MS`)
+- per-provider jitter (`GMAIL_SYNC_SCHEDULER_JITTER_MS`) to reduce thundering-herd traffic
 
 ## Incremental cursor behavior
 
@@ -55,6 +61,8 @@ flowchart TD
   sync -->|GmailAPI labels.list| gmailLabels[GmailAPI]
   sync --> db[(PostgresTypeORM)]
   sync -->|GmailAPI messages.list+messages.get(metadata)| gmailMsgs[GmailAPI]
+  sync --> lease[ProviderSyncLeaseService]
+  lease --> db
   ui -->|Query emails/email| inboxGql[UnifiedInboxResolver]
   inboxGql --> db
 ```
