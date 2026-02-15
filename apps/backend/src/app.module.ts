@@ -8,6 +8,7 @@ import { UserModule } from './user/user.module';
 import { EmailModule } from './email/email.module';
 import { AuthModule } from './auth/auth.module';
 import { FeatureModule } from './feature/feature.module';
+import { NotificationModule } from './notification/notification.module';
 import { TemplateModule } from './template/template.module';
 import { ScheduledEmailModule } from './scheduled-email/scheduled-email.module';
 import { EmailAnalyticsModule } from './email-analytics/email-analytics.module';
@@ -55,6 +56,7 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
     EmailModule,
     AuthModule,
     FeatureModule,
+    NotificationModule,
     TemplateModule,
     ScheduledEmailModule,
     EmailAnalyticsModule,

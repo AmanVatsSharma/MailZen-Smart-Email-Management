@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GmailSyncService } from './gmail-sync.service';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
+import { NotificationService } from '../notification/notification.service';
 
 /**
  * Periodic Gmail sync.
@@ -18,13 +19,13 @@ export class GmailSyncScheduler {
     @InjectRepository(EmailProvider)
     private readonly emailProviderRepo: Repository<EmailProvider>,
     private readonly gmailSync: GmailSyncService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   @Cron(CronExpression.EVERY_10_MINUTES)
   async syncActiveGmailProviders() {
-    const providers = await this.emailProviderRepo.find({
+    const providers: EmailProvider[] = await this.emailProviderRepo.find({
       where: { type: 'GMAIL', isActive: true },
-      select: { id: true, userId: true } as any,
     });
     if (!providers.length) return;
 
@@ -33,11 +34,18 @@ export class GmailSyncScheduler {
     for (const p of providers) {
       try {
         await this.gmailSync.syncGmailProvider(p.id, p.userId, 25);
-      } catch (e: any) {
-        this.logger.warn(
-          `Cron sync failed for provider=${p.id}: ${e?.message || e}`,
-        );
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : String(e);
+        this.logger.warn(`Cron sync failed for provider=${p.id}: ${message}`);
         await this.emailProviderRepo.update({ id: p.id }, { status: 'error' });
+        await this.notificationService.createNotification({
+          userId: p.userId,
+          type: 'SYNC_FAILED',
+          title: 'Gmail sync failed',
+          message:
+            'MailZen failed to sync your Gmail account. We will retry automatically.',
+          metadata: { providerId: p.id, providerType: 'GMAIL' },
+        });
       }
     }
   }
