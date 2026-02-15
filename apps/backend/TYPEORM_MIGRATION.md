@@ -200,3 +200,23 @@ This migration introduces:
 6. Verify inbox notification + email row behavior:
    - duplicate `messageId` stays idempotent
    - new message writes `inboundMessageId` and `inboundThreadKey`
+
+## Mailbox Inbound Event Store Rollout Notes (2026-02-15)
+
+New migration: `20260215202000-mailbox-inbound-events.ts`
+
+This migration introduces:
+
+- `mailbox_inbound_events` table for inbound webhook idempotency + observability
+- unique key on `("mailboxId","messageId")`
+- indexes on mailbox/user/message/email identifiers
+
+### Safe rollout sequence
+
+1. Deploy backend containing event-store migration + service code.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run mailbox webhook smoke scenarios:
+   - first event -> `status=ACCEPTED`
+   - repeated message-id -> deduplicated path
+   - invalid signature -> rejected path

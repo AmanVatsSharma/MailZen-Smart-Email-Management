@@ -36,6 +36,7 @@ This module covers:
   - resolves mailbox owner/workspace
   - enforces mailbox status/quota guardrails before persisting
   - persists inbound payload in `emails` table with `status=NEW`, `inboundMessageId`, `inboundThreadKey`
+  - upserts idempotency/observability records in `mailbox_inbound_events`
   - updates mailbox `usedBytes`
   - emits `MAILBOX_INBOUND` notification metadata context
   - derives thread key from `inReplyTo` / `messageId` for unified inbox mailbox threading
@@ -110,13 +111,14 @@ flowchart TD
 - If duplicate `messageId` arrives inside idempotency cache window:
   - request is accepted and marked deduplicated without writing duplicate email row
 - If process restarts and duplicate `messageId` arrives:
-  - service checks persisted `emails.inboundMessageId` before insert
+  - service checks `mailbox_inbound_events` and `emails.inboundMessageId` before insert
   - request remains idempotent across cache misses
 
 ## Notes
 
 - This module provisions credentials and metadata; full inbound mailbox ingestion pipeline is handled by inbox/sync modules.
 - Keep `SECRETS_KEY` managed via secure secret store in production.
+- Each inbound request emits structured log event `mailbox_inbound_processed` with outcome, latency, signature status, and dedupe signal.
 
 ## Inbound ingestion flow
 

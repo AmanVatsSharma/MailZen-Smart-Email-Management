@@ -12,6 +12,7 @@ import { Repository } from 'typeorm';
 import { Email } from '../email/entities/email.entity';
 import { NotificationService } from '../notification/notification.service';
 import { MailboxInboundWebhookInput } from './dto/mailbox-inbound-webhook.input';
+import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
 import { Mailbox } from './entities/mailbox.entity';
 
 type InboundAuthInput = {
@@ -43,6 +44,8 @@ export class MailboxInboundService {
     private readonly mailboxRepo: Repository<Mailbox>,
     @InjectRepository(Email)
     private readonly emailRepo: Repository<Email>,
+    @InjectRepository(MailboxInboundEvent)
+    private readonly mailboxInboundEventRepo: Repository<MailboxInboundEvent>,
     private readonly notificationService: NotificationService,
   ) {}
 
@@ -129,9 +132,9 @@ export class MailboxInboundService {
   private assertWebhookSignature(
     auth: InboundAuthInput,
     input: MailboxInboundWebhookInput,
-  ): void {
+  ): boolean {
     const signingKey = this.resolveSigningKey();
-    if (!signingKey) return;
+    if (!signingKey) return false;
 
     const providedSignature = auth.signatureHeader?.trim();
     const providedTimestamp = this.parseTimestampHeader(
@@ -160,6 +163,7 @@ export class MailboxInboundService {
     ) {
       throw new UnauthorizedException('Invalid inbound webhook signature');
     }
+    return true;
   }
 
   private assertWebhookAuth(auth: InboundAuthInput): void {
@@ -336,133 +340,273 @@ export class MailboxInboundService {
     });
   }
 
+  private async findPersistedInboundEvent(input: {
+    mailboxId: string;
+    messageId?: string | null;
+  }): Promise<MailboxInboundEvent | null> {
+    if (!input.messageId) return null;
+    return this.mailboxInboundEventRepo.findOne({
+      where: {
+        mailboxId: input.mailboxId,
+        messageId: input.messageId,
+      },
+    });
+  }
+
+  private async upsertInboundEvent(input: {
+    mailboxId?: string | null;
+    userId?: string | null;
+    messageId?: string | null;
+    emailId?: string | null;
+    inboundThreadKey?: string | null;
+    sourceIp?: string | null;
+    signatureValidated: boolean;
+    status: 'ACCEPTED' | 'DEDUPLICATED' | 'REJECTED';
+    errorReason?: string | null;
+  }): Promise<void> {
+    if (!input.mailboxId || !input.userId || !input.messageId) return;
+    await this.mailboxInboundEventRepo.upsert(
+      {
+        mailboxId: input.mailboxId,
+        userId: input.userId,
+        messageId: input.messageId,
+        emailId: input.emailId || null,
+        inboundThreadKey: input.inboundThreadKey || null,
+        sourceIp: input.sourceIp || null,
+        signatureValidated: input.signatureValidated,
+        status: input.status,
+        errorReason: input.errorReason || null,
+      },
+      ['mailboxId', 'messageId'],
+    );
+  }
+
   async ingestInboundEvent(
     input: MailboxInboundWebhookInput,
     auth: InboundAuthInput,
   ): Promise<MailboxInboundIngestResult> {
-    this.assertWebhookAuth(auth);
-    this.assertWebhookSignature(auth, input);
-    this.assertInboundBody(input);
-
+    const startedAtMs = Date.now();
     const mailboxEmail = this.normalizeEmailAddress(input.mailboxEmail);
-    const mailbox = await this.mailboxRepo.findOne({
-      where: { email: mailboxEmail },
-    });
-    if (!mailbox) {
-      throw new NotFoundException('Mailbox not found for inbound webhook');
-    }
-
     const normalizedMessageId = this.normalizeMessageId(input.messageId);
-    const duplicate = this.findDuplicateMessageId(
-      mailbox.id,
-      normalizedMessageId || undefined,
-    );
-    if (duplicate) {
-      this.logger.log(
-        `mailbox-inbound: duplicate messageId accepted mailbox=${mailbox.email} emailId=${duplicate.emailId}`,
-      );
-      return {
-        accepted: true,
-        mailboxId: mailbox.id,
-        mailboxEmail: mailbox.email,
-        emailId: duplicate.emailId,
-        deduplicated: true,
-      };
-    }
+    let outcome: 'ACCEPTED' | 'DEDUPLICATED' | 'REJECTED' = 'REJECTED';
+    let resolvedMailboxId: string | null = null;
+    let resolvedUserId: string | null = null;
+    let signatureValidated = false;
+    let deduplicated = false;
 
-    const persistedDuplicate = await this.findPersistedDuplicateMessage({
-      userId: mailbox.userId,
-      inboundMessageId: normalizedMessageId,
-    });
-    if (persistedDuplicate) {
+    try {
+      this.assertWebhookAuth(auth);
+      signatureValidated = this.assertWebhookSignature(auth, input);
+      this.assertInboundBody(input);
+
+      const mailbox = await this.mailboxRepo.findOne({
+        where: { email: mailboxEmail },
+      });
+      if (!mailbox) {
+        throw new NotFoundException('Mailbox not found for inbound webhook');
+      }
+      resolvedMailboxId = mailbox.id;
+      resolvedUserId = mailbox.userId;
+
+      const duplicate = this.findDuplicateMessageId(
+        mailbox.id,
+        normalizedMessageId || undefined,
+      );
+      if (duplicate) {
+        deduplicated = true;
+        outcome = 'DEDUPLICATED';
+        await this.upsertInboundEvent({
+          mailboxId: mailbox.id,
+          userId: mailbox.userId,
+          messageId: normalizedMessageId,
+          emailId: duplicate.emailId,
+          sourceIp: auth.sourceIp || null,
+          signatureValidated,
+          status: 'DEDUPLICATED',
+        });
+        this.logger.log(
+          `mailbox-inbound: duplicate messageId accepted mailbox=${mailbox.email} emailId=${duplicate.emailId}`,
+        );
+        return {
+          accepted: true,
+          mailboxId: mailbox.id,
+          mailboxEmail: mailbox.email,
+          emailId: duplicate.emailId,
+          deduplicated: true,
+        };
+      }
+
+      const persistedInboundEvent = await this.findPersistedInboundEvent({
+        mailboxId: mailbox.id,
+        messageId: normalizedMessageId,
+      });
+      if (persistedInboundEvent?.emailId) {
+        deduplicated = true;
+        outcome = 'DEDUPLICATED';
+        this.rememberMessageId(
+          mailbox.id,
+          normalizedMessageId || undefined,
+          persistedInboundEvent.emailId,
+        );
+        return {
+          accepted: true,
+          mailboxId: mailbox.id,
+          mailboxEmail: mailbox.email,
+          emailId: persistedInboundEvent.emailId,
+          deduplicated: true,
+        };
+      }
+
+      const persistedDuplicate = await this.findPersistedDuplicateMessage({
+        userId: mailbox.userId,
+        inboundMessageId: normalizedMessageId,
+      });
+      if (persistedDuplicate) {
+        deduplicated = true;
+        outcome = 'DEDUPLICATED';
+        this.rememberMessageId(
+          mailbox.id,
+          normalizedMessageId || undefined,
+          persistedDuplicate.id,
+        );
+        await this.upsertInboundEvent({
+          mailboxId: mailbox.id,
+          userId: mailbox.userId,
+          messageId: normalizedMessageId,
+          emailId: persistedDuplicate.id,
+          sourceIp: auth.sourceIp || null,
+          signatureValidated,
+          status: 'DEDUPLICATED',
+        });
+        this.logger.log(
+          `mailbox-inbound: persistent duplicate accepted mailbox=${mailbox.email} emailId=${persistedDuplicate.id}`,
+        );
+        return {
+          accepted: true,
+          mailboxId: mailbox.id,
+          mailboxEmail: mailbox.email,
+          emailId: persistedDuplicate.id,
+          deduplicated: true,
+        };
+      }
+
+      const inboundSizeBytes = this.resolveApproximateSizeBytes(input);
+      this.assertMailboxWritable(mailbox, inboundSizeBytes);
+
+      const subject = input.subject?.trim() || '(no subject)';
+      const body = input.htmlBody?.trim() || input.textBody?.trim() || '';
+      const to =
+        input.to
+          ?.map((entry) => this.normalizeEmailAddress(entry))
+          .filter(Boolean) || [];
+      if (!to.includes(mailboxEmail)) {
+        to.push(mailboxEmail);
+      }
+      const inboundThreadKey = this.resolveInboundThreadKey({
+        mailboxEmail,
+        from: input.from,
+        subject,
+        messageId: normalizedMessageId,
+        inReplyTo: this.normalizeMessageId(input.inReplyTo),
+      });
+
+      const email = await this.emailRepo.save(
+        this.emailRepo.create({
+          userId: mailbox.userId,
+          subject,
+          body,
+          from: this.normalizeEmailAddress(input.from),
+          to,
+          status: 'NEW',
+          isImportant: false,
+          inboundMessageId: normalizedMessageId,
+          inboundThreadKey,
+        }),
+      );
+
+      const nextUsage = this.resolveNextMailboxUsageBytes(
+        mailbox.usedBytes,
+        inboundSizeBytes,
+      );
+      await this.mailboxRepo.update(
+        { id: mailbox.id },
+        { usedBytes: nextUsage },
+      );
+
+      await this.notificationService.createNotification({
+        userId: mailbox.userId,
+        type: 'MAILBOX_INBOUND',
+        title: `New email on ${mailbox.email}`,
+        message: `From ${input.from}: ${subject}`,
+        metadata: {
+          mailboxId: mailbox.id,
+          mailboxEmail: mailbox.email,
+          workspaceId: mailbox.workspaceId || null,
+          sizeBytes: inboundSizeBytes.toString(),
+          messageId: normalizedMessageId,
+          inboundThreadKey,
+          sourceIp: auth.sourceIp || null,
+        },
+      });
+
+      await this.upsertInboundEvent({
+        mailboxId: mailbox.id,
+        userId: mailbox.userId,
+        messageId: normalizedMessageId,
+        emailId: email.id,
+        inboundThreadKey,
+        sourceIp: auth.sourceIp || null,
+        signatureValidated,
+        status: 'ACCEPTED',
+      });
+      outcome = 'ACCEPTED';
+
+      this.logger.log(
+        `mailbox-inbound: accepted mailbox=${mailbox.email} emailId=${email.id} sourceIp=${auth.sourceIp || 'unknown'}`,
+      );
       this.rememberMessageId(
         mailbox.id,
         normalizedMessageId || undefined,
-        persistedDuplicate.id,
+        email.id,
       );
-      this.logger.log(
-        `mailbox-inbound: persistent duplicate accepted mailbox=${mailbox.email} emailId=${persistedDuplicate.id}`,
-      );
+
       return {
         accepted: true,
         mailboxId: mailbox.id,
         mailboxEmail: mailbox.email,
-        emailId: persistedDuplicate.id,
-        deduplicated: true,
+        emailId: email.id,
+        deduplicated: false,
       };
-    }
-
-    const inboundSizeBytes = this.resolveApproximateSizeBytes(input);
-    this.assertMailboxWritable(mailbox, inboundSizeBytes);
-
-    const subject = input.subject?.trim() || '(no subject)';
-    const body = input.htmlBody?.trim() || input.textBody?.trim() || '';
-    const to =
-      input.to
-        ?.map((entry) => this.normalizeEmailAddress(entry))
-        .filter(Boolean) || [];
-    if (!to.includes(mailboxEmail)) {
-      to.push(mailboxEmail);
-    }
-    const inboundThreadKey = this.resolveInboundThreadKey({
-      mailboxEmail,
-      from: input.from,
-      subject,
-      messageId: normalizedMessageId,
-      inReplyTo: this.normalizeMessageId(input.inReplyTo),
-    });
-
-    const email = await this.emailRepo.save(
-      this.emailRepo.create({
-        userId: mailbox.userId,
-        subject,
-        body,
-        from: this.normalizeEmailAddress(input.from),
-        to,
-        status: 'NEW',
-        isImportant: false,
-        inboundMessageId: normalizedMessageId,
-        inboundThreadKey,
-      }),
-    );
-
-    const nextUsage = this.resolveNextMailboxUsageBytes(
-      mailbox.usedBytes,
-      inboundSizeBytes,
-    );
-    await this.mailboxRepo.update({ id: mailbox.id }, { usedBytes: nextUsage });
-
-    await this.notificationService.createNotification({
-      userId: mailbox.userId,
-      type: 'MAILBOX_INBOUND',
-      title: `New email on ${mailbox.email}`,
-      message: `From ${input.from}: ${subject}`,
-      metadata: {
-        mailboxId: mailbox.id,
-        mailboxEmail: mailbox.email,
-        workspaceId: mailbox.workspaceId || null,
-        sizeBytes: inboundSizeBytes.toString(),
+    } catch (error: unknown) {
+      const errorReason = (() => {
+        if (error instanceof Error) return error.message;
+        if (typeof error === 'string') return error;
+        return 'unknown';
+      })();
+      await this.upsertInboundEvent({
+        mailboxId: resolvedMailboxId,
+        userId: resolvedUserId,
         messageId: normalizedMessageId,
-        inboundThreadKey,
         sourceIp: auth.sourceIp || null,
-      },
-    });
-
-    this.logger.log(
-      `mailbox-inbound: accepted mailbox=${mailbox.email} emailId=${email.id} sourceIp=${auth.sourceIp || 'unknown'}`,
-    );
-    this.rememberMessageId(
-      mailbox.id,
-      normalizedMessageId || undefined,
-      email.id,
-    );
-
-    return {
-      accepted: true,
-      mailboxId: mailbox.id,
-      mailboxEmail: mailbox.email,
-      emailId: email.id,
-      deduplicated: false,
-    };
+        signatureValidated,
+        status: 'REJECTED',
+        errorReason,
+      });
+      throw error;
+    } finally {
+      this.logger.log(
+        JSON.stringify({
+          event: 'mailbox_inbound_processed',
+          mailboxId: resolvedMailboxId,
+          mailboxEmail,
+          messageId: normalizedMessageId,
+          sourceIp: auth.sourceIp || null,
+          signatureValidated,
+          deduplicated,
+          outcome,
+          latencyMs: Date.now() - startedAtMs,
+        }),
+      );
+    }
   }
 }

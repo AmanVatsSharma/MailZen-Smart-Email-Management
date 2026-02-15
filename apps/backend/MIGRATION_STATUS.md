@@ -17,6 +17,8 @@
   - `20260215161000-workspace-scoping-and-entitlements.ts`
 - Added mailbox inbound threading migration:
   - `20260215193000-mailbox-inbound-threading.ts`
+- Added mailbox inbound idempotency event-store migration:
+  - `20260215202000-mailbox-inbound-events.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

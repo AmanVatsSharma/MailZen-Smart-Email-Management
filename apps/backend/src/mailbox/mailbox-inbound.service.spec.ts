@@ -6,10 +6,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { createHmac } from 'crypto';
-import { Repository, UpdateResult } from 'typeorm';
+import { InsertResult, Repository, UpdateResult } from 'typeorm';
 import { Email } from '../email/entities/email.entity';
 import { UserNotification } from '../notification/entities/user-notification.entity';
 import { NotificationService } from '../notification/notification.service';
+import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
 import { Mailbox } from './entities/mailbox.entity';
 import { MailboxInboundService } from './mailbox-inbound.service';
 
@@ -17,6 +18,7 @@ describe('MailboxInboundService', () => {
   let service: MailboxInboundService;
   let mailboxRepo: jest.Mocked<Repository<Mailbox>>;
   let emailRepo: jest.Mocked<Repository<Email>>;
+  let mailboxInboundEventRepo: jest.Mocked<Repository<MailboxInboundEvent>>;
   let notificationService: jest.Mocked<
     Pick<NotificationService, 'createNotification'>
   >;
@@ -40,6 +42,10 @@ describe('MailboxInboundService', () => {
       findOne: jest.fn(),
       save: jest.fn(),
     } as unknown as jest.Mocked<Repository<Email>>;
+    mailboxInboundEventRepo = {
+      findOne: jest.fn(),
+      upsert: jest.fn(),
+    } as unknown as jest.Mocked<Repository<MailboxInboundEvent>>;
     notificationService = {
       createNotification: jest.fn(),
     };
@@ -47,8 +53,13 @@ describe('MailboxInboundService', () => {
     service = new MailboxInboundService(
       mailboxRepo,
       emailRepo,
+      mailboxInboundEventRepo,
       notificationService as unknown as NotificationService,
     );
+
+    emailRepo.findOne.mockResolvedValue(null);
+    mailboxInboundEventRepo.findOne.mockResolvedValue(null);
+    mailboxInboundEventRepo.upsert.mockResolvedValue({} as InsertResult);
   });
 
   afterEach(() => {
@@ -128,6 +139,16 @@ describe('MailboxInboundService', () => {
       emailId: 'email-1',
       deduplicated: false,
     });
+    expect(mailboxInboundEventRepo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mailboxId: 'mailbox-1',
+        userId: 'user-1',
+        messageId: '<msg-1@example.com>',
+        emailId: 'email-1',
+        status: 'ACCEPTED',
+      }),
+      ['mailboxId', 'messageId'],
+    );
   });
 
   it('rejects inbound payload when token is invalid', async () => {
@@ -266,6 +287,7 @@ describe('MailboxInboundService', () => {
     expect(emailRepo.save).toHaveBeenCalledTimes(1);
     expect(mailboxRepo.update).toHaveBeenCalledTimes(1);
     expect(notificationService.createNotification).toHaveBeenCalledTimes(1);
+    expect(mailboxInboundEventRepo.upsert).toHaveBeenCalledTimes(2);
     expect(duplicateResult).toMatchObject({
       accepted: true,
       deduplicated: true,
@@ -350,6 +372,53 @@ describe('MailboxInboundService', () => {
 
     expect(result.accepted).toBe(true);
     expect(result.emailId).toBe('email-2');
+    expect(mailboxInboundEventRepo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: '<signed-message@example.com>',
+        status: 'ACCEPTED',
+        signatureValidated: true,
+      }),
+      ['mailboxId', 'messageId'],
+    );
+  });
+
+  it('deduplicates using persisted inbound-event store before email lookup', async () => {
+    mailboxRepo.findOne.mockResolvedValue({
+      id: 'mailbox-1',
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      email: 'sales@mailzen.com',
+      usedBytes: '120',
+      status: 'ACTIVE',
+      quotaLimitMb: 51200,
+    } as Mailbox);
+    mailboxInboundEventRepo.findOne.mockResolvedValue({
+      id: 'event-1',
+      mailboxId: 'mailbox-1',
+      userId: 'user-1',
+      messageId: '<persisted-event@example.com>',
+      emailId: 'email-existing-77',
+      status: 'ACCEPTED',
+    } as MailboxInboundEvent);
+
+    const result = await service.ingestInboundEvent(
+      {
+        mailboxEmail: 'sales@mailzen.com',
+        from: 'lead@example.com',
+        subject: 'New lead',
+        textBody: 'Hello',
+        messageId: '<persisted-event@example.com>',
+      },
+      { inboundTokenHeader: 'test-inbound-token' },
+    );
+
+    expect(emailRepo.save).not.toHaveBeenCalled();
+    expect(emailRepo.findOne).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      accepted: true,
+      deduplicated: true,
+      emailId: 'email-existing-77',
+    });
   });
 
   it('deduplicates by persisted inbound message id across cache misses', async () => {
@@ -385,5 +454,14 @@ describe('MailboxInboundService', () => {
       deduplicated: true,
       emailId: 'existing-email-1',
     });
+    expect(mailboxInboundEventRepo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mailboxId: 'mailbox-1',
+        messageId: '<persisted@example.com>',
+        emailId: 'existing-email-1',
+        status: 'DEDUPLICATED',
+      }),
+      ['mailboxId', 'messageId'],
+    );
   });
 });

@@ -11,6 +11,7 @@ import { MailServerModule } from './mail-server.module';
 import { WorkspaceModule } from '../workspace/workspace.module';
 import { Email } from '../email/entities/email.entity';
 import { NotificationModule } from '../notification/notification.module';
+import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
 
 /**
  * MailboxModule - Self-hosted mailbox management
@@ -18,7 +19,7 @@ import { NotificationModule } from '../notification/notification.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Mailbox, User, Email]),
+    TypeOrmModule.forFeature([Mailbox, User, Email, MailboxInboundEvent]),
     MailServerModule,
     BillingModule,
     WorkspaceModule,
