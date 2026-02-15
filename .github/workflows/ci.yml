@@ -38,6 +38,7 @@ jobs:
           mailbox/mailbox.service.spec.ts
           workspace/workspace.service.spec.ts
           inbox/inbox.service.spec.ts
+          unified-inbox/unified-inbox.service.spec.ts
 
       - name: Backend build
         working-directory: apps/backend
