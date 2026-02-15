@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotificationService } from '../notification/notification.service';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { BillingPlan } from './entities/billing-plan.entity';
 import { BillingUpgradeIntentResponse } from './dto/billing-upgrade-intent.response';
 import { UserSubscription } from './entities/user-subscription.entity';
@@ -20,7 +20,7 @@ export class BillingService {
     private readonly billingPlanRepo: Repository<BillingPlan>,
     @InjectRepository(UserSubscription)
     private readonly userSubscriptionRepo: Repository<UserSubscription>,
-    private readonly notificationService: NotificationService,
+    private readonly notificationEventBus: NotificationEventBusService,
   ) {}
 
   private getDefaultPlans(): Array<Partial<BillingPlan>> {
@@ -195,7 +195,7 @@ export class BillingService {
     const normalizedNote = String(note || '').trim();
     const noteSuffix = normalizedNote ? ` Note: ${normalizedNote}` : '';
 
-    await this.notificationService.createNotification({
+    await this.notificationEventBus.publishSafely({
       userId,
       type: 'BILLING_UPGRADE_INTENT',
       title: 'Plan upgrade requested',

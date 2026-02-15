@@ -45,5 +45,5 @@ flowchart TD
   - `EmailProviderService` enforces `providerLimit`
   - `MailboxService` enforces `mailboxLimit`
   - `WorkspaceService` enforces `workspaceLimit`
-  - `NotificationService` stores `BILLING_UPGRADE_INTENT` intents
+  - `NotificationEventBusService` stores `BILLING_UPGRADE_INTENT` intents
 

@@ -3,7 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
-import { NotificationService } from '../notification/notification.service';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { OutlookSyncService } from './outlook-sync.service';
 
 @Injectable()
@@ -14,7 +14,7 @@ export class OutlookSyncScheduler {
     @InjectRepository(EmailProvider)
     private readonly emailProviderRepo: Repository<EmailProvider>,
     private readonly outlookSync: OutlookSyncService,
-    private readonly notificationService: NotificationService,
+    private readonly notificationEventBus: NotificationEventBusService,
   ) {}
 
   @Cron(CronExpression.EVERY_10_MINUTES)
@@ -44,7 +44,7 @@ export class OutlookSyncScheduler {
           { id: provider.id },
           { status: 'error' },
         );
-        await this.notificationService.createNotification({
+        await this.notificationEventBus.publishSafely({
           userId: provider.userId,
           type: 'SYNC_FAILED',
           title: 'Outlook sync failed',

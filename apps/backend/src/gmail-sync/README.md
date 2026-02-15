@@ -33,7 +33,8 @@ On each `syncGmailProvider`, we best-effort sync Gmail labels into `ExternalEmai
 
 ## Scheduler failure notification context
 
-`GmailSyncScheduler` emits `SYNC_FAILED` notifications with metadata including:
+`GmailSyncScheduler` publishes `SYNC_FAILED` domain events through
+`NotificationEventBusService`, with metadata including:
 - `providerId`
 - `providerType`
 - `workspaceId` (when available)

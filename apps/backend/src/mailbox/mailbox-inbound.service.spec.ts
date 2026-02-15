@@ -8,8 +8,7 @@ import {
 import { createHmac } from 'crypto';
 import { InsertResult, Repository, UpdateResult } from 'typeorm';
 import { Email } from '../email/entities/email.entity';
-import { UserNotification } from '../notification/entities/user-notification.entity';
-import { NotificationService } from '../notification/notification.service';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
 import { Mailbox } from './entities/mailbox.entity';
 import { MailboxInboundService } from './mailbox-inbound.service';
@@ -19,8 +18,8 @@ describe('MailboxInboundService', () => {
   let mailboxRepo: jest.Mocked<Repository<Mailbox>>;
   let emailRepo: jest.Mocked<Repository<Email>>;
   let mailboxInboundEventRepo: jest.Mocked<Repository<MailboxInboundEvent>>;
-  let notificationService: jest.Mocked<
-    Pick<NotificationService, 'createNotification'>
+  let notificationEventBus: jest.Mocked<
+    Pick<NotificationEventBusService, 'publishSafely'>
   >;
   const envBackup = {
     inboundToken: process.env.MAILZEN_INBOUND_WEBHOOK_TOKEN,
@@ -46,15 +45,15 @@ describe('MailboxInboundService', () => {
       findOne: jest.fn(),
       upsert: jest.fn(),
     } as unknown as jest.Mocked<Repository<MailboxInboundEvent>>;
-    notificationService = {
-      createNotification: jest.fn(),
+    notificationEventBus = {
+      publishSafely: jest.fn(),
     };
 
     service = new MailboxInboundService(
       mailboxRepo,
       emailRepo,
       mailboxInboundEventRepo,
-      notificationService as unknown as NotificationService,
+      notificationEventBus as unknown as NotificationEventBusService,
     );
 
     emailRepo.findOne.mockResolvedValue(null);
@@ -90,9 +89,7 @@ describe('MailboxInboundService', () => {
       status: 'NEW',
     } as Email);
     mailboxRepo.update.mockResolvedValue({ affected: 1 } as UpdateResult);
-    notificationService.createNotification.mockResolvedValue(
-      {} as UserNotification,
-    );
+    notificationEventBus.publishSafely.mockResolvedValue(null);
     emailRepo.findOne.mockResolvedValue(null);
 
     const result = await service.ingestInboundEvent(
@@ -120,7 +117,7 @@ describe('MailboxInboundService', () => {
       { id: 'mailbox-1' },
       { usedBytes: '320' },
     );
-    expect(notificationService.createNotification).toHaveBeenCalledWith(
+    expect(notificationEventBus.publishSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-1',
         type: 'MAILBOX_INBOUND',
@@ -184,7 +181,7 @@ describe('MailboxInboundService', () => {
         { inboundTokenHeader: 'test-inbound-token' },
       ),
     ).rejects.toThrow(NotFoundException);
-    expect(notificationService.createNotification).not.toHaveBeenCalled();
+    expect(notificationEventBus.publishSafely).not.toHaveBeenCalled();
   });
 
   it('rejects inbound payload when mailbox is suspended', async () => {
@@ -212,7 +209,7 @@ describe('MailboxInboundService', () => {
       ),
     ).rejects.toThrow(BadRequestException);
     expect(emailRepo.save).not.toHaveBeenCalled();
-    expect(notificationService.createNotification).toHaveBeenCalledWith(
+    expect(notificationEventBus.publishSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-1',
         type: 'MAILBOX_INBOUND',
@@ -260,7 +257,7 @@ describe('MailboxInboundService', () => {
       ),
     ).rejects.toThrow(BadRequestException);
     expect(emailRepo.save).not.toHaveBeenCalled();
-    expect(notificationService.createNotification).toHaveBeenCalledWith(
+    expect(notificationEventBus.publishSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-1',
         type: 'MAILBOX_INBOUND',
@@ -304,9 +301,7 @@ describe('MailboxInboundService', () => {
       status: 'NEW',
     } as Email);
     mailboxRepo.update.mockResolvedValue({ affected: 1 } as UpdateResult);
-    notificationService.createNotification.mockResolvedValue(
-      {} as UserNotification,
-    );
+    notificationEventBus.publishSafely.mockResolvedValue(null);
 
     await service.ingestInboundEvent(
       {
@@ -332,8 +327,8 @@ describe('MailboxInboundService', () => {
 
     expect(emailRepo.save).toHaveBeenCalledTimes(1);
     expect(mailboxRepo.update).toHaveBeenCalledTimes(1);
-    expect(notificationService.createNotification).toHaveBeenCalledTimes(2);
-    expect(notificationService.createNotification).toHaveBeenNthCalledWith(
+    expect(notificationEventBus.publishSafely).toHaveBeenCalledTimes(2);
+    expect(notificationEventBus.publishSafely).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
         type: 'MAILBOX_INBOUND',
@@ -396,9 +391,7 @@ describe('MailboxInboundService', () => {
       status: 'NEW',
     } as Email);
     mailboxRepo.update.mockResolvedValue({ affected: 1 } as UpdateResult);
-    notificationService.createNotification.mockResolvedValue(
-      {} as UserNotification,
-    );
+    notificationEventBus.publishSafely.mockResolvedValue(null);
 
     const timestamp = Date.now();
     const payloadDigest = [
@@ -475,7 +468,7 @@ describe('MailboxInboundService', () => {
       deduplicated: true,
       emailId: 'email-existing-77',
     });
-    expect(notificationService.createNotification).toHaveBeenCalledWith(
+    expect(notificationEventBus.publishSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'MAILBOX_INBOUND',
         metadata: expect.objectContaining({
@@ -519,7 +512,7 @@ describe('MailboxInboundService', () => {
       deduplicated: true,
       emailId: 'existing-email-1',
     });
-    expect(notificationService.createNotification).toHaveBeenCalledWith(
+    expect(notificationEventBus.publishSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'MAILBOX_INBOUND',
         metadata: expect.objectContaining({

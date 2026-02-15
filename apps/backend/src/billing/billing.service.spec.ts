@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Repository } from 'typeorm';
-import { NotificationService } from '../notification/notification.service';
-import { UserNotification } from '../notification/entities/user-notification.entity';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { BillingPlan } from './entities/billing-plan.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
 import { BillingService } from './billing.service';
@@ -10,8 +9,8 @@ describe('BillingService', () => {
   let service: BillingService;
   let planRepo: jest.Mocked<Repository<BillingPlan>>;
   let subscriptionRepo: jest.Mocked<Repository<UserSubscription>>;
-  let notificationService: jest.Mocked<
-    Pick<NotificationService, 'createNotification'>
+  let notificationEventBus: jest.Mocked<
+    Pick<NotificationEventBusService, 'publishSafely'>
   >;
 
   beforeEach(() => {
@@ -27,14 +26,14 @@ describe('BillingService', () => {
       create: jest.fn(),
       save: jest.fn(),
     } as unknown as jest.Mocked<Repository<UserSubscription>>;
-    notificationService = {
-      createNotification: jest.fn(),
+    notificationEventBus = {
+      publishSafely: jest.fn(),
     };
 
     service = new BillingService(
       planRepo,
       subscriptionRepo,
-      notificationService as unknown as NotificationService,
+      notificationEventBus as unknown as NotificationEventBusService,
     );
   });
 
@@ -132,9 +131,7 @@ describe('BillingService', () => {
       planCode: 'PRO',
       status: 'active',
     } as UserSubscription);
-    notificationService.createNotification.mockResolvedValue(
-      {} as UserNotification,
-    );
+    notificationEventBus.publishSafely.mockResolvedValue(null);
 
     const result = await service.requestUpgradeIntent(
       'user-1',
@@ -142,7 +139,7 @@ describe('BillingService', () => {
       'Need more seats',
     );
 
-    expect(notificationService.createNotification).toHaveBeenCalledWith(
+    expect(notificationEventBus.publishSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-1',
         type: 'BILLING_UPGRADE_INTENT',

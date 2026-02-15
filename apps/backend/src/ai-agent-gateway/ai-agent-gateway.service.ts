@@ -24,7 +24,7 @@ import { createClient, RedisClientType } from 'redis';
 import { Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
-import { NotificationService } from '../notification/notification.service';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { User } from '../user/entities/user.entity';
 import { AgentAssistInput, AgentMessageInput } from './dto/agent-assist.input';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
@@ -149,7 +149,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     private readonly userRepo: Repository<User>,
     @InjectRepository(ExternalEmailMessage)
     private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
-    private readonly notificationService: NotificationService,
+    private readonly notificationEventBus: NotificationEventBusService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -792,7 +792,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       const providerId = metadata.providerId || metadata.activeProviderId;
       const followupLabel = followupAtIso || 'the requested time';
 
-      await this.notificationService.createNotification({
+      await this.notificationEventBus.publishSafely({
         userId,
         type: 'AGENT_ACTION_REQUIRED',
         title: 'Follow-up reminder scheduled',

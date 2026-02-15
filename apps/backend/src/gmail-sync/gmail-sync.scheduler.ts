@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GmailSyncService } from './gmail-sync.service';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
-import { NotificationService } from '../notification/notification.service';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 
 /**
  * Periodic Gmail sync.
@@ -19,7 +19,7 @@ export class GmailSyncScheduler {
     @InjectRepository(EmailProvider)
     private readonly emailProviderRepo: Repository<EmailProvider>,
     private readonly gmailSync: GmailSyncService,
-    private readonly notificationService: NotificationService,
+    private readonly notificationEventBus: NotificationEventBusService,
   ) {}
 
   @Cron(CronExpression.EVERY_10_MINUTES)
@@ -38,7 +38,7 @@ export class GmailSyncScheduler {
         const message = e instanceof Error ? e.message : String(e);
         this.logger.warn(`Cron sync failed for provider=${p.id}: ${message}`);
         await this.emailProviderRepo.update({ id: p.id }, { status: 'error' });
-        await this.notificationService.createNotification({
+        await this.notificationEventBus.publishSafely({
           userId: p.userId,
           type: 'SYNC_FAILED',
           title: 'Gmail sync failed',

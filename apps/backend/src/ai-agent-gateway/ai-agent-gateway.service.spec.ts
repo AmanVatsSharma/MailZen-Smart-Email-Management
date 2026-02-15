@@ -16,7 +16,7 @@ import {
 import { Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
-import { NotificationService } from '../notification/notification.service';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { User } from '../user/entities/user.entity';
 import { AgentAssistInput } from './dto/agent-assist.input';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
@@ -45,16 +45,16 @@ describe('AiAgentGatewayService', () => {
   const externalEmailMessageRepo = {
     find: findExternalMessagesMock,
   } as unknown as Pick<Repository<ExternalEmailMessage>, 'find'>;
-  const notificationService = {
-    createNotification: createNotificationMock,
-  } as unknown as Pick<NotificationService, 'createNotification'>;
+  const notificationEventBus = {
+    publishSafely: createNotificationMock,
+  } as unknown as Pick<NotificationEventBusService, 'publishSafely'>;
 
   const createService = () =>
     new AiAgentGatewayService(
       authService as AuthService,
       userRepo as Repository<User>,
       externalEmailMessageRepo as Repository<ExternalEmailMessage>,
-      notificationService as NotificationService,
+      notificationEventBus as NotificationEventBusService,
     );
 
   beforeEach(() => {

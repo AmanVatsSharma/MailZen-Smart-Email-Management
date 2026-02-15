@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { NotificationService } from '../notification/notification.service';
 import { UserNotificationPreference } from '../notification/entities/user-notification-preference.entity';
 import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
@@ -24,6 +25,7 @@ export class MailboxInboundSlaScheduler {
     private readonly notificationPreferenceRepo: Repository<UserNotificationPreference>,
     private readonly mailboxService: MailboxService,
     private readonly notificationService: NotificationService,
+    private readonly notificationEventBus: NotificationEventBusService,
   ) {}
 
   @Cron('*/15 * * * *')
@@ -167,7 +169,7 @@ export class MailboxInboundSlaScheduler {
         return;
       }
 
-      await this.notificationService.createNotification({
+      await this.notificationEventBus.publishSafely({
         userId: input.userId,
         type: 'MAILBOX_INBOUND_SLA_ALERT',
         title:

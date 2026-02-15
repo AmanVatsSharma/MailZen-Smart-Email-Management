@@ -10,7 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { Repository } from 'typeorm';
 import { Email } from '../email/entities/email.entity';
-import { NotificationService } from '../notification/notification.service';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { MailboxInboundWebhookInput } from './dto/mailbox-inbound-webhook.input';
 import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
 import { Mailbox } from './entities/mailbox.entity';
@@ -46,7 +46,7 @@ export class MailboxInboundService {
     private readonly emailRepo: Repository<Email>,
     @InjectRepository(MailboxInboundEvent)
     private readonly mailboxInboundEventRepo: Repository<MailboxInboundEvent>,
-    private readonly notificationService: NotificationService,
+    private readonly notificationEventBus: NotificationEventBusService,
   ) {}
 
   private normalizeEmailAddress(input: string): string {
@@ -417,7 +417,7 @@ export class MailboxInboundService {
     })();
 
     try {
-      await this.notificationService.createNotification({
+      await this.notificationEventBus.publishSafely({
         userId: input.userId,
         type: 'MAILBOX_INBOUND',
         title,

@@ -178,7 +178,7 @@ sequenceDiagram
   participant API as MailboxInboundController
   participant SVC as MailboxInboundService
   participant DB as Postgres
-  participant Notif as NotificationService
+  participant EventBus as NotificationEventBusService
 
   MailInfra->>API: POST /mailbox/inbound/events + x-mailzen-inbound-token
   API->>SVC: ingestInboundEvent(payload, authHeaders)
@@ -187,7 +187,7 @@ sequenceDiagram
   SVC->>SVC: dedupe by messageId cache
   SVC->>DB: emails.insert(status=NEW)
   SVC->>DB: mailboxes.update(usedBytes)
-  SVC->>Notif: createNotification(type=MAILBOX_INBOUND)
+  SVC->>EventBus: publishSafely(type=MAILBOX_INBOUND)
   SVC-->>API: accepted + emailId/mailboxId
   API-->>MailInfra: 202 Accepted
 ```

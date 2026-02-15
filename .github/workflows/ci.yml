@@ -31,6 +31,7 @@ jobs:
           billing/billing.service.spec.ts
           notification/notification.service.spec.ts
           notification/notification.resolver.spec.ts
+          notification/notification-event-bus.service.spec.ts
           notification/notification-stream.controller.spec.ts
           smart-replies/smart-reply.service.spec.ts
           ai-agent-gateway/ai-agent-gateway.service.spec.ts

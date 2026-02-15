@@ -11,7 +11,7 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - `auth.forgot_password`
   - `inbox.summarize_thread` (authenticated, ownership-scoped thread summary)
   - `inbox.compose_reply_draft` (authenticated, ownership-scoped draft generation)
-  - `inbox.schedule_followup` (authenticated follow-up reminder notification)
+  - `inbox.schedule_followup` (authenticated follow-up reminder notification via `NotificationEventBusService`)
 - Provide `agentPlatformHealth` GraphQL probe with gateway metrics snapshot.
 
 ## Env Variables

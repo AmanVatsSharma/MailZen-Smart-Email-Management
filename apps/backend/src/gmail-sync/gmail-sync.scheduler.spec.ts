@@ -1,7 +1,6 @@
 import { Repository, UpdateResult } from 'typeorm';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
-import { UserNotification } from '../notification/entities/user-notification.entity';
-import { NotificationService } from '../notification/notification.service';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { GmailSyncScheduler } from './gmail-sync.scheduler';
 import { GmailSyncService } from './gmail-sync.service';
 
@@ -9,8 +8,8 @@ describe('GmailSyncScheduler', () => {
   let scheduler: GmailSyncScheduler;
   let providerRepo: jest.Mocked<Repository<EmailProvider>>;
   let gmailSync: jest.Mocked<Pick<GmailSyncService, 'syncGmailProvider'>>;
-  let notificationService: jest.Mocked<
-    Pick<NotificationService, 'createNotification'>
+  let notificationEventBus: jest.Mocked<
+    Pick<NotificationEventBusService, 'publishSafely'>
   >;
 
   beforeEach(() => {
@@ -21,14 +20,14 @@ describe('GmailSyncScheduler', () => {
     gmailSync = {
       syncGmailProvider: jest.fn(),
     };
-    notificationService = {
-      createNotification: jest.fn(),
+    notificationEventBus = {
+      publishSafely: jest.fn(),
     };
 
     scheduler = new GmailSyncScheduler(
       providerRepo,
       gmailSync as unknown as GmailSyncService,
-      notificationService as unknown as NotificationService,
+      notificationEventBus as unknown as NotificationEventBusService,
     );
   });
 
@@ -46,13 +45,11 @@ describe('GmailSyncScheduler', () => {
     ]);
     gmailSync.syncGmailProvider.mockRejectedValue(new Error('sync failed'));
     providerRepo.update.mockResolvedValue({} as UpdateResult);
-    notificationService.createNotification.mockResolvedValue(
-      {} as UserNotification,
-    );
+    notificationEventBus.publishSafely.mockResolvedValue(null);
 
     await scheduler.syncActiveGmailProviders();
 
-    const notificationCallPayload = notificationService.createNotification.mock
+    const notificationCallPayload = notificationEventBus.publishSafely.mock
       .calls[0]?.[0] as {
       userId: string;
       type: string;

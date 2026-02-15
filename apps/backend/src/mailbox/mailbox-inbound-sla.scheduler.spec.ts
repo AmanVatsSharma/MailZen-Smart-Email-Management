@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Repository } from 'typeorm';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { UserNotificationPreference } from '../notification/entities/user-notification-preference.entity';
 import { NotificationService } from '../notification/notification.service';
 import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
@@ -14,10 +15,11 @@ describe('MailboxInboundSlaScheduler', () => {
   let notificationService: jest.Mocked<
     Pick<
       NotificationService,
-      | 'getOrCreatePreferences'
-      | 'createNotification'
-      | 'updateMailboxInboundSlaAlertState'
+      'getOrCreatePreferences' | 'updateMailboxInboundSlaAlertState'
     >
+  >;
+  let notificationEventBus: jest.Mocked<
+    Pick<NotificationEventBusService, 'publishSafely'>
   >;
 
   beforeEach(() => {
@@ -32,8 +34,10 @@ describe('MailboxInboundSlaScheduler', () => {
     };
     notificationService = {
       getOrCreatePreferences: jest.fn(),
-      createNotification: jest.fn(),
       updateMailboxInboundSlaAlertState: jest.fn(),
+    };
+    notificationEventBus = {
+      publishSafely: jest.fn(),
     };
     inboundEventRepo.createQueryBuilder.mockReturnValue({
       select: jest.fn().mockReturnThis(),
@@ -49,6 +53,7 @@ describe('MailboxInboundSlaScheduler', () => {
       preferenceRepo,
       mailboxService as unknown as MailboxService,
       notificationService as unknown as NotificationService,
+      notificationEventBus as unknown as NotificationEventBusService,
     );
   });
 
@@ -86,7 +91,7 @@ describe('MailboxInboundSlaScheduler', () => {
       preferenceSnapshot,
     );
     mailboxService.getInboundEventStats.mockResolvedValue(criticalStats as any);
-    notificationService.createNotification.mockResolvedValue({} as any);
+    notificationEventBus.publishSafely.mockResolvedValue(null);
     notificationService.updateMailboxInboundSlaAlertState.mockResolvedValue(
       {} as any,
     );
@@ -96,7 +101,7 @@ describe('MailboxInboundSlaScheduler', () => {
     expect(mailboxService.getInboundEventStats).toHaveBeenCalledWith('user-1', {
       windowHours: 24,
     });
-    expect(notificationService.createNotification).toHaveBeenCalledWith(
+    expect(notificationEventBus.publishSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-1',
         type: 'MAILBOX_INBOUND_SLA_ALERT',
@@ -122,7 +127,7 @@ describe('MailboxInboundSlaScheduler', () => {
 
     await scheduler.monitorMailboxInboundSla();
 
-    expect(notificationService.createNotification).not.toHaveBeenCalled();
+    expect(notificationEventBus.publishSafely).not.toHaveBeenCalled();
     expect(
       notificationService.updateMailboxInboundSlaAlertState,
     ).not.toHaveBeenCalled();
@@ -136,14 +141,14 @@ describe('MailboxInboundSlaScheduler', () => {
       mailboxInboundSlaLastAlertedAt: new Date(Date.now() - 20 * 60 * 1000),
     } as UserNotificationPreference);
     mailboxService.getInboundEventStats.mockResolvedValue(criticalStats as any);
-    notificationService.createNotification.mockResolvedValue({} as any);
+    notificationEventBus.publishSafely.mockResolvedValue(null);
     notificationService.updateMailboxInboundSlaAlertState.mockResolvedValue(
       {} as any,
     );
 
     await scheduler.monitorMailboxInboundSla();
 
-    expect(notificationService.createNotification).toHaveBeenCalledTimes(1);
+    expect(notificationEventBus.publishSafely).toHaveBeenCalledTimes(1);
     expect(
       notificationService.updateMailboxInboundSlaAlertState,
     ).toHaveBeenCalledWith(
@@ -161,14 +166,14 @@ describe('MailboxInboundSlaScheduler', () => {
       mailboxInboundSlaLastAlertedAt: new Date(),
     } as UserNotificationPreference);
     mailboxService.getInboundEventStats.mockResolvedValue(criticalStats as any);
-    notificationService.createNotification.mockResolvedValue({} as any);
+    notificationEventBus.publishSafely.mockResolvedValue(null);
     notificationService.updateMailboxInboundSlaAlertState.mockResolvedValue(
       {} as any,
     );
 
     await scheduler.monitorMailboxInboundSla();
 
-    expect(notificationService.createNotification).toHaveBeenCalledTimes(1);
+    expect(notificationEventBus.publishSafely).toHaveBeenCalledTimes(1);
     expect(
       notificationService.updateMailboxInboundSlaAlertState,
     ).toHaveBeenCalledWith(
@@ -198,7 +203,7 @@ describe('MailboxInboundSlaScheduler', () => {
 
     await scheduler.monitorMailboxInboundSla();
 
-    expect(notificationService.createNotification).not.toHaveBeenCalled();
+    expect(notificationEventBus.publishSafely).not.toHaveBeenCalled();
     expect(
       notificationService.updateMailboxInboundSlaAlertState,
     ).toHaveBeenCalledWith({
@@ -218,7 +223,7 @@ describe('MailboxInboundSlaScheduler', () => {
     await scheduler.monitorMailboxInboundSla();
 
     expect(mailboxService.getInboundEventStats).not.toHaveBeenCalled();
-    expect(notificationService.createNotification).not.toHaveBeenCalled();
+    expect(notificationEventBus.publishSafely).not.toHaveBeenCalled();
   });
 
   it('monitors users with stale alert state even without recent events', async () => {
@@ -267,6 +272,6 @@ describe('MailboxInboundSlaScheduler', () => {
       status: null,
       alertedAt: null,
     });
-    expect(notificationService.createNotification).not.toHaveBeenCalled();
+    expect(notificationEventBus.publishSafely).not.toHaveBeenCalled();
   });
 });

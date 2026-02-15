@@ -9,6 +9,8 @@ Provide a persistent notification foundation for user-visible product events
 
 - Persist user notifications in Postgres (`user_notifications`)
 - Persist user notification preferences (`user_notification_preferences`)
+- Provide domain-event abstraction (`NotificationEventBusService`) for modules
+  emitting user-facing events
 - Query notifications for current user
 - Track unread notification count
 - Mark notifications as read
@@ -46,10 +48,14 @@ Provide a persistent notification foundation for user-visible product events
 
 ## Initial event producers
 
-- `GmailSyncScheduler` emits `SYNC_FAILED` notification on cron sync failure
-- `OutlookSyncScheduler` emits `SYNC_FAILED` notification on cron sync failure
-- `AiAgentGatewayService` emits `AGENT_ACTION_REQUIRED` for follow-up reminders
-- `MailboxInboundSlaScheduler` emits `MAILBOX_INBOUND_SLA_ALERT` when mailbox
+- `GmailSyncScheduler` publishes `SYNC_FAILED` domain events through
+  `NotificationEventBusService` on cron sync failure
+- `OutlookSyncScheduler` publishes `SYNC_FAILED` domain events through
+  `NotificationEventBusService` on cron sync failure
+- `AiAgentGatewayService` publishes `AGENT_ACTION_REQUIRED` domain events for
+  follow-up reminders
+- `MailboxInboundSlaScheduler` publishes `MAILBOX_INBOUND_SLA_ALERT` domain
+  events when mailbox
   inbound success/rejection rates breach user-configured thresholds
   - scheduler stores last alert status/timestamp to enforce cooldown and clear
     stale alert state on SLA recovery
@@ -89,6 +95,8 @@ metadata at write time) so workspace-scoped filtering is query-efficient.
 ```mermaid
 flowchart TD
   Scheduler[Provider Sync Scheduler] --> NotificationService
+  Producer[Domain producer modules] --> NotificationEventBus
+  NotificationEventBus --> NotificationService
   NotificationService --> Repo[(user_notifications table)]
   NotificationService --> RealtimeBus[(in-memory realtime event bus)]
   RealtimeBus --> NotificationStream[notifications/stream SSE]
