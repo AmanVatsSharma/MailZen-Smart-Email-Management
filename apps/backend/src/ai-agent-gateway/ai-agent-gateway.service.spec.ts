@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
+import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { User } from '../user/entities/user.entity';
 import { AgentAssistInput } from './dto/agent-assist.input';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
@@ -26,19 +27,28 @@ const mockedAxios = axios as jest.Mocked<typeof axios>;
 describe('AiAgentGatewayService', () => {
   const createVerificationTokenMock = jest.fn();
   const findOneMock = jest.fn();
+  const findExternalMessagesMock = jest.fn();
 
   const authService = {
     createVerificationToken: createVerificationTokenMock,
-  } as unknown as Pick<AuthService, 'createVerificationToken'>;
+    validateToken: jest.fn().mockReturnValue({ id: 'user-1' }),
+  } as unknown as Pick<
+    AuthService,
+    'createVerificationToken' | 'validateToken'
+  >;
 
   const userRepo = {
     findOne: findOneMock,
   } as unknown as Pick<Repository<User>, 'findOne'>;
+  const externalEmailMessageRepo = {
+    find: findExternalMessagesMock,
+  } as unknown as Pick<Repository<ExternalEmailMessage>, 'find'>;
 
   const createService = () =>
     new AiAgentGatewayService(
       authService as AuthService,
       userRepo as Repository<User>,
+      externalEmailMessageRepo as Repository<ExternalEmailMessage>,
     );
 
   beforeEach(() => {
@@ -200,5 +210,61 @@ describe('AiAgentGatewayService', () => {
     const health = await service.getPlatformHealth();
     expect(health.reachable).toBe(false);
     expect(health.status).toBe('down');
+  });
+
+  it('executes inbox summary action when suggested and requested', async () => {
+    const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'inbox',
+        assistantText: 'I can summarize this thread.',
+        intent: 'thread_summary',
+        confidence: 0.95,
+        suggestedActions: [
+          {
+            name: 'inbox.summarize_thread',
+            label: 'Summarize thread',
+            payload: {},
+          },
+        ],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+    findExternalMessagesMock.mockResolvedValueOnce([
+      {
+        subject: 'Q1 plan',
+        from: 'alice@example.com',
+        snippet: 'Please review the quarterly plan before Friday.',
+      },
+      {
+        subject: 'Q1 plan',
+        from: 'you@example.com',
+        snippet: 'Acknowledged. I will review and revert with comments.',
+      },
+    ]);
+
+    const input: AgentAssistInput = {
+      skill: 'inbox',
+      messages: [{ role: 'user', content: 'Summarize this thread for me.' }],
+      context: {
+        surface: 'inbox',
+        locale: 'en-IN',
+        metadataJson: JSON.stringify({ threadId: 'thread-123' }),
+      },
+      allowedActions: ['inbox.summarize_thread'],
+      requestedAction: 'inbox.summarize_thread',
+      executeRequestedAction: true,
+    };
+
+    const response = await service.assist(input, {
+      requestId: 'req-summary-1',
+      headers: { authorization: 'Bearer token-1' },
+    });
+
+    expect(findExternalMessagesMock).toHaveBeenCalled();
+    expect(response.executedAction?.executed).toBe(true);
+    expect(response.executedAction?.message).toContain('summary');
   });
 });

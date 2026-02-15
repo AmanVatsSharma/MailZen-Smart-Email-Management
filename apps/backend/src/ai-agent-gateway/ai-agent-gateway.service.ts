@@ -23,6 +23,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createClient, RedisClientType } from 'redis';
 import { Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
+import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { User } from '../user/entities/user.entity';
 import { AgentAssistInput, AgentMessageInput } from './dto/agent-assist.input';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
@@ -132,7 +133,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         'inbox.compose_reply_draft',
         'inbox.open_thread',
       ]),
-      serverExecutableActions: new Set(),
+      serverExecutableActions: new Set(['inbox.summarize_thread']),
     },
   };
 
@@ -140,6 +141,8 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     private readonly authService: AuthService,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(ExternalEmailMessage)
+    private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -211,6 +214,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         input,
         platformResponse,
         skill,
+        userId,
       );
 
       return {
@@ -660,6 +664,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     input: AgentAssistInput,
     platformResponse: AgentPlatformResponse,
     skill: string,
+    userId: string | null,
   ): Promise<AgentActionExecutionResponse | null> {
     if (!input.executeRequestedAction || !input.requestedAction) {
       return null;
@@ -712,9 +717,63 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       };
     }
 
+    if (requestedAction === 'inbox.summarize_thread') {
+      if (!userId) {
+        throw new BadRequestException(
+          'Authenticated user is required for inbox summary action',
+        );
+      }
+
+      const metadata = this.parseContextMetadata(input.context?.metadataJson);
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        '';
+      const summary = await this.summarizeThreadForUser(
+        userId,
+        threadId || undefined,
+      );
+
+      return {
+        action: requestedAction,
+        executed: true,
+        message: summary,
+      };
+    }
+
     throw new BadRequestException(
       `Unsupported executable action '${requestedAction}'`,
     );
+  }
+
+  private async summarizeThreadForUser(
+    userId: string,
+    threadId?: string,
+  ): Promise<string> {
+    const messages = await this.externalEmailMessageRepo.find({
+      where: threadId ? { userId, threadId } : { userId },
+      order: { internalDate: 'DESC', createdAt: 'DESC' },
+      take: 5,
+    });
+
+    if (!messages.length) {
+      return 'No email messages were found for this thread yet.';
+    }
+
+    const subject = messages[0]?.subject || 'Untitled thread';
+    const bulletPoints = messages
+      .slice(0, 3)
+      .map((message, index) => {
+        const from = message.from || 'unknown sender';
+        const snippet = (message.snippet || 'No preview available')
+          .replace(/\s+/g, ' ')
+          .trim();
+        return `${index + 1}. ${from}: ${snippet}`;
+      })
+      .join(' ');
+
+    return `Thread "${subject}" summary: ${bulletPoints}`;
   }
 
   private recordGatewayMetrics(
