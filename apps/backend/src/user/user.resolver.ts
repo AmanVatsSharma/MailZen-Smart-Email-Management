@@ -1,6 +1,7 @@
-import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, ID, Context } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { User } from './entities/user.entity';
+import { AccountDataExportResponse } from './dto/account-data-export.response';
 import { CreateUserInput } from './dto/create-user.input';
 import { UserService } from './user.service';
 import { UpdateUserInput } from './dto/update-user.input';
@@ -11,6 +12,13 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 @UseGuards(JwtAuthGuard)
 export class UserResolver {
   constructor(private userService: UserService) {}
+
+  @Query(() => AccountDataExportResponse)
+  async myAccountDataExport(
+    @Context() context: { req: { user: { id: string } } },
+  ): Promise<AccountDataExportResponse> {
+    return this.userService.exportUserDataSnapshot(context.req.user.id);
+  }
 
   @Query(() => [User])
   @UseGuards(AdminGuard)

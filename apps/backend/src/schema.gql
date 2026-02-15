@@ -781,6 +781,7 @@ input EmailUpdateInput {
 
 """Incremental schema contract extensions for billing + notifications."""
 extend type Query {
+  myAccountDataExport: AccountDataExportResponse!
   billingPlans: [BillingPlan!]!
   mySubscription: UserSubscription!
   myAiCreditBalance: AiCreditBalanceResponse!
@@ -922,6 +923,11 @@ type BillingUpgradeIntentResponse {
   success: Boolean!
   targetPlanCode: String!
   message: String!
+}
+
+type AccountDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
 }
 
 type BillingDataExportResponse {

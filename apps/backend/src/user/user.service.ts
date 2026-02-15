@@ -11,6 +11,13 @@ import { CreateUserInput } from './dto/create-user.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { AuditLog } from '../auth/entities/audit-log.entity';
 import * as bcrypt from 'bcryptjs';
+import { AccountDataExportResponse } from './dto/account-data-export.response';
+import { EmailProvider } from '../email-integration/entities/email-provider.entity';
+import { Mailbox } from '../mailbox/entities/mailbox.entity';
+import { WorkspaceMember } from '../workspace/entities/workspace-member.entity';
+import { UserSubscription } from '../billing/entities/user-subscription.entity';
+import { BillingInvoice } from '../billing/entities/billing-invoice.entity';
+import { UserNotification } from '../notification/entities/user-notification.entity';
 
 /**
  * UserService - Handles user CRUD operations and authentication validation
@@ -23,6 +30,18 @@ export class UserService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(AuditLog)
     private readonly auditLogRepository: Repository<AuditLog>,
+    @InjectRepository(EmailProvider)
+    private readonly emailProviderRepository: Repository<EmailProvider>,
+    @InjectRepository(Mailbox)
+    private readonly mailboxRepository: Repository<Mailbox>,
+    @InjectRepository(WorkspaceMember)
+    private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
+    @InjectRepository(UserSubscription)
+    private readonly userSubscriptionRepository: Repository<UserSubscription>,
+    @InjectRepository(BillingInvoice)
+    private readonly billingInvoiceRepository: Repository<BillingInvoice>,
+    @InjectRepository(UserNotification)
+    private readonly userNotificationRepository: Repository<UserNotification>,
   ) {}
 
   /**
@@ -219,5 +238,139 @@ export class UserService {
 
     console.log('[UserService] User updated successfully:', updated.id);
     return updated;
+  }
+
+  async exportUserDataSnapshot(
+    userId: string,
+  ): Promise<AccountDataExportResponse> {
+    console.log('[UserService] Exporting account data snapshot for:', userId);
+    const user = await this.getUser(userId);
+    const generatedAt = new Date();
+
+    const [providers, mailboxes, workspaceMemberships, subscription, invoices] =
+      await Promise.all([
+        this.emailProviderRepository.find({
+          where: { userId },
+          order: { createdAt: 'DESC' },
+          take: 100,
+        }),
+        this.mailboxRepository.find({
+          where: { userId },
+          order: { createdAt: 'DESC' },
+          take: 100,
+        }),
+        this.workspaceMemberRepository.find({
+          where: { userId },
+          order: { createdAt: 'DESC' },
+          take: 200,
+        }),
+        this.userSubscriptionRepository.findOne({
+          where: { userId, status: 'active' },
+          order: { createdAt: 'DESC' },
+        }),
+        this.billingInvoiceRepository.find({
+          where: { userId },
+          order: { createdAt: 'DESC' },
+          take: 100,
+        }),
+      ]);
+    const notifications = await this.userNotificationRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: 200,
+    });
+    const unreadNotifications = notifications.filter(
+      (notification) => !notification.isRead,
+    ).length;
+
+    const payload = {
+      generatedAtIso: generatedAt.toISOString(),
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name || null,
+        role: user.role,
+        isEmailVerified: user.isEmailVerified,
+        isPhoneVerified: user.isPhoneVerified,
+        activeWorkspaceId: user.activeWorkspaceId || null,
+        activeInboxType: user.activeInboxType || null,
+        activeInboxId: user.activeInboxId || null,
+        createdAtIso: user.createdAt.toISOString(),
+        updatedAtIso: user.updatedAt.toISOString(),
+      },
+      providers: providers.map((provider) => ({
+        id: provider.id,
+        type: provider.type,
+        email: provider.email,
+        status: provider.status,
+        isActive: provider.isActive,
+        createdAtIso: provider.createdAt.toISOString(),
+        updatedAtIso: provider.updatedAt.toISOString(),
+      })),
+      mailboxes: mailboxes.map((mailbox) => ({
+        id: mailbox.id,
+        email: mailbox.email,
+        status: mailbox.status,
+        workspaceId: mailbox.workspaceId || null,
+        quotaLimitMb: mailbox.quotaLimitMb,
+        usedBytes: mailbox.usedBytes,
+        createdAtIso: mailbox.createdAt.toISOString(),
+        updatedAtIso: mailbox.updatedAt.toISOString(),
+      })),
+      workspaceMemberships: workspaceMemberships.map((membership) => ({
+        id: membership.id,
+        workspaceId: membership.workspaceId,
+        email: membership.email,
+        role: membership.role,
+        status: membership.status,
+        invitedByUserId: membership.invitedByUserId,
+        createdAtIso: membership.createdAt.toISOString(),
+        updatedAtIso: membership.updatedAt.toISOString(),
+      })),
+      subscription: subscription
+        ? {
+            id: subscription.id,
+            planCode: subscription.planCode,
+            status: subscription.status,
+            startedAtIso: subscription.startedAt.toISOString(),
+            endsAtIso: subscription.endsAt
+              ? subscription.endsAt.toISOString()
+              : null,
+            isTrial: subscription.isTrial,
+            trialEndsAtIso: subscription.trialEndsAt
+              ? subscription.trialEndsAt.toISOString()
+              : null,
+            cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+          }
+        : null,
+      invoices: invoices.map((invoice) => ({
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        planCode: invoice.planCode,
+        status: invoice.status,
+        amountCents: invoice.amountCents,
+        currency: invoice.currency,
+        provider: invoice.provider,
+        providerInvoiceId: invoice.providerInvoiceId || null,
+        createdAtIso: invoice.createdAt.toISOString(),
+      })),
+      notificationSummary: {
+        total: notifications.length,
+        unread: unreadNotifications,
+      },
+      notifications: notifications.map((notification) => ({
+        id: notification.id,
+        type: notification.type,
+        title: notification.title,
+        isRead: notification.isRead,
+        workspaceId: notification.workspaceId || null,
+        createdAtIso: notification.createdAt.toISOString(),
+      })),
+    };
+
+    return {
+      generatedAtIso: generatedAt.toISOString(),
+      dataJson: JSON.stringify(payload),
+    };
   }
 }

@@ -4,6 +4,7 @@ const path = require('path');
 const schemaPath = path.join(__dirname, '..', 'src', 'schema.gql');
 
 const requiredContracts = [
+  'myAccountDataExport',
   'billingPlans',
   'mySubscription',
   'myAiCreditBalance',
