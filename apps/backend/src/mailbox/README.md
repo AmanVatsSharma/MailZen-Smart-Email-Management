@@ -137,6 +137,8 @@ flowchart TD
 - `MailboxInboundSlaScheduler` evaluates `myMailboxInboundEventStats`-equivalent
   SLA status every 15 minutes and emits `MAILBOX_INBOUND_SLA_ALERT` notifications
   when warning/critical thresholds are breached (with cooldown suppression).
+  Scheduler monitors both recently active users and users with persisted
+  prior-alert state so recovered/no-data periods can clear stale alert flags.
 
 ## Inbound observability GraphQL queries
 

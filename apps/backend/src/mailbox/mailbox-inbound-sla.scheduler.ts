@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { NotificationService } from '../notification/notification.service';
+import { UserNotificationPreference } from '../notification/entities/user-notification-preference.entity';
 import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
 import { MailboxService } from './mailbox.service';
 
@@ -19,6 +20,8 @@ export class MailboxInboundSlaScheduler {
   constructor(
     @InjectRepository(MailboxInboundEvent)
     private readonly mailboxInboundEventRepo: Repository<MailboxInboundEvent>,
+    @InjectRepository(UserNotificationPreference)
+    private readonly notificationPreferenceRepo: Repository<UserNotificationPreference>,
     private readonly mailboxService: MailboxService,
     private readonly notificationService: NotificationService,
   ) {}
@@ -78,9 +81,24 @@ export class MailboxInboundSlaScheduler {
       .orderBy('event.userId', 'ASC')
       .take(input.maxUsersPerRun)
       .getRawMany<{ userId: string }>();
-    return rows
+    const userIds = rows
       .map((row) => String(row.userId || '').trim())
       .filter((value) => value.length > 0);
+    const usersWithAlertState = await this.notificationPreferenceRepo.find({
+      select: ['userId'],
+      where: [
+        { mailboxInboundSlaLastAlertStatus: Not(IsNull()) },
+        { mailboxInboundSlaLastAlertedAt: Not(IsNull()) },
+      ],
+      take: input.maxUsersPerRun,
+      order: { updatedAt: 'DESC' },
+    });
+    for (const preference of usersWithAlertState) {
+      const normalizedUserId = String(preference.userId || '').trim();
+      if (!normalizedUserId) continue;
+      userIds.push(normalizedUserId);
+    }
+    return Array.from(new Set(userIds)).slice(0, input.maxUsersPerRun);
   }
 
   private async monitorUserMailboxInboundSla(input: {

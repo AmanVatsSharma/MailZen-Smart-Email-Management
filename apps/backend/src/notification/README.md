@@ -29,6 +29,8 @@ Provide a persistent notification foundation for user-visible product events
 - `AiAgentGatewayService` emits `AGENT_ACTION_REQUIRED` for follow-up reminders
 - `MailboxInboundSlaScheduler` emits `MAILBOX_INBOUND_SLA_ALERT` when mailbox
   inbound success/rejection rates breach user-configured thresholds
+  - scheduler stores last alert status/timestamp to enforce cooldown and clear
+    stale alert state on SLA recovery
 - Emission respects stored user preferences:
   - `inAppEnabled`
   - `syncFailureEnabled`

@@ -9,6 +9,7 @@ import { MailboxService } from './mailbox.service';
 describe('MailboxInboundSlaScheduler', () => {
   let scheduler: MailboxInboundSlaScheduler;
   let inboundEventRepo: jest.Mocked<Repository<MailboxInboundEvent>>;
+  let preferenceRepo: jest.Mocked<Repository<UserNotificationPreference>>;
   let mailboxService: jest.Mocked<Pick<MailboxService, 'getInboundEventStats'>>;
   let notificationService: jest.Mocked<
     Pick<
@@ -23,6 +24,9 @@ describe('MailboxInboundSlaScheduler', () => {
     inboundEventRepo = {
       createQueryBuilder: jest.fn(),
     } as unknown as jest.Mocked<Repository<MailboxInboundEvent>>;
+    preferenceRepo = {
+      find: jest.fn(),
+    } as unknown as jest.Mocked<Repository<UserNotificationPreference>>;
     mailboxService = {
       getInboundEventStats: jest.fn(),
     };
@@ -38,9 +42,11 @@ describe('MailboxInboundSlaScheduler', () => {
       take: jest.fn().mockReturnThis(),
       getRawMany: jest.fn().mockResolvedValue([{ userId: 'user-1' }]),
     } as any);
+    preferenceRepo.find.mockResolvedValue([]);
 
     scheduler = new MailboxInboundSlaScheduler(
       inboundEventRepo,
+      preferenceRepo,
       mailboxService as unknown as MailboxService,
       notificationService as unknown as NotificationService,
     );
@@ -185,6 +191,55 @@ describe('MailboxInboundSlaScheduler', () => {
     await scheduler.monitorMailboxInboundSla();
 
     expect(mailboxService.getInboundEventStats).not.toHaveBeenCalled();
+    expect(notificationService.createNotification).not.toHaveBeenCalled();
+  });
+
+  it('monitors users with stale alert state even without recent events', async () => {
+    inboundEventRepo.createQueryBuilder.mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    } as any);
+    preferenceRepo.find.mockResolvedValue([
+      {
+        userId: 'user-stale',
+      } as UserNotificationPreference,
+    ]);
+    notificationService.getOrCreatePreferences.mockResolvedValue({
+      ...preferenceSnapshot,
+      userId: 'user-stale',
+      mailboxInboundSlaLastAlertStatus: 'WARNING',
+      mailboxInboundSlaLastAlertedAt: new Date('2026-02-16T00:00:00.000Z'),
+    } as UserNotificationPreference);
+    mailboxService.getInboundEventStats.mockResolvedValue({
+      ...criticalStats,
+      slaStatus: 'HEALTHY',
+      meetsSla: true,
+      rejectionRatePercent: 0,
+      successRatePercent: 100,
+      rejectedCount: 0,
+    } as any);
+    notificationService.updateMailboxInboundSlaAlertState.mockResolvedValue(
+      {} as any,
+    );
+
+    await scheduler.monitorMailboxInboundSla();
+
+    expect(mailboxService.getInboundEventStats).toHaveBeenCalledWith(
+      'user-stale',
+      {
+        windowHours: 24,
+      },
+    );
+    expect(
+      notificationService.updateMailboxInboundSlaAlertState,
+    ).toHaveBeenCalledWith({
+      userId: 'user-stale',
+      status: null,
+      alertedAt: null,
+    });
     expect(notificationService.createNotification).not.toHaveBeenCalled();
   });
 });
