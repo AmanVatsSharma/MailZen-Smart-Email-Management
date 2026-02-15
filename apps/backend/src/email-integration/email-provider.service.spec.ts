@@ -3,6 +3,7 @@
 import {
   BadRequestException,
   ConflictException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -56,6 +57,7 @@ describe('EmailProviderService', () => {
   };
 
   beforeEach(async () => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     jest.spyOn(global, 'setInterval').mockImplementation((() => 0) as any);
 
     const repoMock = {
