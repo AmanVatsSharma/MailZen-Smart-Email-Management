@@ -8,7 +8,7 @@
  * - Keeps payload frontend-friendly and transport-safe.
  * - Read AgentAssistResponse first.
  */
-import { Field, Float, ObjectType } from '@nestjs/graphql';
+import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
 
 @ObjectType()
 export class AgentSuggestedActionResponse {
@@ -83,6 +83,15 @@ export class AgentAssistResponse {
 
   @Field({ nullable: true })
   uiHintsJson?: string;
+
+  @Field(() => Int, { nullable: true })
+  aiCreditsMonthlyLimit?: number;
+
+  @Field(() => Int, { nullable: true })
+  aiCreditsUsed?: number;
+
+  @Field(() => Int, { nullable: true })
+  aiCreditsRemaining?: number;
 
   @Field(() => AgentActionExecutionResponse, { nullable: true })
   executedAction?: AgentActionExecutionResponse;

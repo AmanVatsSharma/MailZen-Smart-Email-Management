@@ -429,6 +429,9 @@ type AgentAssistResponse {
   suggestedActions: [AgentSuggestedActionResponse!]!
   safetyFlags: [AgentSafetyFlagResponse!]!
   uiHintsJson: String
+  aiCreditsMonthlyLimit: Int
+  aiCreditsUsed: Int
+  aiCreditsRemaining: Int
   executedAction: AgentActionExecutionResponse
 }
 

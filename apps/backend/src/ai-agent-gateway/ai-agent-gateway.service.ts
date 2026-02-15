@@ -228,6 +228,14 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const userId = this.enforceSkillAccess(skill, requestMeta?.headers);
+      let aiCreditBalance:
+        | {
+            allowed: boolean;
+            monthlyLimit: number;
+            usedCredits: number;
+            remainingCredits: number;
+          }
+        | null = null;
       await this.enforceRateLimit(skill, requestMeta?.ip || 'unknown');
 
       const sanitizedPayload = this.buildSanitizedPayload(
@@ -252,7 +260,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         requestMeta?.ip,
       );
       if (userId) {
-        const aiCreditBalance = await this.billingService.consumeAiCredits({
+        aiCreditBalance = await this.billingService.consumeAiCredits({
           userId,
           credits: this.resolveAiCreditCost(skill),
           requestId,
@@ -309,6 +317,9 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
           Object.keys(platformResponse.uiHints || {}).length > 0
             ? JSON.stringify(platformResponse.uiHints)
             : undefined,
+        aiCreditsMonthlyLimit: aiCreditBalance?.monthlyLimit,
+        aiCreditsUsed: aiCreditBalance?.usedCredits,
+        aiCreditsRemaining: aiCreditBalance?.remainingCredits,
         executedAction: executedAction || undefined,
       };
     } catch (error) {

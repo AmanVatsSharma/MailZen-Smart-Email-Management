@@ -359,6 +359,9 @@ describe('AiAgentGatewayService', () => {
       credits: 1,
       requestId: 'req-summary-1',
     });
+    expect(response.aiCreditsMonthlyLimit).toBe(500);
+    expect(response.aiCreditsUsed).toBe(10);
+    expect(response.aiCreditsRemaining).toBe(490);
     expect(response.executedAction?.executed).toBe(true);
     expect(response.executedAction?.message).toContain('summary');
   });
