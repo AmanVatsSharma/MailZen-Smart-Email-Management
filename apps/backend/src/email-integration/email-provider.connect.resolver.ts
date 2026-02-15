@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EmailProvider } from './entities/email-provider.entity';
 import { GmailSyncService } from '../gmail-sync/gmail-sync.service';
+import { OutlookSyncService } from '../outlook-sync/outlook-sync.service';
 
 interface RequestContext {
   req: {
@@ -32,6 +33,7 @@ export class EmailProviderConnectResolver {
     @InjectRepository(EmailProvider)
     private readonly emailProviderRepo: Repository<EmailProvider>,
     private readonly gmailSync: GmailSyncService,
+    private readonly outlookSync: OutlookSyncService,
   ) {}
 
   @Mutation(() => Provider)
@@ -83,7 +85,7 @@ export class EmailProviderConnectResolver {
 
   @Mutation(() => Provider)
   async syncProvider(@Args('id') id: string, @Context() ctx: RequestContext) {
-    // If it's a Gmail provider, trigger a real sync into DB.
+    // Trigger real provider-specific sync into DB when available.
     const provider = await this.emailProviderRepo.findOne({
       where: { id, userId: ctx.req.user.id },
     });
@@ -92,12 +94,21 @@ export class EmailProviderConnectResolver {
       const providers = await this.emailProviderService.listProvidersUi(
         ctx.req.user.id,
       );
-      return (providers.find((p) => p.id === id) ||
-        (await this.emailProviderService.syncProvider(
-          id,
-          ctx.req.user.id,
-        ))) as any;
+      const syncedProvider = providers.find((p) => p.id === id);
+      if (syncedProvider) return syncedProvider;
+      return this.emailProviderService.syncProvider(id, ctx.req.user.id);
     }
+
+    if (provider?.type === 'OUTLOOK') {
+      await this.outlookSync.syncOutlookProvider(id, ctx.req.user.id, 25);
+      const providers = await this.emailProviderService.listProvidersUi(
+        ctx.req.user.id,
+      );
+      const syncedProvider = providers.find((p) => p.id === id);
+      if (syncedProvider) return syncedProvider;
+      return this.emailProviderService.syncProvider(id, ctx.req.user.id);
+    }
+
     return this.emailProviderService.syncProvider(id, ctx.req.user.id);
   }
 

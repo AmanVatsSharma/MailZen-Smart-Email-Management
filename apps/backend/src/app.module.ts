@@ -16,6 +16,7 @@ import { MailboxModule } from './mailbox/mailbox.module';
 import { PhoneModule } from './phone/phone.module';
 import { InboxModule } from './inbox/inbox.module';
 import { GmailSyncModule } from './gmail-sync/gmail-sync.module';
+import { OutlookSyncModule } from './outlook-sync/outlook-sync.module';
 import { UnifiedInboxModule } from './unified-inbox/unified-inbox.module';
 import { SmartReplyModule } from './smart-replies/smart-reply.module';
 import { LabelModule } from './organization/label.module';
@@ -62,6 +63,7 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
     PhoneModule,
     InboxModule,
     GmailSyncModule,
+    OutlookSyncModule,
     UnifiedInboxModule,
     SmartReplyModule,
     LabelModule,

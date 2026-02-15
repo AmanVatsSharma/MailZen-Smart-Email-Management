@@ -6,13 +6,18 @@ import { EmailProviderResolver } from './email-provider.resolver';
 import { ProviderOAuthController } from './provider-oauth.controller';
 import { EmailProviderConnectResolver } from './email-provider.connect.resolver';
 import { GmailSyncModule } from '../gmail-sync/gmail-sync.module';
+import { OutlookSyncModule } from '../outlook-sync/outlook-sync.module';
 
 /**
  * EmailProviderModule - External email provider integration
  * Manages Gmail, Outlook, and SMTP provider connections
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([EmailProvider]), GmailSyncModule],
+  imports: [
+    TypeOrmModule.forFeature([EmailProvider]),
+    GmailSyncModule,
+    OutlookSyncModule,
+  ],
   controllers: [ProviderOAuthController],
   providers: [
     EmailProviderService,

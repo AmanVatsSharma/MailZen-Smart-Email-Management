@@ -59,6 +59,9 @@ Frontend-facing (matches `apps/frontend/lib/providers/provider-utils.ts`):
 - `updateProvider(id: ID!, isActive: Boolean): Provider`
 - `updateProviderStatus(id: String!, isActive: Boolean): Provider` (alias for older frontend clients)
 - `syncProvider(id: ID!): Provider`
+  - Gmail providers: triggers real Gmail metadata sync through `GmailSyncService`
+  - Outlook providers: triggers real Microsoft Graph sync through `OutlookSyncService`
+  - Other providers: status-only sync fallback (`syncing`) until provider-specific ingestion is added
 
 ## OAuth Redirect URI notes (important)
 
