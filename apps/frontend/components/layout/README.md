@@ -27,6 +27,7 @@ modern two-level navigation system:
   - Notification dropdown renders workspace/provider context from notification
     metadata when available (e.g. sync-failure events), including safe parsing
     when metadata arrives as a JSON string
+  - Mailbox inbound alerts include mailbox/source metadata context when provided
   - Workspace switcher now reads backend `myWorkspaces` and keeps local active
     workspace selection, and persists active workspace via
     `setActiveWorkspace` / `myActiveWorkspace`

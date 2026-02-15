@@ -219,6 +219,14 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       typeof metadata.workspaceId === 'string' ? metadata.workspaceId : null;
     const providerType =
       typeof metadata.providerType === 'string' ? metadata.providerType : null;
+    const mailboxEmail =
+      typeof metadata.mailboxEmail === 'string' ? metadata.mailboxEmail : null;
+    const sourceIp =
+      typeof metadata.sourceIp === 'string' &&
+      metadata.sourceIp !== '::1' &&
+      metadata.sourceIp !== '127.0.0.1'
+        ? metadata.sourceIp
+        : null;
 
     const workspaceName =
       workspaceId &&
@@ -226,7 +234,9 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         workspaceId.slice(0, 8));
     const contextParts = [
       providerType ? `Provider: ${providerType}` : null,
+      mailboxEmail ? `Mailbox: ${mailboxEmail}` : null,
       workspaceName ? `Workspace: ${workspaceName}` : null,
+      sourceIp ? `Source IP: ${sourceIp}` : null,
     ].filter(Boolean);
     if (!contextParts.length) return null;
     return contextParts.join(' · ');
