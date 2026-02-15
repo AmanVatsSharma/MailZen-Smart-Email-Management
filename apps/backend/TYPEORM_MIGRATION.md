@@ -142,7 +142,10 @@ This migration introduces:
 4. Run smoke checks:
    - `npm run check:schema:contracts`
    - `npm run build`
-5. Verify workspace-aware GraphQL paths:
+5. Run backfill command for existing users/resources:
+   - `npm run backfill:workspace-scopes`
+   - optional dry run: `npm run backfill:workspace-scopes -- --dry-run`
+6. Verify workspace-aware GraphQL paths:
    - `myWorkspaces`
    - `myActiveWorkspace`
    - `setActiveWorkspace`
