@@ -50,6 +50,7 @@ Scheduler hardening features:
   - success updates `lastSyncedAt`
   - failures persist `lastSyncError` and `lastSyncErrorAt`
   - fresh sync start clears stale error state
+- dedicated cron (`15 */6 * * *`) refreshes Gmail push watch subscriptions when topic is configured
 
 ## Push webhook endpoint
 

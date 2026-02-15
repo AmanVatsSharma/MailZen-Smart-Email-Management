@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment */
 import { Repository, UpdateResult } from 'typeorm';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
@@ -8,7 +9,9 @@ import { GmailSyncService } from './gmail-sync.service';
 describe('GmailSyncScheduler', () => {
   let scheduler: GmailSyncScheduler;
   let providerRepo: jest.Mocked<Repository<EmailProvider>>;
-  let gmailSync: jest.Mocked<Pick<GmailSyncService, 'syncGmailProvider'>>;
+  let gmailSync: jest.Mocked<
+    Pick<GmailSyncService, 'syncGmailProvider' | 'ensurePushWatchForProvider'>
+  >;
   let providerSyncLease: jest.Mocked<
     Pick<ProviderSyncLeaseService, 'acquireProviderSyncLease'>
   >;
@@ -25,6 +28,7 @@ describe('GmailSyncScheduler', () => {
     } as unknown as jest.Mocked<Repository<EmailProvider>>;
     gmailSync = {
       syncGmailProvider: jest.fn(),
+      ensurePushWatchForProvider: jest.fn().mockResolvedValue(true),
     };
     providerSyncLease = {
       acquireProviderSyncLease: jest.fn().mockResolvedValue(true),
@@ -121,5 +125,31 @@ describe('GmailSyncScheduler', () => {
 
     expect(gmailSync.syncGmailProvider).toHaveBeenCalledTimes(2);
     expect(notificationEventBus.publishSafely).not.toHaveBeenCalled();
+  });
+
+  it('refreshes push watches when topic is configured', async () => {
+    process.env.GMAIL_PUSH_TOPIC_NAME = 'projects/mailzen/topics/gmail-push';
+    providerRepo.find.mockResolvedValue([
+      {
+        id: 'provider-1',
+        userId: 'user-1',
+      } as EmailProvider,
+    ]);
+
+    await scheduler.refreshGmailPushWatches();
+
+    expect(gmailSync.ensurePushWatchForProvider).toHaveBeenCalledWith(
+      'provider-1',
+      'user-1',
+    );
+  });
+
+  it('skips push watch refresh when topic is not configured', async () => {
+    delete process.env.GMAIL_PUSH_TOPIC_NAME;
+
+    await scheduler.refreshGmailPushWatches();
+
+    expect(providerRepo.find).not.toHaveBeenCalled();
+    expect(gmailSync.ensurePushWatchForProvider).not.toHaveBeenCalled();
   });
 });

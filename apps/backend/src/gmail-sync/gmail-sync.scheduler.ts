@@ -107,6 +107,10 @@ export class GmailSyncScheduler {
     };
   }
 
+  private isPushWatchEnabled(): boolean {
+    return Boolean(String(process.env.GMAIL_PUSH_TOPIC_NAME || '').trim());
+  }
+
   @Cron(CronExpression.EVERY_10_MINUTES)
   async syncActiveGmailProviders() {
     const providers: EmailProvider[] = await this.emailProviderRepo.find({
@@ -117,12 +121,11 @@ export class GmailSyncScheduler {
     this.logger.log(`Cron: syncing ${providers.length} active Gmail providers`);
 
     for (const p of providers) {
-      const leaseAcquired = await this.providerSyncLease.acquireProviderSyncLease(
-        {
+      const leaseAcquired =
+        await this.providerSyncLease.acquireProviderSyncLease({
           providerId: p.id,
           providerType: 'GMAIL',
-        },
-      );
+        });
       if (!leaseAcquired) continue;
 
       const maxJitterMs = this.getMaxJitterMs();
@@ -170,6 +173,40 @@ export class GmailSyncScheduler {
             : String(notificationError);
         this.logger.warn(
           `Cron sync failure handling failed for provider=${p.id}: ${notificationMessage}`,
+        );
+      }
+    }
+  }
+
+  @Cron('15 */6 * * *')
+  async refreshGmailPushWatches() {
+    if (!this.isPushWatchEnabled()) return;
+    const providers: EmailProvider[] = await this.emailProviderRepo.find({
+      where: { type: 'GMAIL', isActive: true },
+    });
+    if (!providers.length) return;
+
+    this.logger.log(
+      `Cron: refreshing Gmail push watches for ${providers.length} providers`,
+    );
+
+    for (const provider of providers) {
+      const leaseAcquired =
+        await this.providerSyncLease.acquireProviderSyncLease({
+          providerId: provider.id,
+          providerType: 'GMAIL',
+        });
+      if (!leaseAcquired) continue;
+
+      try {
+        await this.gmailSync.ensurePushWatchForProvider(
+          provider.id,
+          provider.userId,
+        );
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Cron push watch refresh failed provider=${provider.id}: ${message}`,
         );
       }
     }
