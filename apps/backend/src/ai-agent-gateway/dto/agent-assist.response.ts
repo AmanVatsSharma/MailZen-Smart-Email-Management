@@ -20,6 +20,15 @@ export class AgentSuggestedActionResponse {
 
   @Field({ nullable: true })
   payloadJson?: string;
+
+  @Field()
+  requiresApproval: boolean;
+
+  @Field({ nullable: true })
+  approvalToken?: string;
+
+  @Field({ nullable: true })
+  approvalTokenExpiresAtIso?: string;
 }
 
 @ObjectType()

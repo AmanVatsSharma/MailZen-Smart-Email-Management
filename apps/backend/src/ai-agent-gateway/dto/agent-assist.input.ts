@@ -99,6 +99,12 @@ export class AgentAssistInput {
   @MaxLength(64)
   requestedAction?: string;
 
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  requestedActionApprovalToken?: string;
+
   @Field({ defaultValue: false })
   @IsBoolean()
   executeRequestedAction: boolean = false;

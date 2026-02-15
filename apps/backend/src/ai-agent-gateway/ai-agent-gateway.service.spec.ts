@@ -274,8 +274,71 @@ describe('AiAgentGatewayService', () => {
     expect(response.executedAction?.message).toContain('summary');
   });
 
+  it('rejects risky inbox actions without approval token', async () => {
+    const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'inbox',
+        assistantText: 'I can draft a reply.',
+        intent: 'reply_draft',
+        confidence: 0.88,
+        suggestedActions: [
+          {
+            name: 'inbox.compose_reply_draft',
+            label: 'Create draft reply',
+            payload: {},
+          },
+        ],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+
+    await expect(
+      service.assist(
+        {
+          skill: 'inbox',
+          messages: [
+            { role: 'user', content: 'Draft a response for this thread' },
+          ],
+          context: {
+            surface: 'inbox',
+            locale: 'en-IN',
+            metadataJson: JSON.stringify({ threadId: 'thread-999' }),
+          },
+          allowedActions: ['inbox.compose_reply_draft'],
+          requestedAction: 'inbox.compose_reply_draft',
+          executeRequestedAction: true,
+        },
+        {
+          requestId: 'req-draft-deny-1',
+          headers: { authorization: 'Bearer token-1' },
+        },
+      ),
+    ).rejects.toThrow('requires human approval token');
+  });
+
   it('executes inbox draft action when suggested and requested', async () => {
     const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'inbox',
+        assistantText: 'I can draft a reply.',
+        intent: 'reply_draft',
+        confidence: 0.88,
+        suggestedActions: [
+          {
+            name: 'inbox.compose_reply_draft',
+            label: 'Create draft reply',
+            payload: {},
+          },
+        ],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
     mockedAxios.post.mockResolvedValueOnce({
       data: {
         version: 'v1',
@@ -302,6 +365,30 @@ describe('AiAgentGatewayService', () => {
       },
     ]);
 
+    const approvalResponse = await service.assist(
+      {
+        skill: 'inbox',
+        messages: [
+          { role: 'user', content: 'Draft a response for this thread' },
+        ],
+        context: {
+          surface: 'inbox',
+          locale: 'en-IN',
+          metadataJson: JSON.stringify({ threadId: 'thread-999' }),
+        },
+        allowedActions: ['inbox.compose_reply_draft'],
+        executeRequestedAction: false,
+      },
+      {
+        requestId: 'req-draft-1',
+        headers: { authorization: 'Bearer token-1' },
+      },
+    );
+
+    const approvalToken =
+      approvalResponse.suggestedActions[0]?.approvalToken || '';
+    expect(approvalResponse.suggestedActions[0]?.requiresApproval).toBe(true);
+
     const response = await service.assist(
       {
         skill: 'inbox',
@@ -315,6 +402,7 @@ describe('AiAgentGatewayService', () => {
         },
         allowedActions: ['inbox.compose_reply_draft'],
         requestedAction: 'inbox.compose_reply_draft',
+        requestedActionApprovalToken: approvalToken,
         executeRequestedAction: true,
       },
       {
@@ -348,9 +436,56 @@ describe('AiAgentGatewayService', () => {
         safetyFlags: [],
       },
     } as any);
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'inbox',
+        assistantText: 'I can schedule a follow-up reminder.',
+        intent: 'followup',
+        confidence: 0.9,
+        suggestedActions: [
+          {
+            name: 'inbox.schedule_followup',
+            label: 'Schedule follow-up',
+            payload: {},
+          },
+        ],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
     createNotificationMock.mockResolvedValueOnce({
       id: 'notif-followup-1',
     });
+
+    const approvalResponse = await service.assist(
+      {
+        skill: 'inbox',
+        messages: [
+          { role: 'user', content: 'Remind me to follow up tomorrow.' },
+        ],
+        context: {
+          surface: 'inbox',
+          locale: 'en-IN',
+          metadataJson: JSON.stringify({
+            threadId: 'thread-111',
+            providerId: 'provider-11',
+            workspaceId: 'workspace-11',
+            followupAtIso: '2026-02-16T10:00:00.000Z',
+          }),
+        },
+        allowedActions: ['inbox.schedule_followup'],
+        executeRequestedAction: false,
+      },
+      {
+        requestId: 'req-followup-1',
+        headers: { authorization: 'Bearer token-1' },
+      },
+    );
+
+    const approvalToken =
+      approvalResponse.suggestedActions[0]?.approvalToken || '';
+    expect(approvalResponse.suggestedActions[0]?.requiresApproval).toBe(true);
 
     const response = await service.assist(
       {
@@ -370,6 +505,7 @@ describe('AiAgentGatewayService', () => {
         },
         allowedActions: ['inbox.schedule_followup'],
         requestedAction: 'inbox.schedule_followup',
+        requestedActionApprovalToken: approvalToken,
         executeRequestedAction: true,
       },
       {

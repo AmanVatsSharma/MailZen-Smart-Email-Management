@@ -12,6 +12,9 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - `inbox.summarize_thread` (authenticated, ownership-scoped thread summary)
   - `inbox.compose_reply_draft` (authenticated, ownership-scoped draft generation)
   - `inbox.schedule_followup` (authenticated follow-up reminder notification via `NotificationEventBusService`)
+- Enforce human-in-the-loop approval token flow for risky agent actions:
+  - `inbox.compose_reply_draft`
+  - `inbox.schedule_followup`
 - Provide `agentPlatformHealth` GraphQL probe with gateway metrics snapshot.
 
 ## Env Variables
@@ -25,6 +28,7 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - `AI_AGENT_GATEWAY_RATE_LIMIT` (default `40` requests/minute/IP)
 - `AI_AGENT_GATEWAY_USE_REDIS` (default `true`)
 - `AI_AGENT_GATEWAY_REDIS_URL` (fallback to `REDIS_URL`)
+- `AI_AGENT_ACTION_APPROVAL_TTL_SECONDS` (default `600`)
 - `AI_AGENT_ALERT_LATENCY_MS` (default `1500`)
 - `AI_AGENT_ALERT_ERROR_RATE_PERCENT` (default `5`)
 
@@ -39,3 +43,4 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   with thread-aware summary/draft generation from synced messages.
 - 2026-02-15: Enriched follow-up action notifications with workspace/provider
   context metadata (`workspaceId`, `providerId`) for workspace-aware UX.
+- 2026-02-15: Added approval-token controls for non-trivial inbox actions.

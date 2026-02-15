@@ -78,6 +78,25 @@ interface SkillPolicy {
   access: SkillAccess;
   allowedActions: Set<string>;
   serverExecutableActions: Set<string>;
+  humanApprovalActions: Set<string>;
+}
+
+interface GatewaySuggestedAction {
+  name: string;
+  label: string;
+  payload: Record<string, string>;
+  requiresApproval?: boolean;
+  approvalToken?: string;
+  approvalTokenExpiresAtIso?: string;
+}
+
+interface PendingActionApproval {
+  token: string;
+  action: string;
+  skill: string;
+  userId: string;
+  requestId: string;
+  expiresAtMs: number;
 }
 
 interface GatewayMetrics {
@@ -96,6 +115,10 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   private readonly fallbackRateLimitCounters = new Map<
     string,
     { count: number; windowStartMs: number }
+  >();
+  private readonly fallbackPendingApprovals = new Map<
+    string,
+    PendingActionApproval
   >();
   private redisClient: RedisClientType | null = null;
   private redisConnected = false;
@@ -116,6 +139,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         'auth.send_signup_otp',
       ]),
       serverExecutableActions: new Set(['auth.forgot_password']),
+      humanApprovalActions: new Set(),
     },
     'auth-login': {
       access: 'public',
@@ -126,6 +150,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         'auth.send_signup_otp',
       ]),
       serverExecutableActions: new Set(['auth.forgot_password']),
+      humanApprovalActions: new Set(),
     },
     inbox: {
       access: 'authenticated',
@@ -137,6 +162,10 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       ]),
       serverExecutableActions: new Set([
         'inbox.summarize_thread',
+        'inbox.compose_reply_draft',
+        'inbox.schedule_followup',
+      ]),
+      humanApprovalActions: new Set([
         'inbox.compose_reply_draft',
         'inbox.schedule_followup',
       ]),
@@ -175,6 +204,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
+    this.fallbackPendingApprovals.clear();
     if (!this.redisClient || !this.redisConnected) return;
     await this.redisClient.quit();
   }
@@ -216,10 +246,16 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         requestId,
         requestMeta?.ip,
       );
+      const suggestedActions = await this.decorateSuggestedActionsWithApproval({
+        suggestedActions: platformResponse.suggestedActions,
+        requestId,
+        skill,
+        userId,
+      });
 
       const executedAction = await this.executeRequestedActionIfAllowed(
         input,
-        platformResponse,
+        suggestedActions,
         skill,
         userId,
       );
@@ -231,7 +267,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         assistantText: platformResponse.assistantText,
         intent: platformResponse.intent,
         confidence: platformResponse.confidence,
-        suggestedActions: platformResponse.suggestedActions.map(
+        suggestedActions: suggestedActions.map(
           (action): AgentSuggestedActionResponse => ({
             name: action.name,
             label: action.label,
@@ -239,6 +275,9 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
               Object.keys(action.payload || {}).length > 0
                 ? JSON.stringify(action.payload)
                 : undefined,
+            requiresApproval: Boolean(action.requiresApproval),
+            approvalToken: action.approvalToken,
+            approvalTokenExpiresAtIso: action.approvalTokenExpiresAtIso,
           }),
         ),
         safetyFlags: platformResponse.safetyFlags.map(
@@ -667,9 +706,228 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  private async decorateSuggestedActionsWithApproval(input: {
+    suggestedActions: Array<{
+      name: string;
+      label: string;
+      payload: Record<string, string>;
+    }>;
+    requestId: string;
+    skill: string;
+    userId: string | null;
+  }): Promise<GatewaySuggestedAction[]> {
+    const skillPolicy = this.getSkillPolicy(input.skill);
+    const result: GatewaySuggestedAction[] = [];
+    for (const action of input.suggestedActions) {
+      const requiresApproval = skillPolicy.humanApprovalActions.has(
+        action.name,
+      );
+      if (!requiresApproval || !input.userId) {
+        result.push({
+          ...action,
+          requiresApproval: false,
+        });
+        continue;
+      }
+      const approval = await this.createActionApprovalToken({
+        action: action.name,
+        skill: input.skill,
+        userId: input.userId,
+        requestId: input.requestId,
+      });
+      result.push({
+        ...action,
+        requiresApproval: true,
+        approvalToken: approval.token,
+        approvalTokenExpiresAtIso: new Date(approval.expiresAtMs).toISOString(),
+      });
+    }
+    return result;
+  }
+
+  private async assertActionApprovalIfRequired(input: {
+    skill: string;
+    skillPolicy: SkillPolicy;
+    requestedAction: string;
+    userId: string | null;
+    requestedApprovalToken?: string;
+  }): Promise<void> {
+    if (!input.skillPolicy.humanApprovalActions.has(input.requestedAction)) {
+      return;
+    }
+    if (!input.userId) {
+      throw new BadRequestException(
+        `Action '${input.requestedAction}' requires authenticated user approval`,
+      );
+    }
+    const requestedApprovalToken = String(
+      input.requestedApprovalToken || '',
+    ).trim();
+    if (!requestedApprovalToken) {
+      throw new BadRequestException(
+        `Action '${input.requestedAction}' requires human approval token`,
+      );
+    }
+    const isValidApproval = await this.consumeActionApprovalToken({
+      token: requestedApprovalToken,
+      action: input.requestedAction,
+      skill: input.skill,
+      userId: input.userId,
+    });
+    if (!isValidApproval) {
+      throw new BadRequestException(
+        `Action '${input.requestedAction}' has invalid or expired approval token`,
+      );
+    }
+  }
+
+  private async createActionApprovalToken(input: {
+    action: string;
+    skill: string;
+    userId: string;
+    requestId: string;
+  }): Promise<PendingActionApproval> {
+    const token = `appr_${randomUUID()}`;
+    const expiresAtMs = Date.now() + this.getActionApprovalTtlMs();
+    const pendingApproval: PendingActionApproval = {
+      token,
+      action: input.action,
+      skill: input.skill,
+      userId: input.userId,
+      requestId: input.requestId,
+      expiresAtMs,
+    };
+    const persistedToRedis =
+      await this.storeActionApprovalInRedis(pendingApproval);
+    if (!persistedToRedis) {
+      this.fallbackPendingApprovals.set(token, pendingApproval);
+      this.compactExpiredFallbackApprovals();
+    }
+    return pendingApproval;
+  }
+
+  private async consumeActionApprovalToken(input: {
+    token: string;
+    action: string;
+    skill: string;
+    userId: string;
+  }): Promise<boolean> {
+    const normalizedToken = String(input.token || '').trim();
+    if (!normalizedToken) return false;
+
+    const fromRedis =
+      await this.consumeActionApprovalFromRedis(normalizedToken);
+    if (fromRedis) {
+      return this.matchesApprovalRecord(fromRedis, input);
+    }
+
+    const fallback = this.fallbackPendingApprovals.get(normalizedToken);
+    if (!fallback) return false;
+    this.fallbackPendingApprovals.delete(normalizedToken);
+    return this.matchesApprovalRecord(fallback, input);
+  }
+
+  private matchesApprovalRecord(
+    approval: PendingActionApproval,
+    expected: {
+      action: string;
+      skill: string;
+      userId: string;
+    },
+  ): boolean {
+    if (approval.expiresAtMs < Date.now()) return false;
+    if (approval.action !== expected.action) return false;
+    if (approval.skill !== expected.skill) return false;
+    if (approval.userId !== expected.userId) return false;
+    return true;
+  }
+
+  private async storeActionApprovalInRedis(
+    approval: PendingActionApproval,
+  ): Promise<boolean> {
+    if (!this.redisClient || !this.redisConnected) return false;
+    try {
+      const key = this.getActionApprovalKey(approval.token);
+      const ttlSeconds = Math.max(
+        1,
+        Math.ceil((approval.expiresAtMs - Date.now()) / 1000),
+      );
+      await this.redisClient.set(key, JSON.stringify(approval), {
+        EX: ttlSeconds,
+      });
+      return true;
+    } catch (error) {
+      this.logger.warn(
+        `[agent-approval] redis store failed; using memory fallback: ${String(error)}`,
+      );
+      return false;
+    }
+  }
+
+  private async consumeActionApprovalFromRedis(
+    token: string,
+  ): Promise<PendingActionApproval | null> {
+    if (!this.redisClient || !this.redisConnected) return null;
+    const key = this.getActionApprovalKey(token);
+    try {
+      const rawValue = await this.redisClient.get(key);
+      if (!rawValue) return null;
+      await this.redisClient.del(key);
+      const parsed = JSON.parse(rawValue) as Partial<PendingActionApproval>;
+      if (
+        !parsed ||
+        typeof parsed.action !== 'string' ||
+        typeof parsed.skill !== 'string' ||
+        typeof parsed.userId !== 'string' ||
+        typeof parsed.token !== 'string' ||
+        typeof parsed.requestId !== 'string' ||
+        typeof parsed.expiresAtMs !== 'number'
+      ) {
+        return null;
+      }
+      return {
+        token: parsed.token,
+        action: parsed.action,
+        skill: parsed.skill,
+        userId: parsed.userId,
+        requestId: parsed.requestId,
+        expiresAtMs: parsed.expiresAtMs,
+      };
+    } catch (error) {
+      this.logger.warn(
+        `[agent-approval] redis consume failed; using memory fallback: ${String(error)}`,
+      );
+      return null;
+    }
+  }
+
+  private compactExpiredFallbackApprovals(): void {
+    const nowMs = Date.now();
+    for (const [token, approval] of this.fallbackPendingApprovals.entries()) {
+      if (approval.expiresAtMs >= nowMs) continue;
+      this.fallbackPendingApprovals.delete(token);
+    }
+  }
+
+  private getActionApprovalKey(token: string): string {
+    return `ai-agent-approval:${token}`;
+  }
+
+  private getActionApprovalTtlMs(): number {
+    const rawSeconds = Number(
+      process.env.AI_AGENT_ACTION_APPROVAL_TTL_SECONDS || 10 * 60,
+    );
+    const normalizedSeconds = Number.isFinite(rawSeconds)
+      ? Math.floor(rawSeconds)
+      : 10 * 60;
+    if (normalizedSeconds < 30) return 30 * 1000;
+    if (normalizedSeconds > 24 * 60 * 60) return 24 * 60 * 60 * 1000;
+    return normalizedSeconds * 1000;
+  }
+
   private async executeRequestedActionIfAllowed(
     input: AgentAssistInput,
-    platformResponse: AgentPlatformResponse,
+    suggestedActions: GatewaySuggestedAction[],
     skill: string,
     userId: string | null,
   ): Promise<AgentActionExecutionResponse | null> {
@@ -680,7 +938,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     const skillPolicy = this.getSkillPolicy(skill);
     const requestedAction = input.requestedAction.trim();
     const suggestedActionNames = new Set(
-      platformResponse.suggestedActions.map((action) => action.name),
+      suggestedActions.map((action) => action.name),
     );
 
     if (!suggestedActionNames.has(requestedAction)) {
@@ -688,6 +946,14 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         `Action '${requestedAction}' must be suggested by the agent first`,
       );
     }
+
+    await this.assertActionApprovalIfRequired({
+      skill,
+      skillPolicy,
+      requestedAction,
+      userId,
+      requestedApprovalToken: input.requestedActionApprovalToken,
+    });
 
     if (!skillPolicy.serverExecutableActions.has(requestedAction)) {
       return {
