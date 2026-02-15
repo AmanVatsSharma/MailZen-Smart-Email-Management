@@ -7,6 +7,7 @@ import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lea
 import { NotificationModule } from '../notification/notification.module';
 import { OutlookSyncScheduler } from './outlook-sync.scheduler';
 import { OutlookSyncService } from './outlook-sync.service';
+import { OutlookSyncWebhookController } from './outlook-sync-webhook.controller';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { OutlookSyncService } from './outlook-sync.service';
     ]),
     NotificationModule,
   ],
+  controllers: [OutlookSyncWebhookController],
   providers: [
     OutlookSyncService,
     OutlookSyncScheduler,

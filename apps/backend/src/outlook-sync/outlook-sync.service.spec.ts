@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
+import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
 import { OutlookSyncService } from './outlook-sync.service';
 
 jest.mock('axios', () => ({
@@ -24,11 +25,15 @@ describe('OutlookSyncService', () => {
   let emailProviderRepo: jest.Mocked<Repository<EmailProvider>>;
   let labelRepo: jest.Mocked<Repository<ExternalEmailLabel>>;
   let messageRepo: jest.Mocked<Repository<ExternalEmailMessage>>;
+  let providerSyncLease: jest.Mocked<
+    Pick<ProviderSyncLeaseService, 'acquireProviderSyncLease'>
+  >;
   let service: OutlookSyncService;
 
   beforeEach(() => {
     emailProviderRepo = {
       findOne: jest.fn(),
+      find: jest.fn(),
       update: jest.fn(),
     } as unknown as jest.Mocked<Repository<EmailProvider>>;
     labelRepo = {
@@ -38,8 +43,16 @@ describe('OutlookSyncService', () => {
       upsert: jest.fn(),
       delete: jest.fn(),
     } as unknown as jest.Mocked<Repository<ExternalEmailMessage>>;
+    providerSyncLease = {
+      acquireProviderSyncLease: jest.fn().mockResolvedValue(true),
+    };
 
-    service = new OutlookSyncService(emailProviderRepo, labelRepo, messageRepo);
+    service = new OutlookSyncService(
+      emailProviderRepo,
+      labelRepo,
+      messageRepo,
+      providerSyncLease as unknown as ProviderSyncLeaseService,
+    );
   });
 
   afterEach(() => {
@@ -310,5 +323,58 @@ describe('OutlookSyncService', () => {
           'https://graph.microsoft.com/v1.0/me/messages/delta?$deltatoken=fallback-next',
       }),
     );
+  });
+
+  it('processes push notification by provider id', async () => {
+    emailProviderRepo.findOne.mockResolvedValue({
+      id: providerId,
+      userId,
+      type: 'OUTLOOK',
+      email: 'founder@mailzen.com',
+      isActive: true,
+    } as unknown as EmailProvider);
+    const syncSpy = jest
+      .spyOn(service, 'syncOutlookProvider')
+      .mockResolvedValue({ imported: 1 });
+
+    const result = await service.processPushNotification({
+      providerId,
+    });
+
+    expect(result).toEqual({
+      processedProviders: 1,
+      skippedProviders: 0,
+    });
+    expect(providerSyncLease.acquireProviderSyncLease).toHaveBeenCalledWith({
+      providerId,
+      providerType: 'OUTLOOK',
+    });
+    expect(syncSpy).toHaveBeenCalledWith(providerId, userId, 25);
+  });
+
+  it('skips push processing when lease is not acquired', async () => {
+    emailProviderRepo.find.mockResolvedValue([
+      {
+        id: providerId,
+        userId,
+        type: 'OUTLOOK',
+        email: 'founder@mailzen.com',
+        isActive: true,
+      } as unknown as EmailProvider,
+    ]);
+    providerSyncLease.acquireProviderSyncLease.mockResolvedValue(false);
+    const syncSpy = jest
+      .spyOn(service, 'syncOutlookProvider')
+      .mockResolvedValue({ imported: 1 });
+
+    const result = await service.processPushNotification({
+      emailAddress: 'founder@mailzen.com',
+    });
+
+    expect(result).toEqual({
+      processedProviders: 0,
+      skippedProviders: 1,
+    });
+    expect(syncSpy).not.toHaveBeenCalled();
   });
 });

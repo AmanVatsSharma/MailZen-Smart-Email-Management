@@ -17,6 +17,7 @@ import {
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
+import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
 
 type OutlookRecipient = {
   emailAddress?: {
@@ -63,8 +64,21 @@ export class OutlookSyncService {
     private readonly externalEmailLabelRepo: Repository<ExternalEmailLabel>,
     @InjectRepository(ExternalEmailMessage)
     private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
+    private readonly providerSyncLease: ProviderSyncLeaseService,
   ) {
     this.providerSecretsKeyring = resolveProviderSecretsKeyring();
+  }
+
+  private resolvePushSyncMaxMessages(): number {
+    const parsedValue = Number(
+      process.env.OUTLOOK_PUSH_SYNC_MAX_MESSAGES || 25,
+    );
+    const candidate = Number.isFinite(parsedValue)
+      ? Math.floor(parsedValue)
+      : 25;
+    if (candidate < 1) return 1;
+    if (candidate > 200) return 200;
+    return candidate;
   }
 
   private resolveDeltaPageLimit(): number {
@@ -316,6 +330,83 @@ export class OutlookSyncService {
     }
 
     return latestCursor;
+  }
+
+  async processPushNotification(input: {
+    providerId?: string | null;
+    emailAddress?: string | null;
+  }): Promise<{ processedProviders: number; skippedProviders: number }> {
+    const normalizedProviderId = String(input.providerId || '').trim();
+    const normalizedEmailAddress = String(input.emailAddress || '')
+      .trim()
+      .toLowerCase();
+    if (!normalizedProviderId && !normalizedEmailAddress) {
+      throw new BadRequestException(
+        'Outlook push notification requires providerId or emailAddress',
+      );
+    }
+
+    const providers: EmailProvider[] = normalizedProviderId
+      ? []
+      : await this.emailProviderRepo.find({
+          where: {
+            type: 'OUTLOOK',
+            isActive: true,
+            email: normalizedEmailAddress,
+          },
+        });
+    if (normalizedProviderId) {
+      const provider = await this.emailProviderRepo.findOne({
+        where: {
+          id: normalizedProviderId,
+          type: 'OUTLOOK',
+          isActive: true,
+        },
+      });
+      if (provider) {
+        providers.push(provider);
+      }
+    }
+    if (!providers.length) {
+      this.logger.warn(
+        `Outlook push notification ignored: no active provider matched providerId=${normalizedProviderId || 'n/a'} email=${normalizedEmailAddress || 'n/a'}`,
+      );
+      return { processedProviders: 0, skippedProviders: 0 };
+    }
+
+    const maxMessages = this.resolvePushSyncMaxMessages();
+    let processedProviders = 0;
+    let skippedProviders = 0;
+
+    for (const provider of providers) {
+      const leaseAcquired =
+        await this.providerSyncLease.acquireProviderSyncLease({
+          providerId: provider.id,
+          providerType: 'OUTLOOK',
+        });
+      if (!leaseAcquired) {
+        skippedProviders += 1;
+        continue;
+      }
+
+      try {
+        await this.syncOutlookProvider(
+          provider.id,
+          provider.userId,
+          maxMessages,
+        );
+        processedProviders += 1;
+      } catch (error: unknown) {
+        skippedProviders += 1;
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Outlook push processing failed provider=${provider.id}: ${errorMessage}`,
+        );
+      }
+    }
+
+    return { processedProviders, skippedProviders };
   }
 
   private async syncLabelMetadata(input: {
