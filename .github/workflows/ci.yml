@@ -39,6 +39,7 @@ jobs:
           email-integration/email-provider.service.spec.ts
           mailbox/mailbox.service.spec.ts
           mailbox/mailbox-inbound.service.spec.ts
+          mailbox/mailbox-inbound.controller.spec.ts
           workspace/workspace.service.spec.ts
           inbox/inbox.service.spec.ts
           unified-inbox/unified-inbox.service.spec.ts
