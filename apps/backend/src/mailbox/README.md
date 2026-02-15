@@ -75,6 +75,15 @@ flowchart TD
   - shared secret expected in `x-mailzen-inbound-token` header
   - production requires this to be configured
   - non-production allows local bypass with warning logs
+- `MAILZEN_INBOUND_WEBHOOK_SIGNING_KEY`
+  - optional HMAC-SHA256 signing key
+  - when configured, request must include:
+    - `x-mailzen-inbound-timestamp`
+    - `x-mailzen-inbound-signature`
+- `MAILZEN_INBOUND_WEBHOOK_SIGNATURE_TOLERANCE_MS` (default `300000`)
+  - allowed timestamp drift window for signed webhook replay protection
+- `MAILZEN_INBOUND_IDEMPOTENCY_TTL_MS` (default `86400000`)
+  - in-memory deduplication retention window for repeated `messageId` events
 
 ### Mail connection defaults persisted on mailbox rows
 - `MAILZEN_SMTP_HOST` (default `smtp.mailzen.local`)
@@ -95,6 +104,10 @@ flowchart TD
 - If inbound target mailbox is suspended or exceeds quota:
   - throws `BadRequestException`
   - inbound email is not persisted
+- If webhook signature is configured and invalid/expired:
+  - throws `UnauthorizedException`
+- If duplicate `messageId` arrives inside idempotency cache window:
+  - request is accepted and marked deduplicated without writing duplicate email row
 
 ## Notes
 
@@ -113,7 +126,9 @@ sequenceDiagram
 
   MailInfra->>API: POST /mailbox/inbound/events + x-mailzen-inbound-token
   API->>SVC: ingestInboundEvent(payload, authHeaders)
+  SVC->>SVC: verify token/signature + replay window
   SVC->>DB: mailboxes.findOne(email)
+  SVC->>SVC: dedupe by messageId cache
   SVC->>DB: emails.insert(status=NEW)
   SVC->>DB: mailboxes.update(usedBytes)
   SVC->>Notif: createNotification(type=MAILBOX_INBOUND)

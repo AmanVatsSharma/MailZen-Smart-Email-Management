@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { Repository } from 'typeorm';
 import { Email } from '../email/entities/email.entity';
 import { NotificationService } from '../notification/notification.service';
@@ -16,6 +16,8 @@ import { Mailbox } from './entities/mailbox.entity';
 
 type InboundAuthInput = {
   inboundTokenHeader?: string;
+  signatureHeader?: string;
+  timestampHeader?: string;
   authorizationHeader?: string;
   sourceIp?: string;
 };
@@ -25,11 +27,16 @@ type MailboxInboundIngestResult = {
   mailboxId: string;
   mailboxEmail: string;
   emailId: string;
+  deduplicated?: boolean;
 };
 
 @Injectable()
 export class MailboxInboundService {
   private readonly logger = new Logger(MailboxInboundService.name);
+  private readonly processedMessageIds = new Map<
+    string,
+    { expiresAtMs: number; emailId: string }
+  >();
 
   constructor(
     @InjectRepository(Mailbox)
@@ -72,6 +79,72 @@ export class MailboxInboundService {
     return value.trim();
   }
 
+  private resolveSigningKey(): string | null {
+    const key = process.env.MAILZEN_INBOUND_WEBHOOK_SIGNING_KEY?.trim();
+    if (!key) return null;
+    return key;
+  }
+
+  private getSignatureToleranceMs(): number {
+    const parsed = Number(
+      process.env.MAILZEN_INBOUND_WEBHOOK_SIGNATURE_TOLERANCE_MS || 300000,
+    );
+    if (!Number.isFinite(parsed) || parsed <= 0) return 300000;
+    return Math.floor(parsed);
+  }
+
+  private parseTimestampHeader(rawTimestamp: string): number | null {
+    if (!rawTimestamp) return null;
+    const numeric = Number(rawTimestamp);
+    if (!Number.isFinite(numeric) || numeric <= 0) return null;
+    return Math.floor(numeric);
+  }
+
+  private buildSignaturePayload(input: MailboxInboundWebhookInput): string {
+    return [
+      this.normalizeEmailAddress(input.mailboxEmail),
+      this.normalizeEmailAddress(input.from),
+      (input.messageId || '').trim(),
+      (input.subject || '').trim(),
+    ].join('.');
+  }
+
+  private assertWebhookSignature(
+    auth: InboundAuthInput,
+    input: MailboxInboundWebhookInput,
+  ): void {
+    const signingKey = this.resolveSigningKey();
+    if (!signingKey) return;
+
+    const providedSignature = auth.signatureHeader?.trim();
+    const providedTimestamp = this.parseTimestampHeader(
+      auth.timestampHeader?.trim() || '',
+    );
+    if (!providedSignature || !providedTimestamp) {
+      throw new UnauthorizedException('Invalid inbound webhook signature');
+    }
+
+    const nowMs = Date.now();
+    const toleranceMs = this.getSignatureToleranceMs();
+    if (Math.abs(nowMs - providedTimestamp) > toleranceMs) {
+      throw new UnauthorizedException('Inbound webhook signature expired');
+    }
+
+    const canonicalPayload = this.buildSignaturePayload(input);
+    const expectedSignature = createHmac('sha256', signingKey)
+      .update(`${providedTimestamp}.${canonicalPayload}`)
+      .digest('hex');
+
+    const expectedBytes = Buffer.from(expectedSignature);
+    const providedBytes = Buffer.from(providedSignature);
+    if (
+      expectedBytes.length !== providedBytes.length ||
+      !timingSafeEqual(expectedBytes, providedBytes)
+    ) {
+      throw new UnauthorizedException('Invalid inbound webhook signature');
+    }
+  }
+
   private assertWebhookAuth(auth: InboundAuthInput): void {
     const expected = this.resolveExpectedWebhookToken();
     if (!expected) return;
@@ -89,6 +162,54 @@ export class MailboxInboundService {
     ) {
       throw new UnauthorizedException('Invalid inbound webhook token');
     }
+  }
+
+  private pruneExpiredMessageIdCache(nowMs: number): void {
+    for (const [key, value] of this.processedMessageIds.entries()) {
+      if (value.expiresAtMs > nowMs) continue;
+      this.processedMessageIds.delete(key);
+    }
+  }
+
+  private resolveMessageIdCacheTtlMs(): number {
+    const parsed = Number(process.env.MAILZEN_INBOUND_IDEMPOTENCY_TTL_MS);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return 24 * 60 * 60 * 1000;
+    }
+    return Math.floor(parsed);
+  }
+
+  private findDuplicateMessageId(
+    mailboxId: string,
+    messageId?: string,
+  ): { emailId: string } | null {
+    const normalizedMessageId = (messageId || '').trim().toLowerCase();
+    if (!normalizedMessageId) return null;
+    const nowMs = Date.now();
+    this.pruneExpiredMessageIdCache(nowMs);
+
+    const cacheKey = `${mailboxId}:${normalizedMessageId}`;
+    const cached = this.processedMessageIds.get(cacheKey);
+    if (!cached) return null;
+    if (cached.expiresAtMs <= nowMs) {
+      this.processedMessageIds.delete(cacheKey);
+      return null;
+    }
+    return { emailId: cached.emailId };
+  }
+
+  private rememberMessageId(
+    mailboxId: string,
+    messageId: string | undefined,
+    emailId: string,
+  ): void {
+    const normalizedMessageId = (messageId || '').trim().toLowerCase();
+    if (!normalizedMessageId) return;
+    const cacheKey = `${mailboxId}:${normalizedMessageId}`;
+    this.processedMessageIds.set(cacheKey, {
+      emailId,
+      expiresAtMs: Date.now() + this.resolveMessageIdCacheTtlMs(),
+    });
   }
 
   private assertInboundBody(input: MailboxInboundWebhookInput): void {
@@ -168,6 +289,7 @@ export class MailboxInboundService {
     auth: InboundAuthInput,
   ): Promise<MailboxInboundIngestResult> {
     this.assertWebhookAuth(auth);
+    this.assertWebhookSignature(auth, input);
     this.assertInboundBody(input);
 
     const mailboxEmail = this.normalizeEmailAddress(input.mailboxEmail);
@@ -176,6 +298,20 @@ export class MailboxInboundService {
     });
     if (!mailbox) {
       throw new NotFoundException('Mailbox not found for inbound webhook');
+    }
+
+    const duplicate = this.findDuplicateMessageId(mailbox.id, input.messageId);
+    if (duplicate) {
+      this.logger.log(
+        `mailbox-inbound: duplicate messageId accepted mailbox=${mailbox.email} emailId=${duplicate.emailId}`,
+      );
+      return {
+        accepted: true,
+        mailboxId: mailbox.id,
+        mailboxEmail: mailbox.email,
+        emailId: duplicate.emailId,
+        deduplicated: true,
+      };
     }
 
     const inboundSizeBytes = this.resolveApproximateSizeBytes(input);
@@ -227,12 +363,14 @@ export class MailboxInboundService {
     this.logger.log(
       `mailbox-inbound: accepted mailbox=${mailbox.email} emailId=${email.id} sourceIp=${auth.sourceIp || 'unknown'}`,
     );
+    this.rememberMessageId(mailbox.id, input.messageId, email.id);
 
     return {
       accepted: true,
       mailboxId: mailbox.id,
       mailboxEmail: mailbox.email,
       emailId: email.id,
+      deduplicated: false,
     };
   }
 }

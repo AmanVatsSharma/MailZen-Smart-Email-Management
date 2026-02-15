@@ -5,6 +5,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { createHmac } from 'crypto';
 import { Repository, UpdateResult } from 'typeorm';
 import { Email } from '../email/entities/email.entity';
 import { UserNotification } from '../notification/entities/user-notification.entity';
@@ -21,12 +22,14 @@ describe('MailboxInboundService', () => {
   >;
   const envBackup = {
     inboundToken: process.env.MAILZEN_INBOUND_WEBHOOK_TOKEN,
+    signingKey: process.env.MAILZEN_INBOUND_WEBHOOK_SIGNING_KEY,
     nodeEnv: process.env.NODE_ENV,
   };
 
   beforeEach(() => {
     process.env.MAILZEN_INBOUND_WEBHOOK_TOKEN = 'test-inbound-token';
     process.env.NODE_ENV = 'test';
+    delete process.env.MAILZEN_INBOUND_WEBHOOK_SIGNING_KEY;
 
     mailboxRepo = {
       findOne: jest.fn(),
@@ -50,6 +53,7 @@ describe('MailboxInboundService', () => {
   afterEach(() => {
     jest.clearAllMocks();
     process.env.MAILZEN_INBOUND_WEBHOOK_TOKEN = envBackup.inboundToken;
+    process.env.MAILZEN_INBOUND_WEBHOOK_SIGNING_KEY = envBackup.signingKey;
     process.env.NODE_ENV = envBackup.nodeEnv;
   });
 
@@ -120,6 +124,7 @@ describe('MailboxInboundService', () => {
       mailboxId: 'mailbox-1',
       mailboxEmail: 'sales@mailzen.com',
       emailId: 'email-1',
+      deduplicated: false,
     });
   });
 
@@ -203,5 +208,140 @@ describe('MailboxInboundService', () => {
       ),
     ).rejects.toThrow(BadRequestException);
     expect(emailRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('deduplicates repeated inbound events by messageId in cache window', async () => {
+    mailboxRepo.findOne.mockResolvedValue({
+      id: 'mailbox-1',
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      email: 'sales@mailzen.com',
+      usedBytes: '120',
+      status: 'ACTIVE',
+      quotaLimitMb: 51200,
+    } as Mailbox);
+    emailRepo.create.mockImplementation((payload) => payload as Email);
+    emailRepo.save.mockResolvedValue({
+      id: 'email-1',
+      userId: 'user-1',
+      subject: 'New lead',
+      body: '<p>Hello</p>',
+      from: 'lead@example.com',
+      to: ['sales@mailzen.com'],
+      status: 'NEW',
+    } as Email);
+    mailboxRepo.update.mockResolvedValue({ affected: 1 } as UpdateResult);
+    notificationService.createNotification.mockResolvedValue(
+      {} as UserNotification,
+    );
+
+    await service.ingestInboundEvent(
+      {
+        mailboxEmail: 'sales@mailzen.com',
+        from: 'lead@example.com',
+        subject: 'New lead',
+        htmlBody: '<p>Hello</p>',
+        messageId: '<msg-dedupe@example.com>',
+      },
+      { inboundTokenHeader: 'test-inbound-token' },
+    );
+
+    const duplicateResult = await service.ingestInboundEvent(
+      {
+        mailboxEmail: 'sales@mailzen.com',
+        from: 'lead@example.com',
+        subject: 'New lead',
+        htmlBody: '<p>Hello</p>',
+        messageId: '<msg-dedupe@example.com>',
+      },
+      { inboundTokenHeader: 'test-inbound-token' },
+    );
+
+    expect(emailRepo.save).toHaveBeenCalledTimes(1);
+    expect(mailboxRepo.update).toHaveBeenCalledTimes(1);
+    expect(notificationService.createNotification).toHaveBeenCalledTimes(1);
+    expect(duplicateResult).toMatchObject({
+      accepted: true,
+      deduplicated: true,
+      emailId: 'email-1',
+    });
+  });
+
+  it('rejects inbound payload when signature is configured but invalid', async () => {
+    process.env.MAILZEN_INBOUND_WEBHOOK_SIGNING_KEY = 'signing-secret';
+
+    await expect(
+      service.ingestInboundEvent(
+        {
+          mailboxEmail: 'sales@mailzen.com',
+          from: 'lead@example.com',
+          subject: 'New lead',
+          textBody: 'Hello',
+        },
+        {
+          inboundTokenHeader: 'test-inbound-token',
+          timestampHeader: Date.now().toString(),
+          signatureHeader: 'invalid-signature',
+        },
+      ),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('accepts inbound payload when signature is valid', async () => {
+    const signingKey = 'signing-secret';
+    process.env.MAILZEN_INBOUND_WEBHOOK_SIGNING_KEY = signingKey;
+
+    mailboxRepo.findOne.mockResolvedValue({
+      id: 'mailbox-1',
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      email: 'sales@mailzen.com',
+      usedBytes: '120',
+      status: 'ACTIVE',
+      quotaLimitMb: 51200,
+    } as Mailbox);
+    emailRepo.create.mockImplementation((payload) => payload as Email);
+    emailRepo.save.mockResolvedValue({
+      id: 'email-2',
+      userId: 'user-1',
+      subject: 'Signed lead',
+      body: 'Hello',
+      from: 'lead@example.com',
+      to: ['sales@mailzen.com'],
+      status: 'NEW',
+    } as Email);
+    mailboxRepo.update.mockResolvedValue({ affected: 1 } as UpdateResult);
+    notificationService.createNotification.mockResolvedValue(
+      {} as UserNotification,
+    );
+
+    const timestamp = Date.now();
+    const payloadDigest = [
+      'sales@mailzen.com',
+      'lead@example.com',
+      '<signed-message@example.com>',
+      'Signed lead',
+    ].join('.');
+    const signature = createHmac('sha256', signingKey)
+      .update(`${timestamp}.${payloadDigest}`)
+      .digest('hex');
+
+    const result = await service.ingestInboundEvent(
+      {
+        mailboxEmail: 'sales@mailzen.com',
+        from: 'lead@example.com',
+        subject: 'Signed lead',
+        textBody: 'Hello',
+        messageId: '<signed-message@example.com>',
+      },
+      {
+        inboundTokenHeader: 'test-inbound-token',
+        timestampHeader: timestamp.toString(),
+        signatureHeader: signature,
+      },
+    );
+
+    expect(result.accepted).toBe(true);
+    expect(result.emailId).toBe('email-2');
   });
 });

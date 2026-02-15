@@ -19,11 +19,17 @@ export class MailboxInboundController {
   async receiveInboundEvent(
     @Body() input: MailboxInboundWebhookInput,
     @Headers('x-mailzen-inbound-token') inboundTokenHeader: string | undefined,
+    @Headers('x-mailzen-inbound-signature')
+    signatureHeader: string | undefined,
+    @Headers('x-mailzen-inbound-timestamp')
+    timestampHeader: string | undefined,
     @Headers('authorization') authorizationHeader: string | undefined,
     @Ip() ipAddress: string,
   ) {
     return this.mailboxInboundService.ingestInboundEvent(input, {
       inboundTokenHeader,
+      signatureHeader,
+      timestampHeader,
       authorizationHeader,
       sourceIp: ipAddress,
     });
