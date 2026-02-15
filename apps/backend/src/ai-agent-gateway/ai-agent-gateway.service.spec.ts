@@ -19,6 +19,7 @@ import { ExternalEmailMessage } from '../email-integration/entities/external-ema
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { User } from '../user/entities/user.entity';
 import { AgentAssistInput } from './dto/agent-assist.input';
+import { AgentActionAudit } from './entities/agent-action-audit.entity';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
 
 jest.mock('axios');
@@ -30,6 +31,8 @@ describe('AiAgentGatewayService', () => {
   const findOneMock = jest.fn();
   const findExternalMessagesMock = jest.fn();
   const createNotificationMock = jest.fn();
+  const createAgentActionAuditMock = jest.fn();
+  const saveAgentActionAuditMock = jest.fn();
 
   const authService = {
     createVerificationToken: createVerificationTokenMock,
@@ -45,6 +48,10 @@ describe('AiAgentGatewayService', () => {
   const externalEmailMessageRepo = {
     find: findExternalMessagesMock,
   } as unknown as Pick<Repository<ExternalEmailMessage>, 'find'>;
+  const agentActionAuditRepo = {
+    create: createAgentActionAuditMock,
+    save: saveAgentActionAuditMock,
+  } as unknown as Pick<Repository<AgentActionAudit>, 'create' | 'save'>;
   const notificationEventBus = {
     publishSafely: createNotificationMock,
   } as unknown as Pick<NotificationEventBusService, 'publishSafely'>;
@@ -54,11 +61,16 @@ describe('AiAgentGatewayService', () => {
       authService as AuthService,
       userRepo as Repository<User>,
       externalEmailMessageRepo as Repository<ExternalEmailMessage>,
+      agentActionAuditRepo as Repository<AgentActionAudit>,
       notificationEventBus as NotificationEventBusService,
     );
 
   beforeEach(() => {
     jest.clearAllMocks();
+    createAgentActionAuditMock.mockImplementation(
+      (value: Record<string, unknown>) => value,
+    );
+    saveAgentActionAuditMock.mockResolvedValue({ id: 'audit-1' });
   });
 
   it('redacts sensitive fields before platform call', async () => {
@@ -414,6 +426,14 @@ describe('AiAgentGatewayService', () => {
     expect(response.executedAction?.executed).toBe(true);
     expect(response.executedAction?.message).toContain('Draft reply');
     expect(response.executedAction?.message).toContain('Vendor onboarding');
+    expect(saveAgentActionAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skill: 'inbox',
+        action: 'inbox.compose_reply_draft',
+        executed: true,
+        approvalRequired: true,
+      }),
+    );
   });
 
   it('schedules follow-up reminder action when suggested and requested', async () => {
@@ -535,5 +555,13 @@ describe('AiAgentGatewayService', () => {
     );
     expect(response.executedAction?.executed).toBe(true);
     expect(response.executedAction?.message).toContain('Follow-up reminder');
+    expect(saveAgentActionAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skill: 'inbox',
+        action: 'inbox.schedule_followup',
+        executed: true,
+        approvalRequired: true,
+      }),
+    );
   });
 });

@@ -15,10 +15,11 @@ import { NotificationModule } from '../notification/notification.module';
 import { User } from '../user/entities/user.entity';
 import { AiAgentGatewayResolver } from './ai-agent-gateway.resolver';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
+import { AgentActionAudit } from './entities/agent-action-audit.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, ExternalEmailMessage]),
+    TypeOrmModule.forFeature([User, ExternalEmailMessage, AgentActionAudit]),
     NotificationModule,
   ],
   providers: [AiAgentGatewayResolver, AiAgentGatewayService],

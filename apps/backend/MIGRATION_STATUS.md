@@ -37,6 +37,8 @@
   - `20260216017000-notification-push-subscriptions.ts`
 - Added feature targeted rollout fields migration:
   - `20260216019000-feature-targeted-rollout-columns.ts`
+- Added AI agent action audit trail migration:
+  - `20260216021000-agent-action-audits.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

@@ -534,3 +534,36 @@ SELECT
   COUNT(*) FILTER (WHERE "rolloutPercentage" < 100) AS partial_rollout_features
 FROM features;
 ```
+
+## AI Agent Action Audits Rollout Notes (2026-02-16)
+
+New migration: `20260216021000-agent-action-audits.ts`
+
+This migration introduces:
+
+- `agent_action_audits` table with per-action execution records
+- request-level trace linkage (`requestId`) for operational forensics
+- approval metadata (`approvalRequired`, `approvalTokenSuffix`)
+
+### Safe rollout sequence
+
+1. Deploy backend with AI gateway audit persistence support.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- ai-agent-gateway/ai-agent-gateway.service.spec.ts`
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Validate runtime behavior:
+   - executable agent actions append audit rows
+   - rows include skill/action/executed and request correlation identifiers.
+
+### Staging verification SQL
+
+```sql
+SELECT
+  COUNT(*) AS total_agent_action_audits,
+  COUNT(*) FILTER (WHERE "executed" = true) AS executed_actions,
+  COUNT(*) FILTER (WHERE "approvalRequired" = true) AS approval_required_actions
+FROM agent_action_audits;
+```

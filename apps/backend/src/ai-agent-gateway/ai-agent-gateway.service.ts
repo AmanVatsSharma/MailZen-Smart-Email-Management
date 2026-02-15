@@ -28,6 +28,7 @@ import { NotificationEventBusService } from '../notification/notification-event-
 import { User } from '../user/entities/user.entity';
 import { AgentAssistInput, AgentMessageInput } from './dto/agent-assist.input';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
+import { AgentActionAudit } from './entities/agent-action-audit.entity';
 import {
   AgentActionExecutionResponse,
   AgentAssistResponse,
@@ -178,6 +179,8 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     private readonly userRepo: Repository<User>,
     @InjectRepository(ExternalEmailMessage)
     private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
+    @InjectRepository(AgentActionAudit)
+    private readonly agentActionAuditRepo: Repository<AgentActionAudit>,
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
 
@@ -258,6 +261,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         suggestedActions,
         skill,
         userId,
+        requestId,
       );
 
       return {
@@ -930,6 +934,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     suggestedActions: GatewaySuggestedAction[],
     skill: string,
     userId: string | null,
+    requestId: string,
   ): Promise<AgentActionExecutionResponse | null> {
     if (!input.executeRequestedAction || !input.requestedAction) {
       return null;
@@ -956,12 +961,17 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     });
 
     if (!skillPolicy.serverExecutableActions.has(requestedAction)) {
-      return {
+      return this.finalizeActionExecution({
         action: requestedAction,
         executed: false,
         message:
           'Action is approved but not executable on backend; handle it in UI flow.',
-      };
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+      });
     }
 
     if (requestedAction === 'auth.forgot_password') {
@@ -982,12 +992,20 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         );
       }
 
-      return {
+      return this.finalizeActionExecution({
         action: requestedAction,
         executed: true,
         message:
           'If an account exists for this email, a password reset flow has been initiated.',
-      };
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          email: normalizedEmail,
+        },
+      });
     }
 
     if (requestedAction === 'inbox.summarize_thread') {
@@ -1008,11 +1026,19 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         threadId || undefined,
       );
 
-      return {
+      return this.finalizeActionExecution({
         action: requestedAction,
         executed: true,
         message: summary,
-      };
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          threadId: threadId || null,
+        },
+      });
     }
 
     if (requestedAction === 'inbox.compose_reply_draft') {
@@ -1033,11 +1059,19 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         threadId || undefined,
       );
 
-      return {
+      return this.finalizeActionExecution({
         action: requestedAction,
         executed: true,
         message: draft,
-      };
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          threadId: threadId || null,
+        },
+      });
     }
 
     if (requestedAction === 'inbox.schedule_followup') {
@@ -1072,16 +1106,87 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         },
       });
 
-      return {
+      return this.finalizeActionExecution({
         action: requestedAction,
         executed: true,
         message: `Follow-up reminder scheduled for ${followupLabel}.`,
-      };
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          threadId: threadId || null,
+          followupAtIso: followupAtIso || null,
+          workspaceId: workspaceId || null,
+          providerId: providerId || null,
+        },
+      });
     }
 
     throw new BadRequestException(
       `Unsupported executable action '${requestedAction}'`,
     );
+  }
+
+  private async finalizeActionExecution(input: {
+    action: string;
+    executed: boolean;
+    message: string;
+    skill: string;
+    userId: string | null;
+    requestId: string;
+    approvalRequired: boolean;
+    requestedApprovalToken?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<AgentActionExecutionResponse> {
+    await this.recordAgentActionAudit(input);
+    return {
+      action: input.action,
+      executed: input.executed,
+      message: input.message,
+    };
+  }
+
+  private async recordAgentActionAudit(input: {
+    action: string;
+    executed: boolean;
+    message: string;
+    skill: string;
+    userId: string | null;
+    requestId: string;
+    approvalRequired: boolean;
+    requestedApprovalToken?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const approvalTokenSuffix = this.resolveApprovalTokenSuffix(
+        input.requestedApprovalToken,
+      );
+      const audit = this.agentActionAuditRepo.create({
+        userId: input.userId,
+        requestId: input.requestId,
+        skill: input.skill,
+        action: input.action,
+        executed: input.executed,
+        approvalRequired: input.approvalRequired,
+        approvalTokenSuffix,
+        message: input.message,
+        metadata: input.metadata || null,
+      });
+      await this.agentActionAuditRepo.save(audit);
+    } catch (error) {
+      this.logger.warn(
+        `agent-action-audit: failed persist requestId=${input.requestId} action=${input.action} error=${String(error)}`,
+      );
+    }
+  }
+
+  private resolveApprovalTokenSuffix(rawToken?: string): string | null {
+    const normalized = String(rawToken || '').trim();
+    if (!normalized) return null;
+    if (normalized.length <= 8) return normalized;
+    return normalized.slice(-8);
   }
 
   private async summarizeThreadForUser(

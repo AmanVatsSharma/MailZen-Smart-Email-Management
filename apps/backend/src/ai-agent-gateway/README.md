@@ -15,6 +15,7 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - Enforce human-in-the-loop approval token flow for risky agent actions:
   - `inbox.compose_reply_draft`
   - `inbox.schedule_followup`
+- Persist executed agent-action audits (`agent_action_audits`) for compliance and debugging.
 - Provide `agentPlatformHealth` GraphQL probe with gateway metrics snapshot.
 
 ## Env Variables
@@ -44,3 +45,4 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - 2026-02-15: Enriched follow-up action notifications with workspace/provider
   context metadata (`workspaceId`, `providerId`) for workspace-aware UX.
 - 2026-02-15: Added approval-token controls for non-trivial inbox actions.
+- 2026-02-15: Added agent action audit persistence with request correlation IDs.
