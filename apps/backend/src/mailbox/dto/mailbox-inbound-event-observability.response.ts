@@ -1,4 +1,4 @@
-import { Field, Int, ObjectType } from '@nestjs/graphql';
+import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
 
 @ObjectType()
 export class MailboxInboundEventObservabilityResponse {
@@ -58,6 +58,27 @@ export class MailboxInboundEventStatsResponse {
 
   @Field(() => Int)
   rejectedCount: number;
+
+  @Field(() => Float)
+  successRatePercent: number;
+
+  @Field(() => Float)
+  rejectionRatePercent: number;
+
+  @Field(() => Float)
+  slaTargetSuccessPercent: number;
+
+  @Field(() => Float)
+  slaWarningRejectedPercent: number;
+
+  @Field(() => Float)
+  slaCriticalRejectedPercent: number;
+
+  @Field()
+  slaStatus: string;
+
+  @Field()
+  meetsSla: boolean;
 
   @Field({ nullable: true })
   lastProcessedAt?: Date | null;

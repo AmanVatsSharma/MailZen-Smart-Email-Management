@@ -46,6 +46,13 @@ export const GET_MY_MAILBOX_INBOUND_EVENT_STATS = gql`
       acceptedCount
       deduplicatedCount
       rejectedCount
+      successRatePercent
+      rejectionRatePercent
+      slaTargetSuccessPercent
+      slaWarningRejectedPercent
+      slaCriticalRejectedPercent
+      slaStatus
+      meetsSla
       lastProcessedAt
     }
   }

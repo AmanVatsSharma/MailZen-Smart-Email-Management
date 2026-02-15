@@ -90,6 +90,12 @@ flowchart TD
   - allowed timestamp drift window for signed webhook replay protection
 - `MAILZEN_INBOUND_IDEMPOTENCY_TTL_MS` (default `86400000`)
   - in-memory deduplication retention window for repeated `messageId` events
+- `MAILZEN_INBOUND_SLA_TARGET_SUCCESS_PERCENT` (default `99`)
+  - target success threshold used in observability SLA indicators
+- `MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT` (default `1`)
+  - rejection-rate threshold that triggers `WARNING` SLA status
+- `MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT` (default `5`)
+  - rejection-rate threshold that triggers `CRITICAL` SLA status
 
 ### Mail connection defaults persisted on mailbox rows
 - `MAILZEN_SMTP_HOST` (default `smtp.mailzen.local`)
@@ -131,6 +137,13 @@ flowchart TD
 - `myMailboxInboundEventStats`
   - returns accepted/deduplicated/rejected totals for a rolling window
   - supports optional workspace/mailbox scoping and configurable `windowHours` (clamped server-side)
+  - includes SLA indicators:
+    - `successRatePercent`
+    - `rejectionRatePercent`
+    - `slaTargetSuccessPercent`
+    - `slaWarningRejectedPercent`
+    - `slaCriticalRejectedPercent`
+    - `slaStatus`, `meetsSla`
 - `myMailboxInboundEventSeries`
   - returns trend buckets for accepted/deduplicated/rejected counts
   - supports optional workspace/mailbox scoping + rolling window and bucket granularity controls

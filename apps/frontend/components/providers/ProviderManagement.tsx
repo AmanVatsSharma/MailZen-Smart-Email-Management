@@ -64,6 +64,13 @@ type MailboxObservabilityStats = {
   acceptedCount: number;
   deduplicatedCount: number;
   rejectedCount: number;
+  successRatePercent: number;
+  rejectionRatePercent: number;
+  slaTargetSuccessPercent: number;
+  slaWarningRejectedPercent: number;
+  slaCriticalRejectedPercent: number;
+  slaStatus: string;
+  meetsSla: boolean;
   lastProcessedAt?: string | null;
 };
 
@@ -192,6 +199,13 @@ export function ProviderManagement() {
   const observabilityEvents =
     observabilityEventsData?.myMailboxInboundEvents || [];
   const observabilityStats = observabilityStatsData?.myMailboxInboundEventStats;
+  const slaStatus = observabilityStats?.slaStatus || 'NO_DATA';
+  const slaStatusClasses =
+    slaStatus === 'CRITICAL'
+      ? 'border-destructive/20 bg-destructive/10 text-destructive dark:border-destructive/30 dark:bg-destructive/15'
+      : slaStatus === 'WARNING'
+        ? 'border-amber-200/60 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200'
+        : 'border-emerald-200/60 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200';
 
   // Mutations
   const [disconnectProvider, { loading: disconnectLoading }] = useMutation(DISCONNECT_PROVIDER, {
@@ -544,7 +558,7 @@ export function ProviderManagement() {
               </Alert>
             )}
 
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
               <Badge variant="outline" className="justify-center">
                 Total: {observabilityStats?.totalCount ?? 0}
               </Badge>
@@ -569,7 +583,21 @@ export function ProviderManagement() {
               <Badge variant="outline" className="justify-center">
                 Window: {observabilityStats?.windowHours ?? selectedStatsWindowHours}h
               </Badge>
+              <Badge
+                variant="outline"
+                className={`justify-center ${slaStatusClasses}`}
+              >
+                SLA: {slaStatus}
+              </Badge>
             </div>
+
+            <p className="text-xs text-muted-foreground">
+              Success rate {observabilityStats?.successRatePercent ?? 100}% (target{' '}
+              {observabilityStats?.slaTargetSuccessPercent ?? 99}%) · Rejection rate{' '}
+              {observabilityStats?.rejectionRatePercent ?? 0}% (warn at{' '}
+              {observabilityStats?.slaWarningRejectedPercent ?? 1}%, critical at{' '}
+              {observabilityStats?.slaCriticalRejectedPercent ?? 5}%).
+            </p>
 
             <div className="rounded-lg border">
               <div className="grid grid-cols-12 border-b bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">

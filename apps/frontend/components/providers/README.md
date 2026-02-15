@@ -13,6 +13,7 @@ monitoring subscription-aware limits.
   - Supports provider connect/sync/pause/remove actions
   - Surfaces mailbox inbound telemetry with workspace/status/mailbox/window filters
   - Shows inbound event-store outcomes (accepted/deduplicated/rejected)
+  - Displays SLA indicators and threshold-aware health status from stats query
   - Shows live subscription plan usage:
     - provider usage (`used/limit`)
     - mailbox usage (`used/limit`)
@@ -28,6 +29,7 @@ monitoring subscription-aware limits.
 - `myInboxes`
 - `myMailboxInboundEvents`
 - `myMailboxInboundEventStats`
+  - includes SLA rates + thresholds for warning/critical status indicators
 - `mySubscription`
 - `billingPlans`
 - `myWorkspaces`

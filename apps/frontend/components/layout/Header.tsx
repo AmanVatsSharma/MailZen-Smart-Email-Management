@@ -75,6 +75,13 @@ type MailboxInboundStatsSnapshot = {
   acceptedCount: number;
   deduplicatedCount: number;
   rejectedCount: number;
+  successRatePercent: number;
+  rejectionRatePercent: number;
+  slaTargetSuccessPercent: number;
+  slaWarningRejectedPercent: number;
+  slaCriticalRejectedPercent: number;
+  slaStatus: string;
+  meetsSla: boolean;
   lastProcessedAt?: string | null;
 };
 
@@ -181,7 +188,10 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     []) as DashboardNotification[];
   const unreadCount = Number(unreadCountData?.myUnreadNotificationCount || 0);
   const mailboxInboundStats = mailboxInboundStatsData?.myMailboxInboundEventStats;
-  const hasMailboxInboundErrors = Number(mailboxInboundStats?.rejectedCount || 0) > 0;
+  const mailboxInboundSlaStatus = mailboxInboundStats?.slaStatus || 'NO_DATA';
+  const hasMailboxInboundErrors =
+    mailboxInboundSlaStatus === 'WARNING' ||
+    mailboxInboundSlaStatus === 'CRITICAL';
   const workspaces = useMemo(
     () => (workspaceData?.myWorkspaces || []) as DashboardWorkspace[],
     [workspaceData?.myWorkspaces],
@@ -407,10 +417,12 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                         {hasMailboxInboundErrors ? (
                           <span className="flex items-center text-destructive">
                             <AlertTriangle className="mr-1 h-3 w-3" />
-                            Attention
+                            {mailboxInboundSlaStatus}
                           </span>
                         ) : (
-                          <span className="text-emerald-600">Healthy</span>
+                          <span className="text-emerald-600">
+                            {mailboxInboundSlaStatus}
+                          </span>
                         )}
                       </div>
                       <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground">
@@ -419,6 +431,11 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                         <span>Deduped: {mailboxInboundStats.deduplicatedCount}</span>
                         <span>Rejected: {mailboxInboundStats.rejectedCount}</span>
                       </div>
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        Success {mailboxInboundStats.successRatePercent}% (target{' '}
+                        {mailboxInboundStats.slaTargetSuccessPercent}%) · Reject{' '}
+                        {mailboxInboundStats.rejectionRatePercent}%
+                      </p>
                       {mailboxInboundStats.lastProcessedAt && (
                         <p className="mt-1 text-[10px] text-muted-foreground">
                           Last event:{' '}

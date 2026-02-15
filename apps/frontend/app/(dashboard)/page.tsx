@@ -149,10 +149,13 @@ export default function DashboardPage() {
   const inboundAccepted = Number(mailboxInboundStats?.acceptedCount || 0);
   const inboundDeduplicated = Number(mailboxInboundStats?.deduplicatedCount || 0);
   const inboundRejected = Number(mailboxInboundStats?.rejectedCount || 0);
-  const inboundHealthRate =
-    inboundTotal > 0
-      ? Math.round(((inboundAccepted + inboundDeduplicated) / inboundTotal) * 100)
-      : 100;
+  const inboundHealthRate = Number(
+    mailboxInboundStats?.successRatePercent ??
+      (inboundTotal > 0
+        ? Math.round(((inboundAccepted + inboundDeduplicated) / inboundTotal) * 100)
+        : 100),
+  );
+  const inboundSlaStatus = mailboxInboundStats?.slaStatus || 'NO_DATA';
   const trendPoints = mailboxInboundSeries.slice(-12);
   const trendMaxTotal = Math.max(
     ...trendPoints.map((point) => Number(point.totalCount || 0)),
@@ -347,7 +350,18 @@ export default function DashboardPage() {
               >
                 Rejected: {inboundRejected}
               </Badge>
-              <Badge variant="outline">Health: {inboundHealthRate}%</Badge>
+              <Badge
+                variant="outline"
+                className={
+                  inboundSlaStatus === 'CRITICAL'
+                    ? 'border-destructive/20 bg-destructive/10 text-destructive dark:border-destructive/30 dark:bg-destructive/15'
+                    : inboundSlaStatus === 'WARNING'
+                      ? 'border-amber-200/60 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200'
+                      : 'border-emerald-200/60 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200'
+                }
+              >
+                SLA: {inboundSlaStatus}
+              </Badge>
             </div>
             <div>
               <Progress
@@ -365,6 +379,13 @@ export default function DashboardPage() {
                   : mailboxInboundStats?.lastProcessedAt
                     ? `Last inbound event: ${new Date(mailboxInboundStats.lastProcessedAt).toLocaleString()}`
                     : 'No inbound mailbox events tracked yet for this window.'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Success {mailboxInboundStats?.successRatePercent ?? inboundHealthRate}% (target{' '}
+                {mailboxInboundStats?.slaTargetSuccessPercent ?? 99}%) · Rejection{' '}
+                {mailboxInboundStats?.rejectionRatePercent ?? 0}% (warn{' '}
+                {mailboxInboundStats?.slaWarningRejectedPercent ?? 1}% / critical{' '}
+                {mailboxInboundStats?.slaCriticalRejectedPercent ?? 5}%)
               </p>
             </div>
             {trendPoints.length > 0 && (

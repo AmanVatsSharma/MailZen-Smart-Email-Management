@@ -271,6 +271,13 @@ type MailboxInboundEventStatsResponse {
   acceptedCount: Int!
   deduplicatedCount: Int!
   rejectedCount: Int!
+  successRatePercent: Float!
+  rejectionRatePercent: Float!
+  slaTargetSuccessPercent: Float!
+  slaWarningRejectedPercent: Float!
+  slaCriticalRejectedPercent: Float!
+  slaStatus: String!
+  meetsSla: Boolean!
   lastProcessedAt: DateTime
 }
 

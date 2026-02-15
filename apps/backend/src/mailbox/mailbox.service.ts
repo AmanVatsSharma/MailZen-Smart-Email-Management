@@ -35,6 +35,9 @@ export class MailboxService {
   private static readonly DEFAULT_TREND_BUCKET_MINUTES = 60;
   private static readonly MIN_TREND_BUCKET_MINUTES = 5;
   private static readonly MAX_TREND_BUCKET_MINUTES = 24 * 60;
+  private static readonly DEFAULT_SLA_TARGET_SUCCESS_PERCENT = 99;
+  private static readonly DEFAULT_SLA_WARNING_REJECTION_PERCENT = 1;
+  private static readonly DEFAULT_SLA_CRITICAL_REJECTION_PERCENT = 5;
 
   constructor(
     @InjectRepository(Mailbox)
@@ -244,6 +247,7 @@ export class MailboxService {
     let mailboxEmail: string | null = null;
 
     if (normalizedWorkspaceId && !scopedMailboxIds.length) {
+      const inboundSlaThresholds = this.resolveInboundSlaThresholds();
       return {
         mailboxId: normalizedMailboxId,
         mailboxEmail: null,
@@ -252,6 +256,14 @@ export class MailboxService {
         acceptedCount: 0,
         deduplicatedCount: 0,
         rejectedCount: 0,
+        successRatePercent: 100,
+        rejectionRatePercent: 0,
+        slaTargetSuccessPercent: inboundSlaThresholds.targetSuccessPercent,
+        slaWarningRejectedPercent: inboundSlaThresholds.warningRejectedPercent,
+        slaCriticalRejectedPercent:
+          inboundSlaThresholds.criticalRejectedPercent,
+        slaStatus: 'NO_DATA',
+        meetsSla: true,
         lastProcessedAt: null,
       };
     }
@@ -328,6 +340,27 @@ export class MailboxService {
         rejectedCount: 0,
       },
     );
+    const inboundSlaThresholds = this.resolveInboundSlaThresholds();
+    const successRatePercent = this.resolvePercentage(
+      aggregate.acceptedCount + aggregate.deduplicatedCount,
+      aggregate.totalCount,
+      100,
+    );
+    const rejectionRatePercent = this.resolvePercentage(
+      aggregate.rejectedCount,
+      aggregate.totalCount,
+      0,
+    );
+    const slaStatus = this.resolveInboundSlaStatus({
+      totalCount: aggregate.totalCount,
+      successRatePercent,
+      rejectionRatePercent,
+      thresholds: inboundSlaThresholds,
+    });
+    const meetsSla =
+      aggregate.totalCount === 0 ||
+      (successRatePercent >= inboundSlaThresholds.targetSuccessPercent &&
+        rejectionRatePercent < inboundSlaThresholds.warningRejectedPercent);
 
     return {
       mailboxId: normalizedMailboxId,
@@ -337,6 +370,13 @@ export class MailboxService {
       acceptedCount: aggregate.acceptedCount,
       deduplicatedCount: aggregate.deduplicatedCount,
       rejectedCount: aggregate.rejectedCount,
+      successRatePercent,
+      rejectionRatePercent,
+      slaTargetSuccessPercent: inboundSlaThresholds.targetSuccessPercent,
+      slaWarningRejectedPercent: inboundSlaThresholds.warningRejectedPercent,
+      slaCriticalRejectedPercent: inboundSlaThresholds.criticalRejectedPercent,
+      slaStatus,
+      meetsSla,
       lastProcessedAt: latestEvent?.createdAt ?? null,
     };
   }
@@ -529,6 +569,85 @@ export class MailboxService {
       return MailboxService.MAX_TREND_BUCKET_MINUTES;
     }
     return rawBucketMinutes;
+  }
+
+  private resolveInboundSlaThresholds(): {
+    targetSuccessPercent: number;
+    warningRejectedPercent: number;
+    criticalRejectedPercent: number;
+  } {
+    const targetSuccessPercent = this.normalizePercentageThreshold({
+      rawValue: process.env.MAILZEN_INBOUND_SLA_TARGET_SUCCESS_PERCENT,
+      fallbackValue: MailboxService.DEFAULT_SLA_TARGET_SUCCESS_PERCENT,
+    });
+    const warningRejectedPercent = this.normalizePercentageThreshold({
+      rawValue: process.env.MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT,
+      fallbackValue: MailboxService.DEFAULT_SLA_WARNING_REJECTION_PERCENT,
+    });
+    const criticalRejectedPercent = this.normalizePercentageThreshold({
+      rawValue: process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT,
+      fallbackValue: MailboxService.DEFAULT_SLA_CRITICAL_REJECTION_PERCENT,
+    });
+    return {
+      targetSuccessPercent,
+      warningRejectedPercent:
+        warningRejectedPercent <= criticalRejectedPercent
+          ? warningRejectedPercent
+          : criticalRejectedPercent,
+      criticalRejectedPercent:
+        criticalRejectedPercent >= warningRejectedPercent
+          ? criticalRejectedPercent
+          : warningRejectedPercent,
+    };
+  }
+
+  private normalizePercentageThreshold(input: {
+    rawValue?: string;
+    fallbackValue: number;
+  }): number {
+    const parsed = Number(input.rawValue);
+    const candidate = Number.isFinite(parsed) ? parsed : input.fallbackValue;
+    if (candidate < 0) return 0;
+    if (candidate > 100) return 100;
+    return this.roundPercentage(candidate);
+  }
+
+  private resolvePercentage(
+    numerator: number,
+    denominator: number,
+    fallback: number,
+  ): number {
+    if (denominator <= 0) return fallback;
+    return this.roundPercentage((numerator / denominator) * 100);
+  }
+
+  private resolveInboundSlaStatus(input: {
+    totalCount: number;
+    successRatePercent: number;
+    rejectionRatePercent: number;
+    thresholds: {
+      targetSuccessPercent: number;
+      warningRejectedPercent: number;
+      criticalRejectedPercent: number;
+    };
+  }): 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'NO_DATA' {
+    if (input.totalCount <= 0) return 'NO_DATA';
+    if (
+      input.rejectionRatePercent >= input.thresholds.criticalRejectedPercent
+    ) {
+      return 'CRITICAL';
+    }
+    if (
+      input.rejectionRatePercent >= input.thresholds.warningRejectedPercent ||
+      input.successRatePercent < input.thresholds.targetSuccessPercent
+    ) {
+      return 'WARNING';
+    }
+    return 'HEALTHY';
+  }
+
+  private roundPercentage(value: number): number {
+    return Math.round(value * 100) / 100;
   }
 
   private normalizeWorkspaceId(workspaceId?: string | null): string | null {

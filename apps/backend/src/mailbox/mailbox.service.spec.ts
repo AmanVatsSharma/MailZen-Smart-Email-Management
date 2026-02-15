@@ -38,6 +38,12 @@ describe('MailboxService', () => {
       },
     ]),
   };
+  const envBackup = {
+    targetSuccess: process.env.MAILZEN_INBOUND_SLA_TARGET_SUCCESS_PERCENT,
+    warningRejection: process.env.MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT,
+    criticalRejection:
+      process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT,
+  };
 
   const service = new MailboxService(
     mailboxRepo as any,
@@ -50,6 +56,9 @@ describe('MailboxService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.MAILZEN_INBOUND_SLA_TARGET_SUCCESS_PERCENT;
+    delete process.env.MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT;
+    delete process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT;
     mailboxRepo.count.mockResolvedValue(0);
     mailboxInboundEventRepo.find.mockResolvedValue([]);
     mailboxInboundEventRepo.findOne.mockResolvedValue(null);
@@ -68,6 +77,15 @@ describe('MailboxService', () => {
       workspaceLimit: 5,
       aiCreditsPerMonth: 500,
     });
+  });
+
+  afterEach(() => {
+    process.env.MAILZEN_INBOUND_SLA_TARGET_SUCCESS_PERCENT =
+      envBackup.targetSuccess;
+    process.env.MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT =
+      envBackup.warningRejection;
+    process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT =
+      envBackup.criticalRejection;
   });
 
   it('rejects invalid desired local part', async () => {
@@ -216,6 +234,13 @@ describe('MailboxService', () => {
       acceptedCount: 4,
       deduplicatedCount: 1,
       rejectedCount: 2,
+      successRatePercent: 71.43,
+      rejectionRatePercent: 28.57,
+      slaTargetSuccessPercent: 99,
+      slaWarningRejectedPercent: 1,
+      slaCriticalRejectedPercent: 5,
+      slaStatus: 'CRITICAL',
+      meetsSla: false,
       lastProcessedAt: new Date('2026-02-15T13:00:00.000Z'),
     });
   });
@@ -236,8 +261,47 @@ describe('MailboxService', () => {
       acceptedCount: 0,
       deduplicatedCount: 0,
       rejectedCount: 0,
+      successRatePercent: 100,
+      rejectionRatePercent: 0,
+      slaTargetSuccessPercent: 99,
+      slaWarningRejectedPercent: 1,
+      slaCriticalRejectedPercent: 5,
+      slaStatus: 'NO_DATA',
+      meetsSla: true,
       lastProcessedAt: null,
     });
+  });
+
+  it('applies configured SLA thresholds when computing inbound stats', async () => {
+    process.env.MAILZEN_INBOUND_SLA_TARGET_SUCCESS_PERCENT = '70';
+    process.env.MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT = '30';
+    process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT = '60';
+    const queryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([
+        { status: 'ACCEPTED', count: '4' },
+        { status: 'DEDUPLICATED', count: '1' },
+        { status: 'REJECTED', count: '2' },
+      ]),
+    };
+    mailboxInboundEventRepo.createQueryBuilder.mockReturnValue(queryBuilder);
+    mailboxInboundEventRepo.findOne.mockResolvedValue({
+      createdAt: new Date('2026-02-15T13:00:00.000Z'),
+    });
+
+    const stats = await service.getInboundEventStats('user-1', {
+      windowHours: 12,
+    });
+
+    expect(stats.slaTargetSuccessPercent).toBe(70);
+    expect(stats.slaWarningRejectedPercent).toBe(30);
+    expect(stats.slaCriticalRejectedPercent).toBe(60);
+    expect(stats.slaStatus).toBe('HEALTHY');
+    expect(stats.meetsSla).toBe(true);
   });
 
   it('returns mailbox inbound trend series with status bucket counts', async () => {
