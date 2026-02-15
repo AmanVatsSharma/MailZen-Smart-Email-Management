@@ -363,6 +363,8 @@ describe('AiAgentGatewayService', () => {
           locale: 'en-IN',
           metadataJson: JSON.stringify({
             threadId: 'thread-111',
+            providerId: 'provider-11',
+            workspaceId: 'workspace-11',
             followupAtIso: '2026-02-16T10:00:00.000Z',
           }),
         },
@@ -376,11 +378,24 @@ describe('AiAgentGatewayService', () => {
       },
     );
 
-    expect(createNotificationMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'user-1',
-        type: 'AGENT_ACTION_REQUIRED',
-      }),
+    const notificationCalls = createNotificationMock.mock.calls as Array<
+      [
+        {
+          userId: string;
+          type: string;
+          metadata?: Record<string, unknown>;
+        },
+      ]
+    >;
+    const followupNotificationPayload = notificationCalls[0]?.[0];
+    expect(followupNotificationPayload).toBeDefined();
+    expect(followupNotificationPayload.userId).toBe('user-1');
+    expect(followupNotificationPayload.type).toBe('AGENT_ACTION_REQUIRED');
+    expect(followupNotificationPayload.metadata?.workspaceId).toBe(
+      'workspace-11',
+    );
+    expect(followupNotificationPayload.metadata?.providerId).toBe(
+      'provider-11',
     );
     expect(response.executedAction?.executed).toBe(true);
     expect(response.executedAction?.message).toContain('Follow-up reminder');

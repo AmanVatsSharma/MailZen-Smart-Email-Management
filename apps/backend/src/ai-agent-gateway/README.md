@@ -37,3 +37,5 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - `inbox.compose_reply_draft`
   - `inbox.schedule_followup`
   with thread-aware summary/draft generation from synced messages.
+- 2026-02-15: Enriched follow-up action notifications with workspace/provider
+  context metadata (`workspaceId`, `providerId`) for workspace-aware UX.

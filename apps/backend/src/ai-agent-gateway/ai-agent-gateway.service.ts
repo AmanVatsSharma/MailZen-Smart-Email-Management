@@ -788,6 +788,8 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         metadata.messageThreadId ||
         '';
       const followupAtIso = metadata.followupAt || metadata.followupAtIso;
+      const workspaceId = metadata.workspaceId || metadata.activeWorkspaceId;
+      const providerId = metadata.providerId || metadata.activeProviderId;
       const followupLabel = followupAtIso || 'the requested time';
 
       await this.notificationService.createNotification({
@@ -798,6 +800,8 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         metadata: {
           threadId: threadId || undefined,
           followupAt: followupAtIso || undefined,
+          workspaceId: workspaceId || undefined,
+          providerId: providerId || undefined,
           sourceAction: requestedAction,
         },
       });
