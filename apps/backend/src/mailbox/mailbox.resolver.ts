@@ -1,7 +1,11 @@
-import { Resolver, Mutation, Args, Query, Context } from '@nestjs/graphql';
+import { Resolver, Mutation, Args, Query, Context, Int } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { MailboxService } from './mailbox.service';
+import {
+  MailboxInboundEventObservabilityResponse,
+  MailboxInboundEventStatsResponse,
+} from './dto/mailbox-inbound-event-observability.response';
 
 interface RequestContext {
   req: { user: { id: string } };
@@ -35,5 +39,32 @@ export class MailboxResolver {
       workspaceId,
     );
     return boxes.map((b) => b.email);
+  }
+
+  @Query(() => [MailboxInboundEventObservabilityResponse])
+  async myMailboxInboundEvents(
+    @Context() ctx: RequestContext,
+    @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('status', { nullable: true }) status?: string,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+  ): Promise<MailboxInboundEventObservabilityResponse[]> {
+    return this.mailboxService.getInboundEvents(ctx.req.user.id, {
+      mailboxId,
+      status,
+      limit,
+    });
+  }
+
+  @Query(() => MailboxInboundEventStatsResponse)
+  async myMailboxInboundEventStats(
+    @Context() ctx: RequestContext,
+    @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+  ): Promise<MailboxInboundEventStatsResponse> {
+    return this.mailboxService.getInboundEventStats(ctx.req.user.id, {
+      mailboxId,
+      windowHours,
+    });
   }
 }

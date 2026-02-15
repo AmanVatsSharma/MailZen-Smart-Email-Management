@@ -5,24 +5,40 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { BillingService } from '../billing/billing.service';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { MailServerService } from './mail-server.service';
 import { Mailbox } from './entities/mailbox.entity';
 import { User } from '../user/entities/user.entity';
+import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
+import {
+  MailboxInboundEventObservabilityResponse,
+  MailboxInboundEventStatsResponse,
+} from './dto/mailbox-inbound-event-observability.response';
 
 @Injectable()
 export class MailboxService {
   private static readonly MAILZEN_DOMAIN = 'mailzen.com';
   private static readonly LOCAL_PART_PATTERN =
     /^[a-z0-9]+(?:[a-z0-9.]{1,28}[a-z0-9])?$/;
+  private static readonly INBOUND_EVENT_STATUSES = new Set([
+    'ACCEPTED',
+    'DEDUPLICATED',
+    'REJECTED',
+  ]);
+  private static readonly DEFAULT_INBOUND_EVENT_LIMIT = 20;
+  private static readonly MAX_INBOUND_EVENT_LIMIT = 100;
+  private static readonly DEFAULT_STATS_WINDOW_HOURS = 24;
+  private static readonly MAX_STATS_WINDOW_HOURS = 168;
 
   constructor(
     @InjectRepository(Mailbox)
     private readonly mailboxRepo: Repository<Mailbox>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(MailboxInboundEvent)
+    private readonly mailboxInboundEventRepo: Repository<MailboxInboundEvent>,
     private readonly mailServer: MailServerService,
     private readonly billingService: BillingService,
     private readonly workspaceService: WorkspaceService,
@@ -124,6 +140,141 @@ export class MailboxService {
     });
   }
 
+  async getInboundEvents(
+    userId: string,
+    options?: {
+      mailboxId?: string | null;
+      status?: string | null;
+      limit?: number | null;
+    },
+  ): Promise<MailboxInboundEventObservabilityResponse[]> {
+    const normalizedMailboxId = String(options?.mailboxId || '').trim() || null;
+    const normalizedStatus = this.normalizeInboundEventStatus(options?.status);
+    const limit = this.normalizeInboundEventLimit(options?.limit);
+
+    if (normalizedMailboxId) {
+      await this.assertMailboxOwnership(userId, normalizedMailboxId);
+    }
+
+    const whereClause: { userId: string; mailboxId?: string; status?: string } =
+      { userId };
+    if (normalizedMailboxId) {
+      whereClause.mailboxId = normalizedMailboxId;
+    }
+    if (normalizedStatus) {
+      whereClause.status = normalizedStatus;
+    }
+
+    const events = await this.mailboxInboundEventRepo.find({
+      where: whereClause,
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+
+    const mailboxIdSet = new Set(events.map((event) => event.mailboxId));
+    const mailboxIds = Array.from(mailboxIdSet);
+    const mailboxEmailById =
+      mailboxIds.length > 0
+        ? await this.resolveMailboxEmailById(userId, mailboxIds)
+        : new Map<string, string>();
+
+    return events.map((event) => ({
+      id: event.id,
+      mailboxId: event.mailboxId,
+      mailboxEmail: mailboxEmailById.get(event.mailboxId) ?? null,
+      messageId: event.messageId ?? null,
+      emailId: event.emailId ?? null,
+      inboundThreadKey: event.inboundThreadKey ?? null,
+      status: event.status,
+      sourceIp: event.sourceIp ?? null,
+      signatureValidated: event.signatureValidated,
+      errorReason: event.errorReason ?? null,
+      createdAt: event.createdAt,
+    }));
+  }
+
+  async getInboundEventStats(
+    userId: string,
+    options?: {
+      mailboxId?: string | null;
+      windowHours?: number | null;
+    },
+  ): Promise<MailboxInboundEventStatsResponse> {
+    const normalizedMailboxId = String(options?.mailboxId || '').trim() || null;
+    const windowHours = this.normalizeStatsWindowHours(options?.windowHours);
+    const windowStartDate = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    let mailboxEmail: string | null = null;
+
+    if (normalizedMailboxId) {
+      const mailbox = await this.assertMailboxOwnership(
+        userId,
+        normalizedMailboxId,
+      );
+      mailboxEmail = mailbox.email;
+    }
+
+    const query = this.mailboxInboundEventRepo
+      .createQueryBuilder('event')
+      .select('event.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .where('event.userId = :userId', { userId })
+      .andWhere('event.createdAt >= :windowStart', {
+        windowStart: windowStartDate.toISOString(),
+      });
+
+    if (normalizedMailboxId) {
+      query.andWhere('event.mailboxId = :mailboxId', {
+        mailboxId: normalizedMailboxId,
+      });
+    }
+
+    const groupedCounts = await query.groupBy('event.status').getRawMany<{
+      status: string;
+      count: string;
+    }>();
+
+    const whereClause: { userId: string; mailboxId?: string } = { userId };
+    if (normalizedMailboxId) {
+      whereClause.mailboxId = normalizedMailboxId;
+    }
+    const latestEvent = await this.mailboxInboundEventRepo.findOne({
+      where: whereClause,
+      order: { createdAt: 'DESC' },
+    });
+
+    const aggregate = groupedCounts.reduce(
+      (acc, entry) => {
+        const countValue = Number(entry.count || '0');
+        acc.totalCount += countValue;
+        if (entry.status === 'ACCEPTED') {
+          acc.acceptedCount += countValue;
+        } else if (entry.status === 'DEDUPLICATED') {
+          acc.deduplicatedCount += countValue;
+        } else if (entry.status === 'REJECTED') {
+          acc.rejectedCount += countValue;
+        }
+        return acc;
+      },
+      {
+        totalCount: 0,
+        acceptedCount: 0,
+        deduplicatedCount: 0,
+        rejectedCount: 0,
+      },
+    );
+
+    return {
+      mailboxId: normalizedMailboxId,
+      mailboxEmail,
+      windowHours,
+      totalCount: aggregate.totalCount,
+      acceptedCount: aggregate.acceptedCount,
+      deduplicatedCount: aggregate.deduplicatedCount,
+      rejectedCount: aggregate.rejectedCount,
+      lastProcessedAt: latestEvent?.createdAt ?? null,
+    };
+  }
+
   private async deriveBaseFromUser(userId: string): Promise<string> {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
@@ -151,5 +302,67 @@ export class MailboxService {
       throw new BadRequestException('No workspace available for this user');
     }
     return preferredWorkspace.id;
+  }
+
+  private normalizeInboundEventStatus(status?: string | null): string | null {
+    const normalizedStatus = String(status || '')
+      .trim()
+      .toUpperCase();
+    if (!normalizedStatus) return null;
+    if (MailboxService.INBOUND_EVENT_STATUSES.has(normalizedStatus)) {
+      return normalizedStatus;
+    }
+    throw new BadRequestException(
+      'Invalid status filter. Allowed values: ACCEPTED, DEDUPLICATED, REJECTED.',
+    );
+  }
+
+  private normalizeInboundEventLimit(limit?: number | null): number {
+    const rawLimit =
+      typeof limit === 'number' && Number.isFinite(limit)
+        ? Math.floor(limit)
+        : MailboxService.DEFAULT_INBOUND_EVENT_LIMIT;
+    if (rawLimit < 1) return 1;
+    if (rawLimit > MailboxService.MAX_INBOUND_EVENT_LIMIT) {
+      return MailboxService.MAX_INBOUND_EVENT_LIMIT;
+    }
+    return rawLimit;
+  }
+
+  private normalizeStatsWindowHours(windowHours?: number | null): number {
+    const rawWindow =
+      typeof windowHours === 'number' && Number.isFinite(windowHours)
+        ? Math.floor(windowHours)
+        : MailboxService.DEFAULT_STATS_WINDOW_HOURS;
+    if (rawWindow < 1) return 1;
+    if (rawWindow > MailboxService.MAX_STATS_WINDOW_HOURS) {
+      return MailboxService.MAX_STATS_WINDOW_HOURS;
+    }
+    return rawWindow;
+  }
+
+  private async assertMailboxOwnership(
+    userId: string,
+    mailboxId: string,
+  ): Promise<Mailbox> {
+    const mailbox = await this.mailboxRepo.findOne({
+      where: { id: mailboxId, userId },
+    });
+    if (!mailbox) {
+      throw new NotFoundException('Mailbox not found');
+    }
+    return mailbox;
+  }
+
+  private async resolveMailboxEmailById(
+    userId: string,
+    mailboxIds: string[],
+  ): Promise<Map<string, string>> {
+    if (!mailboxIds.length) return new Map<string, string>();
+    const mailboxes = await this.mailboxRepo.find({
+      where: { userId, id: In(mailboxIds) },
+      select: ['id', 'email'],
+    });
+    return new Map(mailboxes.map((mailbox) => [mailbox.id, mailbox.email]));
   }
 }

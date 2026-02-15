@@ -249,6 +249,31 @@ type EmailLabel {
   count: Float!
 }
 
+type MailboxInboundEventObservabilityResponse {
+  id: String!
+  mailboxId: String!
+  mailboxEmail: String
+  messageId: String
+  emailId: String
+  inboundThreadKey: String
+  status: String!
+  sourceIp: String
+  signatureValidated: Boolean!
+  errorReason: String
+  createdAt: DateTime!
+}
+
+type MailboxInboundEventStatsResponse {
+  mailboxId: String
+  mailboxEmail: String
+  windowHours: Int!
+  totalCount: Int!
+  acceptedCount: Int!
+  deduplicatedCount: Int!
+  rejectedCount: Int!
+  lastProcessedAt: DateTime
+}
+
 type Query {
   users: [User!]!
   user(id: ID!): User
@@ -271,6 +296,8 @@ type Query {
   getEmailProviders(workspaceId: String): [Provider!]!
   getInboxMessages(inboxType: String!, inboxId: String!, limit: Int, offset: Int): [InboxMessage!]!
   myMailboxes(workspaceId: String): [String!]!
+  myMailboxInboundEvents(mailboxId: String, status: String, limit: Int): [MailboxInboundEventObservabilityResponse!]!
+  myMailboxInboundEventStats(mailboxId: String, windowHours: Int): MailboxInboundEventStatsResponse!
 
   """Get all features"""
   getAllFeatures: [Feature!]!

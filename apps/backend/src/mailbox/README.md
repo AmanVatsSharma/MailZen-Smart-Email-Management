@@ -28,6 +28,8 @@ This module covers:
   - GraphQL:
     - `createMyMailbox(desiredLocalPart?: String): String!`
     - `myMailboxes(workspaceId?: String): [String!]!`
+    - `myMailboxInboundEvents(mailboxId?: String, status?: String, limit?: Int): [MailboxInboundEventObservabilityResponse!]!`
+    - `myMailboxInboundEventStats(mailboxId?: String, windowHours?: Int): MailboxInboundEventStatsResponse!`
 - `mailbox-inbound.controller.ts`
   - REST:
     - `POST /mailbox/inbound/events`
@@ -115,6 +117,16 @@ flowchart TD
   - request remains idempotent across cache misses
 - For mailbox-resolved failures (quota/suspension/payload errors), service records
   `REJECTED` status in `mailbox_inbound_events` for post-incident analysis.
+
+## Inbound observability GraphQL queries
+
+- `myMailboxInboundEvents`
+  - scoped to authenticated user ownership
+  - supports optional `mailboxId`, `status`, and `limit`
+  - includes mailbox email, signature validation flag, dedupe/reject status, and error reason
+- `myMailboxInboundEventStats`
+  - returns accepted/deduplicated/rejected totals for a rolling window
+  - supports optional mailbox scoping and configurable `windowHours` (clamped server-side)
 
 ## Notes
 
