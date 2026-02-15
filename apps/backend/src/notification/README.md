@@ -26,7 +26,14 @@ Provide a persistent notification foundation for user-visible product events
 
 - `GmailSyncScheduler` emits `SYNC_FAILED` notification on cron sync failure
 - `OutlookSyncScheduler` emits `SYNC_FAILED` notification on cron sync failure
+- `AiAgentGatewayService` emits `AGENT_ACTION_REQUIRED` for follow-up reminders
 - Emission respects stored user preferences (`inAppEnabled`, `syncFailureEnabled`)
+
+### Metadata conventions
+
+Notification metadata is intentionally extensible. Current producers attach:
+- Sync failures: `providerId`, `providerType`, `workspaceId`
+- AI follow-up reminders: `threadId`, `followupAt`, `workspaceId`, `providerId`
 
 ## Flow
 

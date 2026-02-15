@@ -56,7 +56,7 @@ type DashboardNotification = {
   title: string;
   message: string;
   isRead: boolean;
-  metadata?: Record<string, unknown> | null;
+  metadata?: Record<string, unknown> | string | null;
   createdAt: string;
 };
 
@@ -191,8 +191,30 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     }
   };
 
+  const resolveNotificationMetadata = (
+    notification: DashboardNotification,
+  ): Record<string, unknown> => {
+    const rawMetadata = notification.metadata;
+    if (!rawMetadata) return {};
+    if (typeof rawMetadata === 'string') {
+      try {
+        const parsed = JSON.parse(rawMetadata) as unknown;
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {
+        return {};
+      }
+      return {};
+    }
+    if (typeof rawMetadata === 'object' && !Array.isArray(rawMetadata)) {
+      return rawMetadata;
+    }
+    return {};
+  };
+
   const formatNotificationContext = (notification: DashboardNotification): string | null => {
-    const metadata = notification.metadata || {};
+    const metadata = resolveNotificationMetadata(notification);
     const workspaceId =
       typeof metadata.workspaceId === 'string' ? metadata.workspaceId : null;
     const providerType =
