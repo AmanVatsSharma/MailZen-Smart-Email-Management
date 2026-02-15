@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import {
   Injectable,
   Logger,
@@ -18,6 +19,7 @@ import {
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
+import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
 
 type GmailListResponse = {
   messages?: { id: string; threadId?: string }[];
@@ -72,6 +74,7 @@ export class GmailSyncService {
     private readonly externalEmailLabelRepo: Repository<ExternalEmailLabel>,
     @InjectRepository(ExternalEmailMessage)
     private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
+    private readonly providerSyncLease: ProviderSyncLeaseService,
   ) {
     this.providerSecretsKeyring = resolveProviderSecretsKeyring();
     // Dedicated client for Gmail API access token refresh.
@@ -88,7 +91,10 @@ export class GmailSyncService {
       ? decryptProviderSecret(provider.accessToken, this.providerSecretsKeyring)
       : '';
     const decryptedRefreshToken = provider.refreshToken
-      ? decryptProviderSecret(provider.refreshToken, this.providerSecretsKeyring)
+      ? decryptProviderSecret(
+          provider.refreshToken,
+          this.providerSecretsKeyring,
+        )
       : '';
 
     if (!decryptedRefreshToken && !decryptedAccessToken) {
@@ -274,6 +280,105 @@ export class GmailSyncService {
     return { ids, mode: 'full', historyId: null };
   }
 
+  private resolvePushSyncMaxMessages(): number {
+    const parsedValue = Number(process.env.GMAIL_PUSH_SYNC_MAX_MESSAGES || 25);
+    const candidate = Number.isFinite(parsedValue)
+      ? Math.floor(parsedValue)
+      : 25;
+    if (candidate < 1) return 1;
+    if (candidate > 200) return 200;
+    return candidate;
+  }
+
+  private normalizeHistoryId(rawValue?: string | null): string | null {
+    const normalized = String(rawValue || '').trim();
+    return normalized || null;
+  }
+
+  private shouldAdvanceHistoryCursor(input: {
+    currentHistoryId?: string | null;
+    incomingHistoryId?: string | null;
+  }): boolean {
+    const current = this.normalizeHistoryId(input.currentHistoryId);
+    const incoming = this.normalizeHistoryId(input.incomingHistoryId);
+    if (!incoming) return false;
+    if (!current) return true;
+
+    try {
+      return BigInt(incoming) > BigInt(current);
+    } catch {
+      return incoming !== current;
+    }
+  }
+
+  async processPushNotification(input: {
+    emailAddress: string;
+    historyId?: string | null;
+  }): Promise<{ processedProviders: number; skippedProviders: number }> {
+    const normalizedEmail = String(input.emailAddress || '')
+      .trim()
+      .toLowerCase();
+    if (!normalizedEmail) {
+      throw new BadRequestException('Gmail push notification email missing');
+    }
+    const providers = await this.emailProviderRepo.find({
+      where: {
+        type: 'GMAIL',
+        isActive: true,
+        email: normalizedEmail,
+      },
+    });
+    if (!providers.length) {
+      this.logger.warn(
+        `Gmail push notification ignored: no active provider for email=${normalizedEmail}`,
+      );
+      return { processedProviders: 0, skippedProviders: 0 };
+    }
+
+    let processedProviders = 0;
+    let skippedProviders = 0;
+    const webhookHistoryId = this.normalizeHistoryId(input.historyId);
+    const maxMessages = this.resolvePushSyncMaxMessages();
+
+    for (const provider of providers) {
+      const leaseAcquired =
+        await this.providerSyncLease.acquireProviderSyncLease({
+          providerId: provider.id,
+          providerType: 'GMAIL',
+        });
+      if (!leaseAcquired) {
+        skippedProviders += 1;
+        continue;
+      }
+
+      if (
+        this.shouldAdvanceHistoryCursor({
+          currentHistoryId: provider.gmailHistoryId,
+          incomingHistoryId: webhookHistoryId,
+        })
+      ) {
+        await this.emailProviderRepo.update(
+          { id: provider.id },
+          { gmailHistoryId: webhookHistoryId || undefined },
+        );
+      }
+
+      try {
+        await this.syncGmailProvider(provider.id, provider.userId, maxMessages);
+        processedProviders += 1;
+      } catch (error: unknown) {
+        skippedProviders += 1;
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Gmail push processing failed provider=${provider.id}: ${errorMessage}`,
+        );
+      }
+    }
+
+    return { processedProviders, skippedProviders };
+  }
+
   /**
    * Sync Gmail messages into `ExternalEmailMessage`.
    *
@@ -377,7 +482,8 @@ export class GmailSyncService {
       }
 
       const latestHistoryId =
-        syncBatch.historyId || (await this.getLatestGmailHistoryId(accessToken));
+        syncBatch.historyId ||
+        (await this.getLatestGmailHistoryId(accessToken));
 
       await this.emailProviderRepo.update(
         { id: providerId },

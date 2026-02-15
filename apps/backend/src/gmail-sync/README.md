@@ -9,6 +9,7 @@ This module stores messages in `ExternalEmailMessage` (TypeORM entity) and suppo
 - fetch synced messages (legacy list API)
 - sync provider label metadata (for UI labels)
 - incremental sync using stored Gmail `historyId` cursor with fallback to full sync
+- process Gmail Pub/Sub push webhook notifications for near-real-time incremental sync
 
 ## Required Google scopes
 
@@ -48,6 +49,21 @@ Scheduler hardening features:
   - success updates `lastSyncedAt`
   - failures persist `lastSyncError` and `lastSyncErrorAt`
   - fresh sync start clears stale error state
+
+## Push webhook endpoint
+
+- `POST /gmail-sync/webhooks/push`
+  - expects Google Pub/Sub push envelope body:
+    - `message.data` = base64 JSON containing `emailAddress` and `historyId`
+  - optional query auth token:
+    - `?token=<value>`
+    - validated against `GMAIL_PUSH_WEBHOOK_TOKEN` when configured
+  - route resolves matching active Gmail providers by email and triggers
+    lease-guarded `processPushNotification` sync path.
+
+Push tuning env vars:
+- `GMAIL_PUSH_WEBHOOK_TOKEN` (optional shared secret query token)
+- `GMAIL_PUSH_SYNC_MAX_MESSAGES` (default `25`, clamped `1..200`)
 
 ## Incremental cursor behavior
 

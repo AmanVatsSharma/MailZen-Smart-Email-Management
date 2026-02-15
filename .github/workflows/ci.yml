@@ -51,6 +51,7 @@ jobs:
           common/rate-limit/request-rate-limiter.spec.ts
           common/rate-limit/http-rate-limit.middleware.spec.ts
           gmail-sync/gmail-sync.scheduler.spec.ts
+          gmail-sync/gmail-sync-webhook.controller.spec.ts
           outlook-sync/outlook-sync.service.spec.ts
           outlook-sync/outlook-sync.scheduler.spec.ts
           email-integration/provider-sync-lease.service.spec.ts
