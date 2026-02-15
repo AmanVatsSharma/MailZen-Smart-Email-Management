@@ -26,6 +26,9 @@ type NotificationPreferences = {
   emailEnabled: boolean;
   pushEnabled: boolean;
   syncFailureEnabled: boolean;
+  mailboxInboundAcceptedEnabled: boolean;
+  mailboxInboundDeduplicatedEnabled: boolean;
+  mailboxInboundRejectedEnabled: boolean;
 };
 
 const DEFAULT_PREFERENCES: NotificationPreferences = {
@@ -33,6 +36,9 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   emailEnabled: true,
   pushEnabled: false,
   syncFailureEnabled: true,
+  mailboxInboundAcceptedEnabled: true,
+  mailboxInboundDeduplicatedEnabled: false,
+  mailboxInboundRejectedEnabled: true,
 };
 
 const NotificationsSettingsPage = () => {
@@ -66,6 +72,12 @@ const NotificationsSettingsPage = () => {
       emailEnabled: serverPreferences.emailEnabled,
       pushEnabled: serverPreferences.pushEnabled,
       syncFailureEnabled: serverPreferences.syncFailureEnabled,
+      mailboxInboundAcceptedEnabled:
+        serverPreferences.mailboxInboundAcceptedEnabled,
+      mailboxInboundDeduplicatedEnabled:
+        serverPreferences.mailboxInboundDeduplicatedEnabled,
+      mailboxInboundRejectedEnabled:
+        serverPreferences.mailboxInboundRejectedEnabled,
     });
   }, [data]);
 
@@ -77,6 +89,12 @@ const NotificationsSettingsPage = () => {
           emailEnabled: preferences.emailEnabled,
           pushEnabled: preferences.pushEnabled,
           syncFailureEnabled: preferences.syncFailureEnabled,
+          mailboxInboundAcceptedEnabled:
+            preferences.mailboxInboundAcceptedEnabled,
+          mailboxInboundDeduplicatedEnabled:
+            preferences.mailboxInboundDeduplicatedEnabled,
+          mailboxInboundRejectedEnabled:
+            preferences.mailboxInboundRejectedEnabled,
         },
       },
     });
@@ -113,7 +131,9 @@ const NotificationsSettingsPage = () => {
       <Card>
         <CardHeader>
           <CardTitle>Channels</CardTitle>
-          <CardDescription>Choose which channels MailZen can use to reach you.</CardDescription>
+          <CardDescription>
+            Choose which channels MailZen can use to reach you.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           {error && (
@@ -186,6 +206,70 @@ const NotificationsSettingsPage = () => {
             />
           </div>
         </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Mailbox inbound status alerts</CardTitle>
+          <CardDescription>
+            Decide which inbound processing outcomes should notify you.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-medium">Accepted inbound events</h3>
+              <p className="text-sm text-muted-foreground">
+                Notify me when new incoming alias emails are accepted.
+              </p>
+            </div>
+            <Switch
+              checked={preferences.mailboxInboundAcceptedEnabled}
+              onCheckedChange={(checked) =>
+                setPreferences((prev) => ({
+                  ...prev,
+                  mailboxInboundAcceptedEnabled: checked,
+                }))
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-medium">Deduplicated inbound events</h3>
+              <p className="text-sm text-muted-foreground">
+                Notify me when replayed message IDs are safely deduplicated.
+              </p>
+            </div>
+            <Switch
+              checked={preferences.mailboxInboundDeduplicatedEnabled}
+              onCheckedChange={(checked) =>
+                setPreferences((prev) => ({
+                  ...prev,
+                  mailboxInboundDeduplicatedEnabled: checked,
+                }))
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-medium">Rejected inbound events</h3>
+              <p className="text-sm text-muted-foreground">
+                Notify me when inbound events are rejected due to quota, status, or policy failures.
+              </p>
+            </div>
+            <Switch
+              checked={preferences.mailboxInboundRejectedEnabled}
+              onCheckedChange={(checked) =>
+                setPreferences((prev) => ({
+                  ...prev,
+                  mailboxInboundRejectedEnabled: checked,
+                }))
+              }
+            />
+          </div>
+        </CardContent>
       </Card>
     </DashboardPageShell>
   );

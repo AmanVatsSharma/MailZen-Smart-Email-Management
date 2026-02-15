@@ -37,6 +37,18 @@ export class UserNotificationPreference {
   syncFailureEnabled: boolean;
 
   @Field()
+  @Column({ default: true })
+  mailboxInboundAcceptedEnabled: boolean;
+
+  @Field()
+  @Column({ default: false })
+  mailboxInboundDeduplicatedEnabled: boolean;
+
+  @Field()
+  @Column({ default: true })
+  mailboxInboundRejectedEnabled: boolean;
+
+  @Field()
   @CreateDateColumn()
   createdAt: Date;
 

@@ -381,6 +381,67 @@ export class MailboxInboundService {
     );
   }
 
+  private async emitInboundNotification(input: {
+    userId: string;
+    mailboxId: string;
+    mailboxEmail: string;
+    workspaceId?: string | null;
+    from: string;
+    subject: string;
+    status: 'ACCEPTED' | 'DEDUPLICATED' | 'REJECTED';
+    sourceIp?: string | null;
+    messageId?: string | null;
+    inboundThreadKey?: string | null;
+    emailId?: string | null;
+    sizeBytes?: string | null;
+    errorReason?: string | null;
+  }): Promise<void> {
+    const title = (() => {
+      if (input.status === 'ACCEPTED') {
+        return `New email on ${input.mailboxEmail}`;
+      }
+      if (input.status === 'DEDUPLICATED') {
+        return `Duplicate inbound email on ${input.mailboxEmail}`;
+      }
+      return `Inbound email rejected on ${input.mailboxEmail}`;
+    })();
+    const message = (() => {
+      if (input.status === 'ACCEPTED') {
+        return `From ${input.from}: ${input.subject}`;
+      }
+      if (input.status === 'DEDUPLICATED') {
+        const duplicateMessageId = input.messageId || '(missing messageId)';
+        return `Duplicate delivery for ${duplicateMessageId} was deduplicated.`;
+      }
+      return `Rejected inbound message from ${input.from}: ${input.errorReason || 'unknown error'}`;
+    })();
+
+    try {
+      await this.notificationService.createNotification({
+        userId: input.userId,
+        type: 'MAILBOX_INBOUND',
+        title,
+        message,
+        metadata: {
+          mailboxId: input.mailboxId,
+          mailboxEmail: input.mailboxEmail,
+          workspaceId: input.workspaceId || null,
+          sizeBytes: input.sizeBytes || null,
+          messageId: input.messageId || null,
+          inboundThreadKey: input.inboundThreadKey || null,
+          sourceIp: input.sourceIp || null,
+          inboundStatus: input.status,
+          emailId: input.emailId || null,
+          errorReason: input.errorReason || null,
+        },
+      });
+    } catch (notificationError) {
+      this.logger.warn(
+        `mailbox-inbound: notification emit failed mailbox=${input.mailboxEmail} status=${input.status} reason=${notificationError instanceof Error ? notificationError.message : 'unknown'}`,
+      );
+    }
+  }
+
   async ingestInboundEvent(
     input: MailboxInboundWebhookInput,
     auth: InboundAuthInput,
@@ -391,6 +452,7 @@ export class MailboxInboundService {
     let outcome: 'ACCEPTED' | 'DEDUPLICATED' | 'REJECTED' = 'REJECTED';
     let resolvedMailboxId: string | null = null;
     let resolvedUserId: string | null = null;
+    let resolvedWorkspaceId: string | null = null;
     let signatureValidated = false;
     let deduplicated = false;
 
@@ -407,6 +469,7 @@ export class MailboxInboundService {
       }
       resolvedMailboxId = mailbox.id;
       resolvedUserId = mailbox.userId;
+      resolvedWorkspaceId = mailbox.workspaceId || null;
 
       const duplicate = this.findDuplicateMessageId(
         mailbox.id,
@@ -427,6 +490,18 @@ export class MailboxInboundService {
         this.logger.log(
           `mailbox-inbound: duplicate messageId accepted mailbox=${mailbox.email} emailId=${duplicate.emailId}`,
         );
+        await this.emitInboundNotification({
+          userId: mailbox.userId,
+          mailboxId: mailbox.id,
+          mailboxEmail: mailbox.email,
+          workspaceId: mailbox.workspaceId,
+          from: input.from,
+          subject: input.subject?.trim() || '(no subject)',
+          status: 'DEDUPLICATED',
+          sourceIp: auth.sourceIp || null,
+          messageId: normalizedMessageId,
+          emailId: duplicate.emailId,
+        });
         return {
           accepted: true,
           mailboxId: mailbox.id,
@@ -448,6 +523,18 @@ export class MailboxInboundService {
           normalizedMessageId || undefined,
           persistedInboundEvent.emailId,
         );
+        await this.emitInboundNotification({
+          userId: mailbox.userId,
+          mailboxId: mailbox.id,
+          mailboxEmail: mailbox.email,
+          workspaceId: mailbox.workspaceId,
+          from: input.from,
+          subject: input.subject?.trim() || '(no subject)',
+          status: 'DEDUPLICATED',
+          sourceIp: auth.sourceIp || null,
+          messageId: normalizedMessageId,
+          emailId: persistedInboundEvent.emailId,
+        });
         return {
           accepted: true,
           mailboxId: mailbox.id,
@@ -481,6 +568,18 @@ export class MailboxInboundService {
         this.logger.log(
           `mailbox-inbound: persistent duplicate accepted mailbox=${mailbox.email} emailId=${persistedDuplicate.id}`,
         );
+        await this.emitInboundNotification({
+          userId: mailbox.userId,
+          mailboxId: mailbox.id,
+          mailboxEmail: mailbox.email,
+          workspaceId: mailbox.workspaceId,
+          from: input.from,
+          subject: input.subject?.trim() || '(no subject)',
+          status: 'DEDUPLICATED',
+          sourceIp: auth.sourceIp || null,
+          messageId: normalizedMessageId,
+          emailId: persistedDuplicate.id,
+        });
         return {
           accepted: true,
           mailboxId: mailbox.id,
@@ -533,20 +632,19 @@ export class MailboxInboundService {
         { usedBytes: nextUsage },
       );
 
-      await this.notificationService.createNotification({
+      await this.emitInboundNotification({
         userId: mailbox.userId,
-        type: 'MAILBOX_INBOUND',
-        title: `New email on ${mailbox.email}`,
-        message: `From ${input.from}: ${subject}`,
-        metadata: {
-          mailboxId: mailbox.id,
-          mailboxEmail: mailbox.email,
-          workspaceId: mailbox.workspaceId || null,
-          sizeBytes: inboundSizeBytes.toString(),
-          messageId: normalizedMessageId,
-          inboundThreadKey,
-          sourceIp: auth.sourceIp || null,
-        },
+        mailboxId: mailbox.id,
+        mailboxEmail: mailbox.email,
+        workspaceId: mailbox.workspaceId,
+        from: input.from,
+        subject,
+        status: 'ACCEPTED',
+        sourceIp: auth.sourceIp || null,
+        messageId: normalizedMessageId,
+        inboundThreadKey,
+        emailId: email.id,
+        sizeBytes: inboundSizeBytes.toString(),
       });
 
       await this.upsertInboundEvent({
@@ -592,6 +690,20 @@ export class MailboxInboundService {
         status: 'REJECTED',
         errorReason,
       });
+      if (resolvedMailboxId && resolvedUserId) {
+        await this.emitInboundNotification({
+          userId: resolvedUserId,
+          mailboxId: resolvedMailboxId,
+          mailboxEmail,
+          workspaceId: resolvedWorkspaceId,
+          from: input.from,
+          subject: input.subject?.trim() || '(no subject)',
+          status: 'REJECTED',
+          sourceIp: auth.sourceIp || null,
+          messageId: normalizedMessageId,
+          errorReason,
+        });
+      }
       throw error;
     } finally {
       this.logger.log(

@@ -237,3 +237,35 @@ WHERE "messageId" IS NOT NULL
 GROUP BY "mailboxId", "messageId"
 HAVING COUNT(*) > 1;
 ```
+
+## Notification Mailbox Inbound Preference Rollout Notes (2026-02-16)
+
+New migration: `20260216001000-notification-mailbox-inbound-preferences.ts`
+
+This migration introduces:
+
+- `user_notification_preferences.mailboxInboundAcceptedEnabled`
+- `user_notification_preferences.mailboxInboundDeduplicatedEnabled`
+- `user_notification_preferences.mailboxInboundRejectedEnabled`
+
+### Safe rollout sequence
+
+1. Deploy backend containing notification preference migration + notification service updates.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- notification/notification.service.spec.ts`
+   - `npm run build`
+5. Verify UI/API preference paths:
+   - `myNotificationPreferences`
+   - `updateMyNotificationPreferences`
+
+### Staging verification SQL (notification preference defaults)
+
+```sql
+SELECT
+  COUNT(*) FILTER (WHERE "mailboxInboundAcceptedEnabled" = true) AS accepted_enabled,
+  COUNT(*) FILTER (WHERE "mailboxInboundDeduplicatedEnabled" = false) AS dedupe_default_disabled,
+  COUNT(*) FILTER (WHERE "mailboxInboundRejectedEnabled" = true) AS rejected_enabled
+FROM user_notification_preferences;
+```

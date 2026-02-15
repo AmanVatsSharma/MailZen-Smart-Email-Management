@@ -13,4 +13,13 @@ export class UpdateNotificationPreferencesInput {
 
   @Field({ nullable: true })
   syncFailureEnabled?: boolean;
+
+  @Field({ nullable: true })
+  mailboxInboundAcceptedEnabled?: boolean;
+
+  @Field({ nullable: true })
+  mailboxInboundDeduplicatedEnabled?: boolean;
+
+  @Field({ nullable: true })
+  mailboxInboundRejectedEnabled?: boolean;
 }

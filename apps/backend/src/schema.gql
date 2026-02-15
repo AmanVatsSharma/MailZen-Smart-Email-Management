@@ -740,6 +740,9 @@ type UserNotificationPreference {
   emailEnabled: Boolean!
   pushEnabled: Boolean!
   syncFailureEnabled: Boolean!
+  mailboxInboundAcceptedEnabled: Boolean!
+  mailboxInboundDeduplicatedEnabled: Boolean!
+  mailboxInboundRejectedEnabled: Boolean!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -749,6 +752,9 @@ input UpdateNotificationPreferencesInput {
   emailEnabled: Boolean
   pushEnabled: Boolean
   syncFailureEnabled: Boolean
+  mailboxInboundAcceptedEnabled: Boolean
+  mailboxInboundDeduplicatedEnabled: Boolean
+  mailboxInboundRejectedEnabled: Boolean
 }
 
 type Workspace {

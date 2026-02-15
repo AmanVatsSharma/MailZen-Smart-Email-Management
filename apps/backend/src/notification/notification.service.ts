@@ -13,6 +13,11 @@ type CreateNotificationInput = {
   metadata?: Record<string, unknown>;
 };
 
+type MailboxInboundNotificationStatus =
+  | 'ACCEPTED'
+  | 'DEDUPLICATED'
+  | 'REJECTED';
+
 @Injectable()
 export class NotificationService {
   constructor(
@@ -29,6 +34,9 @@ export class NotificationService {
       emailEnabled: true,
       pushEnabled: false,
       syncFailureEnabled: true,
+      mailboxInboundAcceptedEnabled: true,
+      mailboxInboundDeduplicatedEnabled: false,
+      mailboxInboundRejectedEnabled: true,
     });
     return row;
   }
@@ -62,7 +70,64 @@ export class NotificationService {
     if (typeof input.syncFailureEnabled === 'boolean') {
       existing.syncFailureEnabled = input.syncFailureEnabled;
     }
+    if (typeof input.mailboxInboundAcceptedEnabled === 'boolean') {
+      existing.mailboxInboundAcceptedEnabled =
+        input.mailboxInboundAcceptedEnabled;
+    }
+    if (typeof input.mailboxInboundDeduplicatedEnabled === 'boolean') {
+      existing.mailboxInboundDeduplicatedEnabled =
+        input.mailboxInboundDeduplicatedEnabled;
+    }
+    if (typeof input.mailboxInboundRejectedEnabled === 'boolean') {
+      existing.mailboxInboundRejectedEnabled =
+        input.mailboxInboundRejectedEnabled;
+    }
     return this.notificationPreferenceRepo.save(existing);
+  }
+
+  private resolveMailboxInboundStatus(
+    metadata?: Record<string, unknown>,
+  ): MailboxInboundNotificationStatus {
+    const rawStatus = metadata?.inboundStatus;
+    if (typeof rawStatus !== 'string') return 'ACCEPTED';
+
+    const normalizedStatus = rawStatus.trim().toUpperCase();
+    if (normalizedStatus === 'DEDUPLICATED') return 'DEDUPLICATED';
+    if (normalizedStatus === 'REJECTED') return 'REJECTED';
+    return 'ACCEPTED';
+  }
+
+  private resolveIgnoredPreferenceKey(
+    preference: UserNotificationPreference,
+    input: CreateNotificationInput,
+  ): string | null {
+    if (input.type === 'SYNC_FAILED' && !preference.syncFailureEnabled) {
+      return 'syncFailureEnabled';
+    }
+
+    if (input.type !== 'MAILBOX_INBOUND') return null;
+    const mailboxInboundStatus = this.resolveMailboxInboundStatus(
+      input.metadata,
+    );
+    if (
+      mailboxInboundStatus === 'ACCEPTED' &&
+      !preference.mailboxInboundAcceptedEnabled
+    ) {
+      return 'mailboxInboundAcceptedEnabled';
+    }
+    if (
+      mailboxInboundStatus === 'DEDUPLICATED' &&
+      !preference.mailboxInboundDeduplicatedEnabled
+    ) {
+      return 'mailboxInboundDeduplicatedEnabled';
+    }
+    if (
+      mailboxInboundStatus === 'REJECTED' &&
+      !preference.mailboxInboundRejectedEnabled
+    ) {
+      return 'mailboxInboundRejectedEnabled';
+    }
+    return null;
   }
 
   async createNotification(
@@ -84,7 +149,11 @@ export class NotificationService {
       return this.notificationRepo.save(muted);
     }
 
-    if (input.type === 'SYNC_FAILED' && !preference.syncFailureEnabled) {
+    const ignoredPreferenceKey = this.resolveIgnoredPreferenceKey(
+      preference,
+      input,
+    );
+    if (ignoredPreferenceKey) {
       const ignored = this.notificationRepo.create({
         userId: input.userId,
         type: input.type,
@@ -93,6 +162,7 @@ export class NotificationService {
         metadata: {
           ...(input.metadata || {}),
           ignoredByPreference: true,
+          ignoredPreferenceKey,
         },
         isRead: true,
       });

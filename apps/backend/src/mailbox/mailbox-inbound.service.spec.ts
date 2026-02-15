@@ -129,6 +129,7 @@ describe('MailboxInboundService', () => {
           workspaceId: 'workspace-1',
           sizeBytes: '200',
           sourceIp: '127.0.0.1',
+          inboundStatus: 'ACCEPTED',
         }),
       }),
     );
@@ -183,6 +184,7 @@ describe('MailboxInboundService', () => {
         { inboundTokenHeader: 'test-inbound-token' },
       ),
     ).rejects.toThrow(NotFoundException);
+    expect(notificationService.createNotification).not.toHaveBeenCalled();
   });
 
   it('rejects inbound payload when mailbox is suspended', async () => {
@@ -210,6 +212,17 @@ describe('MailboxInboundService', () => {
       ),
     ).rejects.toThrow(BadRequestException);
     expect(emailRepo.save).not.toHaveBeenCalled();
+    expect(notificationService.createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        type: 'MAILBOX_INBOUND',
+        metadata: expect.objectContaining({
+          mailboxId: 'mailbox-1',
+          inboundStatus: 'REJECTED',
+          messageId: '<suspended-mailbox@example.com>',
+        }),
+      }),
+    );
     expect(mailboxInboundEventRepo.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         mailboxId: 'mailbox-1',
@@ -247,6 +260,17 @@ describe('MailboxInboundService', () => {
       ),
     ).rejects.toThrow(BadRequestException);
     expect(emailRepo.save).not.toHaveBeenCalled();
+    expect(notificationService.createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        type: 'MAILBOX_INBOUND',
+        metadata: expect.objectContaining({
+          mailboxId: 'mailbox-1',
+          inboundStatus: 'REJECTED',
+          messageId: '<quota-exceeded@example.com>',
+        }),
+      }),
+    );
     expect(mailboxInboundEventRepo.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         mailboxId: 'mailbox-1',
@@ -308,7 +332,17 @@ describe('MailboxInboundService', () => {
 
     expect(emailRepo.save).toHaveBeenCalledTimes(1);
     expect(mailboxRepo.update).toHaveBeenCalledTimes(1);
-    expect(notificationService.createNotification).toHaveBeenCalledTimes(1);
+    expect(notificationService.createNotification).toHaveBeenCalledTimes(2);
+    expect(notificationService.createNotification).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        type: 'MAILBOX_INBOUND',
+        metadata: expect.objectContaining({
+          inboundStatus: 'DEDUPLICATED',
+          messageId: '<msg-dedupe@example.com>',
+        }),
+      }),
+    );
     expect(mailboxInboundEventRepo.upsert).toHaveBeenCalledTimes(2);
     expect(duplicateResult).toMatchObject({
       accepted: true,
@@ -441,6 +475,15 @@ describe('MailboxInboundService', () => {
       deduplicated: true,
       emailId: 'email-existing-77',
     });
+    expect(notificationService.createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'MAILBOX_INBOUND',
+        metadata: expect.objectContaining({
+          inboundStatus: 'DEDUPLICATED',
+          messageId: '<persisted-event@example.com>',
+        }),
+      }),
+    );
   });
 
   it('deduplicates by persisted inbound message id across cache misses', async () => {
@@ -476,6 +519,15 @@ describe('MailboxInboundService', () => {
       deduplicated: true,
       emailId: 'existing-email-1',
     });
+    expect(notificationService.createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'MAILBOX_INBOUND',
+        metadata: expect.objectContaining({
+          inboundStatus: 'DEDUPLICATED',
+          messageId: '<persisted@example.com>',
+        }),
+      }),
+    );
     expect(mailboxInboundEventRepo.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         mailboxId: 'mailbox-1',

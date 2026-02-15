@@ -37,6 +37,9 @@ export const GET_NOTIFICATION_PREFERENCES = gql`
       emailEnabled
       pushEnabled
       syncFailureEnabled
+      mailboxInboundAcceptedEnabled
+      mailboxInboundDeduplicatedEnabled
+      mailboxInboundRejectedEnabled
       updatedAt
     }
   }
@@ -52,6 +55,9 @@ export const UPDATE_NOTIFICATION_PREFERENCES = gql`
       emailEnabled
       pushEnabled
       syncFailureEnabled
+      mailboxInboundAcceptedEnabled
+      mailboxInboundDeduplicatedEnabled
+      mailboxInboundRejectedEnabled
       updatedAt
     }
   }

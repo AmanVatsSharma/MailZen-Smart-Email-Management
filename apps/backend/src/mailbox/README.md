@@ -40,7 +40,8 @@ This module covers:
   - persists inbound payload in `emails` table with `status=NEW`, `inboundMessageId`, `inboundThreadKey`
   - upserts idempotency/observability records in `mailbox_inbound_events`
   - updates mailbox `usedBytes`
-  - emits `MAILBOX_INBOUND` notification metadata context
+  - emits `MAILBOX_INBOUND` notification metadata context with `inboundStatus`
+    (`ACCEPTED`/`DEDUPLICATED`/`REJECTED`)
   - derives thread key from `inReplyTo` / `messageId` for unified inbox mailbox threading
 
 ## Provisioning flow
@@ -117,6 +118,8 @@ flowchart TD
   - request remains idempotent across cache misses
 - For mailbox-resolved failures (quota/suspension/payload errors), service records
   `REJECTED` status in `mailbox_inbound_events` for post-incident analysis.
+- Mailbox inbound notifications are emitted with status metadata and can be
+  filtered via notification preferences (`mailboxInbound*Enabled` fields).
 
 ## Inbound observability GraphQL queries
 

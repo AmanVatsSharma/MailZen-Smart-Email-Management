@@ -39,6 +39,9 @@ describe('NotificationService', () => {
       emailEnabled: true,
       pushEnabled: false,
       syncFailureEnabled: true,
+      mailboxInboundAcceptedEnabled: true,
+      mailboxInboundDeduplicatedEnabled: false,
+      mailboxInboundRejectedEnabled: true,
     } as UserNotificationPreference;
     preferenceRepo.findOne.mockResolvedValue(preferences);
 
@@ -78,6 +81,9 @@ describe('NotificationService', () => {
       emailEnabled: true,
       pushEnabled: false,
       syncFailureEnabled: false,
+      mailboxInboundAcceptedEnabled: true,
+      mailboxInboundDeduplicatedEnabled: false,
+      mailboxInboundRejectedEnabled: true,
     } as UserNotificationPreference;
     preferenceRepo.findOne.mockResolvedValue(preferences);
     notificationRepo.create.mockImplementation(
@@ -137,6 +143,9 @@ describe('NotificationService', () => {
       emailEnabled: true,
       pushEnabled: false,
       syncFailureEnabled: true,
+      mailboxInboundAcceptedEnabled: true,
+      mailboxInboundDeduplicatedEnabled: false,
+      mailboxInboundRejectedEnabled: true,
     } as UserNotificationPreference);
     preferenceRepo.save.mockImplementation(
       (value: UserNotificationPreference) => Promise.resolve(value),
@@ -145,9 +154,99 @@ describe('NotificationService', () => {
     const result = await service.updatePreferences('user-1', {
       emailEnabled: false,
       pushEnabled: true,
+      mailboxInboundRejectedEnabled: false,
     });
 
     expect(result.emailEnabled).toBe(false);
     expect(result.pushEnabled).toBe(true);
+    expect(result.mailboxInboundRejectedEnabled).toBe(false);
+  });
+
+  it('honors mailbox inbound accepted preference and mutes accepted alerts', async () => {
+    const preferences = {
+      id: 'pref-1',
+      userId: 'user-1',
+      inAppEnabled: true,
+      emailEnabled: true,
+      pushEnabled: false,
+      syncFailureEnabled: true,
+      mailboxInboundAcceptedEnabled: false,
+      mailboxInboundDeduplicatedEnabled: false,
+      mailboxInboundRejectedEnabled: true,
+    } as UserNotificationPreference;
+    preferenceRepo.findOne.mockResolvedValue(preferences);
+    notificationRepo.create.mockImplementation(
+      (value: Partial<UserNotification>) =>
+        ({
+          id: 'notif-muted-mailbox',
+          ...value,
+        }) as UserNotification,
+    );
+    notificationRepo.save.mockImplementation((value: UserNotification) =>
+      Promise.resolve(value),
+    );
+
+    const result = await service.createNotification({
+      userId: 'user-1',
+      type: 'MAILBOX_INBOUND',
+      title: 'New email',
+      message: 'From lead@example.com',
+      metadata: {
+        inboundStatus: 'ACCEPTED',
+        mailboxEmail: 'sales@mailzen.com',
+      },
+    });
+
+    expect(result.isRead).toBe(true);
+    expect(result.metadata).toEqual(
+      expect.objectContaining({
+        ignoredByPreference: true,
+        ignoredPreferenceKey: 'mailboxInboundAcceptedEnabled',
+      }),
+    );
+  });
+
+  it('honors mailbox inbound rejected preference and mutes rejected alerts', async () => {
+    const preferences = {
+      id: 'pref-1',
+      userId: 'user-1',
+      inAppEnabled: true,
+      emailEnabled: true,
+      pushEnabled: false,
+      syncFailureEnabled: true,
+      mailboxInboundAcceptedEnabled: true,
+      mailboxInboundDeduplicatedEnabled: false,
+      mailboxInboundRejectedEnabled: false,
+    } as UserNotificationPreference;
+    preferenceRepo.findOne.mockResolvedValue(preferences);
+    notificationRepo.create.mockImplementation(
+      (value: Partial<UserNotification>) =>
+        ({
+          id: 'notif-muted-rejected',
+          ...value,
+        }) as UserNotification,
+    );
+    notificationRepo.save.mockImplementation((value: UserNotification) =>
+      Promise.resolve(value),
+    );
+
+    const result = await service.createNotification({
+      userId: 'user-1',
+      type: 'MAILBOX_INBOUND',
+      title: 'Inbound rejected',
+      message: 'Quota exceeded',
+      metadata: {
+        inboundStatus: 'REJECTED',
+        mailboxEmail: 'sales@mailzen.com',
+      },
+    });
+
+    expect(result.isRead).toBe(true);
+    expect(result.metadata).toEqual(
+      expect.objectContaining({
+        ignoredByPreference: true,
+        ignoredPreferenceKey: 'mailboxInboundRejectedEnabled',
+      }),
+    );
   });
 });
