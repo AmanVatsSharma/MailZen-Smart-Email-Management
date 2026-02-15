@@ -1,6 +1,8 @@
 import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
+import { UserNotificationPreference } from './entities/user-notification-preference.entity';
 import { UserNotification } from './entities/user-notification.entity';
 import { NotificationService } from './notification.service';
 
@@ -40,6 +42,13 @@ export class NotificationResolver {
     return this.notificationService.getUnreadCount(ctx.req.user.id);
   }
 
+  @Query(() => UserNotificationPreference, {
+    description: 'Notification preferences for current user',
+  })
+  async myNotificationPreferences(@Context() ctx: RequestContext) {
+    return this.notificationService.getOrCreatePreferences(ctx.req.user.id);
+  }
+
   @Mutation(() => UserNotification, {
     description: 'Mark a notification as read',
   })
@@ -48,5 +57,15 @@ export class NotificationResolver {
     @Context() ctx: RequestContext,
   ) {
     return this.notificationService.markNotificationRead(id, ctx.req.user.id);
+  }
+
+  @Mutation(() => UserNotificationPreference, {
+    description: 'Update notification preferences',
+  })
+  async updateMyNotificationPreferences(
+    @Args('input') input: UpdateNotificationPreferencesInput,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.notificationService.updatePreferences(ctx.req.user.id, input);
   }
 }
