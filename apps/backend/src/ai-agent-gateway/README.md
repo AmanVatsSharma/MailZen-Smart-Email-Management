@@ -17,6 +17,7 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - `inbox.schedule_followup`
 - Persist executed agent-action audits (`agent_action_audits`) for compliance and debugging.
 - Provide `agentPlatformHealth` GraphQL probe with gateway metrics snapshot.
+- Expose `myAgentActionAudits(limit?)` query for authenticated audit review.
 
 ## Env Variables
 

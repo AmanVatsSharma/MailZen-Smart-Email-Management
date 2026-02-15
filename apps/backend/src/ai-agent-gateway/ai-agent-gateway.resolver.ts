@@ -10,13 +10,19 @@
  */
 import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { randomUUID } from 'crypto';
+import { UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
 import { AgentAssistInput } from './dto/agent-assist.input';
 import { AgentAssistResponse } from './dto/agent-assist.response';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
+import { AgentActionAudit } from './entities/agent-action-audit.entity';
 
 interface RequestContext {
   req?: {
+    user?: {
+      id?: string;
+    };
     headers?: Record<string, string | string[] | undefined>;
     ip?: string;
   };
@@ -46,5 +52,20 @@ export class AiAgentGatewayResolver {
   @Query(() => AgentPlatformHealthResponse)
   async agentPlatformHealth(): Promise<AgentPlatformHealthResponse> {
     return this.gatewayService.getPlatformHealth();
+  }
+
+  @Query(() => [AgentActionAudit], {
+    description: 'List current user agent action audit events',
+  })
+  @UseGuards(JwtAuthGuard)
+  async myAgentActionAudits(
+    @Context() ctx: RequestContext,
+    @Args('limit', { nullable: true }) limit?: number,
+  ): Promise<AgentActionAudit[]> {
+    const userId = String(ctx.req?.user?.id || '').trim();
+    return this.gatewayService.listAgentActionAuditsForUser({
+      userId,
+      limit: typeof limit === 'number' ? limit : undefined,
+    });
   }
 }

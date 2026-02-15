@@ -31,6 +31,7 @@ describe('AiAgentGatewayService', () => {
   const findOneMock = jest.fn();
   const findExternalMessagesMock = jest.fn();
   const createNotificationMock = jest.fn();
+  const findAgentActionAuditMock = jest.fn();
   const createAgentActionAuditMock = jest.fn();
   const saveAgentActionAuditMock = jest.fn();
 
@@ -49,9 +50,13 @@ describe('AiAgentGatewayService', () => {
     find: findExternalMessagesMock,
   } as unknown as Pick<Repository<ExternalEmailMessage>, 'find'>;
   const agentActionAuditRepo = {
+    find: findAgentActionAuditMock,
     create: createAgentActionAuditMock,
     save: saveAgentActionAuditMock,
-  } as unknown as Pick<Repository<AgentActionAudit>, 'create' | 'save'>;
+  } as unknown as Pick<
+    Repository<AgentActionAudit>,
+    'find' | 'create' | 'save'
+  >;
   const notificationEventBus = {
     publishSafely: createNotificationMock,
   } as unknown as Pick<NotificationEventBusService, 'publishSafely'>;
@@ -71,6 +76,7 @@ describe('AiAgentGatewayService', () => {
       (value: Record<string, unknown>) => value,
     );
     saveAgentActionAuditMock.mockResolvedValue({ id: 'audit-1' });
+    findAgentActionAuditMock.mockResolvedValue([]);
   });
 
   it('redacts sensitive fields before platform call', async () => {
@@ -561,6 +567,29 @@ describe('AiAgentGatewayService', () => {
         action: 'inbox.schedule_followup',
         executed: true,
         approvalRequired: true,
+      }),
+    );
+  });
+
+  it('lists user-scoped agent action audits', async () => {
+    const service = createService();
+    findAgentActionAuditMock.mockResolvedValue([
+      {
+        id: 'audit-1',
+        userId: 'user-1',
+      },
+    ]);
+
+    const result = await service.listAgentActionAuditsForUser({
+      userId: 'user-1',
+      limit: 10,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(findAgentActionAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1' },
+        take: 10,
       }),
     );
   });

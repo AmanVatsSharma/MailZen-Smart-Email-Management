@@ -388,6 +388,22 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  async listAgentActionAuditsForUser(input: {
+    userId: string;
+    limit?: number;
+  }): Promise<AgentActionAudit[]> {
+    const userId = String(input.userId || '').trim();
+    if (!userId) {
+      throw new BadRequestException('Authenticated user id is required');
+    }
+    const limit = Math.max(1, Math.min(100, input.limit || 20));
+    return this.agentActionAuditRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+  }
+
   private enforceSkillAccess(
     skill: string,
     headers?: Record<string, string | string[] | undefined>,
