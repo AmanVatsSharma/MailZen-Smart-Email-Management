@@ -20,6 +20,7 @@ import { InboxModule } from './inbox/inbox.module';
 import { GmailSyncModule } from './gmail-sync/gmail-sync.module';
 import { OutlookSyncModule } from './outlook-sync/outlook-sync.module';
 import { UnifiedInboxModule } from './unified-inbox/unified-inbox.module';
+import { WorkspaceModule } from './workspace/workspace.module';
 import { SmartReplyModule } from './smart-replies/smart-reply.module';
 import { LabelModule } from './organization/label.module';
 import { QuestionModule } from './question/question.module';
@@ -69,6 +70,7 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
     GmailSyncModule,
     OutlookSyncModule,
     UnifiedInboxModule,
+    WorkspaceModule,
     SmartReplyModule,
     LabelModule,
     QuestionModule,

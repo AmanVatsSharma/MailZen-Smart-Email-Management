@@ -634,6 +634,8 @@ extend type Query {
   myNotifications(limit: Int, unreadOnly: Boolean): [UserNotification!]!
   myUnreadNotificationCount: Int!
   myNotificationPreferences: UserNotificationPreference!
+  myWorkspaces: [Workspace!]!
+  workspaceMembers(workspaceId: String!): [WorkspaceMember!]!
 }
 
 extend type Mutation {
@@ -646,6 +648,12 @@ extend type Mutation {
   updateMyNotificationPreferences(
     input: UpdateNotificationPreferencesInput!
   ): UserNotificationPreference!
+  createWorkspace(name: String!): Workspace!
+  inviteWorkspaceMember(
+    workspaceId: String!
+    email: String!
+    role: String
+  ): WorkspaceMember!
 }
 
 type BillingPlan {
@@ -710,4 +718,26 @@ input UpdateNotificationPreferencesInput {
   emailEnabled: Boolean
   pushEnabled: Boolean
   syncFailureEnabled: Boolean
+}
+
+type Workspace {
+  id: ID!
+  ownerUserId: String!
+  name: String!
+  slug: String!
+  isPersonal: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type WorkspaceMember {
+  id: ID!
+  workspaceId: String!
+  userId: String
+  email: String!
+  role: String!
+  status: String!
+  invitedByUserId: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
 }

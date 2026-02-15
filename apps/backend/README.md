@@ -35,6 +35,7 @@ src/
   scheduled-email/
   smart-replies/
   template/
+  workspace/
   unified-inbox/
   user/
   database/

@@ -11,6 +11,10 @@ const requiredContracts = [
   'myNotifications',
   'myNotificationPreferences',
   'updateMyNotificationPreferences',
+  'myWorkspaces',
+  'workspaceMembers',
+  'createWorkspace',
+  'inviteWorkspaceMember',
 ];
 
 const run = () => {
