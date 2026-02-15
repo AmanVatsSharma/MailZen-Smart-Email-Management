@@ -29,6 +29,8 @@
   - `20260216009000-notification-workspace-scope.ts`
 - Added mailbox inbound SLA per-user cooldown preference migration:
   - `20260216011000-notification-mailbox-inbound-sla-cooldown.ts`
+- Added notification digest last-sent state migration:
+  - `20260216013000-notification-digest-last-sent.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

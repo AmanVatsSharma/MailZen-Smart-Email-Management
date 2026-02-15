@@ -74,6 +74,9 @@ export class UserNotificationPreference {
   @Column({ type: 'timestamptz', nullable: true })
   mailboxInboundSlaLastAlertedAt?: Date | null;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  notificationDigestLastSentAt?: Date | null;
+
   @Field()
   @CreateDateColumn()
   createdAt: Date;

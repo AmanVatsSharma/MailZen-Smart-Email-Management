@@ -61,6 +61,7 @@ describe('NotificationService', () => {
     mailboxInboundSlaAlertCooldownMinutes: 60,
     mailboxInboundSlaLastAlertStatus: null,
     mailboxInboundSlaLastAlertedAt: null,
+    notificationDigestLastSentAt: null,
   } satisfies Partial<UserNotificationPreference>;
 
   it('creates unread notifications for users', async () => {

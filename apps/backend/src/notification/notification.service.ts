@@ -93,6 +93,7 @@ export class NotificationService {
       mailboxInboundSlaAlertCooldownMinutes: alertCooldownMinutes,
       mailboxInboundSlaLastAlertStatus: null,
       mailboxInboundSlaLastAlertedAt: null,
+      notificationDigestLastSentAt: null,
     });
     return row;
   }

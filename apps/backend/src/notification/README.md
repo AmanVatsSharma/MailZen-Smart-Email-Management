@@ -16,6 +16,7 @@ Provide a persistent notification foundation for user-visible product events
 - Mark notifications as read
 - Provide reusable `createNotification` API for other backend modules
 - Publish realtime notification stream events for in-app consumers
+- Send periodic unread-notification digest emails for users with email channel enabled
 
 ## GraphQL API
 
@@ -46,6 +47,20 @@ Provide a persistent notification foundation for user-visible product events
     - matching workspace events
     - global events (`workspaceId = null`)
 
+## Email digest scheduler
+
+- `NotificationDigestScheduler` runs hourly (`0 * * * *`).
+- For users with `emailEnabled=true`, it:
+  - collects unread notifications since the last digest timestamp (or fallback window),
+  - sends a concise digest email,
+  - updates `notificationDigestLastSentAt` on success.
+- If delivery fails, timestamp is not updated, so next scheduler run retries automatically.
+
+Digest tuning env vars:
+- `MAILZEN_NOTIFICATION_DIGEST_WINDOW_HOURS` (default `24`)
+- `MAILZEN_NOTIFICATION_DIGEST_MAX_USERS_PER_RUN` (default `250`)
+- `MAILZEN_NOTIFICATION_DIGEST_MAX_ITEMS` (default `8`)
+
 ## Initial event producers
 
 - `GmailSyncScheduler` publishes `SYNC_FAILED` domain events through
@@ -59,6 +74,7 @@ Provide a persistent notification foundation for user-visible product events
   inbound success/rejection rates breach user-configured thresholds
   - scheduler stores last alert status/timestamp to enforce cooldown and clear
     stale alert state on SLA recovery
+- `NotificationDigestScheduler` emits digest emails (mailer channel) for unread events
 - Emission respects stored user preferences:
   - `inAppEnabled`
   - `syncFailureEnabled`
@@ -99,6 +115,8 @@ flowchart TD
   NotificationEventBus --> NotificationService
   NotificationService --> Repo[(user_notifications table)]
   NotificationService --> RealtimeBus[(in-memory realtime event bus)]
+  NotificationService --> DigestScheduler[Hourly unread digest scheduler]
+  DigestScheduler --> Mailer[SMTP mailer channel]
   RealtimeBus --> NotificationStream[notifications/stream SSE]
   UserUI[Authenticated frontend] --> NotificationResolver
   UserUI --> NotificationStream

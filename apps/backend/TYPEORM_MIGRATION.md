@@ -403,3 +403,32 @@ SELECT
   COUNT(*) FILTER (WHERE "mailboxInboundSlaAlertCooldownMinutes" > 1440) AS invalid_high_rows
 FROM user_notification_preferences;
 ```
+
+## Notification Digest Last-Sent Rollout Notes (2026-02-16)
+
+New migration: `20260216013000-notification-digest-last-sent.ts`
+
+This migration introduces:
+
+- `user_notification_preferences.notificationDigestLastSentAt`
+
+### Safe rollout sequence
+
+1. Deploy backend containing digest scheduler + migration.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- notification/notification-digest.scheduler.spec.ts notification/notification.service.spec.ts`
+   - `npm run build`
+5. Verify digest behavior:
+   - users with unread notifications and `emailEnabled=true` receive digest email
+   - `notificationDigestLastSentAt` is updated only after successful email send
+
+### Staging verification SQL (digest tracking column)
+
+```sql
+SELECT
+  COUNT(*) AS total_preferences,
+  COUNT(*) FILTER (WHERE "notificationDigestLastSentAt" IS NOT NULL) AS digest_sent_rows
+FROM user_notification_preferences;
+```
