@@ -267,4 +267,58 @@ describe('AiAgentGatewayService', () => {
     expect(response.executedAction?.executed).toBe(true);
     expect(response.executedAction?.message).toContain('summary');
   });
+
+  it('executes inbox draft action when suggested and requested', async () => {
+    const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'inbox',
+        assistantText: 'I can draft a reply.',
+        intent: 'reply_draft',
+        confidence: 0.88,
+        suggestedActions: [
+          {
+            name: 'inbox.compose_reply_draft',
+            label: 'Create draft reply',
+            payload: {},
+          },
+        ],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+    findExternalMessagesMock.mockResolvedValueOnce([
+      {
+        subject: 'Vendor onboarding',
+        from: 'ops@example.com',
+        snippet: 'Can you confirm the onboarding checklist timeline?',
+      },
+    ]);
+
+    const response = await service.assist(
+      {
+        skill: 'inbox',
+        messages: [
+          { role: 'user', content: 'Draft a response for this thread' },
+        ],
+        context: {
+          surface: 'inbox',
+          locale: 'en-IN',
+          metadataJson: JSON.stringify({ threadId: 'thread-999' }),
+        },
+        allowedActions: ['inbox.compose_reply_draft'],
+        requestedAction: 'inbox.compose_reply_draft',
+        executeRequestedAction: true,
+      },
+      {
+        requestId: 'req-draft-1',
+        headers: { authorization: 'Bearer token-1' },
+      },
+    );
+
+    expect(response.executedAction?.executed).toBe(true);
+    expect(response.executedAction?.message).toContain('Draft reply');
+    expect(response.executedAction?.message).toContain('Vendor onboarding');
+  });
 });

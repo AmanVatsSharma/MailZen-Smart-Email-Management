@@ -133,7 +133,10 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         'inbox.compose_reply_draft',
         'inbox.open_thread',
       ]),
-      serverExecutableActions: new Set(['inbox.summarize_thread']),
+      serverExecutableActions: new Set([
+        'inbox.summarize_thread',
+        'inbox.compose_reply_draft',
+      ]),
     },
   };
 
@@ -742,6 +745,31 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       };
     }
 
+    if (requestedAction === 'inbox.compose_reply_draft') {
+      if (!userId) {
+        throw new BadRequestException(
+          'Authenticated user is required for inbox draft action',
+        );
+      }
+
+      const metadata = this.parseContextMetadata(input.context?.metadataJson);
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        '';
+      const draft = await this.composeReplyDraftForUser(
+        userId,
+        threadId || undefined,
+      );
+
+      return {
+        action: requestedAction,
+        executed: true,
+        message: draft,
+      };
+    }
+
     throw new BadRequestException(
       `Unsupported executable action '${requestedAction}'`,
     );
@@ -774,6 +802,43 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       .join(' ');
 
     return `Thread "${subject}" summary: ${bulletPoints}`;
+  }
+
+  private async composeReplyDraftForUser(
+    userId: string,
+    threadId?: string,
+  ): Promise<string> {
+    const messages = await this.externalEmailMessageRepo.find({
+      where: threadId ? { userId, threadId } : { userId },
+      order: { internalDate: 'DESC', createdAt: 'DESC' },
+      take: 1,
+    });
+
+    const latest = messages[0];
+    if (!latest) {
+      return 'Draft reply: Thank you for your message. I will review and get back to you shortly.';
+    }
+
+    const sender = latest.from || 'there';
+    const subject = latest.subject || 'your email';
+    const snippet = (latest.snippet || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 240);
+
+    return [
+      `Draft reply for "${subject}":`,
+      '',
+      `Hi ${sender},`,
+      '',
+      'Thank you for your email. I have reviewed your note and appreciate the context you shared.',
+      snippet
+        ? `Regarding your message (“${snippet}”), I will proceed with the required next steps and share a clear update shortly.`
+        : 'I will proceed with the required next steps and share a clear update shortly.',
+      '',
+      'Best regards,',
+      'MailZen User',
+    ].join('\n');
   }
 
   private recordGatewayMetrics(

@@ -10,6 +10,7 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - Execute approved privileged actions safely in backend:
   - `auth.forgot_password`
   - `inbox.summarize_thread` (authenticated, ownership-scoped thread summary)
+  - `inbox.compose_reply_draft` (authenticated, ownership-scoped draft generation)
 - Provide `agentPlatformHealth` GraphQL probe with gateway metrics snapshot.
 
 ## Env Variables
@@ -30,4 +31,7 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 
 - 2026-02-14: Added initial GraphQL gateway, policy enforcement, retries, and request-ID propagation.
 - 2026-02-15: Added skill access policy map, Redis-backed rate limiting, and health metrics query.
-- 2026-02-15: Added executable inbox action `inbox.summarize_thread` with thread-aware summary generation from synced messages.
+- 2026-02-15: Added executable inbox actions:
+  - `inbox.summarize_thread`
+  - `inbox.compose_reply_draft`
+  with thread-aware summary/draft generation from synced messages.
