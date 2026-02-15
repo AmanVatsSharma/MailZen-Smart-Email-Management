@@ -22,6 +22,8 @@ state, enabling entitlement-aware product rollouts.
   - selecting active plan
   - recording upgrade intent (`requestMyPlanUpgrade`)
   - ingesting provider webhook events (`ingestBillingWebhook`, admin-only)
+- Expose REST webhook endpoint:
+  - `POST /billing/webhooks/:provider` with optional shared-secret validation
 
 ## GraphQL API
 
@@ -33,6 +35,11 @@ state, enabling entitlement-aware product rollouts.
 - `startMyPlanTrial(planCode, trialDays?)`: start bounded trial for paid plans
 - `requestMyPlanUpgrade(targetPlanCode, note?)`: records upgrade intent notification
 - `ingestBillingWebhook(provider, eventType, externalEventId, payloadJson?)`: admin-only webhook replay/ingest mutation
+- `POST /billing/webhooks/:provider`: webhook ingestion endpoint supporting
+  payload key aliases:
+  - event type: `type` or `eventType`
+  - event id: `id`, `eventId`, or `externalEventId`
+  - optional header `x-billing-webhook-secret` (validated when `BILLING_WEBHOOK_SHARED_SECRET` is configured)
 
 ## Flow
 
