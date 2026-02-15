@@ -28,3 +28,31 @@ export const MARK_NOTIFICATION_READ = gql`
   }
 `;
 
+export const GET_NOTIFICATION_PREFERENCES = gql`
+  query MyNotificationPreferences {
+    myNotificationPreferences {
+      id
+      inAppEnabled
+      emailEnabled
+      pushEnabled
+      syncFailureEnabled
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_NOTIFICATION_PREFERENCES = gql`
+  mutation UpdateMyNotificationPreferences(
+    $input: UpdateNotificationPreferencesInput!
+  ) {
+    updateMyNotificationPreferences(input: $input) {
+      id
+      inAppEnabled
+      emailEnabled
+      pushEnabled
+      syncFailureEnabled
+      updatedAt
+    }
+  }
+`;
+

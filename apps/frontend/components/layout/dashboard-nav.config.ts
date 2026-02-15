@@ -1,4 +1,5 @@
 import {
+  BellRing,
   Contact,
   Filter,
   LayoutDashboard,
@@ -106,6 +107,11 @@ export const secondaryPanelBySection: Record<DashboardSectionId, SecondaryPanelC
         href: '/settings/smart-replies',
         description: 'AI response preferences',
       },
+      {
+        label: 'Notifications',
+        href: '/settings/notifications',
+        description: 'Notification channel preferences',
+      },
     ],
   },
   providers: {
@@ -125,6 +131,7 @@ export const automationQuickLinks = [
   { label: 'Filters', href: '/filters', icon: Filter },
   { label: 'Warmup', href: '/warmup', icon: Zap },
   { label: 'Smart Replies', href: '/settings/smart-replies', icon: MessageSquareText },
+  { label: 'Notifications', href: '/settings/notifications', icon: BellRing },
 ];
 
 export const mailFolderRoutes = new Set(['/inbox', '/sent', '/archive', '/trash']);
@@ -153,7 +160,8 @@ export const getSectionFromPathname = (pathname: string): DashboardSectionId => 
   if (
     normalized === '/filters' ||
     normalized === '/warmup' ||
-    normalized.startsWith('/settings/smart-replies')
+    normalized.startsWith('/settings/smart-replies') ||
+    normalized.startsWith('/settings/notifications')
   ) {
     return 'automation';
   }
