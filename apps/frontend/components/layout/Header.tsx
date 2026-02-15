@@ -39,6 +39,7 @@ import { InboxSwitcherModal } from './InboxSwitcherModal';
 import {
   GET_MY_NOTIFICATIONS,
   GET_UNREAD_NOTIFICATION_COUNT,
+  MARK_MY_NOTIFICATIONS_READ,
   MARK_NOTIFICATION_READ,
 } from '@/lib/apollo/queries/notifications';
 import {
@@ -125,6 +126,12 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       console.error('[Notifications] markNotificationRead failed', error);
     },
   });
+  const [markMyNotificationsRead, { loading: markingAllNotificationsRead }] =
+    useMutation(MARK_MY_NOTIFICATIONS_READ, {
+      onError: (error) => {
+        console.error('[Notifications] markMyNotificationsRead failed', error);
+      },
+    });
   const { data: workspaceData } = useQuery(GET_MY_WORKSPACES, {
     fetchPolicy: 'cache-and-network',
     pollInterval: 60_000,
@@ -230,6 +237,15 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     } catch (error) {
       console.error('[Notifications] click handler failed', error);
     }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    await markMyNotificationsRead({
+      variables: {
+        workspaceId: selectedWorkspaceId || undefined,
+      },
+    });
+    await Promise.all([refetchNotifications(), refetchUnreadCount()]);
   };
 
   const resolveNotificationMetadata = (
@@ -434,6 +450,24 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80">
               <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <div className="px-2 py-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-full justify-start text-xs"
+                  disabled={unreadCount === 0 || markingAllNotificationsRead}
+                  onClick={() => {
+                    void handleMarkAllNotificationsRead();
+                  }}
+                >
+                  {markingAllNotificationsRead
+                    ? 'Marking as read...'
+                    : unreadCount > 0
+                      ? `Mark all ${unreadCount > 99 ? '99+' : unreadCount} as read`
+                      : 'No unread notifications'}
+                </Button>
+              </div>
               <DropdownMenuSeparator />
               {mailboxInboundStats && (
                 <>

@@ -24,6 +24,8 @@ modern two-level navigation system:
   - Notification bell now reads real backend notification feed (`myNotifications`)
     and unread count (`myUnreadNotificationCount`), and marks notifications
     read via `markNotificationRead`
+  - Notification dropdown includes workspace-scoped "mark all as read" action
+    via `markMyNotificationsRead`
   - Notification feed is scoped to active workspace context when selected
   - Unread badge count query is also scoped to active workspace context while
     retaining global notifications
@@ -76,6 +78,8 @@ flowchart TD
 
 ## Changelog
 
+- 2026-02-15: Added workspace-scoped "mark all notifications as read" action to
+  header notification dropdown.
 - 2026-02-15: Added SLA status indicators to mailbox inbound notification
   health snapshot in the header dropdown, driven by user-configured thresholds.
 - 2026-02-15: Added mailbox inbound health snapshot panel to notification
