@@ -72,6 +72,10 @@ flowchart TD
   - limits number of delta pages processed in one sync run
 - `OUTLOOK_PUSH_WEBHOOK_TOKEN` (optional shared secret query token for webhook endpoint)
 - `OUTLOOK_PUSH_SYNC_MAX_MESSAGES` (default `25`, clamped `1..200`)
+- `OUTLOOK_PUSH_NOTIFICATION_URL` (public HTTPS webhook URL registered with Microsoft Graph subscriptions API)
+- `OUTLOOK_PUSH_CLIENT_STATE_SECRET` (optional shared secret added to Graph subscription `clientState`)
+- `OUTLOOK_PUSH_SUBSCRIPTION_DURATION_MINUTES` (default `2880`, clamped `5..4230`)
+- `OUTLOOK_PUSH_SUBSCRIPTION_RENEW_THRESHOLD_MINUTES` (default `120`, clamped `1..1440`)
 
 Used during refresh token exchange when access tokens expire.
 
@@ -84,6 +88,13 @@ Used during refresh token exchange when access tokens expire.
   - `POST /outlook-sync/webhooks/push`
   - accepts `providerId` (query/body) or `emailAddress`/`userPrincipalName` payload hints
   - triggers lease-guarded sync for matching active Outlook providers
+- Push subscription lifecycle:
+  - Sync flow best-effort ensures Graph subscription exists/renews when `OUTLOOK_PUSH_NOTIFICATION_URL` is configured
+  - Subscription metadata persisted on `email_providers`:
+    - `outlookPushSubscriptionId`
+    - `outlookPushSubscriptionExpiresAt`
+    - `outlookPushSubscriptionLastRenewedAt`
+  - Scheduler refresh cron (`20 */6 * * *`) proactively renews active provider subscriptions
 - Scheduler publishes `SYNC_FAILED` domain events through
   `NotificationEventBusService` with `providerId`, `providerType`, and
   `workspaceId` metadata for workspace-aware alerting.

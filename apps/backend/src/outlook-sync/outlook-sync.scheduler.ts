@@ -101,6 +101,12 @@ export class OutlookSyncScheduler {
     };
   }
 
+  private isPushSubscriptionEnabled(): boolean {
+    return Boolean(
+      String(process.env.OUTLOOK_PUSH_NOTIFICATION_URL || '').trim(),
+    );
+  }
+
   @Cron(CronExpression.EVERY_10_MINUTES)
   async syncActiveOutlookProviders() {
     const providers: EmailProvider[] = await this.emailProviderRepo.find({
@@ -113,12 +119,11 @@ export class OutlookSyncScheduler {
     );
 
     for (const provider of providers) {
-      const leaseAcquired = await this.providerSyncLease.acquireProviderSyncLease(
-        {
+      const leaseAcquired =
+        await this.providerSyncLease.acquireProviderSyncLease({
           providerId: provider.id,
           providerType: 'OUTLOOK',
-        },
-      );
+        });
       if (!leaseAcquired) continue;
 
       const maxJitterMs = this.getMaxJitterMs();
@@ -168,6 +173,39 @@ export class OutlookSyncScheduler {
             : String(notificationError);
         this.logger.warn(
           `Cron Outlook sync failure handling failed provider=${provider.id}: ${notificationMessage}`,
+        );
+      }
+    }
+  }
+
+  @Cron('20 */6 * * *')
+  async refreshOutlookPushSubscriptions() {
+    if (!this.isPushSubscriptionEnabled()) return;
+    const providers: EmailProvider[] = await this.emailProviderRepo.find({
+      where: { type: 'OUTLOOK', isActive: true },
+    });
+    if (!providers.length) return;
+    this.logger.log(
+      `Cron: refreshing Outlook push subscriptions for ${providers.length} providers`,
+    );
+
+    for (const provider of providers) {
+      const leaseAcquired =
+        await this.providerSyncLease.acquireProviderSyncLease({
+          providerId: provider.id,
+          providerType: 'OUTLOOK',
+        });
+      if (!leaseAcquired) continue;
+
+      try {
+        await this.outlookSync.ensurePushSubscriptionForProvider(
+          provider.id,
+          provider.userId,
+        );
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Cron Outlook subscription refresh failed provider=${provider.id}: ${message}`,
         );
       }
     }

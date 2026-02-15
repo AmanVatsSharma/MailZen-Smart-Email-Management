@@ -772,6 +772,47 @@ ORDER BY "updatedAt" DESC
 LIMIT 50;
 ```
 
+## Outlook Push Subscription State Rollout Notes (2026-02-16)
+
+New migration: `20260216041000-email-provider-outlook-push-subscription-state.ts`
+
+This migration introduces:
+
+- `email_providers.outlookPushSubscriptionId`
+- `email_providers.outlookPushSubscriptionExpiresAt`
+- `email_providers.outlookPushSubscriptionLastRenewedAt`
+
+These fields support Outlook webhook subscription renewal and operator visibility.
+
+### Safe rollout sequence
+
+1. Deploy backend containing migration + Outlook push webhook/subscription logic.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Configure push env vars where Outlook push is enabled:
+   - `OUTLOOK_PUSH_NOTIFICATION_URL`
+   - `OUTLOOK_PUSH_WEBHOOK_TOKEN`
+   - `OUTLOOK_PUSH_SUBSCRIPTION_DURATION_MINUTES`
+   - `OUTLOOK_PUSH_SUBSCRIPTION_RENEW_THRESHOLD_MINUTES`
+5. Run smoke checks:
+   - `npm run test -- outlook-sync/outlook-sync.service.spec.ts outlook-sync/outlook-sync-webhook.controller.spec.ts outlook-sync/outlook-sync.scheduler.spec.ts`
+   - `npm run build`
+
+### Staging verification SQL
+
+```sql
+SELECT
+  id,
+  email,
+  "outlookPushSubscriptionId",
+  "outlookPushSubscriptionLastRenewedAt",
+  "outlookPushSubscriptionExpiresAt"
+FROM email_providers
+WHERE type = 'OUTLOOK'
+ORDER BY "updatedAt" DESC
+LIMIT 50;
+```
+
 ## Gmail Push Watch State Rollout Notes (2026-02-16)
 
 New migration: `20260216035000-email-provider-gmail-watch-state.ts`

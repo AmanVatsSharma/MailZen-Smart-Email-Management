@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/unbound-method */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Repository, UpdateResult } from 'typeorm';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
@@ -8,7 +10,12 @@ import { OutlookSyncService } from './outlook-sync.service';
 describe('OutlookSyncScheduler', () => {
   let scheduler: OutlookSyncScheduler;
   let providerRepo: jest.Mocked<Repository<EmailProvider>>;
-  let outlookSync: jest.Mocked<Pick<OutlookSyncService, 'syncOutlookProvider'>>;
+  let outlookSync: jest.Mocked<
+    Pick<
+      OutlookSyncService,
+      'syncOutlookProvider' | 'ensurePushSubscriptionForProvider'
+    >
+  >;
   let providerSyncLease: jest.Mocked<
     Pick<ProviderSyncLeaseService, 'acquireProviderSyncLease'>
   >;
@@ -25,6 +32,7 @@ describe('OutlookSyncScheduler', () => {
     } as unknown as jest.Mocked<Repository<EmailProvider>>;
     outlookSync = {
       syncOutlookProvider: jest.fn(),
+      ensurePushSubscriptionForProvider: jest.fn().mockResolvedValue(true),
     };
     providerSyncLease = {
       acquireProviderSyncLease: jest.fn().mockResolvedValue(true),
@@ -120,5 +128,35 @@ describe('OutlookSyncScheduler', () => {
 
     expect(outlookSync.syncOutlookProvider).toHaveBeenCalledTimes(2);
     expect(notificationEventBus.publishSafely).not.toHaveBeenCalled();
+  });
+
+  it('refreshes push subscriptions when notification url is configured', async () => {
+    process.env.OUTLOOK_PUSH_NOTIFICATION_URL =
+      'https://mailzen.example.com/outlook-sync/webhooks/push';
+    providerRepo.find.mockResolvedValue([
+      {
+        id: 'provider-1',
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+      } as EmailProvider,
+    ]);
+
+    await scheduler.refreshOutlookPushSubscriptions();
+
+    expect(outlookSync.ensurePushSubscriptionForProvider).toHaveBeenCalledWith(
+      'provider-1',
+      'user-1',
+    );
+  });
+
+  it('skips push subscription refresh when webhook url is not configured', async () => {
+    delete process.env.OUTLOOK_PUSH_NOTIFICATION_URL;
+
+    await scheduler.refreshOutlookPushSubscriptions();
+
+    expect(providerRepo.find).not.toHaveBeenCalled();
+    expect(
+      outlookSync.ensurePushSubscriptionForProvider,
+    ).not.toHaveBeenCalled();
   });
 });

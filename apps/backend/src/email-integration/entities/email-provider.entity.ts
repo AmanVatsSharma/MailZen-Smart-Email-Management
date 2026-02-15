@@ -90,6 +90,15 @@ export class EmailProvider {
   @Column({ type: 'text', nullable: true })
   outlookSyncCursor?: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  outlookPushSubscriptionId?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  outlookPushSubscriptionExpiresAt?: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  outlookPushSubscriptionLastRenewedAt?: Date | null;
+
   @Column({ type: 'timestamp', nullable: true })
   syncLeaseExpiresAt?: Date | null;
 

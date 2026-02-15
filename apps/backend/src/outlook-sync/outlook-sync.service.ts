@@ -50,6 +50,11 @@ type OutlookDeltaResponse = OutlookMessagesResponse & {
   '@odata.deltaLink'?: string;
 };
 
+type OutlookSubscriptionResponse = {
+  id?: string;
+  expirationDateTime?: string;
+};
+
 @Injectable()
 export class OutlookSyncService {
   private readonly logger = new Logger(OutlookSyncService.name);
@@ -88,6 +93,135 @@ export class OutlookSyncService {
     if (normalized < 1) return 1;
     if (normalized > 20) return 20;
     return normalized;
+  }
+
+  private isPushSubscriptionEnabled(): boolean {
+    return Boolean(
+      String(process.env.OUTLOOK_PUSH_NOTIFICATION_URL || '').trim(),
+    );
+  }
+
+  private resolvePushSubscriptionDurationMinutes(): number {
+    const parsedValue = Number(
+      process.env.OUTLOOK_PUSH_SUBSCRIPTION_DURATION_MINUTES || 2880,
+    );
+    const candidate = Number.isFinite(parsedValue)
+      ? Math.floor(parsedValue)
+      : 2880;
+    if (candidate < 5) return 5;
+    if (candidate > 4230) return 4230;
+    return candidate;
+  }
+
+  private resolvePushSubscriptionRenewThresholdMinutes(): number {
+    const parsedValue = Number(
+      process.env.OUTLOOK_PUSH_SUBSCRIPTION_RENEW_THRESHOLD_MINUTES || 120,
+    );
+    const candidate = Number.isFinite(parsedValue)
+      ? Math.floor(parsedValue)
+      : 120;
+    if (candidate < 1) return 1;
+    if (candidate > 24 * 60) return 24 * 60;
+    return candidate;
+  }
+
+  private resolvePushClientState(provider: EmailProvider): string {
+    const secret = String(process.env.OUTLOOK_PUSH_CLIENT_STATE_SECRET || '')
+      .trim()
+      .toLowerCase();
+    if (!secret) return provider.id;
+    return `${provider.id}:${secret}`;
+  }
+
+  private shouldRefreshPushSubscription(provider: EmailProvider): boolean {
+    const thresholdMinutes =
+      this.resolvePushSubscriptionRenewThresholdMinutes();
+    const thresholdMs = thresholdMinutes * 60 * 1000;
+    const expirationMs = provider.outlookPushSubscriptionExpiresAt
+      ? new Date(provider.outlookPushSubscriptionExpiresAt).getTime()
+      : 0;
+    if (!expirationMs) return true;
+    return expirationMs <= Date.now() + thresholdMs;
+  }
+
+  private async ensureOutlookPushSubscription(input: {
+    provider: EmailProvider;
+    accessToken: string;
+  }): Promise<void> {
+    if (!this.isPushSubscriptionEnabled()) return;
+    if (!this.shouldRefreshPushSubscription(input.provider)) return;
+    const notificationUrl = String(
+      process.env.OUTLOOK_PUSH_NOTIFICATION_URL || '',
+    ).trim();
+    if (!notificationUrl) return;
+
+    const expirationDateTime = new Date(
+      Date.now() + this.resolvePushSubscriptionDurationMinutes() * 60 * 1000,
+    ).toISOString();
+    const authHeaders = { Authorization: `Bearer ${input.accessToken}` };
+
+    if (input.provider.outlookPushSubscriptionId) {
+      try {
+        const renewResponse = await axios.patch<OutlookSubscriptionResponse>(
+          `https://graph.microsoft.com/v1.0/subscriptions/${encodeURIComponent(input.provider.outlookPushSubscriptionId)}`,
+          {
+            expirationDateTime,
+          },
+          {
+            headers: authHeaders,
+          },
+        );
+        const renewedExpiration = renewResponse.data.expirationDateTime
+          ? new Date(renewResponse.data.expirationDateTime)
+          : new Date(expirationDateTime);
+        await this.emailProviderRepo.update(
+          { id: input.provider.id },
+          {
+            outlookPushSubscriptionExpiresAt: renewedExpiration,
+            outlookPushSubscriptionLastRenewedAt: new Date(),
+          },
+        );
+        return;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Outlook subscription renew failed provider=${input.provider.id}: ${message}; attempting create`,
+        );
+      }
+    }
+
+    try {
+      const createResponse = await axios.post<OutlookSubscriptionResponse>(
+        'https://graph.microsoft.com/v1.0/subscriptions',
+        {
+          changeType: 'created,updated,deleted',
+          notificationUrl,
+          resource: '/me/messages',
+          expirationDateTime,
+          clientState: this.resolvePushClientState(input.provider),
+        },
+        {
+          headers: authHeaders,
+        },
+      );
+      const createdSubscriptionId = String(createResponse.data.id || '').trim();
+      const createdExpiration = createResponse.data.expirationDateTime
+        ? new Date(createResponse.data.expirationDateTime)
+        : new Date(expirationDateTime);
+      await this.emailProviderRepo.update(
+        { id: input.provider.id },
+        {
+          outlookPushSubscriptionId: createdSubscriptionId || undefined,
+          outlookPushSubscriptionExpiresAt: createdExpiration,
+          outlookPushSubscriptionLastRenewedAt: new Date(),
+        },
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Outlook subscription create failed provider=${input.provider.id}: ${message}`,
+      );
+    }
   }
 
   private async ensureFreshOutlookAccessToken(provider: EmailProvider) {
@@ -409,6 +543,28 @@ export class OutlookSyncService {
     return { processedProviders, skippedProviders };
   }
 
+  async ensurePushSubscriptionForProvider(
+    providerId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const provider = await this.emailProviderRepo.findOne({
+      where: {
+        id: providerId,
+        userId,
+      },
+    });
+    if (!provider) throw new NotFoundException('Provider not found');
+    if (provider.type !== 'OUTLOOK') {
+      throw new BadRequestException('Provider is not Outlook');
+    }
+    const accessToken = await this.ensureFreshOutlookAccessToken(provider);
+    await this.ensureOutlookPushSubscription({
+      provider,
+      accessToken,
+    });
+    return true;
+  }
+
   private async syncLabelMetadata(input: {
     userId: string;
     providerId: string;
@@ -470,6 +626,11 @@ export class OutlookSyncService {
     );
 
     try {
+      await this.ensureOutlookPushSubscription({
+        provider,
+        accessToken,
+      });
+
       const normalizedMaxMessages = Math.max(1, Math.min(100, maxMessages));
       const deltaPageLimit = this.resolveDeltaPageLimit();
       const providerCursor = String(provider.outlookSyncCursor || '').trim();

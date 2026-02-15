@@ -51,6 +51,8 @@
   - `20260216033000-email-provider-outlook-sync-cursor.ts`
 - Added Gmail push watch state migration:
   - `20260216035000-email-provider-gmail-watch-state.ts`
+- Added Outlook push subscription state migration:
+  - `20260216041000-email-provider-outlook-push-subscription-state.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

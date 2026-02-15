@@ -11,9 +11,10 @@ import { OutlookSyncService } from './outlook-sync.service';
 
 jest.mock('axios', () => ({
   __esModule: true,
-  default: { get: jest.fn(), post: jest.fn() },
+  default: { get: jest.fn(), post: jest.fn(), patch: jest.fn() },
   get: jest.fn(),
   post: jest.fn(),
+  patch: jest.fn(),
 }));
 
 describe('OutlookSyncService', () => {
@@ -21,6 +22,7 @@ describe('OutlookSyncService', () => {
   const providerId = 'provider-1';
   type AxiosGetResponse = Awaited<ReturnType<typeof axios.get>>;
   type AxiosPostResponse = Awaited<ReturnType<typeof axios.post>>;
+  type AxiosPatchResponse = Awaited<ReturnType<typeof axios.patch>>;
 
   let emailProviderRepo: jest.Mocked<Repository<EmailProvider>>;
   let labelRepo: jest.Mocked<Repository<ExternalEmailLabel>>;
@@ -56,6 +58,10 @@ describe('OutlookSyncService', () => {
   });
 
   afterEach(() => {
+    delete process.env.OUTLOOK_PUSH_NOTIFICATION_URL;
+    delete process.env.OUTLOOK_PUSH_SUBSCRIPTION_DURATION_MINUTES;
+    delete process.env.OUTLOOK_PUSH_SUBSCRIPTION_RENEW_THRESHOLD_MINUTES;
+    delete process.env.OUTLOOK_PUSH_CLIENT_STATE_SECRET;
     jest.clearAllMocks();
   });
 
@@ -376,5 +382,99 @@ describe('OutlookSyncService', () => {
       skippedProviders: 1,
     });
     expect(syncSpy).not.toHaveBeenCalled();
+  });
+
+  it('renews Outlook push subscription when id already exists', async () => {
+    const axiosPatchMock = axios.patch as jest.MockedFunction<
+      typeof axios.patch
+    >;
+
+    process.env.OUTLOOK_PUSH_NOTIFICATION_URL =
+      'https://mailzen.example.com/outlook-sync/webhooks/push';
+    emailProviderRepo.findOne.mockResolvedValue({
+      id: providerId,
+      userId,
+      type: 'OUTLOOK',
+      accessToken: 'token',
+      refreshToken: null,
+      tokenExpiry: null,
+      outlookPushSubscriptionId: 'sub-1',
+      outlookPushSubscriptionExpiresAt: new Date(Date.now() - 60_000),
+    } as unknown as EmailProvider);
+    axiosPatchMock.mockResolvedValue({
+      data: {
+        id: 'sub-1',
+        expirationDateTime: new Date(
+          Date.now() + 2 * 60 * 60 * 1000,
+        ).toISOString(),
+      },
+    } as AxiosPatchResponse);
+
+    const result = await service.ensurePushSubscriptionForProvider(
+      providerId,
+      userId,
+    );
+
+    expect(result).toBe(true);
+    expect(axiosPatchMock).toHaveBeenCalled();
+    expect(emailProviderRepo.update).toHaveBeenCalledWith(
+      { id: providerId },
+      expect.objectContaining({
+        outlookPushSubscriptionExpiresAt: expect.any(Date),
+        outlookPushSubscriptionLastRenewedAt: expect.any(Date),
+      }),
+    );
+  });
+
+  it('creates Outlook push subscription when no subscription exists', async () => {
+    const axiosPostMock = axios.post as jest.MockedFunction<typeof axios.post>;
+
+    process.env.OUTLOOK_PUSH_NOTIFICATION_URL =
+      'https://mailzen.example.com/outlook-sync/webhooks/push';
+    process.env.OUTLOOK_PUSH_CLIENT_STATE_SECRET = 'client-secret';
+    emailProviderRepo.findOne.mockResolvedValue({
+      id: providerId,
+      userId,
+      type: 'OUTLOOK',
+      accessToken: 'token',
+      refreshToken: null,
+      tokenExpiry: null,
+      outlookPushSubscriptionId: null,
+      outlookPushSubscriptionExpiresAt: null,
+    } as unknown as EmailProvider);
+    axiosPostMock.mockResolvedValue({
+      data: {
+        id: 'sub-created',
+        expirationDateTime: new Date(
+          Date.now() + 2 * 60 * 60 * 1000,
+        ).toISOString(),
+      },
+    } as AxiosPostResponse);
+
+    const result = await service.ensurePushSubscriptionForProvider(
+      providerId,
+      userId,
+    );
+
+    expect(result).toBe(true);
+    expect(axiosPostMock).toHaveBeenCalledWith(
+      'https://graph.microsoft.com/v1.0/subscriptions',
+      expect.objectContaining({
+        notificationUrl:
+          'https://mailzen.example.com/outlook-sync/webhooks/push',
+        resource: '/me/messages',
+        changeType: 'created,updated,deleted',
+        clientState: `${providerId}:client-secret`,
+      }),
+      expect.any(Object),
+    );
+    expect(emailProviderRepo.update).toHaveBeenCalledWith(
+      { id: providerId },
+      expect.objectContaining({
+        outlookPushSubscriptionId: 'sub-created',
+        outlookPushSubscriptionExpiresAt: expect.any(Date),
+        outlookPushSubscriptionLastRenewedAt: expect.any(Date),
+      }),
+    );
   });
 });
