@@ -2,6 +2,7 @@ import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
+import { MailboxInboundSlaIncidentStatsResponse } from './dto/mailbox-inbound-sla-incident-stats.response';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
 import { UserNotification } from './entities/user-notification.entity';
 import { NotificationService } from './notification.service';
@@ -47,6 +48,23 @@ export class NotificationResolver {
   })
   async myUnreadNotificationCount(@Context() ctx: RequestContext) {
     return this.notificationService.getUnreadCount(ctx.req.user.id);
+  }
+
+  @Query(() => MailboxInboundSlaIncidentStatsResponse, {
+    description:
+      'Mailbox inbound SLA alert incident stats for current user over a rolling window',
+  })
+  async myMailboxInboundSlaIncidentStats(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours: number,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.notificationService.getMailboxInboundSlaIncidentStats({
+      userId: ctx.req.user.id,
+      workspaceId,
+      windowHours,
+    });
   }
 
   @Query(() => UserNotificationPreference, {

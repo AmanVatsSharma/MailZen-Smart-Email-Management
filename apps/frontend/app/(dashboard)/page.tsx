@@ -36,7 +36,7 @@ import {
   GET_MY_MAILBOX_INBOUND_EVENT_SERIES,
   GET_MY_MAILBOX_INBOUND_EVENT_STATS,
 } from '@/lib/apollo/queries/mailbox-observability';
-import { GET_MY_NOTIFICATIONS } from '@/lib/apollo/queries/notifications';
+import { GET_MAILBOX_INBOUND_SLA_INCIDENT_STATS } from '@/lib/apollo/queries/notifications';
 
 type MailboxInboundTrendPoint = {
   bucketStart: string;
@@ -46,15 +46,13 @@ type MailboxInboundTrendPoint = {
   rejectedCount: number;
 };
 
-type DashboardNotification = {
-  id: string;
+type MailboxInboundSlaIncidentStats = {
   workspaceId?: string | null;
-  type: string;
-  title: string;
-  message: string;
-  metadata?: Record<string, unknown> | string | null;
-  isRead: boolean;
-  createdAt: string;
+  windowHours: number;
+  totalCount: number;
+  warningCount: number;
+  criticalCount: number;
+  lastAlertAt?: string | null;
 };
 
 const container: Variants = {
@@ -119,23 +117,19 @@ export default function DashboardPage() {
     fetchPolicy: 'cache-and-network',
   });
   const {
-    data: slaAlertsData,
+    data: slaIncidentStatsData,
     loading: slaAlertsLoading,
     error: slaAlertsError,
-  } = useQuery<{ myNotifications: DashboardNotification[] }>(
-    GET_MY_NOTIFICATIONS,
-    {
-      variables: {
-        limit: 10,
-        unreadOnly: false,
-        workspaceId: activeWorkspaceId || undefined,
-        sinceHours: 24,
-        types: ['MAILBOX_INBOUND_SLA_ALERT'],
-      },
-      fetchPolicy: 'cache-and-network',
-      pollInterval: 30_000,
+  } = useQuery<{
+    myMailboxInboundSlaIncidentStats: MailboxInboundSlaIncidentStats;
+  }>(GET_MAILBOX_INBOUND_SLA_INCIDENT_STATS, {
+    variables: {
+      workspaceId: activeWorkspaceId || undefined,
+      windowHours: 24,
     },
-  );
+    fetchPolicy: 'cache-and-network',
+    pollInterval: 30_000,
+  });
 
   const analytics = data?.getAllEmailAnalytics ?? [];
   const scheduledEmails = data?.getAllScheduledEmails ?? [];
@@ -191,37 +185,12 @@ export default function DashboardPage() {
     ...trendPoints.map((point) => Number(point.totalCount || 0)),
     1,
   );
-  const resolveNotificationMetadata = (
-    notification: DashboardNotification,
-  ): Record<string, unknown> => {
-    const rawMetadata = notification.metadata;
-    if (!rawMetadata) return {};
-    if (typeof rawMetadata === 'string') {
-      try {
-        const parsed = JSON.parse(rawMetadata) as unknown;
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          return parsed as Record<string, unknown>;
-        }
-        return {};
-      } catch {
-        return {};
-      }
-    }
-    if (typeof rawMetadata === 'object' && !Array.isArray(rawMetadata)) {
-      return rawMetadata as Record<string, unknown>;
-    }
-    return {};
-  };
-  const slaAlertNotifications = slaAlertsData?.myNotifications || [];
-  const criticalAlertCount = slaAlertNotifications.filter((notification) => {
-    const payload = resolveNotificationMetadata(notification);
-    return String(payload.slaStatus || '').toUpperCase() === 'CRITICAL';
-  }).length;
-  const warningAlertCount = Math.max(
-    slaAlertNotifications.length - criticalAlertCount,
-    0,
-  );
-  const latestSlaAlert = slaAlertNotifications[0];
+  const slaIncidentStats =
+    slaIncidentStatsData?.myMailboxInboundSlaIncidentStats || null;
+  const totalSlaAlertCount = Number(slaIncidentStats?.totalCount || 0);
+  const warningAlertCount = Number(slaIncidentStats?.warningCount || 0);
+  const criticalAlertCount = Number(slaIncidentStats?.criticalCount || 0);
+  const latestSlaAlertAt = slaIncidentStats?.lastAlertAt || null;
 
   return (
     <DashboardPageShell
@@ -513,7 +482,7 @@ export default function DashboardPage() {
               </Alert>
             )}
             <div className="grid grid-cols-3 gap-2">
-              <Badge variant="outline">Total: {slaAlertNotifications.length}</Badge>
+              <Badge variant="outline">Total: {totalSlaAlertCount}</Badge>
               <Badge
                 variant="outline"
                 className="border-amber-200/60 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
@@ -530,8 +499,8 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">
               {slaAlertsLoading
                 ? 'Refreshing SLA incidents...'
-                : latestSlaAlert
-                  ? `Latest incident: ${new Date(latestSlaAlert.createdAt).toLocaleString()}`
+                : latestSlaAlertAt
+                  ? `Latest incident: ${new Date(latestSlaAlertAt).toLocaleString()}`
                   : 'No SLA incidents detected in the selected period.'}
             </p>
           </CardContent>

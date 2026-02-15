@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/unbound-method */
+/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-argument */
 import { NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
@@ -17,6 +17,7 @@ describe('NotificationService', () => {
       find: jest.fn(),
       count: jest.fn(),
       findOne: jest.fn(),
+      createQueryBuilder: jest.fn(),
     } as unknown as jest.Mocked<Repository<UserNotification>>;
     preferenceRepo = {
       create: jest.fn(),
@@ -25,6 +26,18 @@ describe('NotificationService', () => {
     } as unknown as jest.Mocked<Repository<UserNotificationPreference>>;
 
     service = new NotificationService(notificationRepo, preferenceRepo);
+    notificationRepo.createQueryBuilder.mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({
+        totalCount: '0',
+        warningCount: '0',
+        criticalCount: '0',
+        lastAlertAt: null,
+      }),
+    } as any);
   });
 
   afterEach(() => {
@@ -339,5 +352,43 @@ describe('NotificationService', () => {
     expect(whereEntries[0]?.createdAt).toBeDefined();
     expect(whereEntries[1]?.workspaceId).toBeDefined();
     expect(result).toHaveLength(1);
+  });
+
+  it('returns mailbox inbound SLA incident aggregates', async () => {
+    const queryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({
+        totalCount: '8',
+        warningCount: '5',
+        criticalCount: '3',
+        lastAlertAt: '2026-02-16T02:00:00.000Z',
+      }),
+    };
+    notificationRepo.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+    const result = await service.getMailboxInboundSlaIncidentStats({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+    });
+
+    expect(notificationRepo.createQueryBuilder).toHaveBeenCalledWith(
+      'notification',
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      '(notification.workspaceId = :workspaceId OR notification.workspaceId IS NULL)',
+      { workspaceId: 'workspace-1' },
+    );
+    expect(result).toEqual({
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      totalCount: 8,
+      warningCount: 5,
+      criticalCount: 3,
+      lastAlertAt: new Date('2026-02-16T02:00:00.000Z'),
+    });
   });
 });

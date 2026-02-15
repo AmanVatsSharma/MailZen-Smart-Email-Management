@@ -65,6 +65,8 @@ flowchart TD
 
 - 2026-02-15: Added dashboard mailbox inbound SLA incidents card powered by
   workspace/time-window/type-filtered notifications query (`MAILBOX_INBOUND_SLA_ALERT`).
+- 2026-02-15: Migrated SLA incidents card to dedicated incident-stats query for
+  lightweight workspace-scoped warning/critical aggregates.
 - 2026-02-15: Added mailbox inbound SLA alert toggle in notification settings
   to control warning/critical alert notifications.
 - 2026-02-15: Added notification-settings controls for mailbox inbound SLA

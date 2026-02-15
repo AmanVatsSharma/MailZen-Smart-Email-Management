@@ -9,6 +9,7 @@ const requiredContracts = [
   'selectMyPlan',
   'requestMyPlanUpgrade',
   'myNotifications',
+  'myMailboxInboundSlaIncidentStats',
   'myNotificationPreferences',
   'updateMyNotificationPreferences',
   'myWorkspaces',

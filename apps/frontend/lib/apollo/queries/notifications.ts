@@ -33,6 +33,22 @@ export const GET_UNREAD_NOTIFICATION_COUNT = gql`
   }
 `;
 
+export const GET_MAILBOX_INBOUND_SLA_INCIDENT_STATS = gql`
+  query MyMailboxInboundSlaIncidentStats($workspaceId: String, $windowHours: Int) {
+    myMailboxInboundSlaIncidentStats(
+      workspaceId: $workspaceId
+      windowHours: $windowHours
+    ) {
+      workspaceId
+      windowHours
+      totalCount
+      warningCount
+      criticalCount
+      lastAlertAt
+    }
+  }
+`;
+
 export const MARK_NOTIFICATION_READ = gql`
   mutation MarkNotificationRead($id: String!) {
     markNotificationRead(id: $id) {

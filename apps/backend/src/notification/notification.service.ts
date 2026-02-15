@@ -24,6 +24,8 @@ export class NotificationService {
   private static readonly DEFAULT_MAILBOX_INBOUND_SLA_TARGET_SUCCESS_PERCENT = 99;
   private static readonly DEFAULT_MAILBOX_INBOUND_SLA_WARNING_REJECTED_PERCENT = 1;
   private static readonly DEFAULT_MAILBOX_INBOUND_SLA_CRITICAL_REJECTED_PERCENT = 5;
+  private static readonly DEFAULT_MAILBOX_INBOUND_INCIDENT_WINDOW_HOURS = 24;
+  private static readonly MAX_MAILBOX_INBOUND_INCIDENT_WINDOW_HOURS = 24 * 30;
 
   constructor(
     @InjectRepository(UserNotification)
@@ -367,6 +369,65 @@ export class NotificationService {
     return this.notificationRepo.save(notification);
   }
 
+  async getMailboxInboundSlaIncidentStats(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+  }): Promise<{
+    workspaceId?: string | null;
+    windowHours: number;
+    totalCount: number;
+    warningCount: number;
+    criticalCount: number;
+    lastAlertAt?: Date | null;
+  }> {
+    const normalizedWorkspaceId = String(input.workspaceId || '').trim();
+    const windowHours = this.normalizeIncidentWindowHours(input.windowHours);
+    const windowStartDate = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const statsQuery = this.notificationRepo
+      .createQueryBuilder('notification')
+      .select('COUNT(*)', 'totalCount')
+      .addSelect(
+        `SUM(CASE WHEN notification.metadata ->> 'slaStatus' = 'WARNING' THEN 1 ELSE 0 END)`,
+        'warningCount',
+      )
+      .addSelect(
+        `SUM(CASE WHEN notification.metadata ->> 'slaStatus' = 'CRITICAL' THEN 1 ELSE 0 END)`,
+        'criticalCount',
+      )
+      .addSelect('MAX(notification.createdAt)', 'lastAlertAt')
+      .where('notification.userId = :userId', { userId: input.userId })
+      .andWhere('notification.type = :type', {
+        type: 'MAILBOX_INBOUND_SLA_ALERT',
+      })
+      .andWhere('notification.createdAt >= :windowStart', {
+        windowStart: windowStartDate.toISOString(),
+      });
+    if (normalizedWorkspaceId) {
+      statsQuery.andWhere(
+        '(notification.workspaceId = :workspaceId OR notification.workspaceId IS NULL)',
+        { workspaceId: normalizedWorkspaceId },
+      );
+    }
+    const aggregate = await statsQuery.getRawOne<{
+      totalCount?: string;
+      warningCount?: string;
+      criticalCount?: string;
+      lastAlertAt?: string | null;
+    }>();
+
+    return {
+      workspaceId: normalizedWorkspaceId || null,
+      windowHours,
+      totalCount: Number(aggregate?.totalCount || '0'),
+      warningCount: Number(aggregate?.warningCount || '0'),
+      criticalCount: Number(aggregate?.criticalCount || '0'),
+      lastAlertAt: aggregate?.lastAlertAt
+        ? new Date(aggregate.lastAlertAt)
+        : null,
+    };
+  }
+
   async updateMailboxInboundSlaAlertState(input: {
     userId: string;
     status: MailboxInboundSlaStatus | null;
@@ -376,5 +437,19 @@ export class NotificationService {
     preference.mailboxInboundSlaLastAlertStatus = input.status;
     preference.mailboxInboundSlaLastAlertedAt = input.alertedAt;
     return this.notificationPreferenceRepo.save(preference);
+  }
+
+  private normalizeIncidentWindowHours(windowHours?: number | null): number {
+    const candidate =
+      typeof windowHours === 'number' && Number.isFinite(windowHours)
+        ? Math.floor(windowHours)
+        : NotificationService.DEFAULT_MAILBOX_INBOUND_INCIDENT_WINDOW_HOURS;
+    if (candidate < 1) return 1;
+    if (
+      candidate > NotificationService.MAX_MAILBOX_INBOUND_INCIDENT_WINDOW_HOURS
+    ) {
+      return NotificationService.MAX_MAILBOX_INBOUND_INCIDENT_WINDOW_HOURS;
+    }
+    return candidate;
   }
 }

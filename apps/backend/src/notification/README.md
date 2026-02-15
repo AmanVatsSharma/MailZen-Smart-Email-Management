@@ -20,6 +20,8 @@ Provide a persistent notification foundation for user-visible product events
   notifications (optional workspace/time-window/type filtering)
   - workspace filtering returns both matching workspace notifications and
     global (`workspaceId = null`) notifications for complete operational context.
+- `myMailboxInboundSlaIncidentStats(workspaceId?, windowHours?)` → aggregated
+  warning/critical incident counts and last-alert timestamp for SLA alerts
 - `myUnreadNotificationCount` → unread badge count
 - `myNotificationPreferences` → get per-user notification channel settings
 - `markNotificationRead(id)` → marks one notification as read
