@@ -113,6 +113,8 @@ flowchart TD
 - If process restarts and duplicate `messageId` arrives:
   - service checks `mailbox_inbound_events` and `emails.inboundMessageId` before insert
   - request remains idempotent across cache misses
+- For mailbox-resolved failures (quota/suspension/payload errors), service records
+  `REJECTED` status in `mailbox_inbound_events` for post-incident analysis.
 
 ## Notes
 

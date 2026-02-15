@@ -220,3 +220,20 @@ This migration introduces:
    - first event -> `status=ACCEPTED`
    - repeated message-id -> deduplicated path
    - invalid signature -> rejected path
+
+### Staging verification SQL (inbound events)
+
+```sql
+-- Ensure event store receives entries
+SELECT status, COUNT(*) AS total
+FROM mailbox_inbound_events
+GROUP BY status
+ORDER BY status;
+
+-- Spot duplicate message-id handling correctness
+SELECT "mailboxId", "messageId", COUNT(*) AS duplicates
+FROM mailbox_inbound_events
+WHERE "messageId" IS NOT NULL
+GROUP BY "mailboxId", "messageId"
+HAVING COUNT(*) > 1;
+```

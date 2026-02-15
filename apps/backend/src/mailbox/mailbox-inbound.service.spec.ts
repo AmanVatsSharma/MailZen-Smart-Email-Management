@@ -159,11 +159,13 @@ describe('MailboxInboundService', () => {
           from: 'lead@example.com',
           subject: 'New lead',
           textBody: 'Hello',
+          messageId: '<invalid-token@example.com>',
         },
         { inboundTokenHeader: 'wrong-token' },
       ),
     ).rejects.toThrow(UnauthorizedException);
     expect(mailboxRepo.findOne).not.toHaveBeenCalled();
+    expect(mailboxInboundEventRepo.upsert).not.toHaveBeenCalled();
   });
 
   it('rejects inbound payload for unknown mailbox', async () => {
@@ -202,11 +204,21 @@ describe('MailboxInboundService', () => {
           from: 'lead@example.com',
           subject: 'New lead',
           textBody: 'Hello',
+          messageId: '<suspended-mailbox@example.com>',
         },
         { inboundTokenHeader: 'test-inbound-token' },
       ),
     ).rejects.toThrow(BadRequestException);
     expect(emailRepo.save).not.toHaveBeenCalled();
+    expect(mailboxInboundEventRepo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mailboxId: 'mailbox-1',
+        userId: 'user-1',
+        messageId: '<suspended-mailbox@example.com>',
+        status: 'REJECTED',
+      }),
+      ['mailboxId', 'messageId'],
+    );
   });
 
   it('rejects inbound payload when mailbox quota is exceeded', async () => {
@@ -228,12 +240,22 @@ describe('MailboxInboundService', () => {
           from: 'lead@example.com',
           subject: 'New lead',
           textBody: 'This payload exceeds the remaining mailbox quota',
+          messageId: '<quota-exceeded@example.com>',
           sizeBytes: '2048',
         },
         { inboundTokenHeader: 'test-inbound-token' },
       ),
     ).rejects.toThrow(BadRequestException);
     expect(emailRepo.save).not.toHaveBeenCalled();
+    expect(mailboxInboundEventRepo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mailboxId: 'mailbox-1',
+        userId: 'user-1',
+        messageId: '<quota-exceeded@example.com>',
+        status: 'REJECTED',
+      }),
+      ['mailboxId', 'messageId'],
+    );
   });
 
   it('deduplicates repeated inbound events by messageId in cache window', async () => {
