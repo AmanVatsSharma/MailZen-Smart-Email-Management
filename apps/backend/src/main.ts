@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
+import { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 
 const bootstrapLogger = new Logger('Bootstrap');
@@ -67,6 +68,43 @@ async function bootstrap() {
   await assertAgentPlatformReadiness();
 
   const app = await NestFactory.create(AppModule);
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const incomingRequestIdHeader = req.headers['x-request-id'];
+    const incomingRequestId = Array.isArray(incomingRequestIdHeader)
+      ? incomingRequestIdHeader[0]
+      : incomingRequestIdHeader;
+    const requestId =
+      (incomingRequestId && incomingRequestId.trim()) || randomUUID();
+
+    res.setHeader('x-request-id', requestId);
+
+    const requestStartedAt = Date.now();
+    bootstrapLogger.log(
+      JSON.stringify({
+        event: 'http_request_start',
+        requestId,
+        method: req.method,
+        path: req.originalUrl || req.url,
+      }),
+    );
+
+    res.on('finish', () => {
+      bootstrapLogger.log(
+        JSON.stringify({
+          event: 'http_request_complete',
+          requestId,
+          method: req.method,
+          path: req.originalUrl || req.url,
+          statusCode: res.statusCode,
+          durationMs: Date.now() - requestStartedAt,
+        }),
+      );
+    });
+
+    next();
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
