@@ -51,6 +51,7 @@ jobs:
           email-integration/provider-sync-lease.service.spec.ts
           gmail-sync/gmail-sync.service.spec.ts
           email-integration/email-provider.service.spec.ts
+          email-integration/email-provider.connect.resolver.spec.ts
           mailbox/mailbox.service.spec.ts
           mailbox/mailbox.resolver.spec.ts
           mailbox/mail-server.service.spec.ts

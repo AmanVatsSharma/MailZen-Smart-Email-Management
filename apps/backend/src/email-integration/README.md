@@ -68,7 +68,8 @@ Frontend-facing (matches `apps/frontend/lib/providers/provider-utils.ts`):
 - `syncProvider(id: ID!): Provider`
   - Gmail providers: triggers real Gmail metadata sync through `GmailSyncService`
   - Outlook providers: triggers real Microsoft Graph sync through `OutlookSyncService`
-  - Other providers: status-only sync fallback (`syncing`) until provider-specific ingestion is added
+  - SMTP providers: validates SMTP connectivity and updates sync status/error telemetry
+  - Errors are persisted as provider state (`status=error`, `lastSyncError`, `lastSyncErrorAt`) for support/debug visibility
 
 ## OAuth Redirect URI notes (important)
 

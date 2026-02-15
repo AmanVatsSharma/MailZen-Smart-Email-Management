@@ -5,11 +5,6 @@ import { EmailProviderService } from './email-provider.service';
 import { Provider } from './entities/provider.entity';
 import { ProviderActionResult } from './entities/provider-action-result.entity';
 import { SmtpSettingsInput } from './dto/smtp-settings.input';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { EmailProvider } from './entities/email-provider.entity';
-import { GmailSyncService } from '../gmail-sync/gmail-sync.service';
-import { OutlookSyncService } from '../outlook-sync/outlook-sync.service';
 
 interface RequestContext {
   req: {
@@ -30,10 +25,6 @@ interface RequestContext {
 export class EmailProviderConnectResolver {
   constructor(
     private readonly emailProviderService: EmailProviderService,
-    @InjectRepository(EmailProvider)
-    private readonly emailProviderRepo: Repository<EmailProvider>,
-    private readonly gmailSync: GmailSyncService,
-    private readonly outlookSync: OutlookSyncService,
   ) {}
 
   @Mutation(() => Provider)
@@ -85,30 +76,6 @@ export class EmailProviderConnectResolver {
 
   @Mutation(() => Provider)
   async syncProvider(@Args('id') id: string, @Context() ctx: RequestContext) {
-    // Trigger real provider-specific sync into DB when available.
-    const provider = await this.emailProviderRepo.findOne({
-      where: { id, userId: ctx.req.user.id },
-    });
-    if (provider?.type === 'GMAIL') {
-      await this.gmailSync.syncGmailProvider(id, ctx.req.user.id, 25);
-      const providers = await this.emailProviderService.listProvidersUi(
-        ctx.req.user.id,
-      );
-      const syncedProvider = providers.find((p) => p.id === id);
-      if (syncedProvider) return syncedProvider;
-      return this.emailProviderService.syncProvider(id, ctx.req.user.id);
-    }
-
-    if (provider?.type === 'OUTLOOK') {
-      await this.outlookSync.syncOutlookProvider(id, ctx.req.user.id, 25);
-      const providers = await this.emailProviderService.listProvidersUi(
-        ctx.req.user.id,
-      );
-      const syncedProvider = providers.find((p) => p.id === id);
-      if (syncedProvider) return syncedProvider;
-      return this.emailProviderService.syncProvider(id, ctx.req.user.id);
-    }
-
     return this.emailProviderService.syncProvider(id, ctx.req.user.id);
   }
 

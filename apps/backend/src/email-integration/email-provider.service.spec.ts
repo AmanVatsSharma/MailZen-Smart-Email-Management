@@ -11,6 +11,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { createTransport } from 'nodemailer';
 import { Repository } from 'typeorm';
 import { BillingService } from '../billing/billing.service';
+import { GmailSyncService } from '../gmail-sync/gmail-sync.service';
+import { OutlookSyncService } from '../outlook-sync/outlook-sync.service';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { EmailProviderInput } from './dto/email-provider.input';
 import { EmailProvider } from './entities/email-provider.entity';
@@ -38,6 +40,12 @@ jest.mock('google-auth-library', () => ({
 describe('EmailProviderService', () => {
   let service: EmailProviderService;
   let providerRepository: jest.Mocked<Repository<EmailProvider>>;
+  const gmailSyncServiceMock = {
+    syncGmailProvider: jest.fn(),
+  };
+  const outlookSyncServiceMock = {
+    syncOutlookProvider: jest.fn(),
+  };
   const billingServiceMock = {
     getEntitlements: jest.fn().mockResolvedValue({
       planCode: 'PRO',
@@ -76,6 +84,8 @@ describe('EmailProviderService', () => {
         { provide: getRepositoryToken(EmailProvider), useValue: repoMock },
         { provide: BillingService, useValue: billingServiceMock },
         { provide: WorkspaceService, useValue: workspaceServiceMock },
+        { provide: GmailSyncService, useValue: gmailSyncServiceMock },
+        { provide: OutlookSyncService, useValue: outlookSyncServiceMock },
       ],
     }).compile();
 
@@ -252,5 +262,75 @@ describe('EmailProviderService', () => {
         pool: true,
       }),
     );
+  });
+
+  it('syncs gmail provider through gmail sync service', async () => {
+    providerRepository.findOne
+      .mockResolvedValueOnce({
+        id: 'provider-1',
+        type: 'GMAIL',
+        userId: 'user-1',
+      } as EmailProvider)
+      .mockResolvedValueOnce({
+        id: 'provider-1',
+        type: 'GMAIL',
+        userId: 'user-1',
+        email: 'founder@gmail.com',
+        status: 'connected',
+      } as EmailProvider);
+    gmailSyncServiceMock.syncGmailProvider.mockResolvedValue({ imported: 1 });
+
+    const providerUi = await service.syncProvider('provider-1', 'user-1');
+
+    expect(gmailSyncServiceMock.syncGmailProvider).toHaveBeenCalledWith(
+      'provider-1',
+      'user-1',
+      25,
+    );
+    expect(providerUi.status).toBe('connected');
+  });
+
+  it('marks provider sync as error when smtp validation fails', async () => {
+    providerRepository.findOne
+      .mockResolvedValueOnce({
+        id: 'provider-1',
+        type: 'CUSTOM_SMTP',
+        userId: 'user-1',
+      } as EmailProvider)
+      .mockResolvedValueOnce({
+        id: 'provider-1',
+        type: 'CUSTOM_SMTP',
+        userId: 'user-1',
+        email: 'ops@example.com',
+        status: 'error',
+        lastSyncError: 'SMTP connection failed',
+      } as EmailProvider)
+      .mockResolvedValueOnce({
+        id: 'provider-1',
+        type: 'CUSTOM_SMTP',
+        userId: 'user-1',
+      } as EmailProvider);
+    jest.spyOn(service, 'validateProvider').mockResolvedValue({
+      valid: false,
+      message: 'SMTP connection failed',
+    });
+    providerRepository.update.mockResolvedValue({} as any);
+
+    const providerUi = await service.syncProvider('provider-1', 'user-1');
+
+    expect(providerRepository.update).toHaveBeenCalledWith('provider-1', {
+      status: 'syncing',
+      lastSyncError: null,
+      lastSyncErrorAt: null,
+    });
+    expect(providerRepository.update).toHaveBeenCalledWith(
+      'provider-1',
+      expect.objectContaining({
+        status: 'error',
+        lastSyncError: 'SMTP connection failed',
+      }),
+    );
+    expect(providerUi.status).toBe('error');
+    expect(providerUi.lastSyncError).toBe('SMTP connection failed');
   });
 });

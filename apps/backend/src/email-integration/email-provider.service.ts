@@ -16,6 +16,8 @@ import * as NodeCache from 'node-cache';
 import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
 import { BillingService } from '../billing/billing.service';
+import { GmailSyncService } from '../gmail-sync/gmail-sync.service';
+import { OutlookSyncService } from '../outlook-sync/outlook-sync.service';
 import { WorkspaceService } from '../workspace/workspace.service';
 import {
   decryptProviderSecret,
@@ -51,6 +53,8 @@ export class EmailProviderService {
     private readonly providerRepository: Repository<EmailProvider>,
     private readonly billingService: BillingService,
     private readonly workspaceService: WorkspaceService,
+    private readonly gmailSyncService: GmailSyncService,
+    private readonly outlookSyncService: OutlookSyncService,
   ) {
     this.providerSecretsKeyring = resolveProviderSecretsKeyring();
 
@@ -390,12 +394,56 @@ export class EmailProviderService {
   }
 
   async syncProvider(providerId: string, userId: string) {
-    // MVP: mark as syncing; gmail-sync module will do real syncing later.
     const provider = await this.providerRepository.findOne({
       where: { id: providerId, userId },
     });
     if (!provider) throw new NotFoundException('Provider not found');
-    await this.providerRepository.update(providerId, { status: 'syncing' });
+    await this.providerRepository.update(providerId, {
+      status: 'syncing',
+      lastSyncError: null,
+      lastSyncErrorAt: null,
+    });
+
+    try {
+      if (provider.type === 'GMAIL') {
+        await this.gmailSyncService.syncGmailProvider(providerId, userId, 25);
+      } else if (provider.type === 'OUTLOOK') {
+        await this.outlookSyncService.syncOutlookProvider(providerId, userId, 25);
+      } else if (provider.type === 'CUSTOM_SMTP') {
+        const validationResult = await this.validateProvider(providerId, userId);
+        if (!validationResult.valid) {
+          throw new BadRequestException(
+            validationResult.message || 'SMTP provider sync validation failed',
+          );
+        }
+        await this.providerRepository.update(providerId, {
+          status: 'connected',
+          lastSyncedAt: new Date(),
+          lastSyncError: null,
+          lastSyncErrorAt: null,
+        });
+      } else {
+        await this.providerRepository.update(providerId, {
+          status: 'connected',
+          lastSyncedAt: new Date(),
+          lastSyncError: null,
+          lastSyncErrorAt: null,
+        });
+      }
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Provider sync failed';
+      this.logger.warn(
+        `provider-sync: providerId=${providerId} type=${provider.type} failed error=${message}`,
+      );
+      await this.providerRepository.update(providerId, {
+        status: 'error',
+        syncLeaseExpiresAt: null,
+        lastSyncError: message.slice(0, 500),
+        lastSyncErrorAt: new Date(),
+      });
+    }
+
     return this.getProviderUi(providerId, userId);
   }
 
