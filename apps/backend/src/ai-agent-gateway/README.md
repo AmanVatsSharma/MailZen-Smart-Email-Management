@@ -15,6 +15,8 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - Enforce human-in-the-loop approval token flow for risky agent actions:
   - `inbox.compose_reply_draft`
   - `inbox.schedule_followup`
+- Enforce monthly AI credit entitlements for authenticated assist requests
+  through billing usage consumption.
 - Persist executed agent-action audits (`agent_action_audits`) for compliance and debugging.
 - Provide `agentPlatformHealth` GraphQL probe with gateway metrics snapshot.
 - Expose `myAgentActionAudits(limit?)` query for authenticated audit review.
@@ -31,6 +33,9 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - `AI_AGENT_GATEWAY_USE_REDIS` (default `true`)
 - `AI_AGENT_GATEWAY_REDIS_URL` (fallback to `REDIS_URL`)
 - `AI_AGENT_ACTION_APPROVAL_TTL_SECONDS` (default `600`)
+- `AI_AGENT_CREDIT_COST` (default `1`)
+- `AI_AGENT_CREDIT_COST_<SKILL>` optional per-skill override, e.g.
+  `AI_AGENT_CREDIT_COST_INBOX=2`
 - `AI_AGENT_ALERT_LATENCY_MS` (default `1500`)
 - `AI_AGENT_ALERT_ERROR_RATE_PERCENT` (default `5`)
 
@@ -47,3 +52,4 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   context metadata (`workspaceId`, `providerId`) for workspace-aware UX.
 - 2026-02-15: Added approval-token controls for non-trivial inbox actions.
 - 2026-02-15: Added agent action audit persistence with request correlation IDs.
+- 2026-02-16: Added billing-backed AI credit consumption enforcement.

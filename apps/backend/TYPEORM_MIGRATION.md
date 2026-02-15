@@ -654,3 +654,40 @@ WHERE "lastSyncErrorAt" IS NOT NULL
 ORDER BY "lastSyncErrorAt" DESC
 LIMIT 25;
 ```
+
+## AI Credit Usage Rollout Notes (2026-02-16)
+
+New migration: `20260216025000-user-ai-credit-usages.ts`
+
+This migration introduces:
+
+- `user_ai_credit_usages` table for monthly AI credit usage tracking
+- unique key on `("userId","periodStart")` for one usage row per user+month
+- indexed user + period fields for fast entitlement balance lookups
+
+### Safe rollout sequence
+
+1. Deploy backend with billing credit-balance + consume logic.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- billing/billing.service.spec.ts billing/billing.resolver.spec.ts ai-agent-gateway/ai-agent-gateway.service.spec.ts`
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Validate runtime behavior:
+   - `myAiCreditBalance` returns active plan credit usage
+   - authenticated AI assist calls consume monthly credits
+   - exhausted balances reject with explicit credit-limit error
+
+### Staging verification SQL
+
+```sql
+SELECT
+  "userId",
+  "periodStart",
+  "usedCredits",
+  "lastConsumedAt"
+FROM user_ai_credit_usages
+ORDER BY "updatedAt" DESC
+LIMIT 50;
+```

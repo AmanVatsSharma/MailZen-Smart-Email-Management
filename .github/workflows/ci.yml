@@ -29,6 +29,7 @@ jobs:
         run: >
           npm run test --
           billing/billing.service.spec.ts
+          billing/billing.resolver.spec.ts
           notification/notification.service.spec.ts
           notification/notification.resolver.spec.ts
           notification/notification-event-bus.service.spec.ts

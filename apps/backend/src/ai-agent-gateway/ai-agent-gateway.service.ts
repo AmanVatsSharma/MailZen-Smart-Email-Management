@@ -23,6 +23,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createClient, RedisClientType } from 'redis';
 import { Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
+import { BillingService } from '../billing/billing.service';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { User } from '../user/entities/user.entity';
@@ -175,6 +176,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly authService: AuthService,
+    private readonly billingService: BillingService,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     @InjectRepository(ExternalEmailMessage)
@@ -249,6 +251,18 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         requestId,
         requestMeta?.ip,
       );
+      if (userId) {
+        const aiCreditBalance = await this.billingService.consumeAiCredits({
+          userId,
+          credits: this.resolveAiCreditCost(skill),
+          requestId,
+        });
+        if (!aiCreditBalance.allowed) {
+          throw new BadRequestException(
+            `AI credit limit reached for current period. Remaining credits: ${aiCreditBalance.remainingCredits}.`,
+          );
+        }
+      }
       const suggestedActions = await this.decorateSuggestedActionsWithApproval({
         suggestedActions: platformResponse.suggestedActions,
         requestId,
@@ -321,6 +335,22 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         this.skillPolicies,
       ).join(', ')}`,
     );
+  }
+
+  private resolveAiCreditCost(skill: string): number {
+    const skillKey = skill.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+    const skillOverride = Number(
+      process.env[`AI_AGENT_CREDIT_COST_${skillKey}`],
+    );
+    if (Number.isFinite(skillOverride) && skillOverride > 0) {
+      return Math.floor(skillOverride);
+    }
+
+    const fallback = Number(process.env.AI_AGENT_CREDIT_COST || 1);
+    if (Number.isFinite(fallback) && fallback > 0) {
+      return Math.floor(fallback);
+    }
+    return 1;
   }
 
   async getPlatformHealth(): Promise<AgentPlatformHealthResponse> {

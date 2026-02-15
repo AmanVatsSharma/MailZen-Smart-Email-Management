@@ -4,11 +4,12 @@ import { NotificationModule } from '../notification/notification.module';
 import { BillingResolver } from './billing.resolver';
 import { BillingService } from './billing.service';
 import { BillingPlan } from './entities/billing-plan.entity';
+import { UserAiCreditUsage } from './entities/user-ai-credit-usage.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([BillingPlan, UserSubscription]),
+    TypeOrmModule.forFeature([BillingPlan, UserSubscription, UserAiCreditUsage]),
     NotificationModule,
   ],
   providers: [BillingService, BillingResolver],

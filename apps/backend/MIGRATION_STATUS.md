@@ -43,6 +43,8 @@
   - `20260216023000-email-provider-sync-lease.ts`
 - Added provider sync error-state columns migration:
   - `20260216024000-email-provider-sync-error-state.ts`
+- Added AI credit usage tracking migration:
+  - `20260216025000-user-ai-credit-usages.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

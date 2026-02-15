@@ -10,6 +10,7 @@
  */
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BillingModule } from '../billing/billing.module';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { NotificationModule } from '../notification/notification.module';
 import { User } from '../user/entities/user.entity';
@@ -20,6 +21,7 @@ import { AgentActionAudit } from './entities/agent-action-audit.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, ExternalEmailMessage, AgentActionAudit]),
+    BillingModule,
     NotificationModule,
   ],
   providers: [AiAgentGatewayResolver, AiAgentGatewayService],

@@ -9,10 +9,12 @@ state, enabling entitlement-aware product rollouts.
 
 - Maintain active billing plan catalog (`billing_plans`)
 - Maintain user subscription state (`user_subscriptions`)
+- Track monthly AI credit usage (`user_ai_credit_usages`)
 - Seed default plans when catalog is empty
 - Expose GraphQL operations for:
   - listing plans
   - reading current subscription
+  - reading current AI credit balance
   - selecting active plan
   - recording upgrade intent (`requestMyPlanUpgrade`)
 
@@ -20,6 +22,7 @@ state, enabling entitlement-aware product rollouts.
 
 - `billingPlans`: list active plans
 - `mySubscription`: get current user subscription (auto-provisions FREE plan)
+- `myAiCreditBalance`: get current month AI credit usage + remaining credits
 - `selectMyPlan(planCode)`: switch current user subscription to active plan
 - `requestMyPlanUpgrade(targetPlanCode, note?)`: records upgrade intent notification
 
@@ -31,8 +34,10 @@ flowchart TD
   Resolver --> Service[BillingService]
   Service --> PlanRepo[(billing_plans)]
   Service --> SubRepo[(user_subscriptions)]
+  Service --> AiUsageRepo[(user_ai_credit_usages)]
   PlanRepo --> Service
   SubRepo --> Service
+  AiUsageRepo --> Service
   Service --> Resolver
   Resolver --> User
 ```
@@ -45,5 +50,6 @@ flowchart TD
   - `EmailProviderService` enforces `providerLimit`
   - `MailboxService` enforces `mailboxLimit`
   - `WorkspaceService` enforces `workspaceLimit`
+  - `AiAgentGatewayService` consumes monthly AI credits via billing service
   - `NotificationEventBusService` stores `BILLING_UPGRADE_INTENT` intents
 

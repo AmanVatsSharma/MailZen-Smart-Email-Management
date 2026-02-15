@@ -2,6 +2,7 @@ import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { BillingService } from './billing.service';
+import { AiCreditBalanceResponse } from './dto/ai-credit-balance.response';
 import { BillingUpgradeIntentResponse } from './dto/billing-upgrade-intent.response';
 import { BillingPlan } from './entities/billing-plan.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
@@ -31,6 +32,13 @@ export class BillingResolver {
   })
   async mySubscription(@Context() context: RequestContext) {
     return this.billingService.getMySubscription(context.req.user.id);
+  }
+
+  @Query(() => AiCreditBalanceResponse, {
+    description: 'Get AI credit usage balance for current billing period',
+  })
+  async myAiCreditBalance(@Context() context: RequestContext) {
+    return this.billingService.getAiCreditBalance(context.req.user.id);
   }
 
   @Mutation(() => UserSubscription, {

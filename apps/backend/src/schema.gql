@@ -780,6 +780,7 @@ input EmailUpdateInput {
 extend type Query {
   billingPlans: [BillingPlan!]!
   mySubscription: UserSubscription!
+  myAiCreditBalance: AiCreditBalanceResponse!
   myNotifications(limit: Int, unreadOnly: Boolean, workspaceId: String, sinceHours: Int, types: [String!]): [UserNotification!]!
   myMailboxInboundSlaIncidentStats(workspaceId: String, windowHours: Int): MailboxInboundSlaIncidentStatsResponse!
   myMailboxInboundSlaIncidentSeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [MailboxInboundSlaIncidentTrendPointResponse!]!
@@ -855,6 +856,15 @@ type UserSubscription {
   metadata: String
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+type AiCreditBalanceResponse {
+  planCode: String!
+  monthlyLimit: Int!
+  usedCredits: Int!
+  remainingCredits: Int!
+  periodStart: String!
+  lastConsumedAtIso: String
 }
 
 type BillingUpgradeIntentResponse {

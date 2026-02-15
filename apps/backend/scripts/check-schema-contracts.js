@@ -6,6 +6,7 @@ const schemaPath = path.join(__dirname, '..', 'src', 'schema.gql');
 const requiredContracts = [
   'billingPlans',
   'mySubscription',
+  'myAiCreditBalance',
   'selectMyPlan',
   'requestMyPlanUpgrade',
   'myNotifications',

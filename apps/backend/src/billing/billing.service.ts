@@ -7,8 +7,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
+import { AiCreditBalanceResponse } from './dto/ai-credit-balance.response';
 import { BillingPlan } from './entities/billing-plan.entity';
 import { BillingUpgradeIntentResponse } from './dto/billing-upgrade-intent.response';
+import { UserAiCreditUsage } from './entities/user-ai-credit-usage.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
 
 @Injectable()
@@ -20,8 +22,16 @@ export class BillingService {
     private readonly billingPlanRepo: Repository<BillingPlan>,
     @InjectRepository(UserSubscription)
     private readonly userSubscriptionRepo: Repository<UserSubscription>,
+    @InjectRepository(UserAiCreditUsage)
+    private readonly userAiCreditUsageRepo: Repository<UserAiCreditUsage>,
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
+
+  private resolveCurrentPeriodStartIso(referenceDate = new Date()): string {
+    const year = referenceDate.getUTCFullYear();
+    const month = referenceDate.getUTCMonth();
+    return new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+  }
 
   private getDefaultPlans(): Array<Partial<BillingPlan>> {
     return [
@@ -158,6 +168,105 @@ export class BillingService {
       mailboxLimit: plan.mailboxLimit,
       workspaceLimit: plan.workspaceLimit,
       aiCreditsPerMonth: plan.aiCreditsPerMonth,
+    };
+  }
+
+  private async getOrCreateUsageForCurrentPeriod(
+    userId: string,
+    periodStart: string,
+  ): Promise<UserAiCreditUsage> {
+    await this.userAiCreditUsageRepo.upsert(
+      [
+        {
+          userId,
+          periodStart,
+          usedCredits: 0,
+        },
+      ],
+      ['userId', 'periodStart'],
+    );
+
+    const usage = await this.userAiCreditUsageRepo.findOne({
+      where: { userId, periodStart },
+    });
+    if (usage) return usage;
+
+    const created = this.userAiCreditUsageRepo.create({
+      userId,
+      periodStart,
+      usedCredits: 0,
+    });
+    return this.userAiCreditUsageRepo.save(created);
+  }
+
+  async getAiCreditBalance(userId: string): Promise<AiCreditBalanceResponse> {
+    const entitlements = await this.getEntitlements(userId);
+    const periodStart = this.resolveCurrentPeriodStartIso();
+    const usage = await this.getOrCreateUsageForCurrentPeriod(
+      userId,
+      periodStart,
+    );
+    const usedCredits = Number(usage.usedCredits || 0);
+    const monthlyLimit = Number(entitlements.aiCreditsPerMonth || 0);
+    return {
+      planCode: entitlements.planCode,
+      monthlyLimit,
+      usedCredits,
+      remainingCredits: Math.max(monthlyLimit - usedCredits, 0),
+      periodStart,
+      lastConsumedAtIso: usage.lastConsumedAt
+        ? usage.lastConsumedAt.toISOString()
+        : null,
+    };
+  }
+
+  async consumeAiCredits(input: {
+    userId: string;
+    credits: number;
+    requestId?: string;
+  }): Promise<
+    AiCreditBalanceResponse & {
+      allowed: boolean;
+      requestedCredits: number;
+    }
+  > {
+    const normalizedCredits = Number.isFinite(input.credits)
+      ? Math.max(Math.floor(input.credits), 1)
+      : 1;
+    const entitlements = await this.getEntitlements(input.userId);
+    const periodStart = this.resolveCurrentPeriodStartIso();
+    await this.getOrCreateUsageForCurrentPeriod(input.userId, periodStart);
+
+    const usageLimit = Number(entitlements.aiCreditsPerMonth || 0);
+    const usageUpdate = await this.userAiCreditUsageRepo
+      .createQueryBuilder()
+      .update(UserAiCreditUsage)
+      .set({
+        usedCredits: () => `"usedCredits" + ${normalizedCredits}`,
+        lastConsumedAt: new Date(),
+        lastRequestId: String(input.requestId || '').trim() || null,
+      })
+      .where('"userId" = :userId', { userId: input.userId })
+      .andWhere('"periodStart" = :periodStart', { periodStart })
+      .andWhere('"usedCredits" + :requested <= :usageLimit', {
+        requested: normalizedCredits,
+        usageLimit,
+      })
+      .execute();
+
+    const balance = await this.getAiCreditBalance(input.userId);
+    const allowed = Boolean(usageUpdate.affected && usageUpdate.affected > 0);
+
+    if (!allowed) {
+      this.logger.warn(
+        `billing-service: ai credits exhausted userId=${input.userId} used=${balance.usedCredits} limit=${balance.monthlyLimit}`,
+      );
+    }
+
+    return {
+      ...balance,
+      allowed,
+      requestedCredits: normalizedCredits,
     };
   }
 

@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
+import { BillingService } from '../billing/billing.service';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { User } from '../user/entities/user.entity';
@@ -60,10 +61,23 @@ describe('AiAgentGatewayService', () => {
   const notificationEventBus = {
     publishSafely: createNotificationMock,
   } as unknown as Pick<NotificationEventBusService, 'publishSafely'>;
+  const billingService = {
+    consumeAiCredits: jest.fn().mockResolvedValue({
+      allowed: true,
+      planCode: 'PRO',
+      monthlyLimit: 500,
+      usedCredits: 10,
+      remainingCredits: 490,
+      periodStart: '2026-02-01',
+      requestedCredits: 1,
+      lastConsumedAtIso: null,
+    }),
+  } as unknown as Pick<BillingService, 'consumeAiCredits'>;
 
   const createService = () =>
     new AiAgentGatewayService(
       authService as AuthService,
+      billingService as BillingService,
       userRepo as Repository<User>,
       externalEmailMessageRepo as Repository<ExternalEmailMessage>,
       agentActionAuditRepo as Repository<AgentActionAudit>,
@@ -77,6 +91,16 @@ describe('AiAgentGatewayService', () => {
     );
     saveAgentActionAuditMock.mockResolvedValue({ id: 'audit-1' });
     findAgentActionAuditMock.mockResolvedValue([]);
+    (billingService.consumeAiCredits as jest.Mock).mockResolvedValue({
+      allowed: true,
+      planCode: 'PRO',
+      monthlyLimit: 500,
+      usedCredits: 10,
+      remainingCredits: 490,
+      periodStart: '2026-02-01',
+      requestedCredits: 1,
+      lastConsumedAtIso: null,
+    });
   });
 
   it('redacts sensitive fields before platform call', async () => {
@@ -176,6 +200,48 @@ describe('AiAgentGatewayService', () => {
         { requestId: 'req-unauth', headers: {} },
       ),
     ).rejects.toThrow('requires authentication token');
+  });
+
+  it('rejects authenticated assist when AI credits are exhausted', async () => {
+    const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'inbox',
+        assistantText: 'I can summarize this thread.',
+        intent: 'thread_summary',
+        confidence: 0.95,
+        suggestedActions: [],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+    (billingService.consumeAiCredits as jest.Mock).mockResolvedValueOnce({
+      allowed: false,
+      planCode: 'FREE',
+      monthlyLimit: 50,
+      usedCredits: 50,
+      remainingCredits: 0,
+      periodStart: '2026-02-01',
+      requestedCredits: 1,
+      lastConsumedAtIso: null,
+    });
+
+    await expect(
+      service.assist(
+        {
+          skill: 'inbox',
+          messages: [{ role: 'user', content: 'summarize thread' }],
+          context: { surface: 'inbox', locale: 'en-IN' },
+          allowedActions: ['inbox.summarize_thread'],
+          executeRequestedAction: false,
+        },
+        {
+          requestId: 'req-no-credits',
+          headers: { authorization: 'Bearer token' },
+        },
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('returns service unavailable when platform is down', async () => {
@@ -288,6 +354,11 @@ describe('AiAgentGatewayService', () => {
     });
 
     expect(findExternalMessagesMock).toHaveBeenCalled();
+    expect(billingService.consumeAiCredits).toHaveBeenCalledWith({
+      userId: 'user-1',
+      credits: 1,
+      requestId: 'req-summary-1',
+    });
     expect(response.executedAction?.executed).toBe(true);
     expect(response.executedAction?.message).toContain('summary');
   });
