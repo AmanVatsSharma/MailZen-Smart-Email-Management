@@ -29,6 +29,7 @@ modern two-level navigation system:
   - Notification feed is scoped to active workspace context when selected
   - Header also listens to backend SSE stream (`/notifications/stream`) for
     realtime feed/unread refresh on new or acknowledged notifications
+  - Incoming realtime notification-create events trigger lightweight in-app toast previews
   - Unread badge count query is also scoped to active workspace context while
     retaining global notifications
   - Notification dropdown renders workspace/provider context from notification
@@ -80,6 +81,8 @@ flowchart TD
 
 ## Changelog
 
+- 2026-02-15: Added realtime toast previews for notification-create SSE events
+  in header.
 - 2026-02-15: Added realtime notification refresh bridge in header using backend
   SSE stream events (`NOTIFICATION_CREATED`, `NOTIFICATIONS_MARKED_READ`).
 - 2026-02-15: Added workspace-scoped "mark all notifications as read" action to

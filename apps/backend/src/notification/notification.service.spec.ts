@@ -160,6 +160,8 @@ describe('NotificationService', () => {
         userId: 'user-1',
         workspaceId: 'workspace-1',
         notificationId: 'notif-live-1',
+        notificationTitle: 'Sync failed',
+        notificationMessage: 'Provider sync failed',
       }),
     );
   });

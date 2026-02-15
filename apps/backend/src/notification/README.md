@@ -43,6 +43,7 @@ Provide a persistent notification foundation for user-visible product events
   - emits event type `notification` with payload:
     - `NOTIFICATION_CREATED`
     - `NOTIFICATIONS_MARKED_READ`
+  - create events include title/message snippets for UI toast previews
   - emits event type `heartbeat` every 25s to keep clients connected
   - when `workspaceId` is provided, stream includes both:
     - matching workspace events

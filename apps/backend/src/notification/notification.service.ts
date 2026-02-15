@@ -26,6 +26,8 @@ export type NotificationRealtimeEvent = {
   workspaceId?: string | null;
   notificationId?: string;
   notificationType?: string;
+  notificationTitle?: string;
+  notificationMessage?: string;
   markedCount?: number;
   createdAtIso: string;
 };
@@ -365,6 +367,8 @@ export class NotificationService {
       workspaceId: savedNotification.workspaceId || null,
       notificationId: savedNotification.id,
       notificationType: savedNotification.type,
+      notificationTitle: savedNotification.title,
+      notificationMessage: savedNotification.message,
     });
     await this.notificationWebhookService.dispatchNotificationCreated(
       savedNotification,

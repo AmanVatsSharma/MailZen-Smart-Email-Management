@@ -19,6 +19,7 @@ import { useMutation, useQuery } from '@apollo/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { useToast } from '@/components/ui/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -93,6 +94,8 @@ type NotificationRealtimeEvent = {
   workspaceId?: string | null;
   notificationId?: string;
   notificationType?: string;
+  notificationTitle?: string;
+  notificationMessage?: string;
   markedCount?: number;
   createdAtIso: string;
 };
@@ -114,6 +117,7 @@ const resolveBackendBaseUrl = (): string => {
 
 const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const router = useRouter();
+  const { toast } = useToast();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(
     null,
@@ -280,6 +284,17 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       ) {
         return;
       }
+      if (
+        parsedEvent.eventType === 'NOTIFICATION_CREATED' &&
+        parsedEvent.notificationTitle
+      ) {
+        toast({
+          title: parsedEvent.notificationTitle,
+          description:
+            parsedEvent.notificationMessage ||
+            `Notification: ${parsedEvent.notificationType || 'NEW_EVENT'}`,
+        });
+      }
       void Promise.all([
         refetchNotifications(),
         refetchUnreadCount(),
@@ -297,6 +312,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     refetchNotifications,
     refetchUnreadCount,
     refetchMailboxInboundStats,
+    toast,
   ]);
 
   const handleNotificationClick = async (notification: DashboardNotification) => {
