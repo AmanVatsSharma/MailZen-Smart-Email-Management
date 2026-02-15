@@ -21,6 +21,7 @@ and inbox management.
 ```text
 src/
   app.module.ts
+  common/
   auth/
   contacts/
   email/
@@ -107,6 +108,16 @@ npm run lint
 npm run check:schema:contracts
 npm run mailbox:inbound:signature -- --mailboxEmail "sales@mailzen.com" --from "lead@example.com"
 ```
+
+## Security and abuse-protection baseline
+
+- Request correlation IDs are emitted for all HTTP requests (`x-request-id`).
+- Global HTTP rate limiting is enabled by default:
+  - `GLOBAL_RATE_LIMIT_ENABLED`
+  - `GLOBAL_RATE_LIMIT_WINDOW_MS`
+  - `GLOBAL_RATE_LIMIT_MAX_REQUESTS`
+  - `GLOBAL_RATE_LIMIT_EXCLUDED_PATHS`
+- See `src/common/README.md` for guard + rate-limit internals and flowchart.
 
 ## References
 

@@ -4,6 +4,7 @@ import axios from 'axios';
 import { randomUUID } from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
+import { createHttpRateLimitMiddleware } from './common/rate-limit/http-rate-limit.middleware';
 
 const bootstrapLogger = new Logger('Bootstrap');
 
@@ -16,6 +17,27 @@ function parseBooleanEnv(
   if (['true', '1', 'yes'].includes(normalized)) return true;
   if (['false', '0', 'no'].includes(normalized)) return false;
   return fallback;
+}
+
+function parsePositiveIntegerEnv(
+  value: string | undefined,
+  fallback: number,
+  minimum = 1,
+  maximum = Number.MAX_SAFE_INTEGER,
+): number {
+  const parsed = Number(value);
+  const candidate = Number.isFinite(parsed) ? Math.floor(parsed) : fallback;
+  if (candidate < minimum) return minimum;
+  if (candidate > maximum) return maximum;
+  return candidate;
+}
+
+function parseCsvEnv(value: string | undefined, fallback: string[]): string[] {
+  const source = value === undefined ? fallback.join(',') : value;
+  return source
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
 }
 
 async function assertAgentPlatformReadiness(): Promise<void> {
@@ -104,6 +126,38 @@ async function bootstrap() {
 
     next();
   });
+
+  const rateLimitEnabled = parseBooleanEnv(
+    process.env.GLOBAL_RATE_LIMIT_ENABLED,
+    true,
+  );
+  const rateLimitWindowMs = parsePositiveIntegerEnv(
+    process.env.GLOBAL_RATE_LIMIT_WINDOW_MS,
+    60_000,
+    1_000,
+    60 * 60 * 1_000,
+  );
+  const rateLimitMaxRequests = parsePositiveIntegerEnv(
+    process.env.GLOBAL_RATE_LIMIT_MAX_REQUESTS,
+    300,
+    1,
+    50_000,
+  );
+  const rateLimitExcludedPaths = parseCsvEnv(
+    process.env.GLOBAL_RATE_LIMIT_EXCLUDED_PATHS,
+    ['/auth/google/callback', '/auth/microsoft/callback'],
+  );
+  app.use(
+    createHttpRateLimitMiddleware(
+      {
+        enabled: rateLimitEnabled,
+        windowMs: rateLimitWindowMs,
+        maxRequests: rateLimitMaxRequests,
+        excludedPaths: rateLimitExcludedPaths,
+      },
+      bootstrapLogger,
+    ),
+  );
 
   app.useGlobalPipes(
     new ValidationPipe({

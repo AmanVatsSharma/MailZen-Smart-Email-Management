@@ -33,6 +33,8 @@ jobs:
           notification/notification.resolver.spec.ts
           smart-replies/smart-reply.service.spec.ts
           ai-agent-gateway/ai-agent-gateway.service.spec.ts
+          common/rate-limit/request-rate-limiter.spec.ts
+          common/rate-limit/http-rate-limit.middleware.spec.ts
           gmail-sync/gmail-sync.scheduler.spec.ts
           outlook-sync/outlook-sync.service.spec.ts
           outlook-sync/outlook-sync.scheduler.spec.ts
