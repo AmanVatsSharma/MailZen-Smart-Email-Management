@@ -21,6 +21,7 @@ The Feature module follows a clean architecture pattern with the following compo
 - **DTOs**: Data Transfer Objects for input validation
 - **Entity**: GraphQL object type representing a feature
 - **Guards**: Role-based access control for admin-only operations
+- **TypeORM Repository**: Persistent feature storage in Postgres (`features` table)
 
 ## API
 
@@ -104,7 +105,7 @@ import { FeatureModule } from './feature/feature.module';
 export class AppModule {}
 ```
 
-2. Inject the `FeatureService` in your service or controller to check if a feature is enabled:
+2. Inject the `FeatureService` in your service or controller to read feature flags:
 
 ```typescript
 import { Injectable } from '@nestjs/common';
@@ -115,23 +116,35 @@ export class EmailService {
   constructor(private readonly featureService: FeatureService) {}
 
   async sendEmail(emailData: any) {
-    // Check if the email templates feature is enabled
-    const emailTemplatesFeature = this.featureService.getFeatureByName('EmailTemplates');
-    
-    if (emailTemplatesFeature && emailTemplatesFeature.isActive) {
+    const features = await this.featureService.getAllFeatures();
+    const emailTemplatesFeature = features.find((feature) => feature.name === 'EmailTemplates');
+
+    if (emailTemplatesFeature?.isActive) {
       // Use email templates functionality
     } else {
       // Use basic email sending
     }
-    
+
     // Send the email
   }
 }
 ```
 
+## Flow
+
+```mermaid
+flowchart TD
+  AdminUI[Admin GraphQL Client] --> Resolver[FeatureResolver]
+  Resolver --> Guard[JwtAuthGuard + AdminGuard]
+  Guard --> Service[FeatureService]
+  Service --> Repo[(Feature TypeORM Repository)]
+  Repo --> Service
+  Service --> Resolver
+  Resolver --> AdminUI
+```
+
 ## Future Enhancements
 
-- **TypeORM Integration**: Store features in the database using TypeORM
 - **User-Specific Features**: Enable features for specific users or user groups
 - **Percentage Rollout**: Gradually roll out features to a percentage of users
 - **Time-Based Activation**: Schedule feature activation and deactivation

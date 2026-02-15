@@ -1,52 +1,66 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Feature } from './feature.entity';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Feature } from './entities/feature.entity';
 import { CreateFeatureInput } from './dto/create-feature.input';
 import { UpdateFeatureInput } from './dto/update-feature.input';
 
 @Injectable()
 export class FeatureService {
-  private features: Feature[] = [];
-  private idCounter = 1;
+  constructor(
+    @InjectRepository(Feature)
+    private readonly featureRepo: Repository<Feature>,
+  ) {}
 
-  createFeature(input: CreateFeatureInput): Feature {
-    const feature: Feature = {
-      id: String(this.idCounter++),
+  async createFeature(input: CreateFeatureInput): Promise<Feature> {
+    const existing = await this.featureRepo.findOne({
+      where: { name: input.name },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Feature with name '${input.name}' already exists`,
+      );
+    }
+
+    const feature = this.featureRepo.create({
       name: input.name,
       isActive: input.isActive,
-    };
-    this.features.push(feature);
-    return feature;
+    });
+    return this.featureRepo.save(feature);
   }
 
-  getAllFeatures(): Feature[] {
-    return this.features;
+  async getAllFeatures(): Promise<Feature[]> {
+    return this.featureRepo.find({
+      order: { createdAt: 'DESC' },
+    });
   }
 
-  getFeatureById(id: string): Feature {
-    const feature = this.features.find((f) => f.id === id);
+  async getFeatureById(id: string): Promise<Feature> {
+    const feature = await this.featureRepo.findOne({ where: { id } });
     if (!feature) {
       throw new NotFoundException(`Feature with id ${id} not found`);
     }
     return feature;
   }
 
-  updateFeature(input: UpdateFeatureInput): Feature {
-    const feature = this.getFeatureById(input.id);
+  async updateFeature(input: UpdateFeatureInput): Promise<Feature> {
+    const feature = await this.getFeatureById(input.id);
     if (input.name !== undefined) {
       feature.name = input.name;
     }
     if (input.isActive !== undefined) {
       feature.isActive = input.isActive;
     }
-    return feature;
+    return this.featureRepo.save(feature);
   }
 
-  deleteFeature(id: string): Feature {
-    const index = this.features.findIndex((f) => f.id === id);
-    if (index === -1) {
-      throw new NotFoundException(`Feature with id ${id} not found`);
-    }
-    const [deleted] = this.features.splice(index, 1);
-    return deleted;
+  async deleteFeature(id: string): Promise<Feature> {
+    const feature = await this.getFeatureById(id);
+    await this.featureRepo.remove(feature);
+    return feature;
   }
 }

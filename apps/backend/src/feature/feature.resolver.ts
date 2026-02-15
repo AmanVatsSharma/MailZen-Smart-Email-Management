@@ -1,5 +1,5 @@
 import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
-import { Feature } from './feature.entity';
+import { Feature } from './entities/feature.entity';
 import { FeatureService } from './feature.service';
 import { CreateFeatureInput } from './dto/create-feature.input';
 import { UpdateFeatureInput } from './dto/update-feature.input';
@@ -13,7 +13,7 @@ export class FeatureResolver {
   constructor(private readonly featureService: FeatureService) {}
 
   @Query(() => [Feature], { description: 'Get all features' })
-  getAllFeatures(): Feature[] {
+  async getAllFeatures(): Promise<Feature[]> {
     return this.featureService.getAllFeatures();
   }
 
@@ -22,7 +22,7 @@ export class FeatureResolver {
   @UseGuards(AdminGuard)
   createFeature(
     @Args('createFeatureInput') createFeatureInput: CreateFeatureInput,
-  ): Feature {
+  ): Promise<Feature> {
     return this.featureService.createFeature(createFeatureInput);
   }
 
@@ -31,14 +31,14 @@ export class FeatureResolver {
   @UseGuards(AdminGuard)
   updateFeature(
     @Args('updateFeatureInput') updateFeatureInput: UpdateFeatureInput,
-  ): Feature {
+  ): Promise<Feature> {
     return this.featureService.updateFeature(updateFeatureInput);
   }
 
   @Mutation(() => Feature, { description: 'Delete a feature' })
   @SetMetadata('roles', ['ADMIN'])
   @UseGuards(AdminGuard)
-  deleteFeature(@Args('id') id: string): Feature {
+  deleteFeature(@Args('id') id: string): Promise<Feature> {
     return this.featureService.deleteFeature(id);
   }
 }
