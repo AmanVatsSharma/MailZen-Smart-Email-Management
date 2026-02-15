@@ -40,7 +40,9 @@ const resolveUniqueSlug = async (
 
 const run = async () => {
   const queryRunner = appDataSource.createQueryRunner();
-  const dryRun = process.argv.includes('--dry-run');
+  const explicitDryRun = process.argv.includes('--dry-run');
+  const applyMode = process.argv.includes('--apply');
+  const dryRun = explicitDryRun || !applyMode;
   const typedQuery = async (
     sql: string,
     parameters?: unknown[],
@@ -62,6 +64,7 @@ const run = async () => {
     )) as BackfillUser[];
 
     const summary = {
+      mode: dryRun ? 'dry-run' : 'apply',
       usersScanned: users.length,
       workspacesCreated: 0,
       membershipsCreated: 0,
@@ -159,6 +162,11 @@ const run = async () => {
       console.log(
         `Workspace backfill dry-run summary: ${JSON.stringify(summary)}`,
       );
+      if (!explicitDryRun) {
+        console.log(
+          'Dry-run executed by default. Re-run with --apply to persist changes.',
+        );
+      }
       return;
     }
 

@@ -39,4 +39,4 @@
 - Ensure workspace seeding/backfill strategy is executed in production:
   - create personal workspace rows for existing users
   - assign `workspaceId` to existing providers/mailboxes
-  - run `npm run backfill:workspace-scopes` after migration apply
+  - run `npm run backfill:workspace-scopes` (dry run), then `npm run backfill:workspace-scopes:apply`
