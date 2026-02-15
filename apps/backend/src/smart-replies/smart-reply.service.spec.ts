@@ -2,6 +2,7 @@
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Repository } from 'typeorm';
+import { SmartReplyExternalModelAdapter } from './smart-reply-external-model.adapter';
 import { SmartReplyModelProvider } from './smart-reply-model.provider';
 import { SmartReplyService } from './smart-reply.service';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
@@ -10,6 +11,7 @@ describe('SmartReplyService', () => {
   let service: SmartReplyService;
   let settingsRepo: jest.Mocked<Repository<SmartReplySettings>>;
   let modelProvider: jest.Mocked<SmartReplyModelProvider>;
+  let externalModelAdapter: jest.Mocked<SmartReplyExternalModelAdapter>;
 
   beforeEach(async () => {
     const repoMock = {
@@ -21,18 +23,26 @@ describe('SmartReplyService', () => {
     const modelProviderMock = {
       generateSuggestions: jest.fn(),
     } as unknown as jest.Mocked<SmartReplyModelProvider>;
+    const externalModelAdapterMock = {
+      generateSuggestions: jest.fn(),
+    } as unknown as jest.Mocked<SmartReplyExternalModelAdapter>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SmartReplyService,
         { provide: getRepositoryToken(SmartReplySettings), useValue: repoMock },
         { provide: SmartReplyModelProvider, useValue: modelProviderMock },
+        {
+          provide: SmartReplyExternalModelAdapter,
+          useValue: externalModelAdapterMock,
+        },
       ],
     }).compile();
 
     service = module.get<SmartReplyService>(SmartReplyService);
     settingsRepo = module.get(getRepositoryToken(SmartReplySettings));
     modelProvider = module.get(SmartReplyModelProvider);
+    externalModelAdapter = module.get(SmartReplyExternalModelAdapter);
   });
 
   afterEach(() => {
@@ -53,6 +63,7 @@ describe('SmartReplyService', () => {
       'Deterministic suggestion',
       'Alternative',
     ]);
+    externalModelAdapter.generateSuggestions.mockResolvedValue([]);
 
     const result = await service.generateReply(
       {
@@ -157,6 +168,7 @@ describe('SmartReplyService', () => {
       maxSuggestions: 2,
     } as SmartReplySettings);
     modelProvider.generateSuggestions.mockReturnValue(['One', 'Two']);
+    externalModelAdapter.generateSuggestions.mockResolvedValue([]);
 
     const result = await service.getSuggestedReplies(
       'Can we schedule a meeting?',
@@ -168,5 +180,30 @@ describe('SmartReplyService', () => {
       expect.objectContaining({ count: 2 }),
     );
     expect(result).toEqual(['One', 'Two']);
+  });
+
+  it('prefers external model suggestions for advanced model settings', async () => {
+    settingsRepo.findOne.mockResolvedValue({
+      id: 'settings-1',
+      userId: 'user-1',
+      enabled: true,
+      defaultTone: 'professional',
+      defaultLength: 'medium',
+      includeSignature: false,
+      maxSuggestions: 3,
+      aiModel: 'advanced',
+    } as SmartReplySettings);
+    externalModelAdapter.generateSuggestions.mockResolvedValue([
+      'External model suggestion',
+    ]);
+
+    const result = await service.generateReply(
+      { conversation: 'Need update on proposal status.' },
+      'user-1',
+    );
+
+    expect(externalModelAdapter.generateSuggestions).toHaveBeenCalled();
+    expect(modelProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(result).toBe('External model suggestion');
   });
 });

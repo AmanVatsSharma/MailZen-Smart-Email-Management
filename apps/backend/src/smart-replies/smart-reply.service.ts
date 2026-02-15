@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SmartReplyInput } from './dto/smart-reply.input';
+import { SmartReplyExternalModelAdapter } from './smart-reply-external-model.adapter';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
 import { UpdateSmartReplySettingsInput } from './dto/update-smart-reply-settings.input';
 import { SmartReplyModelProvider } from './smart-reply-model.provider';
@@ -18,6 +19,7 @@ export class SmartReplyService {
     @InjectRepository(SmartReplySettings)
     private readonly settingsRepo: Repository<SmartReplySettings>,
     private readonly modelProvider: SmartReplyModelProvider,
+    private readonly externalModelAdapter: SmartReplyExternalModelAdapter,
   ) {}
 
   async generateReply(input: SmartReplyInput, userId: string): Promise<string> {
@@ -45,14 +47,11 @@ export class SmartReplyService {
       );
 
       this.storeConversation(normalizedConversation, userId);
-      const suggestions = this.modelProvider.generateSuggestions({
-        conversation: normalizedConversation,
-        tone: settings.defaultTone,
-        length: settings.defaultLength,
-        count: Math.max(1, settings.maxSuggestions),
-        includeSignature: settings.includeSignature,
-        customInstructions: settings.customInstructions || undefined,
-      });
+      const suggestions = await this.generateModelSuggestions(
+        normalizedConversation,
+        settings,
+        Math.max(1, settings.maxSuggestions),
+      );
       const first = suggestions[0];
       if (!first) {
         this.logger.warn(
@@ -120,14 +119,11 @@ export class SmartReplyService {
     const requestedCount = Math.max(1, Math.min(count, maxAllowedSuggestions));
 
     try {
-      const suggestions = this.modelProvider.generateSuggestions({
-        conversation: normalizedConversation,
-        tone: settings.defaultTone,
-        length: settings.defaultLength,
-        count: requestedCount,
-        includeSignature: settings.includeSignature,
-        customInstructions: settings.customInstructions || undefined,
-      });
+      const suggestions = await this.generateModelSuggestions(
+        normalizedConversation,
+        settings,
+        requestedCount,
+      );
       if (!suggestions.length) return [this.safeFallbackReply];
       return suggestions;
     } catch (error: unknown) {
@@ -153,6 +149,36 @@ export class SmartReplyService {
 
   private getSafetyBlockedReply(): string {
     return 'Thanks for your message. For security reasons, please avoid sharing sensitive credentials over email.';
+  }
+
+  private async generateModelSuggestions(
+    conversation: string,
+    settings: SmartReplySettings,
+    count: number,
+  ): Promise<string[]> {
+    const externalPreferred = ['accurate', 'advanced'].includes(
+      String(settings.aiModel || '').toLowerCase(),
+    );
+
+    if (externalPreferred) {
+      const externalSuggestions =
+        await this.externalModelAdapter.generateSuggestions({
+          conversation,
+          count,
+          tone: settings.defaultTone,
+          length: settings.defaultLength,
+        });
+      if (externalSuggestions.length) return externalSuggestions;
+    }
+
+    return this.modelProvider.generateSuggestions({
+      conversation,
+      tone: settings.defaultTone,
+      length: settings.defaultLength,
+      count,
+      includeSignature: settings.includeSignature,
+      customInstructions: settings.customInstructions || undefined,
+    });
   }
 
   async getSettings(userId: string): Promise<SmartReplySettings> {

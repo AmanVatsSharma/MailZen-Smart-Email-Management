@@ -18,6 +18,7 @@ The Smart Replies module follows a clean architecture pattern with the following
 
 - **SmartReplyService**: Core business logic for generating replies
 - **SmartReplyModelProvider**: Deterministic model-provider abstraction used by service
+- **SmartReplyExternalModelAdapter**: Optional external LLM adapter with safe fallback
 - **SmartReplyResolver**: GraphQL API for exposing functionality
 - **DTOs**: Data Transfer Objects for input validation
 - **TypeORM Integration**: Database-backed settings and conversation-related persistence
@@ -31,11 +32,20 @@ flowchart TD
   Service --> Settings[(smart_reply_settings)]
   Service --> Safety{Sensitive context?}
   Safety -->|yes| SafeReply[Return safe security response]
-  Safety -->|no| ModelProvider[SmartReplyModelProvider]
+  Safety -->|no| ModelRouter{aiModel prefers external?}
+  ModelRouter -->|yes| ExternalAdapter[SmartReplyExternalModelAdapter]
+  ModelRouter -->|no| ModelProvider[SmartReplyModelProvider]
+  ExternalAdapter -->|fallback| ModelProvider
   ModelProvider --> DeterministicCandidates[Deterministic candidate generation]
   DeterministicCandidates --> Service
   Service --> Client
 ```
+
+## External adapter flags
+
+- `SMART_REPLY_USE_AGENT_PLATFORM` (`true/false`, default `false`)
+- `SMART_REPLY_EXTERNAL_TIMEOUT_MS` (default `3000`)
+- Reuses `AI_AGENT_PLATFORM_URL` and optional `AI_AGENT_PLATFORM_KEY`.
 
 ## API
 
