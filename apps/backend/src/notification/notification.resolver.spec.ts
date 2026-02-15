@@ -9,7 +9,10 @@ describe('NotificationResolver', () => {
     markNotificationsRead: jest.fn(),
     getUnreadCount: jest.fn(),
     getOrCreatePreferences: jest.fn(),
+    listPushSubscriptionsForUser: jest.fn(),
     markNotificationRead: jest.fn(),
+    registerPushSubscription: jest.fn(),
+    unregisterPushSubscription: jest.fn(),
     updatePreferences: jest.fn(),
   };
 
@@ -143,5 +146,63 @@ describe('NotificationResolver', () => {
       sinceHours: 24,
       types: ['MAILBOX_INBOUND_SLA_ALERT'],
     });
+  });
+
+  it('forwards push subscription list query params', async () => {
+    notificationService.listPushSubscriptionsForUser.mockResolvedValue([]);
+
+    await resolver.myNotificationPushSubscriptions(
+      context as never,
+      'workspace-1',
+    );
+
+    expect(
+      notificationService.listPushSubscriptionsForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+    });
+  });
+
+  it('forwards push registration mutation payload', async () => {
+    notificationService.registerPushSubscription.mockResolvedValue({
+      id: 'push-1',
+    });
+
+    await resolver.registerMyNotificationPushSubscription(
+      {
+        endpoint: 'https://push.mailzen.test/sub-1',
+        p256dh: 'p256dh-key',
+        auth: 'auth-key',
+        workspaceId: 'workspace-1',
+      },
+      context as never,
+    );
+
+    expect(notificationService.registerPushSubscription).toHaveBeenCalledWith({
+      userId: 'user-1',
+      payload: {
+        endpoint: 'https://push.mailzen.test/sub-1',
+        p256dh: 'p256dh-key',
+        auth: 'auth-key',
+        workspaceId: 'workspace-1',
+      },
+    });
+  });
+
+  it('forwards push unregistration mutation payload', async () => {
+    notificationService.unregisterPushSubscription.mockResolvedValue(true);
+
+    await resolver.unregisterMyNotificationPushSubscription(
+      'https://push.mailzen.test/sub-1',
+      context as never,
+    );
+
+    expect(notificationService.unregisterPushSubscription).toHaveBeenCalledWith(
+      {
+        userId: 'user-1',
+        endpoint: 'https://push.mailzen.test/sub-1',
+      },
+    );
   });
 });

@@ -1,11 +1,13 @@
 import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RegisterNotificationPushSubscriptionInput } from './dto/register-notification-push-subscription.input';
 import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
 import {
   MailboxInboundSlaIncidentStatsResponse,
   MailboxInboundSlaIncidentTrendPointResponse,
 } from './dto/mailbox-inbound-sla-incident-stats.response';
+import { NotificationPushSubscription } from './entities/notification-push-subscription.entity';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
 import { UserNotification } from './entities/user-notification.entity';
 import { NotificationService } from './notification.service';
@@ -103,6 +105,19 @@ export class NotificationResolver {
     return this.notificationService.getOrCreatePreferences(ctx.req.user.id);
   }
 
+  @Query(() => [NotificationPushSubscription], {
+    description: 'Push subscriptions for current user',
+  })
+  async myNotificationPushSubscriptions(
+    @Context() ctx: RequestContext,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+  ) {
+    return this.notificationService.listPushSubscriptionsForUser({
+      userId: ctx.req.user.id,
+      workspaceId: workspaceId || null,
+    });
+  }
+
   @Mutation(() => UserNotification, {
     description: 'Mark a notification as read',
   })
@@ -140,5 +155,31 @@ export class NotificationResolver {
     @Context() ctx: RequestContext,
   ) {
     return this.notificationService.updatePreferences(ctx.req.user.id, input);
+  }
+
+  @Mutation(() => NotificationPushSubscription, {
+    description: 'Register or refresh current user push subscription',
+  })
+  async registerMyNotificationPushSubscription(
+    @Args('input') input: RegisterNotificationPushSubscriptionInput,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.notificationService.registerPushSubscription({
+      userId: ctx.req.user.id,
+      payload: input,
+    });
+  }
+
+  @Mutation(() => Boolean, {
+    description: 'Deactivate push subscription for current user',
+  })
+  async unregisterMyNotificationPushSubscription(
+    @Args('endpoint') endpoint: string,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.notificationService.unregisterPushSubscription({
+      userId: ctx.req.user.id,
+      endpoint,
+    });
   }
 }

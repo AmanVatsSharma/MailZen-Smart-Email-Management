@@ -1,10 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Observable, Subject, filter, map } from 'rxjs';
 import { In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
+import { RegisterNotificationPushSubscriptionInput } from './dto/register-notification-push-subscription.input';
+import { NotificationPushSubscription } from './entities/notification-push-subscription.entity';
 import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
 import { UserNotification } from './entities/user-notification.entity';
+import { NotificationPushService } from './notification-push.service';
 import { NotificationWebhookService } from './notification-webhook.service';
 
 type CreateNotificationInput = {
@@ -53,7 +61,10 @@ export class NotificationService {
     private readonly notificationRepo: Repository<UserNotification>,
     @InjectRepository(UserNotificationPreference)
     private readonly notificationPreferenceRepo: Repository<UserNotificationPreference>,
+    @InjectRepository(NotificationPushSubscription)
+    private readonly pushSubscriptionRepo: Repository<NotificationPushSubscription>,
     private readonly notificationWebhookService: NotificationWebhookService,
+    private readonly notificationPushService: NotificationPushService,
   ) {}
 
   private getDefaultPreference(userId: string): UserNotificationPreference {
@@ -301,7 +312,9 @@ export class NotificationService {
   }
 
   private resolveWorkspaceId(
-    metadata?: Record<string, unknown>,
+    metadata?:
+      | Record<string, unknown>
+      | { workspaceId?: string | null | undefined },
   ): string | null {
     const rawWorkspaceId = metadata?.workspaceId;
     if (typeof rawWorkspaceId !== 'string') return null;
@@ -373,6 +386,11 @@ export class NotificationService {
     await this.notificationWebhookService.dispatchNotificationCreated(
       savedNotification,
     );
+    if (preference.pushEnabled) {
+      await this.notificationPushService.dispatchNotificationCreated(
+        savedNotification,
+      );
+    }
     return savedNotification;
   }
 
@@ -392,6 +410,105 @@ export class NotificationService {
       }),
       map((event) => ({ ...event })),
     );
+  }
+
+  async listPushSubscriptionsForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+  }): Promise<NotificationPushSubscription[]> {
+    const normalizedWorkspaceId = String(input.workspaceId || '').trim();
+    if (!normalizedWorkspaceId) {
+      return this.pushSubscriptionRepo.find({
+        where: {
+          userId: input.userId,
+        },
+        order: { updatedAt: 'DESC' },
+      });
+    }
+    return this.pushSubscriptionRepo.find({
+      where: [
+        {
+          userId: input.userId,
+          workspaceId: normalizedWorkspaceId,
+        },
+        {
+          userId: input.userId,
+          workspaceId: IsNull(),
+        },
+      ],
+      order: { updatedAt: 'DESC' },
+    });
+  }
+
+  async registerPushSubscription(input: {
+    userId: string;
+    payload: RegisterNotificationPushSubscriptionInput;
+  }): Promise<NotificationPushSubscription> {
+    const endpoint = String(input.payload.endpoint || '').trim();
+    const p256dh = String(input.payload.p256dh || '').trim();
+    const auth = String(input.payload.auth || '').trim();
+    const workspaceId = this.resolveWorkspaceId({
+      workspaceId: input.payload.workspaceId,
+    });
+    const userAgent = String(input.payload.userAgent || '').trim() || null;
+
+    if (!endpoint.startsWith('https://')) {
+      throw new BadRequestException('Push endpoint must be a valid https URL');
+    }
+    if (!p256dh || !auth) {
+      throw new BadRequestException('Push keys are required');
+    }
+
+    const existingByEndpoint = await this.pushSubscriptionRepo.findOne({
+      where: { endpoint },
+    });
+    if (existingByEndpoint && existingByEndpoint.userId !== input.userId) {
+      throw new ConflictException(
+        'Push endpoint is already associated with another account',
+      );
+    }
+
+    if (existingByEndpoint) {
+      existingByEndpoint.workspaceId = workspaceId;
+      existingByEndpoint.p256dh = p256dh;
+      existingByEndpoint.auth = auth;
+      existingByEndpoint.userAgent = userAgent;
+      existingByEndpoint.isActive = true;
+      existingByEndpoint.lastFailureAt = null;
+      existingByEndpoint.failureCount = 0;
+      return this.pushSubscriptionRepo.save(existingByEndpoint);
+    }
+
+    await this.enforcePushSubscriptionLimit(input.userId);
+    const created = this.pushSubscriptionRepo.create({
+      userId: input.userId,
+      endpoint,
+      p256dh,
+      auth,
+      workspaceId,
+      userAgent,
+      isActive: true,
+      failureCount: 0,
+      lastDeliveredAt: null,
+      lastFailureAt: null,
+    });
+    return this.pushSubscriptionRepo.save(created);
+  }
+
+  async unregisterPushSubscription(input: {
+    userId: string;
+    endpoint: string;
+  }): Promise<boolean> {
+    const endpoint = String(input.endpoint || '').trim();
+    if (!endpoint) return false;
+    const existing = await this.pushSubscriptionRepo.findOne({
+      where: { endpoint, userId: input.userId },
+    });
+    if (!existing) return false;
+    if (!existing.isActive) return true;
+    existing.isActive = false;
+    await this.pushSubscriptionRepo.save(existing);
+    return true;
   }
 
   async listNotificationsForUser(input: {
@@ -741,6 +858,44 @@ export class NotificationService {
     if (normalizedStatus === 'WARNING') return 'WARNING';
     if (normalizedStatus === 'CRITICAL') return 'CRITICAL';
     return null;
+  }
+
+  private async enforcePushSubscriptionLimit(userId: string): Promise<void> {
+    const maxSubscriptions = this.resolvePositiveInteger({
+      rawValue: process.env.MAILZEN_WEB_PUSH_MAX_SUBSCRIPTIONS_PER_USER,
+      fallbackValue: 8,
+      minimumValue: 1,
+      maximumValue: 100,
+    });
+    const activeSubscriptions = await this.pushSubscriptionRepo.find({
+      where: {
+        userId,
+        isActive: true,
+      },
+      order: { updatedAt: 'ASC' },
+      take: maxSubscriptions,
+    });
+    if (activeSubscriptions.length < maxSubscriptions) return;
+
+    const oldestActive = activeSubscriptions[0];
+    if (!oldestActive) return;
+    oldestActive.isActive = false;
+    await this.pushSubscriptionRepo.save(oldestActive);
+  }
+
+  private resolvePositiveInteger(input: {
+    rawValue?: string;
+    fallbackValue: number;
+    minimumValue: number;
+    maximumValue: number;
+  }): number {
+    const parsedValue = Number(input.rawValue);
+    const candidate = Number.isFinite(parsedValue)
+      ? Math.floor(parsedValue)
+      : input.fallbackValue;
+    if (candidate < input.minimumValue) return input.minimumValue;
+    if (candidate > input.maximumValue) return input.maximumValue;
+    return candidate;
   }
 
   private publishRealtimeEvent(

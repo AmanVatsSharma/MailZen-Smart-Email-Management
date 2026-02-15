@@ -18,6 +18,7 @@ Provide a persistent notification foundation for user-visible product events
 - Publish realtime notification stream events for in-app consumers
 - Send periodic unread-notification digest emails for users with email channel enabled
 - Deliver optional webhook callbacks for external automation consumers
+- Support web-push subscription registration and delivery for browser/mobile clients
 
 ## GraphQL API
 
@@ -31,10 +32,13 @@ Provide a persistent notification foundation for user-visible product events
   bucketed warning/critical incident trend points for dashboards
 - `myUnreadNotificationCount(workspaceId?)` → unread badge count (workspace + global scope)
 - `myNotificationPreferences` → get per-user notification channel settings
+- `myNotificationPushSubscriptions(workspaceId?)` → list user push subscriptions
 - `markNotificationRead(id)` → marks one notification as read
 - `markMyNotificationsRead(workspaceId?, sinceHours?, types?)` → marks matching
   notifications as read in bulk (used by SLA incident acknowledgement)
 - `updateMyNotificationPreferences(input)` → update channel + event preferences
+- `registerMyNotificationPushSubscription(input)` → upsert web-push endpoint + keys
+- `unregisterMyNotificationPushSubscription(endpoint)` → deactivate one endpoint
 
 ## Realtime API
 
@@ -81,6 +85,23 @@ Digest tuning env vars:
 - `MAILZEN_NOTIFICATION_DIGEST_MAX_USERS_PER_RUN` (default `250`)
 - `MAILZEN_NOTIFICATION_DIGEST_MAX_ITEMS` (default `8`)
 
+## Web push channel
+
+When enabled, notification create events can be delivered via web-push protocol:
+
+- `MAILZEN_WEB_PUSH_ENABLED` (default `false`)
+- `MAILZEN_WEB_PUSH_VAPID_PUBLIC_KEY`
+- `MAILZEN_WEB_PUSH_VAPID_PRIVATE_KEY`
+- `MAILZEN_WEB_PUSH_VAPID_SUBJECT` (default `mailto:alerts@mailzen.com`)
+- `MAILZEN_WEB_PUSH_MAX_FAILURE_COUNT` (default `8`)
+- `MAILZEN_WEB_PUSH_MAX_SUBSCRIPTIONS_PER_USER` (default `8`)
+
+Delivery behavior:
+- subscriptions are user-owned, optional workspace-scoped, and persisted
+- workspace-scoped notifications target workspace + global subscriptions
+- repeated failures increment `failureCount`; stale endpoints (404/410) are disabled
+- successful deliveries reset failure counters and update `lastDeliveredAt`
+
 ## Initial event producers
 
 - `GmailSyncScheduler` publishes `SYNC_FAILED` domain events through
@@ -96,6 +117,7 @@ Digest tuning env vars:
     stale alert state on SLA recovery
 - `NotificationDigestScheduler` emits digest emails (mailer channel) for unread events
 - `NotificationWebhookService` emits external webhook callbacks for notification lifecycle events
+- `NotificationPushService` emits web-push messages for notification-created events
 - Emission respects stored user preferences:
   - `inAppEnabled`
   - `syncFailureEnabled`
@@ -139,8 +161,10 @@ flowchart TD
   NotificationService --> RealtimeBus[(in-memory realtime event bus)]
   NotificationService --> DigestScheduler[Hourly unread digest scheduler]
   NotificationService --> WebhookService[Notification webhook dispatcher]
+  NotificationService --> PushService[Web push dispatcher]
   DigestScheduler --> Mailer[SMTP mailer channel]
   WebhookService --> WebhookTarget[External webhook endpoint]
+  PushService --> PushTarget[Browser/mobile push endpoint]
   RealtimeBus --> NotificationStream[notifications/stream SSE]
   UserUI[Authenticated frontend] --> NotificationResolver
   UserUI --> NotificationStream

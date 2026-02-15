@@ -4,9 +4,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { NotificationEventBusService } from './notification-event-bus.service';
 import { User } from '../user/entities/user.entity';
 import { NotificationStreamController } from './notification-stream.controller';
+import { NotificationPushSubscription } from './entities/notification-push-subscription.entity';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
 import { UserNotification } from './entities/user-notification.entity';
 import { NotificationDigestScheduler } from './notification-digest.scheduler';
+import { NotificationPushService } from './notification-push.service';
 import { NotificationResolver } from './notification.resolver';
 import { NotificationService } from './notification.service';
 import { NotificationWebhookService } from './notification-webhook.service';
@@ -15,6 +17,7 @@ import { NotificationWebhookService } from './notification-webhook.service';
   imports: [
     TypeOrmModule.forFeature([
       UserNotification,
+      NotificationPushSubscription,
       UserNotificationPreference,
       User,
     ]),
@@ -37,6 +40,7 @@ import { NotificationWebhookService } from './notification-webhook.service';
   providers: [
     NotificationService,
     NotificationWebhookService,
+    NotificationPushService,
     NotificationEventBusService,
     NotificationDigestScheduler,
     NotificationResolver,

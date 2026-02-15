@@ -681,6 +681,7 @@ extend type Query {
   myMailboxInboundSlaIncidentSeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [MailboxInboundSlaIncidentTrendPointResponse!]!
   myUnreadNotificationCount(workspaceId: String): Int!
   myNotificationPreferences: UserNotificationPreference!
+  myNotificationPushSubscriptions(workspaceId: String): [NotificationPushSubscription!]!
   myWorkspaces: [Workspace!]!
   myActiveWorkspace: Workspace
   workspaceMembers(workspaceId: String!): [WorkspaceMember!]!
@@ -701,6 +702,10 @@ extend type Mutation {
   updateMyNotificationPreferences(
     input: UpdateNotificationPreferencesInput!
   ): UserNotificationPreference!
+  registerMyNotificationPushSubscription(
+    input: RegisterNotificationPushSubscriptionInput!
+  ): NotificationPushSubscription!
+  unregisterMyNotificationPushSubscription(endpoint: String!): Boolean!
   createWorkspace(name: String!): Workspace!
   setActiveWorkspace(workspaceId: String!): Workspace!
   inviteWorkspaceMember(
@@ -793,6 +798,22 @@ type UserNotificationPreference {
   updatedAt: DateTime!
 }
 
+type NotificationPushSubscription {
+  id: ID!
+  userId: String!
+  workspaceId: String
+  endpoint: String!
+  p256dh: String!
+  auth: String!
+  userAgent: String
+  isActive: Boolean!
+  failureCount: Int!
+  lastDeliveredAt: DateTime
+  lastFailureAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
 input UpdateNotificationPreferencesInput {
   inAppEnabled: Boolean
   emailEnabled: Boolean
@@ -807,6 +828,14 @@ input UpdateNotificationPreferencesInput {
   mailboxInboundSlaAlertsEnabled: Boolean
   notificationDigestEnabled: Boolean
   mailboxInboundSlaAlertCooldownMinutes: Int
+}
+
+input RegisterNotificationPushSubscriptionInput {
+  endpoint: String!
+  p256dh: String!
+  auth: String!
+  workspaceId: String
+  userAgent: String
 }
 
 type Workspace {

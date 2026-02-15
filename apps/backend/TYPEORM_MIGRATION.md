@@ -463,3 +463,41 @@ SELECT
   COUNT(*) FILTER (WHERE "notificationDigestEnabled" = false) AS digest_disabled_rows
 FROM user_notification_preferences;
 ```
+
+## Notification Push Subscription Rollout Notes (2026-02-16)
+
+New migration: `20260216017000-notification-push-subscriptions.ts`
+
+This migration introduces:
+
+- `notification_push_subscriptions` table for per-user web push endpoints
+- unique endpoint guard
+- operational delivery telemetry fields (`failureCount`, `lastDeliveredAt`,
+  `lastFailureAt`, `isActive`)
+
+### Safe rollout sequence
+
+1. Deploy backend containing notification push resolver/service support.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- notification/notification-push.service.spec.ts notification/notification.service.spec.ts notification/notification.resolver.spec.ts`
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Verify runtime behavior:
+   - `registerMyNotificationPushSubscription` upserts subscription row.
+   - `myNotificationPushSubscriptions` returns workspace/global scoped rows.
+   - push dispatch attempts occur for `NOTIFICATION_CREATED` events when:
+     - `pushEnabled=true`
+     - `MAILZEN_WEB_PUSH_ENABLED=true`
+     - VAPID env values are configured.
+
+### Staging verification SQL
+
+```sql
+SELECT
+  COUNT(*) AS total_subscriptions,
+  COUNT(*) FILTER (WHERE "isActive" = true) AS active_subscriptions,
+  COUNT(*) FILTER (WHERE "failureCount" > 0) AS failing_subscriptions
+FROM notification_push_subscriptions;
+```

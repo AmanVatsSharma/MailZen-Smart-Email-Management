@@ -33,6 +33,8 @@
   - `20260216013000-notification-digest-last-sent.ts`
 - Added notification digest preference toggle migration:
   - `20260216015000-notification-digest-enabled.ts`
+- Added notification push subscription table migration:
+  - `20260216017000-notification-push-subscriptions.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

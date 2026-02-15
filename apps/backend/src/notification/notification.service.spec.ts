@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-argument */
 import { NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
+import { NotificationPushSubscription } from './entities/notification-push-subscription.entity';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
 import { UserNotification } from './entities/user-notification.entity';
+import { NotificationPushService } from './notification-push.service';
 import { NotificationService } from './notification.service';
 import { NotificationWebhookService } from './notification-webhook.service';
 
@@ -10,11 +12,17 @@ describe('NotificationService', () => {
   let service: NotificationService;
   let notificationRepo: jest.Mocked<Repository<UserNotification>>;
   let preferenceRepo: jest.Mocked<Repository<UserNotificationPreference>>;
+  let pushSubscriptionRepo: jest.Mocked<
+    Repository<NotificationPushSubscription>
+  >;
   let webhookService: jest.Mocked<
     Pick<
       NotificationWebhookService,
       'dispatchNotificationCreated' | 'dispatchNotificationsMarkedRead'
     >
+  >;
+  let pushService: jest.Mocked<
+    Pick<NotificationPushService, 'dispatchNotificationCreated'>
   >;
 
   beforeEach(() => {
@@ -31,15 +39,26 @@ describe('NotificationService', () => {
       save: jest.fn(),
       findOne: jest.fn(),
     } as unknown as jest.Mocked<Repository<UserNotificationPreference>>;
+    pushSubscriptionRepo = {
+      create: jest.fn(),
+      save: jest.fn(),
+      find: jest.fn(),
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<NotificationPushSubscription>>;
     webhookService = {
       dispatchNotificationCreated: jest.fn(),
       dispatchNotificationsMarkedRead: jest.fn(),
+    };
+    pushService = {
+      dispatchNotificationCreated: jest.fn(),
     };
 
     service = new NotificationService(
       notificationRepo,
       preferenceRepo,
+      pushSubscriptionRepo,
       webhookService as unknown as NotificationWebhookService,
+      pushService as unknown as NotificationPushService,
     );
     notificationRepo.createQueryBuilder.mockReturnValue({
       select: jest.fn().mockReturnThis(),
@@ -114,6 +133,37 @@ describe('NotificationService', () => {
       }),
     );
     expect(webhookService.dispatchNotificationCreated).toHaveBeenCalledWith(
+      created,
+    );
+    expect(pushService.dispatchNotificationCreated).not.toHaveBeenCalled();
+  });
+
+  it('dispatches push notifications when push channel is enabled', async () => {
+    preferenceRepo.findOne.mockResolvedValue({
+      ...basePreference,
+      pushEnabled: true,
+    } as UserNotificationPreference);
+    const created = {
+      id: 'notif-push-1',
+      userId: 'user-1',
+      type: 'SYNC_FAILED',
+      title: 'Push alert',
+      message: 'Sync failed for workspace',
+      isRead: false,
+      workspaceId: 'workspace-1',
+    } as UserNotification;
+    notificationRepo.create.mockReturnValue(created);
+    notificationRepo.save.mockResolvedValue(created);
+
+    await service.createNotification({
+      userId: 'user-1',
+      type: 'SYNC_FAILED',
+      title: 'Push alert',
+      message: 'Sync failed for workspace',
+      metadata: { workspaceId: 'workspace-1' },
+    });
+
+    expect(pushService.dispatchNotificationCreated).toHaveBeenCalledWith(
       created,
     );
   });
@@ -654,6 +704,72 @@ describe('NotificationService', () => {
         workspaceId: 'workspace-1',
         markedCount: 4,
       },
+    );
+  });
+
+  it('registers push subscriptions for current user', async () => {
+    pushSubscriptionRepo.findOne.mockResolvedValue(null);
+    pushSubscriptionRepo.find.mockResolvedValue([]);
+    pushSubscriptionRepo.create.mockImplementation(
+      (value: Partial<NotificationPushSubscription>) =>
+        ({
+          id: 'push-1',
+          ...value,
+        }) as NotificationPushSubscription,
+    );
+    pushSubscriptionRepo.save.mockImplementation(
+      (value: NotificationPushSubscription) => Promise.resolve(value),
+    );
+
+    const result = await service.registerPushSubscription({
+      userId: 'user-1',
+      payload: {
+        endpoint: 'https://push.mailzen.test/sub-1',
+        p256dh: 'p256dh-key',
+        auth: 'auth-key',
+        workspaceId: 'workspace-1',
+        userAgent: 'Chrome',
+      },
+    });
+
+    expect(result.endpoint).toBe('https://push.mailzen.test/sub-1');
+    expect(result.workspaceId).toBe('workspace-1');
+    expect(pushSubscriptionRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        isActive: true,
+      }),
+    );
+  });
+
+  it('deactivates push subscriptions when unregistering', async () => {
+    pushSubscriptionRepo.findOne.mockResolvedValue({
+      id: 'push-1',
+      userId: 'user-1',
+      endpoint: 'https://push.mailzen.test/sub-1',
+      p256dh: 'p256dh-key',
+      auth: 'auth-key',
+      isActive: true,
+      failureCount: 0,
+      workspaceId: null,
+      userAgent: null,
+      lastDeliveredAt: null,
+      lastFailureAt: null,
+    } as NotificationPushSubscription);
+    pushSubscriptionRepo.save.mockImplementation(
+      (value: NotificationPushSubscription) => Promise.resolve(value),
+    );
+
+    const result = await service.unregisterPushSubscription({
+      userId: 'user-1',
+      endpoint: 'https://push.mailzen.test/sub-1',
+    });
+
+    expect(result).toBe(true);
+    expect(pushSubscriptionRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isActive: false,
+      }),
     );
   });
 });
