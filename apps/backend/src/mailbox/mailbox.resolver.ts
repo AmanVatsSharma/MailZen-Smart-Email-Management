@@ -14,9 +14,9 @@ export class MailboxResolver {
 
   @Mutation(() => String)
   async createMyMailbox(
-    @Args('desiredLocalPart', { type: () => String })
-    desiredLocalPart: string,
     @Context() ctx: RequestContext,
+    @Args('desiredLocalPart', { type: () => String, nullable: true })
+    desiredLocalPart?: string,
   ) {
     const result = await this.mailboxService.createMailbox(
       ctx.req.user.id,

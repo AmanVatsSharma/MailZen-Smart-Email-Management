@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Mail, AlertCircle } from 'lucide-react';
+import { useMutation } from '@apollo/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -11,12 +12,13 @@ import {
   getGoogleOAuthUrl,
   getMicrosoftOAuthUrl
 } from '@/lib/providers/provider-utils';
+import { CONNECT_SMTP } from '@/lib/apollo/queries/providers';
 
 // Step types
 type WizardStep = 'provider-select' | 'connect' | 'configure' | 'success';
 
 interface ProviderWizardProps {
-  onComplete: (_provider: EmailProvider, _data: unknown) => void;
+  onComplete: () => void;
   onCancel: () => void;
 }
 
@@ -35,6 +37,11 @@ export function ProviderWizard({ onComplete, onCancel }: ProviderWizardProps) {
       password: '',
       secure: true,
     }
+  });
+  const [connectSmtp, { loading: smtpConnecting }] = useMutation(CONNECT_SMTP, {
+    onError: (error) => {
+      setConnectionError(error.message || 'SMTP connection failed');
+    },
   });
 
   // Calculate progress percentage based on current step
@@ -89,18 +96,32 @@ export function ProviderWizard({ onComplete, onCancel }: ProviderWizardProps) {
       return;
     }
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsConnecting(false);
-      setCurrentStep('success');
-    }, 1500);
+    connectSmtp({
+      variables: {
+        settings: {
+          email: formData.smtp.username,
+          host: formData.smtp.host,
+          port: Number(formData.smtp.port),
+          username: formData.smtp.username,
+          password: formData.smtp.password,
+          secure: formData.smtp.secure,
+        },
+      },
+    })
+      .then(() => {
+        setCurrentStep('success');
+      })
+      .catch(() => {
+        // handled in onError
+      })
+      .finally(() => {
+        setIsConnecting(false);
+      });
   };
 
   // Handle completion
   const handleComplete = () => {
-    if (selectedProvider) {
-      onComplete(selectedProvider, formData);
-    }
+    onComplete();
   };
 
   // Animation variants
@@ -352,10 +373,10 @@ export function ProviderWizard({ onComplete, onCancel }: ProviderWizardProps) {
                       
                       <Button 
                         type="submit" 
-                        disabled={isConnecting}
+                        disabled={isConnecting || smtpConnecting}
                         className="w-full md:w-auto"
                       >
-                        {isConnecting ? 'Connecting...' : 'Connect SMTP Server'}
+                        {isConnecting || smtpConnecting ? 'Connecting...' : 'Connect SMTP Server'}
                       </Button>
                     </form>
                   </div>

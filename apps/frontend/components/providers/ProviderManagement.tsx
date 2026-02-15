@@ -52,8 +52,13 @@ export function ProviderManagement() {
   void syncLoading;
 
   // Add a new provider
-  const handleAddProvider = () => {
+  const openAddProviderDialog = () => {
     setIsAddingProvider(true);
+  };
+
+  const handleProviderConnected = () => {
+    setIsAddingProvider(false);
+    refetch();
   };
 
   // Remove a provider
@@ -154,7 +159,7 @@ export function ProviderManagement() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Email Providers</h2>
-        <Button onClick={handleAddProvider}>
+        <Button onClick={openAddProviderDialog}>
           <Plus className="mr-2 h-4 w-4" /> Add Provider
         </Button>
       </div>
@@ -167,7 +172,7 @@ export function ProviderManagement() {
             <p className="text-muted-foreground mb-4">
               Connect your email providers to start using MailZen&apos;s features
             </p>
-            <Button onClick={handleAddProvider}>
+            <Button onClick={openAddProviderDialog}>
               <Plus className="mr-2 h-4 w-4" /> Add Provider
             </Button>
           </div>
@@ -252,7 +257,12 @@ export function ProviderManagement() {
                   </div>
                   <div className="mt-4 pt-4 border-t text-sm text-muted-foreground">
                     <div className="flex justify-between">
-                      <span>Last synced: {new Date(provider.lastSynced).toLocaleString()}</span>
+                      <span>
+                        Last synced:{' '}
+                        {provider.lastSynced
+                          ? new Date(provider.lastSynced).toLocaleString()
+                          : 'Never'}
+                      </span>
                       <span>Status: {provider.isActive ? 'Active' : 'Paused'}</span>
                     </div>
                   </div>
@@ -267,7 +277,7 @@ export function ProviderManagement() {
       <Dialog open={isAddingProvider} onOpenChange={setIsAddingProvider}>
         <DialogContent className="sm:max-w-[800px]">
           <ProviderWizard 
-            onComplete={handleAddProvider}
+            onComplete={handleProviderConnected}
             onCancel={() => setIsAddingProvider(false)}
           />
         </DialogContent>
