@@ -56,6 +56,7 @@ type DashboardNotification = {
   title: string;
   message: string;
   isRead: boolean;
+  metadata?: Record<string, unknown> | null;
   createdAt: string;
 };
 
@@ -188,6 +189,25 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     } catch (error) {
       console.error('[Notifications] click handler failed', error);
     }
+  };
+
+  const formatNotificationContext = (notification: DashboardNotification): string | null => {
+    const metadata = notification.metadata || {};
+    const workspaceId =
+      typeof metadata.workspaceId === 'string' ? metadata.workspaceId : null;
+    const providerType =
+      typeof metadata.providerType === 'string' ? metadata.providerType : null;
+
+    const workspaceName =
+      workspaceId &&
+      (workspaces.find((workspace) => workspace.id === workspaceId)?.name ||
+        workspaceId.slice(0, 8));
+    const contextParts = [
+      providerType ? `Provider: ${providerType}` : null,
+      workspaceName ? `Workspace: ${workspaceName}` : null,
+    ].filter(Boolean);
+    if (!contextParts.length) return null;
+    return contextParts.join(' · ');
   };
 
   const handleWorkspaceSelect = async (workspaceId: string) => {
@@ -328,26 +348,34 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                   You&apos;re all caught up.
                 </div>
               ) : (
-                notifications.map((notification) => (
-                  <DropdownMenuItem
-                    key={notification.id}
-                    className="flex cursor-pointer flex-col items-start gap-1 py-2"
-                    onClick={() => handleNotificationClick(notification)}
-                  >
-                    <div className="flex w-full items-center justify-between gap-2">
-                      <span className="text-sm font-medium">{notification.title}</span>
-                      {!notification.isRead && (
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                notifications.map((notification) => {
+                  const contextLabel = formatNotificationContext(notification);
+                  return (
+                    <DropdownMenuItem
+                      key={notification.id}
+                      className="flex cursor-pointer flex-col items-start gap-1 py-2"
+                      onClick={() => handleNotificationClick(notification)}
+                    >
+                      <div className="flex w-full items-center justify-between gap-2">
+                        <span className="text-sm font-medium">{notification.title}</span>
+                        {!notification.isRead && (
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <p className="line-clamp-2 text-xs text-muted-foreground">
+                        {notification.message}
+                      </p>
+                      {contextLabel && (
+                        <p className="text-[11px] text-muted-foreground/80">
+                          {contextLabel}
+                        </p>
                       )}
-                    </div>
-                    <p className="line-clamp-2 text-xs text-muted-foreground">
-                      {notification.message}
-                    </p>
-                    <span className="text-[11px] text-muted-foreground">
-                      {new Date(notification.createdAt).toLocaleString()}
-                    </span>
-                  </DropdownMenuItem>
-                ))
+                      <span className="text-[11px] text-muted-foreground">
+                        {new Date(notification.createdAt).toLocaleString()}
+                      </span>
+                    </DropdownMenuItem>
+                  );
+                })
               )}
             </DropdownMenuContent>
           </DropdownMenu>

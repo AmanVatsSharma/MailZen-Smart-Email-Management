@@ -24,6 +24,8 @@ modern two-level navigation system:
   - Notification bell now reads real backend notification feed (`myNotifications`)
     and unread count (`myUnreadNotificationCount`), and marks notifications
     read via `markNotificationRead`
+  - Notification dropdown renders workspace/provider context from notification
+    metadata when available (e.g. sync-failure events)
   - Workspace switcher now reads backend `myWorkspaces` and keeps local active
     workspace selection, and persists active workspace via
     `setActiveWorkspace` / `myActiveWorkspace`

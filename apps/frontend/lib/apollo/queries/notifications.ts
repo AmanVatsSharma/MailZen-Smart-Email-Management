@@ -8,6 +8,7 @@ export const GET_MY_NOTIFICATIONS = gql`
       title
       message
       isRead
+      metadata
       createdAt
     }
   }
