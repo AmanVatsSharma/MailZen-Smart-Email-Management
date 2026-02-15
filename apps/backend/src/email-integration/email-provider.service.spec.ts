@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/unbound-method */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   BadRequestException,
   ConflictException,
@@ -8,6 +10,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { createTransport } from 'nodemailer';
 import { Repository } from 'typeorm';
 import { BillingService } from '../billing/billing.service';
+import { WorkspaceService } from '../workspace/workspace.service';
 import { EmailProviderInput } from './dto/email-provider.input';
 import { EmailProvider } from './entities/email-provider.entity';
 import { EmailProviderService } from './email-provider.service';
@@ -43,6 +46,14 @@ describe('EmailProviderService', () => {
       aiCreditsPerMonth: 500,
     }),
   };
+  const workspaceServiceMock = {
+    listMyWorkspaces: jest.fn().mockResolvedValue([
+      {
+        id: 'workspace-1',
+        isPersonal: true,
+      },
+    ]),
+  };
 
   beforeEach(async () => {
     jest.spyOn(global, 'setInterval').mockImplementation((() => 0) as any);
@@ -62,6 +73,7 @@ describe('EmailProviderService', () => {
         EmailProviderService,
         { provide: getRepositoryToken(EmailProvider), useValue: repoMock },
         { provide: BillingService, useValue: billingServiceMock },
+        { provide: WorkspaceService, useValue: workspaceServiceMock },
       ],
     }).compile();
 
@@ -101,6 +113,7 @@ describe('EmailProviderService', () => {
         type: 'GMAIL',
         email: 'founder@gmail.com',
         accessToken: expect.stringMatching(/^enc:v1:/),
+        workspaceId: 'workspace-1',
         userId: 'user-1',
       }),
     );

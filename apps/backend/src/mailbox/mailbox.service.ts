@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BillingService } from '../billing/billing.service';
+import { WorkspaceService } from '../workspace/workspace.service';
 import { MailServerService } from './mail-server.service';
 import { Mailbox } from './entities/mailbox.entity';
 import { User } from '../user/entities/user.entity';
@@ -24,6 +25,7 @@ export class MailboxService {
     private readonly userRepo: Repository<User>,
     private readonly mailServer: MailServerService,
     private readonly billingService: BillingService,
+    private readonly workspaceService: WorkspaceService,
   ) {}
 
   private normalizeHandle(raw: string): string {
@@ -71,6 +73,7 @@ export class MailboxService {
     desiredLocalPart?: string,
   ): Promise<{ email: string; id: string }> {
     await this.enforceMailboxLimit(userId);
+    const workspaceId = await this.resolveDefaultWorkspaceId(userId);
 
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
@@ -100,6 +103,7 @@ export class MailboxService {
     const created = await this.mailboxRepo.save(
       this.mailboxRepo.create({
         userId,
+        workspaceId,
         localPart,
         domain: MailboxService.MAILZEN_DOMAIN,
         email,
@@ -134,5 +138,15 @@ export class MailboxService {
     throw new BadRequestException(
       `Plan limit reached. Your ${entitlements.planCode} plan supports up to ${entitlements.mailboxLimit} mailboxes.`,
     );
+  }
+
+  private async resolveDefaultWorkspaceId(userId: string): Promise<string> {
+    const workspaces = await this.workspaceService.listMyWorkspaces(userId);
+    const preferredWorkspace =
+      workspaces.find((workspace) => workspace.isPersonal) || workspaces[0];
+    if (!preferredWorkspace) {
+      throw new BadRequestException('No workspace available for this user');
+    }
+    return preferredWorkspace.id;
   }
 }

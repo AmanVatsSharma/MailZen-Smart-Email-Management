@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { MailboxService } from './mailbox.service';
 
@@ -24,12 +25,21 @@ describe('MailboxService', () => {
       aiCreditsPerMonth: 500,
     }),
   };
+  const workspaceService = {
+    listMyWorkspaces: jest.fn().mockResolvedValue([
+      {
+        id: 'workspace-1',
+        isPersonal: true,
+      },
+    ]),
+  };
 
   const service = new MailboxService(
     mailboxRepo as any,
     userRepo as any,
     mailServer as any,
     billingService as any,
+    workspaceService as any,
   );
 
   beforeEach(() => {
@@ -88,6 +98,7 @@ describe('MailboxService', () => {
     expect(mailboxRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-1',
+        workspaceId: 'workspace-1',
         localPart: 'sales',
         domain: 'mailzen.com',
         email: 'sales@mailzen.com',

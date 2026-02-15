@@ -28,6 +28,11 @@ export class Mailbox {
   @Index()
   userId: string;
 
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  @Index()
+  workspaceId?: string | null;
+
   @ManyToOne(() => User, (user) => user.mailboxes)
   @JoinColumn({ name: 'userId' })
   user: User;

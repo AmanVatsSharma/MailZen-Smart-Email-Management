@@ -12,6 +12,7 @@ organization features.
 - Track workspace members with role and invitation status
 - Enforce membership access checks for member listing/invites
 - Enforce billing entitlement limits for workspace count
+- Provide default workspace context for newly created providers/mailboxes
 
 ## GraphQL Surface
 

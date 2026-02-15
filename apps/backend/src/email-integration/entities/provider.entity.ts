@@ -34,4 +34,7 @@ export class Provider {
    */
   @Field()
   status: string;
+
+  @Field({ nullable: true })
+  workspaceId?: string | null;
 }

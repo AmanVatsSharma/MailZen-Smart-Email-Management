@@ -22,6 +22,7 @@ export const GET_PROVIDERS = gql`
       isActive
       lastSynced
       status
+      workspaceId
     }
   }
 `;
@@ -37,6 +38,7 @@ export const CONNECT_SMTP = gql`
       isActive
       lastSynced
       status
+      workspaceId
     }
   }
 `;

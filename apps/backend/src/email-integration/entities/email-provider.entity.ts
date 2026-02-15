@@ -77,6 +77,11 @@ export class EmailProvider {
   @Index()
   userId: string;
 
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  @Index()
+  workspaceId?: string | null;
+
   @ManyToOne(() => User, (user) => user.providers)
   @JoinColumn({ name: 'userId' })
   user: User;

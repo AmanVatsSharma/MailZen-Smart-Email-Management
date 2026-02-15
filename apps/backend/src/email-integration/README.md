@@ -16,6 +16,7 @@ The Email Integration Module is responsible for managing email providers within 
 - **Automatic Provider Detection**: Auto-detect provider type based on email address domain
 - **Connection Pooling**: Efficient SMTP connection management for improved performance
 - **Plan Entitlements**: Enforces provider count limits from user subscription plan
+- **Workspace Assignment**: New providers are assigned to the user default workspace for future scoped access control
 
 ## Implementation Status
 

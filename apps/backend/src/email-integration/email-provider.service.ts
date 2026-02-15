@@ -16,6 +16,7 @@ import * as NodeCache from 'node-cache';
 import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
 import { BillingService } from '../billing/billing.service';
+import { WorkspaceService } from '../workspace/workspace.service';
 import {
   decryptProviderSecret,
   encryptProviderSecret,
@@ -48,6 +49,7 @@ export class EmailProviderService {
     @InjectRepository(EmailProvider)
     private readonly providerRepository: Repository<EmailProvider>,
     private readonly billingService: BillingService,
+    private readonly workspaceService: WorkspaceService,
   ) {
     console.log('[EmailProviderService] Initialized with TypeORM repository');
     this.providerSecretsKey = resolveProviderSecretsKey();
@@ -61,6 +63,16 @@ export class EmailProviderService {
 
     // Start connection pool cleanup interval
     setInterval(() => this.cleanupConnectionPool(), 15 * 60 * 1000); // Run every 15 minutes
+  }
+
+  private async resolveDefaultWorkspaceId(userId: string): Promise<string> {
+    const workspaces = await this.workspaceService.listMyWorkspaces(userId);
+    const preferredWorkspace =
+      workspaces.find((workspace) => workspace.isPersonal) || workspaces[0];
+    if (!preferredWorkspace) {
+      throw new BadRequestException('No workspace available for this user');
+    }
+    return preferredWorkspace.id;
   }
 
   private encryptSecretIfPresent(secret?: string | null): string | undefined {
@@ -425,6 +437,7 @@ export class EmailProviderService {
         ? provider.lastSyncedAt.toISOString()
         : null,
       status: provider.status || 'connected',
+      workspaceId: provider.workspaceId || null,
     };
   }
 
@@ -521,6 +534,7 @@ export class EmailProviderService {
     }
 
     try {
+      const workspaceId = await this.resolveDefaultWorkspaceId(userId);
       const provider = this.providerRepository.create({
         type: 'GMAIL',
         email: config.email,
@@ -530,6 +544,7 @@ export class EmailProviderService {
           ? new Date(config.tokenExpiry * 1000)
           : undefined,
         userId,
+        workspaceId,
       });
       return await this.providerRepository.save(provider);
     } catch (error) {
@@ -551,6 +566,7 @@ export class EmailProviderService {
     }
 
     try {
+      const workspaceId = await this.resolveDefaultWorkspaceId(userId);
       const provider = this.providerRepository.create({
         type: 'OUTLOOK',
         email: config.email,
@@ -560,6 +576,7 @@ export class EmailProviderService {
           ? new Date(config.tokenExpiry * 1000)
           : undefined,
         userId,
+        workspaceId,
       });
       return await this.providerRepository.save(provider);
     } catch (error) {
@@ -581,6 +598,7 @@ export class EmailProviderService {
     }
 
     try {
+      const workspaceId = await this.resolveDefaultWorkspaceId(userId);
       const provider = this.providerRepository.create({
         type: 'CUSTOM_SMTP',
         email: config.email,
@@ -588,6 +606,7 @@ export class EmailProviderService {
         port: config.port,
         password: this.encryptSecretIfPresent(config.password),
         userId,
+        workspaceId,
       });
       return await this.providerRepository.save(provider);
     } catch (error) {

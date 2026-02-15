@@ -8,6 +8,7 @@ import { EmailProviderConnectResolver } from './email-provider.connect.resolver'
 import { BillingModule } from '../billing/billing.module';
 import { GmailSyncModule } from '../gmail-sync/gmail-sync.module';
 import { OutlookSyncModule } from '../outlook-sync/outlook-sync.module';
+import { WorkspaceModule } from '../workspace/workspace.module';
 
 /**
  * EmailProviderModule - External email provider integration
@@ -17,6 +18,7 @@ import { OutlookSyncModule } from '../outlook-sync/outlook-sync.module';
   imports: [
     TypeOrmModule.forFeature([EmailProvider]),
     BillingModule,
+    WorkspaceModule,
     GmailSyncModule,
     OutlookSyncModule,
   ],
