@@ -25,9 +25,7 @@ export class AuthService {
     private readonly verificationTokenRepository: Repository<VerificationToken>,
     @InjectRepository(SignupVerification)
     private readonly signupVerificationRepository: Repository<SignupVerification>,
-  ) {
-    console.log('[AuthService] Initialized with TypeORM repositories');
-  }
+  ) {}
 
   /**
    * Resolve JWT expiration from env in a type-safe way.

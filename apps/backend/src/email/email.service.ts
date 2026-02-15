@@ -24,9 +24,7 @@ export class EmailService {
     private readonly analyticsRepository: Repository<EmailAnalytics>,
     private emailProviderService: EmailProviderService,
     private mailerService: MailerService,
-  ) {
-    console.log('[EmailService] Initialized with TypeORM repositories');
-  }
+  ) {}
 
   /**
    * Send email via configured provider

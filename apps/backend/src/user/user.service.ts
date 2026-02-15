@@ -23,9 +23,7 @@ export class UserService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(AuditLog)
     private readonly auditLogRepository: Repository<AuditLog>,
-  ) {
-    console.log('[UserService] Initialized with TypeORM repositories');
-  }
+  ) {}
 
   /**
    * Create a new user account with hashed password
