@@ -33,6 +33,18 @@ export class WorkspaceService {
     return normalized.slice(0, 80);
   }
 
+  private normalizeWorkspaceRole(role: string): string {
+    const normalized = String(role || '')
+      .trim()
+      .toUpperCase();
+    if (!['OWNER', 'ADMIN', 'MEMBER'].includes(normalized)) {
+      throw new BadRequestException(
+        'Workspace role must be OWNER, ADMIN, or MEMBER',
+      );
+    }
+    return normalized;
+  }
+
   private slugifyWorkspaceName(name: string): string {
     const base = name
       .toLowerCase()
@@ -161,6 +173,19 @@ export class WorkspaceService {
     return membership;
   }
 
+  private async assertWorkspaceAdminAccess(
+    workspaceId: string,
+    userId: string,
+  ): Promise<WorkspaceMember> {
+    const membership = await this.assertWorkspaceAccess(workspaceId, userId);
+    if (!['OWNER', 'ADMIN'].includes(membership.role)) {
+      throw new ForbiddenException(
+        'Only OWNER/ADMIN can manage workspace members',
+      );
+    }
+    return membership;
+  }
+
   async listWorkspaceMembers(
     workspaceId: string,
     userId: string,
@@ -209,6 +234,7 @@ export class WorkspaceService {
     const normalizedEmail = String(email || '')
       .trim()
       .toLowerCase();
+    const normalizedRole = this.normalizeWorkspaceRole(role);
     if (!normalizedEmail.includes('@')) {
       throw new BadRequestException('Valid member email is required');
     }
@@ -218,19 +244,28 @@ export class WorkspaceService {
     });
     if (!workspace) throw new NotFoundException('Workspace not found');
 
-    const existingMember = await this.workspaceMemberRepo.findOne({
-      where: { workspaceId, email: normalizedEmail },
-    });
-    if (existingMember) return existingMember;
-
     const user = await this.userRepo.findOne({
       where: { email: normalizedEmail },
     });
+
+    const existingMember = await this.workspaceMemberRepo.findOne({
+      where: { workspaceId, email: normalizedEmail },
+    });
+    if (existingMember) {
+      if (['declined', 'removed'].includes(existingMember.status)) {
+        existingMember.role = normalizedRole;
+        existingMember.status = user ? 'active' : 'pending';
+        existingMember.invitedByUserId = actorUserId;
+        existingMember.userId = user?.id || null;
+        return this.workspaceMemberRepo.save(existingMember);
+      }
+      return existingMember;
+    }
     const member = this.workspaceMemberRepo.create({
       workspaceId,
       userId: user?.id || null,
       email: normalizedEmail,
-      role,
+      role: normalizedRole,
       status: user ? 'active' : 'pending',
       invitedByUserId: actorUserId,
     });
@@ -272,6 +307,82 @@ export class WorkspaceService {
     invitation.userId = input.userId;
     invitation.status = input.accept ? 'active' : 'declined';
     return this.workspaceMemberRepo.save(invitation);
+  }
+
+  async updateWorkspaceMemberRole(input: {
+    workspaceMemberId: string;
+    actorUserId: string;
+    role: string;
+  }): Promise<WorkspaceMember> {
+    const member = await this.workspaceMemberRepo.findOne({
+      where: { id: input.workspaceMemberId },
+    });
+    if (!member) {
+      throw new NotFoundException('Workspace member not found');
+    }
+    const normalizedRole = this.normalizeWorkspaceRole(input.role);
+    const actorMembership = await this.assertWorkspaceAdminAccess(
+      member.workspaceId,
+      input.actorUserId,
+    );
+    if (normalizedRole === 'OWNER' && actorMembership.role !== 'OWNER') {
+      throw new ForbiddenException(
+        'Only workspace OWNER can promote a member to OWNER',
+      );
+    }
+    if (member.role === 'OWNER' && normalizedRole !== 'OWNER') {
+      const activeOwners = await this.workspaceMemberRepo.find({
+        where: {
+          workspaceId: member.workspaceId,
+          role: 'OWNER',
+          status: 'active',
+        },
+      });
+      if (activeOwners.length <= 1) {
+        throw new BadRequestException('Workspace must always have one OWNER');
+      }
+    }
+    member.role = normalizedRole;
+    return this.workspaceMemberRepo.save(member);
+  }
+
+  async removeWorkspaceMember(input: {
+    workspaceMemberId: string;
+    actorUserId: string;
+  }): Promise<WorkspaceMember> {
+    const member = await this.workspaceMemberRepo.findOne({
+      where: { id: input.workspaceMemberId },
+    });
+    if (!member) {
+      throw new NotFoundException('Workspace member not found');
+    }
+    const actorMembership = await this.assertWorkspaceAdminAccess(
+      member.workspaceId,
+      input.actorUserId,
+    );
+    if (member.role === 'OWNER' && actorMembership.role !== 'OWNER') {
+      throw new ForbiddenException(
+        'Only workspace OWNER can remove an OWNER member',
+      );
+    }
+    if (member.role === 'OWNER') {
+      const activeOwners = await this.workspaceMemberRepo.find({
+        where: {
+          workspaceId: member.workspaceId,
+          role: 'OWNER',
+          status: 'active',
+        },
+      });
+      if (activeOwners.length <= 1) {
+        throw new BadRequestException('Workspace must always have one OWNER');
+      }
+    }
+    member.status = 'removed';
+    const saved = await this.workspaceMemberRepo.save(member);
+    if (member.userId) {
+      await this.userRepo.update(member.userId, { activeWorkspaceId: undefined });
+    }
+    return saved;
   }
 
   async setActiveWorkspace(

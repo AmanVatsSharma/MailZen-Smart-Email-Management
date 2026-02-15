@@ -4,6 +4,8 @@ describe('WorkspaceResolver', () => {
   const workspaceServiceMock = {
     listPendingWorkspaceInvitations: jest.fn(),
     respondToWorkspaceInvitation: jest.fn(),
+    updateWorkspaceMemberRole: jest.fn(),
+    removeWorkspaceMember: jest.fn(),
   };
 
   const resolver = new WorkspaceResolver(workspaceServiceMock as any);
@@ -49,5 +51,51 @@ describe('WorkspaceResolver', () => {
         accept: true,
       },
     );
+  });
+
+  it('forwards role update mutation to workspace service', async () => {
+    workspaceServiceMock.updateWorkspaceMemberRole.mockResolvedValue({
+      id: 'member-1',
+      role: 'ADMIN',
+    });
+
+    const result = await resolver.updateWorkspaceMemberRole(
+      'member-1',
+      'ADMIN',
+      context as any,
+    );
+
+    expect(result).toEqual({
+      id: 'member-1',
+      role: 'ADMIN',
+    });
+    expect(workspaceServiceMock.updateWorkspaceMemberRole).toHaveBeenCalledWith(
+      {
+        workspaceMemberId: 'member-1',
+        actorUserId: 'user-1',
+        role: 'ADMIN',
+      },
+    );
+  });
+
+  it('forwards remove member mutation to workspace service', async () => {
+    workspaceServiceMock.removeWorkspaceMember.mockResolvedValue({
+      id: 'member-1',
+      status: 'removed',
+    });
+
+    const result = await resolver.removeWorkspaceMember(
+      'member-1',
+      context as any,
+    );
+
+    expect(result).toEqual({
+      id: 'member-1',
+      status: 'removed',
+    });
+    expect(workspaceServiceMock.removeWorkspaceMember).toHaveBeenCalledWith({
+      workspaceMemberId: 'member-1',
+      actorUserId: 'user-1',
+    });
   });
 });

@@ -240,4 +240,137 @@ describe('WorkspaceService', () => {
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
+
+  it('updates member role when actor has owner/admin access', async () => {
+    workspaceMemberRepo.findOne
+      .mockResolvedValueOnce({
+        id: 'member-2',
+        workspaceId: 'workspace-1',
+        userId: 'user-2',
+        role: 'MEMBER',
+        status: 'active',
+      } as WorkspaceMember)
+      .mockResolvedValueOnce({
+        id: 'actor-member-1',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        role: 'OWNER',
+        status: 'active',
+      } as WorkspaceMember);
+    workspaceMemberRepo.save.mockImplementation(
+      async (member: WorkspaceMember) => member,
+    );
+
+    const updated = await service.updateWorkspaceMemberRole({
+      workspaceMemberId: 'member-2',
+      actorUserId: 'user-1',
+      role: 'ADMIN',
+    });
+
+    expect(updated.role).toBe('ADMIN');
+  });
+
+  it('prevents demoting the last workspace owner', async () => {
+    workspaceMemberRepo.findOne
+      .mockResolvedValueOnce({
+        id: 'member-owner',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        role: 'OWNER',
+        status: 'active',
+      } as WorkspaceMember)
+      .mockResolvedValueOnce({
+        id: 'member-owner',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        role: 'OWNER',
+        status: 'active',
+      } as WorkspaceMember);
+    workspaceMemberRepo.find.mockResolvedValue([
+      {
+        id: 'member-owner',
+        workspaceId: 'workspace-1',
+        role: 'OWNER',
+        status: 'active',
+      } as WorkspaceMember,
+    ]);
+
+    await expect(
+      service.updateWorkspaceMemberRole({
+        workspaceMemberId: 'member-owner',
+        actorUserId: 'user-1',
+        role: 'MEMBER',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('removes workspace member and clears active workspace', async () => {
+    workspaceMemberRepo.findOne
+      .mockResolvedValueOnce({
+        id: 'member-2',
+        workspaceId: 'workspace-1',
+        userId: 'user-2',
+        role: 'MEMBER',
+        status: 'active',
+      } as WorkspaceMember)
+      .mockResolvedValueOnce({
+        id: 'actor-member-1',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        role: 'OWNER',
+        status: 'active',
+      } as WorkspaceMember);
+    workspaceMemberRepo.save.mockImplementation(
+      async (member: WorkspaceMember) => member,
+    );
+    userRepo.update.mockResolvedValue({} as any);
+
+    const removed = await service.removeWorkspaceMember({
+      workspaceMemberId: 'member-2',
+      actorUserId: 'user-1',
+    });
+
+    expect(removed.status).toBe('removed');
+    expect(userRepo.update).toHaveBeenCalledWith('user-2', {
+      activeWorkspaceId: undefined,
+    });
+  });
+
+  it('reinvites declined member as pending', async () => {
+    workspaceMemberRepo.findOne
+      .mockResolvedValueOnce({
+        id: 'actor-member-1',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        role: 'OWNER',
+        status: 'active',
+      } as WorkspaceMember)
+      .mockResolvedValueOnce({
+        id: 'member-declined-1',
+        workspaceId: 'workspace-1',
+        email: 'invitee@example.com',
+        role: 'MEMBER',
+        status: 'declined',
+      } as WorkspaceMember);
+    workspaceRepo.findOne.mockResolvedValue({
+      id: 'workspace-1',
+      ownerUserId: 'user-1',
+      name: 'Workspace One',
+      slug: 'workspace-one',
+      isPersonal: false,
+    } as Workspace);
+    workspaceMemberRepo.save.mockImplementation(
+      async (member: WorkspaceMember) => member,
+    );
+
+    const reinvited = await service.inviteWorkspaceMember(
+      'workspace-1',
+      'user-1',
+      'invitee@example.com',
+      'admin',
+    );
+
+    expect(reinvited.status).toBe('pending');
+    expect(reinvited.role).toBe('ADMIN');
+  });
 });

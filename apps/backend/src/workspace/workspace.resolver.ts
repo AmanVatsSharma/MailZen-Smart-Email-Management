@@ -82,6 +82,34 @@ export class WorkspaceResolver {
     );
   }
 
+  @Mutation(() => WorkspaceMember, {
+    description: 'Update workspace member role',
+  })
+  async updateWorkspaceMemberRole(
+    @Args('workspaceMemberId') workspaceMemberId: string,
+    @Args('role') role: string,
+    @Context() context: RequestContext,
+  ) {
+    return this.workspaceService.updateWorkspaceMemberRole({
+      workspaceMemberId,
+      actorUserId: context.req.user.id,
+      role,
+    });
+  }
+
+  @Mutation(() => WorkspaceMember, {
+    description: 'Remove workspace member',
+  })
+  async removeWorkspaceMember(
+    @Args('workspaceMemberId') workspaceMemberId: string,
+    @Context() context: RequestContext,
+  ) {
+    return this.workspaceService.removeWorkspaceMember({
+      workspaceMemberId,
+      actorUserId: context.req.user.id,
+    });
+  }
+
   @Mutation(() => Workspace, {
     description: 'Set active workspace for current user',
   })

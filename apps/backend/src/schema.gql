@@ -818,6 +818,11 @@ extend type Mutation {
     email: String!
     role: String
   ): WorkspaceMember!
+  updateWorkspaceMemberRole(
+    workspaceMemberId: String!
+    role: String!
+  ): WorkspaceMember!
+  removeWorkspaceMember(workspaceMemberId: String!): WorkspaceMember!
   respondWorkspaceInvitation(
     workspaceMemberId: String!
     accept: Boolean!

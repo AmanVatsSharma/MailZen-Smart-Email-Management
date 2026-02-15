@@ -21,6 +21,8 @@ const requiredContracts = [
   'createWorkspace',
   'setActiveWorkspace',
   'inviteWorkspaceMember',
+  'updateWorkspaceMemberRole',
+  'removeWorkspaceMember',
   'respondWorkspaceInvitation',
   'myMailboxInboundEvents',
   'myMailboxInboundEventStats',

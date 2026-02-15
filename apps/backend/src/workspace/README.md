@@ -24,6 +24,8 @@ organization features.
 - `inviteWorkspaceMember(workspaceId, email, role?)`: add/invite a member
 - `myPendingWorkspaceInvitations`: list pending invites for authenticated user email
 - `respondWorkspaceInvitation(workspaceMemberId, accept)`: accept/decline invite
+- `updateWorkspaceMemberRole(workspaceMemberId, role)`: OWNER/ADMIN role management
+- `removeWorkspaceMember(workspaceMemberId)`: remove member with owner safety guardrails
 
 ## Data Model
 
@@ -49,5 +51,12 @@ flowchart TD
   J[User checks pending invitations] --> K[Filter memberships by user email and status pending]
   K --> L[respondWorkspaceInvitation]
   L --> M[Set status active or declined + attach userId]
+
+  N[Admin updates member role] --> O[Enforce OWNER-only owner promotion]
+  O --> P[Prevent demoting last OWNER]
+  P --> Q[Persist normalized role]
+
+  R[Admin removes member] --> S[Enforce owner removal safeguards]
+  S --> T[Set membership status removed]
 ```
 
