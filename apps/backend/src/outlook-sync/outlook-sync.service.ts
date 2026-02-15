@@ -8,6 +8,11 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
 import { Repository } from 'typeorm';
+import {
+  decryptProviderSecret,
+  encryptProviderSecret,
+  resolveProviderSecretsKey,
+} from '../common/provider-secrets.util';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
@@ -38,6 +43,7 @@ type OutlookMessagesResponse = {
 @Injectable()
 export class OutlookSyncService {
   private readonly logger = new Logger(OutlookSyncService.name);
+  private readonly providerSecretsKey: Buffer;
 
   constructor(
     @InjectRepository(EmailProvider)
@@ -46,23 +52,32 @@ export class OutlookSyncService {
     private readonly externalEmailLabelRepo: Repository<ExternalEmailLabel>,
     @InjectRepository(ExternalEmailMessage)
     private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
-  ) {}
+  ) {
+    this.providerSecretsKey = resolveProviderSecretsKey();
+  }
 
   private async ensureFreshOutlookAccessToken(provider: EmailProvider) {
-    if (!provider.accessToken && !provider.refreshToken) {
+    const decryptedAccessToken = provider.accessToken
+      ? decryptProviderSecret(provider.accessToken, this.providerSecretsKey)
+      : '';
+    const decryptedRefreshToken = provider.refreshToken
+      ? decryptProviderSecret(provider.refreshToken, this.providerSecretsKey)
+      : '';
+
+    if (!decryptedAccessToken && !decryptedRefreshToken) {
       throw new BadRequestException(
         'Missing OAuth credentials for Outlook provider',
       );
     }
 
-    if (!provider.tokenExpiry || !provider.refreshToken) {
-      return provider.accessToken || '';
+    if (!provider.tokenExpiry || !decryptedRefreshToken) {
+      return decryptedAccessToken;
     }
 
     const nowMs = Date.now();
     const expiryMs = new Date(provider.tokenExpiry).getTime();
-    if (expiryMs > nowMs + 5 * 60 * 1000 && provider.accessToken) {
-      return provider.accessToken;
+    if (expiryMs > nowMs + 5 * 60 * 1000 && decryptedAccessToken) {
+      return decryptedAccessToken;
     }
 
     const clientId = process.env.OUTLOOK_CLIENT_ID;
@@ -77,7 +92,7 @@ export class OutlookSyncService {
     params.append('client_id', clientId);
     params.append('client_secret', clientSecret);
     params.append('grant_type', 'refresh_token');
-    params.append('refresh_token', provider.refreshToken);
+    params.append('refresh_token', decryptedRefreshToken);
 
     try {
       const tokenResponse = await axios.post<{
@@ -96,13 +111,19 @@ export class OutlookSyncService {
       const expiresInSeconds = Number(tokenResponse.data.expires_in || 3600);
       const nextExpiry = new Date(Date.now() + expiresInSeconds * 1000);
       const nextRefreshToken =
-        tokenResponse.data.refresh_token || provider.refreshToken;
+        tokenResponse.data.refresh_token || decryptedRefreshToken;
 
       await this.emailProviderRepo.update(
         { id: provider.id },
         {
-          accessToken: nextAccessToken,
-          refreshToken: nextRefreshToken,
+          accessToken: encryptProviderSecret(
+            nextAccessToken,
+            this.providerSecretsKey,
+          ),
+          refreshToken: encryptProviderSecret(
+            nextRefreshToken,
+            this.providerSecretsKey,
+          ),
           tokenExpiry: nextExpiry,
         },
       );

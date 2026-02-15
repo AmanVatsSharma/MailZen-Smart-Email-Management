@@ -11,6 +11,7 @@ The Email Integration Module is responsible for managing email providers within 
 - **Connection Validation**: Validate provider connections to ensure they're properly configured
 - **Multi-Provider Support**: Support for Gmail, Outlook, and custom SMTP servers
 - **Security**: Secure handling of authentication credentials
+- **Credential Encryption at Rest**: OAuth/SMTP secrets are encrypted before persistence
 - **OAuth Token Management**: Automatic refresh of OAuth tokens for Gmail and Outlook
 - **Automatic Provider Detection**: Auto-detect provider type based on email address domain
 - **Connection Pooling**: Efficient SMTP connection management for improved performance

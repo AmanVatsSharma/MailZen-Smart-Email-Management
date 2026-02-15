@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import axios from 'axios';
 import { Repository } from 'typeorm';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
@@ -126,12 +128,16 @@ describe('OutlookSyncService', () => {
     await service.syncOutlookProvider(providerId, userId, 1);
 
     expect(axiosPostMock).toHaveBeenCalled();
-    expect(providerUpdateMock).toHaveBeenCalledWith(
-      { id: providerId },
-      expect.objectContaining({
-        accessToken: 'fresh-token',
-        refreshToken: 'fresh-refresh-token',
-      }),
-    );
+    const tokenUpdateCall = providerUpdateMock.mock.calls.find((call) => {
+      const payload = call[1] as { accessToken?: string };
+      return Boolean(payload.accessToken);
+    });
+    expect(tokenUpdateCall).toBeDefined();
+    const tokenUpdatePayload = tokenUpdateCall?.[1] as {
+      accessToken: string;
+      refreshToken: string;
+    };
+    expect(tokenUpdatePayload.accessToken).toMatch(/^enc:v1:/);
+    expect(tokenUpdatePayload.refreshToken).toMatch(/^enc:v1:/);
   });
 });

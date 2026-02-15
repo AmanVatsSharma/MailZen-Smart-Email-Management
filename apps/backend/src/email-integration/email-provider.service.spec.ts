@@ -99,7 +99,7 @@ describe('EmailProviderService', () => {
       expect.objectContaining({
         type: 'GMAIL',
         email: 'founder@gmail.com',
-        accessToken: 'access-token',
+        accessToken: expect.stringMatching(/^enc:v1:/),
         userId: 'user-1',
       }),
     );
@@ -209,11 +209,14 @@ describe('EmailProviderService', () => {
       'user-1',
     );
 
-    expect(providerRepository.update).toHaveBeenCalledWith('provider-1', {
-      host: 'smtp.new-host.com',
-      port: 587,
-      password: 'new-password',
-    });
+    expect(providerRepository.update).toHaveBeenCalledWith(
+      'provider-1',
+      expect.objectContaining({
+        host: 'smtp.new-host.com',
+        port: 587,
+        password: expect.stringMatching(/^enc:v1:/),
+      }),
+    );
   });
 
   it('creates SMTP transporter with enterprise pooling config', async () => {

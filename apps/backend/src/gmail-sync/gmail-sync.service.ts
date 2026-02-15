@@ -9,6 +9,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
 import { OAuth2Client } from 'google-auth-library';
 import { Repository } from 'typeorm';
+import {
+  decryptProviderSecret,
+  encryptProviderSecret,
+  resolveProviderSecretsKey,
+} from '../common/provider-secrets.util';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
@@ -57,6 +62,7 @@ type GmailHistoryResponse = {
 export class GmailSyncService {
   private readonly logger = new Logger(GmailSyncService.name);
   private readonly googleOAuth2Client: OAuth2Client;
+  private readonly providerSecretsKey: Buffer;
 
   constructor(
     @InjectRepository(EmailProvider)
@@ -66,6 +72,7 @@ export class GmailSyncService {
     @InjectRepository(ExternalEmailMessage)
     private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
   ) {
+    this.providerSecretsKey = resolveProviderSecretsKey();
     // Dedicated client for Gmail API access token refresh.
     this.googleOAuth2Client = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID,
@@ -76,24 +83,31 @@ export class GmailSyncService {
   }
 
   private async ensureFreshGmailAccessToken(provider: any): Promise<string> {
-    if (!provider.refreshToken && !provider.accessToken) {
+    const decryptedAccessToken = provider.accessToken
+      ? decryptProviderSecret(provider.accessToken, this.providerSecretsKey)
+      : '';
+    const decryptedRefreshToken = provider.refreshToken
+      ? decryptProviderSecret(provider.refreshToken, this.providerSecretsKey)
+      : '';
+
+    if (!decryptedRefreshToken && !decryptedAccessToken) {
       throw new BadRequestException(
         'Missing OAuth credentials for Gmail provider',
       );
     }
-    if (!provider.tokenExpiry || !provider.refreshToken) {
-      return provider.accessToken;
+    if (!provider.tokenExpiry || !decryptedRefreshToken) {
+      return decryptedAccessToken;
     }
 
     const now = Date.now();
     const expiry = new Date(provider.tokenExpiry).getTime();
     if (expiry > now + 5 * 60 * 1000) {
-      return provider.accessToken;
+      return decryptedAccessToken;
     }
 
     try {
       this.googleOAuth2Client.setCredentials({
-        refresh_token: provider.refreshToken,
+        refresh_token: decryptedRefreshToken,
       });
       // google-auth-library v9 still supports refreshAccessToken (used elsewhere in repo)
       const { credentials } =
@@ -104,7 +118,10 @@ export class GmailSyncService {
       await this.emailProviderRepo.update(
         { id: provider.id },
         {
-          accessToken: credentials.access_token,
+          accessToken: encryptProviderSecret(
+            credentials.access_token,
+            this.providerSecretsKey,
+          ),
           tokenExpiry: credentials.expiry_date
             ? new Date(credentials.expiry_date)
             : undefined,

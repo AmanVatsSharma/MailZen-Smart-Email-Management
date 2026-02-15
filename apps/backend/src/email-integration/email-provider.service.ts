@@ -16,6 +16,11 @@ import * as NodeCache from 'node-cache';
 import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
 import { BillingService } from '../billing/billing.service';
+import {
+  decryptProviderSecret,
+  encryptProviderSecret,
+  resolveProviderSecretsKey,
+} from '../common/provider-secrets.util';
 
 interface SmtpConnectionPool {
   [key: string]: {
@@ -32,6 +37,7 @@ interface SmtpConnectionPool {
 export class EmailProviderService {
   private readonly logger = new Logger(EmailProviderService.name);
   private readonly googleOAuth2Client: OAuth2Client;
+  private readonly providerSecretsKey: Buffer;
   private readonly smtpConnectionPool: SmtpConnectionPool = {};
   private readonly connectionCache = new NodeCache({
     stdTTL: 3600,
@@ -44,6 +50,7 @@ export class EmailProviderService {
     private readonly billingService: BillingService,
   ) {
     console.log('[EmailProviderService] Initialized with TypeORM repository');
+    this.providerSecretsKey = resolveProviderSecretsKey();
 
     // Setup Google OAuth client
     this.googleOAuth2Client = new OAuth2Client(
@@ -54,6 +61,16 @@ export class EmailProviderService {
 
     // Start connection pool cleanup interval
     setInterval(() => this.cleanupConnectionPool(), 15 * 60 * 1000); // Run every 15 minutes
+  }
+
+  private encryptSecretIfPresent(secret?: string | null): string | undefined {
+    if (!secret) return undefined;
+    return encryptProviderSecret(secret, this.providerSecretsKey);
+  }
+
+  private decryptSecretIfPresent(secret?: string | null): string | undefined {
+    if (!secret) return undefined;
+    return decryptProviderSecret(secret, this.providerSecretsKey);
   }
 
   /**
@@ -84,7 +101,7 @@ export class EmailProviderService {
     const updated = await this.providerRepository.findOne({
       where: { id: providerId },
     });
-    return updated?.accessToken || null;
+    return this.decryptSecretIfPresent(updated?.accessToken) || null;
   }
 
   /**
@@ -507,8 +524,8 @@ export class EmailProviderService {
       const provider = this.providerRepository.create({
         type: 'GMAIL',
         email: config.email,
-        accessToken: config.accessToken,
-        refreshToken: config.refreshToken,
+        accessToken: this.encryptSecretIfPresent(config.accessToken),
+        refreshToken: this.encryptSecretIfPresent(config.refreshToken),
         tokenExpiry: config.tokenExpiry
           ? new Date(config.tokenExpiry * 1000)
           : undefined,
@@ -537,8 +554,8 @@ export class EmailProviderService {
       const provider = this.providerRepository.create({
         type: 'OUTLOOK',
         email: config.email,
-        accessToken: config.accessToken,
-        refreshToken: config.refreshToken,
+        accessToken: this.encryptSecretIfPresent(config.accessToken),
+        refreshToken: this.encryptSecretIfPresent(config.refreshToken),
         tokenExpiry: config.tokenExpiry
           ? new Date(config.tokenExpiry * 1000)
           : undefined,
@@ -569,7 +586,7 @@ export class EmailProviderService {
         email: config.email,
         host: config.host,
         port: config.port,
-        password: config.password,
+        password: this.encryptSecretIfPresent(config.password),
         userId,
       });
       return await this.providerRepository.save(provider);
@@ -712,12 +729,19 @@ export class EmailProviderService {
       if (provider.type === 'CUSTOM_SMTP') {
         if (updatedData.host) updateData.host = updatedData.host;
         if (updatedData.port) updateData.port = updatedData.port;
-        if (updatedData.password) updateData.password = updatedData.password;
+        if (updatedData.password)
+          updateData.password = this.encryptSecretIfPresent(
+            updatedData.password,
+          );
       } else if (['GMAIL', 'OUTLOOK'].includes(provider.type)) {
         if (updatedData.accessToken)
-          updateData.accessToken = updatedData.accessToken;
+          updateData.accessToken = this.encryptSecretIfPresent(
+            updatedData.accessToken,
+          );
         if (updatedData.refreshToken)
-          updateData.refreshToken = updatedData.refreshToken;
+          updateData.refreshToken = this.encryptSecretIfPresent(
+            updatedData.refreshToken,
+          );
         if (updatedData.tokenExpiry)
           updateData.tokenExpiry = new Date(updatedData.tokenExpiry * 1000);
       }
@@ -797,8 +821,8 @@ export class EmailProviderService {
             user: provider.email,
             clientId: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-            accessToken: provider.accessToken,
-            refreshToken: provider.refreshToken,
+            accessToken: this.decryptSecretIfPresent(provider.accessToken),
+            refreshToken: this.decryptSecretIfPresent(provider.refreshToken),
             expires: provider.tokenExpiry
               ? new Date(provider.tokenExpiry).getTime()
               : undefined,
@@ -813,8 +837,8 @@ export class EmailProviderService {
             user: provider.email,
             clientId: process.env.OUTLOOK_CLIENT_ID,
             clientSecret: process.env.OUTLOOK_CLIENT_SECRET,
-            accessToken: provider.accessToken,
-            refreshToken: provider.refreshToken,
+            accessToken: this.decryptSecretIfPresent(provider.accessToken),
+            refreshToken: this.decryptSecretIfPresent(provider.refreshToken),
             expires: provider.tokenExpiry
               ? new Date(provider.tokenExpiry).getTime()
               : undefined,
@@ -828,7 +852,7 @@ export class EmailProviderService {
           secure: provider.port === 465,
           auth: {
             user: provider.email,
-            pass: provider.password,
+            pass: this.decryptSecretIfPresent(provider.password),
           },
           pool: true,
           maxConnections: 5,
@@ -855,10 +879,13 @@ export class EmailProviderService {
 
   private async refreshOAuthToken(provider: any) {
     try {
-      if (provider.type === 'GMAIL' && provider.refreshToken) {
+      const decryptedRefreshToken = this.decryptSecretIfPresent(
+        provider.refreshToken,
+      );
+      if (provider.type === 'GMAIL' && decryptedRefreshToken) {
         // Refresh Google token
         this.googleOAuth2Client.setCredentials({
-          refresh_token: provider.refreshToken,
+          refresh_token: decryptedRefreshToken,
         });
 
         const { credentials } =
@@ -866,7 +893,9 @@ export class EmailProviderService {
 
         // Update provider with new token info
         await this.providerRepository.update(provider.id, {
-          accessToken: credentials.access_token || undefined,
+          accessToken: this.encryptSecretIfPresent(
+            credentials.access_token || undefined,
+          ),
           tokenExpiry: credentials.expiry_date
             ? new Date(credentials.expiry_date)
             : undefined,
@@ -877,7 +906,7 @@ export class EmailProviderService {
         provider.tokenExpiry = credentials.expiry_date
           ? new Date(credentials.expiry_date)
           : undefined;
-      } else if (provider.type === 'OUTLOOK' && provider.refreshToken) {
+      } else if (provider.type === 'OUTLOOK' && decryptedRefreshToken) {
         // Refresh Microsoft token
         const tokenUrl =
           'https://login.microsoftonline.com/common/oauth2/v2.0/token';
@@ -885,7 +914,7 @@ export class EmailProviderService {
         params.append('client_id', process.env.OUTLOOK_CLIENT_ID || '');
         params.append('client_secret', process.env.OUTLOOK_CLIENT_SECRET || '');
         params.append('grant_type', 'refresh_token');
-        params.append('refresh_token', provider.refreshToken);
+        params.append('refresh_token', decryptedRefreshToken);
 
         const response = await axios.post(tokenUrl, params, {
           headers: {
@@ -900,15 +929,16 @@ export class EmailProviderService {
         );
 
         await this.providerRepository.update(provider.id, {
-          accessToken: response.data.access_token,
-          refreshToken: response.data.refresh_token || provider.refreshToken, // Some providers don't return a new refresh token
+          accessToken: this.encryptSecretIfPresent(response.data.access_token),
+          refreshToken: this.encryptSecretIfPresent(
+            response.data.refresh_token || decryptedRefreshToken,
+          ), // Some providers don't return a new refresh token
           tokenExpiry: expiryDate,
         });
 
         // Update local reference
         provider.accessToken = response.data.access_token;
-        provider.refreshToken =
-          response.data.refresh_token || provider.refreshToken;
+        provider.refreshToken = response.data.refresh_token || decryptedRefreshToken;
         provider.tokenExpiry = expiryDate;
       }
     } catch (error) {
