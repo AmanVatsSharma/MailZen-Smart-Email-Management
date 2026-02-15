@@ -269,3 +269,42 @@ SELECT
   COUNT(*) FILTER (WHERE "mailboxInboundRejectedEnabled" = true) AS rejected_enabled
 FROM user_notification_preferences;
 ```
+
+## Notification Mailbox Inbound SLA Threshold Rollout Notes (2026-02-16)
+
+New migration: `20260216003000-notification-mailbox-inbound-sla-thresholds.ts`
+
+This migration introduces:
+
+- `user_notification_preferences.mailboxInboundSlaTargetSuccessPercent`
+- `user_notification_preferences.mailboxInboundSlaWarningRejectedPercent`
+- `user_notification_preferences.mailboxInboundSlaCriticalRejectedPercent`
+
+### Safe rollout sequence
+
+1. Deploy backend containing SLA threshold preference migration + mailbox stats updates.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- notification/notification.service.spec.ts mailbox/mailbox.service.spec.ts`
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Verify UI/API threshold flows:
+   - `myNotificationPreferences`
+   - `updateMyNotificationPreferences`
+   - `myMailboxInboundEventStats` (`sla*` fields should reflect persisted preferences)
+
+### Staging verification SQL (SLA threshold defaults and ordering)
+
+```sql
+SELECT
+  COUNT(*) FILTER (WHERE "mailboxInboundSlaTargetSuccessPercent" = 99) AS target_default_count,
+  COUNT(*) FILTER (WHERE "mailboxInboundSlaWarningRejectedPercent" = 1) AS warning_default_count,
+  COUNT(*) FILTER (WHERE "mailboxInboundSlaCriticalRejectedPercent" = 5) AS critical_default_count
+FROM user_notification_preferences;
+
+SELECT
+  COUNT(*) AS invalid_threshold_rows
+FROM user_notification_preferences
+WHERE "mailboxInboundSlaWarningRejectedPercent" > "mailboxInboundSlaCriticalRejectedPercent";
+```

@@ -20,6 +20,10 @@ type MailboxInboundNotificationStatus =
 
 @Injectable()
 export class NotificationService {
+  private static readonly DEFAULT_MAILBOX_INBOUND_SLA_TARGET_SUCCESS_PERCENT = 99;
+  private static readonly DEFAULT_MAILBOX_INBOUND_SLA_WARNING_REJECTED_PERCENT = 1;
+  private static readonly DEFAULT_MAILBOX_INBOUND_SLA_CRITICAL_REJECTED_PERCENT = 5;
+
   constructor(
     @InjectRepository(UserNotification)
     private readonly notificationRepo: Repository<UserNotification>,
@@ -28,6 +32,23 @@ export class NotificationService {
   ) {}
 
   private getDefaultPreference(userId: string): UserNotificationPreference {
+    const targetSuccessPercent = this.normalizeThresholdInput(
+      process.env.MAILZEN_INBOUND_SLA_TARGET_SUCCESS_PERCENT,
+      NotificationService.DEFAULT_MAILBOX_INBOUND_SLA_TARGET_SUCCESS_PERCENT,
+    );
+    const warningRejectedPercent = this.normalizeThresholdInput(
+      process.env.MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT,
+      NotificationService.DEFAULT_MAILBOX_INBOUND_SLA_WARNING_REJECTED_PERCENT,
+    );
+    const criticalRejectedPercent = this.normalizeThresholdInput(
+      process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT,
+      NotificationService.DEFAULT_MAILBOX_INBOUND_SLA_CRITICAL_REJECTED_PERCENT,
+    );
+    const normalizedThresholds = this.normalizeThresholdOrder({
+      targetSuccessPercent,
+      warningRejectedPercent,
+      criticalRejectedPercent,
+    });
     const row = this.notificationPreferenceRepo.create({
       userId,
       inAppEnabled: true,
@@ -37,6 +58,12 @@ export class NotificationService {
       mailboxInboundAcceptedEnabled: true,
       mailboxInboundDeduplicatedEnabled: false,
       mailboxInboundRejectedEnabled: true,
+      mailboxInboundSlaTargetSuccessPercent:
+        normalizedThresholds.targetSuccessPercent,
+      mailboxInboundSlaWarningRejectedPercent:
+        normalizedThresholds.warningRejectedPercent,
+      mailboxInboundSlaCriticalRejectedPercent:
+        normalizedThresholds.criticalRejectedPercent,
     });
     return row;
   }
@@ -82,7 +109,72 @@ export class NotificationService {
       existing.mailboxInboundRejectedEnabled =
         input.mailboxInboundRejectedEnabled;
     }
+    if (typeof input.mailboxInboundSlaTargetSuccessPercent === 'number') {
+      existing.mailboxInboundSlaTargetSuccessPercent =
+        this.normalizeThresholdInput(
+          input.mailboxInboundSlaTargetSuccessPercent,
+          existing.mailboxInboundSlaTargetSuccessPercent,
+        );
+    }
+    if (typeof input.mailboxInboundSlaWarningRejectedPercent === 'number') {
+      existing.mailboxInboundSlaWarningRejectedPercent =
+        this.normalizeThresholdInput(
+          input.mailboxInboundSlaWarningRejectedPercent,
+          existing.mailboxInboundSlaWarningRejectedPercent,
+        );
+    }
+    if (typeof input.mailboxInboundSlaCriticalRejectedPercent === 'number') {
+      existing.mailboxInboundSlaCriticalRejectedPercent =
+        this.normalizeThresholdInput(
+          input.mailboxInboundSlaCriticalRejectedPercent,
+          existing.mailboxInboundSlaCriticalRejectedPercent,
+        );
+    }
+    const normalizedThresholds = this.normalizeThresholdOrder({
+      targetSuccessPercent: existing.mailboxInboundSlaTargetSuccessPercent,
+      warningRejectedPercent: existing.mailboxInboundSlaWarningRejectedPercent,
+      criticalRejectedPercent:
+        existing.mailboxInboundSlaCriticalRejectedPercent,
+    });
+    existing.mailboxInboundSlaTargetSuccessPercent =
+      normalizedThresholds.targetSuccessPercent;
+    existing.mailboxInboundSlaWarningRejectedPercent =
+      normalizedThresholds.warningRejectedPercent;
+    existing.mailboxInboundSlaCriticalRejectedPercent =
+      normalizedThresholds.criticalRejectedPercent;
     return this.notificationPreferenceRepo.save(existing);
+  }
+
+  private normalizeThresholdInput(rawValue: unknown, fallback: number): number {
+    const numericValue = Number(rawValue);
+    const candidate = Number.isFinite(numericValue) ? numericValue : fallback;
+    if (candidate < 0) return 0;
+    if (candidate > 100) return 100;
+    return Math.round(candidate * 100) / 100;
+  }
+
+  private normalizeThresholdOrder(input: {
+    targetSuccessPercent: number;
+    warningRejectedPercent: number;
+    criticalRejectedPercent: number;
+  }): {
+    targetSuccessPercent: number;
+    warningRejectedPercent: number;
+    criticalRejectedPercent: number;
+  } {
+    const warningRejectedPercent = Math.min(
+      input.warningRejectedPercent,
+      input.criticalRejectedPercent,
+    );
+    const criticalRejectedPercent = Math.max(
+      input.warningRejectedPercent,
+      input.criticalRejectedPercent,
+    );
+    return {
+      targetSuccessPercent: input.targetSuccessPercent,
+      warningRejectedPercent,
+      criticalRejectedPercent,
+    };
   }
 
   private resolveMailboxInboundStatus(

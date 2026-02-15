@@ -91,11 +91,12 @@ flowchart TD
 - `MAILZEN_INBOUND_IDEMPOTENCY_TTL_MS` (default `86400000`)
   - in-memory deduplication retention window for repeated `messageId` events
 - `MAILZEN_INBOUND_SLA_TARGET_SUCCESS_PERCENT` (default `99`)
-  - target success threshold used in observability SLA indicators
+  - default target success threshold used in observability SLA indicators
 - `MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT` (default `1`)
-  - rejection-rate threshold that triggers `WARNING` SLA status
+  - default rejection-rate threshold that triggers `WARNING` SLA status
 - `MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT` (default `5`)
-  - rejection-rate threshold that triggers `CRITICAL` SLA status
+  - default rejection-rate threshold that triggers `CRITICAL` SLA status
+  - persisted per-user notification preference thresholds override these defaults
 
 ### Mail connection defaults persisted on mailbox rows
 - `MAILZEN_SMTP_HOST` (default `smtp.mailzen.local`)
@@ -144,6 +145,8 @@ flowchart TD
     - `slaWarningRejectedPercent`
     - `slaCriticalRejectedPercent`
     - `slaStatus`, `meetsSla`
+  - SLA thresholds are resolved from per-user notification preferences when present,
+    with env defaults as fallback
 - `myMailboxInboundEventSeries`
   - returns trend buckets for accepted/deduplicated/rejected counts
   - supports optional workspace/mailbox scoping + rolling window and bucket granularity controls

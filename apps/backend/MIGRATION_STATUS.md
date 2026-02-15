@@ -21,6 +21,8 @@
   - `20260215202000-mailbox-inbound-events.ts`
 - Added mailbox inbound notification preference migration:
   - `20260216001000-notification-mailbox-inbound-preferences.ts`
+- Added mailbox inbound SLA threshold preference migration:
+  - `20260216003000-notification-mailbox-inbound-sla-thresholds.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

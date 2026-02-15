@@ -1,4 +1,4 @@
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, Float, ID, ObjectType } from '@nestjs/graphql';
 import {
   Column,
   CreateDateColumn,
@@ -47,6 +47,18 @@ export class UserNotificationPreference {
   @Field()
   @Column({ default: true })
   mailboxInboundRejectedEnabled: boolean;
+
+  @Field(() => Float)
+  @Column({ type: 'double precision', default: 99 })
+  mailboxInboundSlaTargetSuccessPercent: number;
+
+  @Field(() => Float)
+  @Column({ type: 'double precision', default: 1 })
+  mailboxInboundSlaWarningRejectedPercent: number;
+
+  @Field(() => Float)
+  @Column({ type: 'double precision', default: 5 })
+  mailboxInboundSlaCriticalRejectedPercent: number;
 
   @Field()
   @CreateDateColumn()

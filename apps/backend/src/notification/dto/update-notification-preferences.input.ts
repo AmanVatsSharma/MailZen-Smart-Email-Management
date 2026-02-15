@@ -1,4 +1,4 @@
-import { Field, InputType } from '@nestjs/graphql';
+import { Field, Float, InputType } from '@nestjs/graphql';
 
 @InputType()
 export class UpdateNotificationPreferencesInput {
@@ -22,4 +22,13 @@ export class UpdateNotificationPreferencesInput {
 
   @Field({ nullable: true })
   mailboxInboundRejectedEnabled?: boolean;
+
+  @Field(() => Float, { nullable: true })
+  mailboxInboundSlaTargetSuccessPercent?: number;
+
+  @Field(() => Float, { nullable: true })
+  mailboxInboundSlaWarningRejectedPercent?: number;
+
+  @Field(() => Float, { nullable: true })
+  mailboxInboundSlaCriticalRejectedPercent?: number;
 }

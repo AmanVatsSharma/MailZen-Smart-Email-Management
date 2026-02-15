@@ -15,6 +15,9 @@ describe('MailboxService', () => {
     createQueryBuilder: jest.fn(),
     findOne: jest.fn(),
   };
+  const notificationPreferenceRepo = {
+    findOne: jest.fn(),
+  };
   const userRepo = {
     findOne: jest.fn(),
   };
@@ -49,6 +52,7 @@ describe('MailboxService', () => {
     mailboxRepo as any,
     userRepo as any,
     mailboxInboundEventRepo as any,
+    notificationPreferenceRepo as any,
     mailServer as any,
     billingService as any,
     workspaceService as any,
@@ -60,6 +64,7 @@ describe('MailboxService', () => {
     delete process.env.MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT;
     delete process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT;
     mailboxRepo.count.mockResolvedValue(0);
+    notificationPreferenceRepo.findOne.mockResolvedValue(null);
     mailboxInboundEventRepo.find.mockResolvedValue([]);
     mailboxInboundEventRepo.findOne.mockResolvedValue(null);
     mailboxInboundEventRepo.createQueryBuilder.mockReturnValue({
@@ -80,12 +85,24 @@ describe('MailboxService', () => {
   });
 
   afterEach(() => {
-    process.env.MAILZEN_INBOUND_SLA_TARGET_SUCCESS_PERCENT =
-      envBackup.targetSuccess;
-    process.env.MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT =
-      envBackup.warningRejection;
-    process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT =
-      envBackup.criticalRejection;
+    if (typeof envBackup.targetSuccess === 'string') {
+      process.env.MAILZEN_INBOUND_SLA_TARGET_SUCCESS_PERCENT =
+        envBackup.targetSuccess;
+    } else {
+      delete process.env.MAILZEN_INBOUND_SLA_TARGET_SUCCESS_PERCENT;
+    }
+    if (typeof envBackup.warningRejection === 'string') {
+      process.env.MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT =
+        envBackup.warningRejection;
+    } else {
+      delete process.env.MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT;
+    }
+    if (typeof envBackup.criticalRejection === 'string') {
+      process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT =
+        envBackup.criticalRejection;
+    } else {
+      delete process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT;
+    }
   });
 
   it('rejects invalid desired local part', async () => {
@@ -272,10 +289,12 @@ describe('MailboxService', () => {
     });
   });
 
-  it('applies configured SLA thresholds when computing inbound stats', async () => {
-    process.env.MAILZEN_INBOUND_SLA_TARGET_SUCCESS_PERCENT = '70';
-    process.env.MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT = '30';
-    process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT = '60';
+  it('applies persisted notification preference thresholds when computing inbound stats', async () => {
+    notificationPreferenceRepo.findOne.mockResolvedValue({
+      mailboxInboundSlaTargetSuccessPercent: 70,
+      mailboxInboundSlaWarningRejectedPercent: 30,
+      mailboxInboundSlaCriticalRejectedPercent: 60,
+    });
     const queryBuilder = {
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),

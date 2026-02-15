@@ -12,6 +12,7 @@ import { WorkspaceModule } from '../workspace/workspace.module';
 import { Email } from '../email/entities/email.entity';
 import { NotificationModule } from '../notification/notification.module';
 import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
+import { UserNotificationPreference } from '../notification/entities/user-notification-preference.entity';
 
 /**
  * MailboxModule - Self-hosted mailbox management
@@ -19,7 +20,13 @@ import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Mailbox, User, Email, MailboxInboundEvent]),
+    TypeOrmModule.forFeature([
+      Mailbox,
+      User,
+      Email,
+      MailboxInboundEvent,
+      UserNotificationPreference,
+    ]),
     MailServerModule,
     BillingModule,
     WorkspaceModule,

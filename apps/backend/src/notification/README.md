@@ -33,6 +33,10 @@ Provide a persistent notification foundation for user-visible product events
   - `mailboxInboundAcceptedEnabled`
   - `mailboxInboundDeduplicatedEnabled`
   - `mailboxInboundRejectedEnabled`
+  - mailbox inbound SLA thresholds:
+    - `mailboxInboundSlaTargetSuccessPercent`
+    - `mailboxInboundSlaWarningRejectedPercent`
+    - `mailboxInboundSlaCriticalRejectedPercent`
 
 ### Metadata conventions
 

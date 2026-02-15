@@ -759,6 +759,9 @@ type UserNotificationPreference {
   mailboxInboundAcceptedEnabled: Boolean!
   mailboxInboundDeduplicatedEnabled: Boolean!
   mailboxInboundRejectedEnabled: Boolean!
+  mailboxInboundSlaTargetSuccessPercent: Float!
+  mailboxInboundSlaWarningRejectedPercent: Float!
+  mailboxInboundSlaCriticalRejectedPercent: Float!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -771,6 +774,9 @@ input UpdateNotificationPreferencesInput {
   mailboxInboundAcceptedEnabled: Boolean
   mailboxInboundDeduplicatedEnabled: Boolean
   mailboxInboundRejectedEnabled: Boolean
+  mailboxInboundSlaTargetSuccessPercent: Float
+  mailboxInboundSlaWarningRejectedPercent: Float
+  mailboxInboundSlaCriticalRejectedPercent: Float
 }
 
 type Workspace {

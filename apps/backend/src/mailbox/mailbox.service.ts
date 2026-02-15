@@ -12,6 +12,7 @@ import { MailServerService } from './mail-server.service';
 import { Mailbox } from './entities/mailbox.entity';
 import { User } from '../user/entities/user.entity';
 import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
+import { UserNotificationPreference } from '../notification/entities/user-notification-preference.entity';
 import {
   MailboxInboundEventObservabilityResponse,
   MailboxInboundEventStatsResponse,
@@ -46,6 +47,8 @@ export class MailboxService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(MailboxInboundEvent)
     private readonly mailboxInboundEventRepo: Repository<MailboxInboundEvent>,
+    @InjectRepository(UserNotificationPreference)
+    private readonly notificationPreferenceRepo: Repository<UserNotificationPreference>,
     private readonly mailServer: MailServerService,
     private readonly billingService: BillingService,
     private readonly workspaceService: WorkspaceService,
@@ -240,6 +243,7 @@ export class MailboxService {
     );
     const windowHours = this.normalizeStatsWindowHours(options?.windowHours);
     const windowStartDate = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const inboundSlaThresholds = await this.resolveInboundSlaThresholds(userId);
     const scopedMailboxIds = await this.resolveScopedMailboxIds({
       userId,
       workspaceId: normalizedWorkspaceId,
@@ -247,7 +251,8 @@ export class MailboxService {
     let mailboxEmail: string | null = null;
 
     if (normalizedWorkspaceId && !scopedMailboxIds.length) {
-      const inboundSlaThresholds = this.resolveInboundSlaThresholds();
+      const inboundSlaThresholds =
+        await this.resolveInboundSlaThresholds(userId);
       return {
         mailboxId: normalizedMailboxId,
         mailboxEmail: null,
@@ -340,7 +345,6 @@ export class MailboxService {
         rejectedCount: 0,
       },
     );
-    const inboundSlaThresholds = this.resolveInboundSlaThresholds();
     const successRatePercent = this.resolvePercentage(
       aggregate.acceptedCount + aggregate.deduplicatedCount,
       aggregate.totalCount,
@@ -571,21 +575,35 @@ export class MailboxService {
     return rawBucketMinutes;
   }
 
-  private resolveInboundSlaThresholds(): {
+  private async resolveInboundSlaThresholds(userId: string): Promise<{
     targetSuccessPercent: number;
     warningRejectedPercent: number;
     criticalRejectedPercent: number;
-  } {
+  }> {
+    const preference = await this.notificationPreferenceRepo.findOne({
+      where: { userId },
+      select: [
+        'mailboxInboundSlaTargetSuccessPercent',
+        'mailboxInboundSlaWarningRejectedPercent',
+        'mailboxInboundSlaCriticalRejectedPercent',
+      ],
+    });
     const targetSuccessPercent = this.normalizePercentageThreshold({
-      rawValue: process.env.MAILZEN_INBOUND_SLA_TARGET_SUCCESS_PERCENT,
+      rawValue:
+        preference?.mailboxInboundSlaTargetSuccessPercent ??
+        process.env.MAILZEN_INBOUND_SLA_TARGET_SUCCESS_PERCENT,
       fallbackValue: MailboxService.DEFAULT_SLA_TARGET_SUCCESS_PERCENT,
     });
     const warningRejectedPercent = this.normalizePercentageThreshold({
-      rawValue: process.env.MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT,
+      rawValue:
+        preference?.mailboxInboundSlaWarningRejectedPercent ??
+        process.env.MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT,
       fallbackValue: MailboxService.DEFAULT_SLA_WARNING_REJECTION_PERCENT,
     });
     const criticalRejectedPercent = this.normalizePercentageThreshold({
-      rawValue: process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT,
+      rawValue:
+        preference?.mailboxInboundSlaCriticalRejectedPercent ??
+        process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT,
       fallbackValue: MailboxService.DEFAULT_SLA_CRITICAL_REJECTION_PERCENT,
     });
     return {
@@ -602,7 +620,7 @@ export class MailboxService {
   }
 
   private normalizePercentageThreshold(input: {
-    rawValue?: string;
+    rawValue?: string | number;
     fallbackValue: number;
   }): number {
     const parsed = Number(input.rawValue);

@@ -72,7 +72,7 @@ flowchart TD
 ## Changelog
 
 - 2026-02-15: Added SLA status indicators to mailbox inbound notification
-  health snapshot in the header dropdown.
+  health snapshot in the header dropdown, driven by user-configured thresholds.
 - 2026-02-15: Added mailbox inbound health snapshot panel to notification
   dropdown for fast operational triage.
 - 2026-02-14: Reworked dashboard shell to double-sidebar architecture, added

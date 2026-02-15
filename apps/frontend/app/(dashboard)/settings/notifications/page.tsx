@@ -5,6 +5,7 @@ import { useMutation, useQuery } from '@apollo/client';
 import { RefreshCw, Save } from 'lucide-react';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import {
   Card,
@@ -29,6 +30,9 @@ type NotificationPreferences = {
   mailboxInboundAcceptedEnabled: boolean;
   mailboxInboundDeduplicatedEnabled: boolean;
   mailboxInboundRejectedEnabled: boolean;
+  mailboxInboundSlaTargetSuccessPercent: number;
+  mailboxInboundSlaWarningRejectedPercent: number;
+  mailboxInboundSlaCriticalRejectedPercent: number;
 };
 
 const DEFAULT_PREFERENCES: NotificationPreferences = {
@@ -39,6 +43,9 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   mailboxInboundAcceptedEnabled: true,
   mailboxInboundDeduplicatedEnabled: false,
   mailboxInboundRejectedEnabled: true,
+  mailboxInboundSlaTargetSuccessPercent: 99,
+  mailboxInboundSlaWarningRejectedPercent: 1,
+  mailboxInboundSlaCriticalRejectedPercent: 5,
 };
 
 const NotificationsSettingsPage = () => {
@@ -78,10 +85,35 @@ const NotificationsSettingsPage = () => {
         serverPreferences.mailboxInboundDeduplicatedEnabled,
       mailboxInboundRejectedEnabled:
         serverPreferences.mailboxInboundRejectedEnabled,
+      mailboxInboundSlaTargetSuccessPercent:
+        serverPreferences.mailboxInboundSlaTargetSuccessPercent,
+      mailboxInboundSlaWarningRejectedPercent:
+        serverPreferences.mailboxInboundSlaWarningRejectedPercent,
+      mailboxInboundSlaCriticalRejectedPercent:
+        serverPreferences.mailboxInboundSlaCriticalRejectedPercent,
     });
   }, [data]);
 
+  const normalizeThreshold = (rawValue: number) => {
+    if (!Number.isFinite(rawValue)) return 0;
+    if (rawValue < 0) return 0;
+    if (rawValue > 100) return 100;
+    return Math.round(rawValue * 100) / 100;
+  };
+  const parseThresholdInput = (rawValue: string, fallback: number) => {
+    const parsedValue = Number(rawValue);
+    return Number.isFinite(parsedValue) ? parsedValue : fallback;
+  };
+
   const handleSave = async () => {
+    const normalizedWarningThreshold = Math.min(
+      normalizeThreshold(preferences.mailboxInboundSlaWarningRejectedPercent),
+      normalizeThreshold(preferences.mailboxInboundSlaCriticalRejectedPercent),
+    );
+    const normalizedCriticalThreshold = Math.max(
+      normalizeThreshold(preferences.mailboxInboundSlaWarningRejectedPercent),
+      normalizeThreshold(preferences.mailboxInboundSlaCriticalRejectedPercent),
+    );
     await updatePreferences({
       variables: {
         input: {
@@ -95,6 +127,11 @@ const NotificationsSettingsPage = () => {
             preferences.mailboxInboundDeduplicatedEnabled,
           mailboxInboundRejectedEnabled:
             preferences.mailboxInboundRejectedEnabled,
+          mailboxInboundSlaTargetSuccessPercent: normalizeThreshold(
+            preferences.mailboxInboundSlaTargetSuccessPercent,
+          ),
+          mailboxInboundSlaWarningRejectedPercent: normalizedWarningThreshold,
+          mailboxInboundSlaCriticalRejectedPercent: normalizedCriticalThreshold,
         },
       },
     });
@@ -268,6 +305,87 @@ const NotificationsSettingsPage = () => {
                 }))
               }
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Mailbox inbound SLA thresholds</CardTitle>
+          <CardDescription>
+            Set success and rejection thresholds used by dashboard and header SLA health indicators.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Target success %</h3>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={0.1}
+                value={preferences.mailboxInboundSlaTargetSuccessPercent}
+                onChange={(event) =>
+                  setPreferences((prev) => ({
+                    ...prev,
+                    mailboxInboundSlaTargetSuccessPercent: parseThresholdInput(
+                      event.target.value,
+                      prev.mailboxInboundSlaTargetSuccessPercent,
+                    ),
+                  }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Minimum accepted + deduplicated rate expected within window.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Warning rejection %</h3>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={0.1}
+                value={preferences.mailboxInboundSlaWarningRejectedPercent}
+                onChange={(event) =>
+                  setPreferences((prev) => ({
+                    ...prev,
+                    mailboxInboundSlaWarningRejectedPercent: parseThresholdInput(
+                      event.target.value,
+                      prev.mailboxInboundSlaWarningRejectedPercent,
+                    ),
+                  }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Rejection rate threshold where status flips to WARNING.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Critical rejection %</h3>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={0.1}
+                value={preferences.mailboxInboundSlaCriticalRejectedPercent}
+                onChange={(event) =>
+                  setPreferences((prev) => ({
+                    ...prev,
+                    mailboxInboundSlaCriticalRejectedPercent: parseThresholdInput(
+                      event.target.value,
+                      prev.mailboxInboundSlaCriticalRejectedPercent,
+                    ),
+                  }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Rejection rate threshold where status flips to CRITICAL.
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
