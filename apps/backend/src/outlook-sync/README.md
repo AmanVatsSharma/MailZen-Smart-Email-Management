@@ -12,8 +12,10 @@ label metadata into `ExternalEmailLabel`, similar to Gmail sync.
 - Validate provider ownership/type (`OUTLOOK` only)
 - Refresh Outlook access tokens when near expiry
 - Pull recent messages from Microsoft Graph
+- Continue incremental sync from persisted Outlook delta cursor
 - Upsert message metadata for unified inbox rendering
 - Upsert label metadata (`INBOX`, `UNREAD`, and category labels)
+- Process Outlook delta remove events by deleting stale external message rows
 - Update provider sync lifecycle status (`syncing` -> `connected` / `error`)
 - Run scheduled background sync for active Outlook providers
 
@@ -47,10 +49,16 @@ flowchart TD
   TokenCheck -->|no| UseToken[Use current access token]
   Service --> Lease[ProviderSyncLeaseService acquire lease]
   Lease --> ProviderRepo
-  RefreshToken --> GraphList[GET graph /me/messages]
-  UseToken --> GraphList
+  RefreshToken --> Cursor{outlookSyncCursor available?}
+  UseToken --> Cursor
+  Cursor -->|yes| Delta[GET graph cursor URL]
+  Cursor -->|no| GraphList[GET graph /me/messages]
+  GraphList --> CaptureDelta[Bootstrap graph /me/messages/delta cursor]
+  Delta --> DeltaUpsert[Upsert/Remove ExternalEmailMessage]
+  DeltaUpsert --> UpsertLabels[upsert ExternalEmailLabel]
+  CaptureDelta --> UpsertLabels
   GraphList --> UpsertMessages[upsert ExternalEmailMessage]
-  GraphList --> UpsertLabels[upsert ExternalEmailLabel]
+  UpsertMessages --> UpsertLabels
   UpsertMessages --> ProviderStatus[set connected + lastSyncedAt]
   UpsertLabels --> ProviderStatus
 ```
@@ -59,13 +67,16 @@ flowchart TD
 
 - `OUTLOOK_CLIENT_ID`
 - `OUTLOOK_CLIENT_SECRET`
+- `OUTLOOK_SYNC_DELTA_PAGE_LIMIT` (default `5`, clamped `1..20`)
+  - limits number of delta pages processed in one sync run
 
 Used during refresh token exchange when access tokens expire.
 
 ## Notes
 
-- Current sync strategy is recent-message pull (`$top=maxMessages`) with metadata sufficient for inbox list/detail hydration.
-- Full incremental cursor strategy can be added later without changing the unified inbox contract.
+- Initial sync strategy remains recent-message pull (`$top=maxMessages`) for fast bootstrap.
+- Incremental sync now persists `email_providers.outlookSyncCursor` and reuses it on later runs.
+- Cursor may contain either `@odata.nextLink` (mid-pagination) or `@odata.deltaLink` (steady state).
 - Scheduler publishes `SYNC_FAILED` domain events through
   `NotificationEventBusService` with `providerId`, `providerType`, and
   `workspaceId` metadata for workspace-aware alerting.

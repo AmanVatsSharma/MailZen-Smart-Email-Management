@@ -81,6 +81,9 @@ export class EmailProvider {
   @Column({ nullable: true })
   gmailHistoryId?: string;
 
+  @Column({ type: 'text', nullable: true })
+  outlookSyncCursor?: string | null;
+
   @Column({ type: 'timestamp', nullable: true })
   syncLeaseExpiresAt?: Date | null;
 

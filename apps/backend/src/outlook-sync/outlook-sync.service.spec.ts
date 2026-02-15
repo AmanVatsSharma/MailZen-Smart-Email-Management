@@ -36,6 +36,7 @@ describe('OutlookSyncService', () => {
     } as unknown as jest.Mocked<Repository<ExternalEmailLabel>>;
     messageRepo = {
       upsert: jest.fn(),
+      delete: jest.fn(),
     } as unknown as jest.Mocked<Repository<ExternalEmailMessage>>;
 
     service = new OutlookSyncService(emailProviderRepo, labelRepo, messageRepo);
@@ -58,30 +59,42 @@ describe('OutlookSyncService', () => {
       accessToken: 'token',
       refreshToken: null,
       tokenExpiry: null,
+      outlookSyncCursor: null,
     } as unknown as EmailProvider);
-    axiosGetMock.mockResolvedValue({
-      data: {
-        value: [
-          {
-            id: 'msg-1',
-            conversationId: 'conv-1',
-            subject: 'Quarterly Update',
-            bodyPreview: 'Preview',
-            receivedDateTime: '2026-02-15T10:00:00.000Z',
-            isRead: false,
-            from: {
-              emailAddress: { name: 'Alice', address: 'alice@example.com' },
-            },
-            toRecipients: [
-              {
-                emailAddress: { name: 'Sales', address: 'sales@mailzen.com' },
+    axiosGetMock
+      .mockResolvedValueOnce({
+        data: {
+          value: [
+            {
+              id: 'msg-1',
+              conversationId: 'conv-1',
+              subject: 'Quarterly Update',
+              bodyPreview: 'Preview',
+              receivedDateTime: '2026-02-15T10:00:00.000Z',
+              isRead: false,
+              from: {
+                emailAddress: { name: 'Alice', address: 'alice@example.com' },
               },
-            ],
-            categories: ['important'],
-          },
-        ],
-      },
-    } as AxiosGetResponse);
+              toRecipients: [
+                {
+                  emailAddress: {
+                    name: 'Sales',
+                    address: 'sales@mailzen.com',
+                  },
+                },
+              ],
+              categories: ['important'],
+            },
+          ],
+        },
+      } as AxiosGetResponse)
+      .mockResolvedValueOnce({
+        data: {
+          '@odata.deltaLink':
+            'https://graph.microsoft.com/v1.0/me/messages/delta?$deltatoken=abc',
+          value: [],
+        },
+      } as AxiosGetResponse);
 
     const result = await service.syncOutlookProvider(providerId, userId, 1);
 
@@ -103,6 +116,8 @@ describe('OutlookSyncService', () => {
         syncLeaseExpiresAt: null,
         lastSyncError: null,
         lastSyncErrorAt: null,
+        outlookSyncCursor:
+          'https://graph.microsoft.com/v1.0/me/messages/delta?$deltatoken=abc',
       }),
     );
   });
@@ -122,6 +137,7 @@ describe('OutlookSyncService', () => {
       accessToken: 'stale-token',
       refreshToken: 'refresh-token',
       tokenExpiry: new Date(Date.now() - 60_000),
+      outlookSyncCursor: null,
     } as unknown as EmailProvider);
     axiosPostMock.mockResolvedValue({
       data: {
@@ -130,9 +146,17 @@ describe('OutlookSyncService', () => {
         expires_in: 3600,
       },
     } as AxiosPostResponse);
-    axiosGetMock.mockResolvedValue({
-      data: { value: [] },
-    } as AxiosGetResponse);
+    axiosGetMock
+      .mockResolvedValueOnce({
+        data: { value: [] },
+      } as AxiosGetResponse)
+      .mockResolvedValueOnce({
+        data: {
+          '@odata.deltaLink':
+            'https://graph.microsoft.com/v1.0/me/messages/delta?$deltatoken=xyz',
+          value: [],
+        },
+      } as AxiosGetResponse);
 
     await service.syncOutlookProvider(providerId, userId, 1);
 
@@ -161,6 +185,7 @@ describe('OutlookSyncService', () => {
       accessToken: 'token',
       refreshToken: null,
       tokenExpiry: null,
+      outlookSyncCursor: null,
     } as unknown as EmailProvider);
     axiosGetMock.mockRejectedValue(new Error('graph unavailable'));
 
@@ -175,6 +200,114 @@ describe('OutlookSyncService', () => {
         syncLeaseExpiresAt: null,
         lastSyncError: 'graph unavailable',
         lastSyncErrorAt: expect.any(Date),
+      }),
+    );
+  });
+
+  it('uses incremental cursor and handles removed events', async () => {
+    const axiosGetMock = axios.get as jest.MockedFunction<typeof axios.get>;
+    const messageUpsertMock = messageRepo.upsert as unknown as jest.Mock;
+    const messageDeleteMock = messageRepo.delete as unknown as jest.Mock;
+    const providerUpdateMock = emailProviderRepo.update as unknown as jest.Mock;
+
+    emailProviderRepo.findOne.mockResolvedValue({
+      id: providerId,
+      userId,
+      type: 'OUTLOOK',
+      accessToken: 'token',
+      refreshToken: null,
+      tokenExpiry: null,
+      outlookSyncCursor:
+        'https://graph.microsoft.com/v1.0/me/messages/delta?$deltatoken=prev',
+    } as unknown as EmailProvider);
+    axiosGetMock.mockResolvedValue({
+      data: {
+        value: [
+          {
+            id: 'msg-2',
+            conversationId: 'conv-2',
+            subject: 'Renewal Reminder',
+            bodyPreview: 'Please renew',
+            receivedDateTime: '2026-02-16T08:00:00.000Z',
+            isRead: true,
+            categories: ['finance'],
+          },
+          {
+            id: 'msg-old',
+            '@removed': { reason: 'deleted' },
+          },
+        ],
+        '@odata.deltaLink':
+          'https://graph.microsoft.com/v1.0/me/messages/delta?$deltatoken=next',
+      },
+    } as AxiosGetResponse);
+
+    const result = await service.syncOutlookProvider(providerId, userId, 10);
+
+    expect(result).toEqual({ imported: 1 });
+    expect(messageUpsertMock).toHaveBeenCalledTimes(1);
+    expect(messageDeleteMock).toHaveBeenCalledWith({
+      providerId,
+      externalMessageId: 'msg-old',
+    });
+    expect(providerUpdateMock).toHaveBeenCalledWith(
+      { id: providerId },
+      expect.objectContaining({
+        status: 'connected',
+        outlookSyncCursor:
+          'https://graph.microsoft.com/v1.0/me/messages/delta?$deltatoken=next',
+      }),
+    );
+  });
+
+  it('falls back to full sync when incremental cursor request fails', async () => {
+    const axiosGetMock = axios.get as jest.MockedFunction<typeof axios.get>;
+    const providerUpdateMock = emailProviderRepo.update as unknown as jest.Mock;
+
+    emailProviderRepo.findOne.mockResolvedValue({
+      id: providerId,
+      userId,
+      type: 'OUTLOOK',
+      accessToken: 'token',
+      refreshToken: null,
+      tokenExpiry: null,
+      outlookSyncCursor:
+        'https://graph.microsoft.com/v1.0/me/messages/delta?$deltatoken=broken',
+    } as unknown as EmailProvider);
+    axiosGetMock
+      .mockRejectedValueOnce(new Error('delta cursor gone'))
+      .mockResolvedValueOnce({
+        data: {
+          value: [
+            {
+              id: 'msg-fallback-1',
+              conversationId: 'conv-fallback-1',
+              subject: 'Fallback sync',
+              bodyPreview: 'fallback body',
+              receivedDateTime: '2026-02-16T09:00:00.000Z',
+              isRead: false,
+              categories: ['fallback'],
+            },
+          ],
+        },
+      } as AxiosGetResponse)
+      .mockResolvedValueOnce({
+        data: {
+          '@odata.deltaLink':
+            'https://graph.microsoft.com/v1.0/me/messages/delta?$deltatoken=fallback-next',
+          value: [],
+        },
+      } as AxiosGetResponse);
+
+    const result = await service.syncOutlookProvider(providerId, userId, 25);
+
+    expect(result).toEqual({ imported: 1 });
+    expect(providerUpdateMock).toHaveBeenCalledWith(
+      { id: providerId },
+      expect.objectContaining({
+        status: 'connected',
+        outlookSyncCursor:
+          'https://graph.microsoft.com/v1.0/me/messages/delta?$deltatoken=fallback-next',
       }),
     );
   });

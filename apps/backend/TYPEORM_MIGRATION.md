@@ -738,3 +738,36 @@ FROM billing_webhook_events
 ORDER BY "createdAt" DESC
 LIMIT 50;
 ```
+
+## Outlook Sync Cursor Rollout Notes (2026-02-16)
+
+New migration: `20260216033000-email-provider-outlook-sync-cursor.ts`
+
+This migration introduces:
+
+- `email_providers.outlookSyncCursor` (nullable text)
+  - stores Microsoft Graph delta cursor (`@odata.nextLink` / `@odata.deltaLink`)
+  - enables incremental Outlook ingestion across scheduler runs
+
+### Safe rollout sequence
+
+1. Deploy backend containing Outlook cursor migration + sync service changes.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- outlook-sync/outlook-sync.service.spec.ts outlook-sync/outlook-sync.scheduler.spec.ts`
+   - `npm run build`
+5. Verify runtime behavior:
+   - first Outlook sync populates `outlookSyncCursor`.
+   - later sync runs consume cursor and continue incremental ingestion.
+   - if cursor is invalid, service falls back to full sync and re-seeds cursor.
+
+### Staging verification SQL
+
+```sql
+SELECT id, email, "status", "lastSyncedAt", "outlookSyncCursor"
+FROM email_providers
+WHERE type = 'OUTLOOK'
+ORDER BY "updatedAt" DESC
+LIMIT 50;
+```

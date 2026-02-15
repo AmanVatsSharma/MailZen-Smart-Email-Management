@@ -47,6 +47,8 @@
   - `20260216025000-user-ai-credit-usages.ts`
 - Added billing invoices/webhook events + trial columns migration:
   - `20260216031000-billing-invoices-webhooks-and-trials.ts`
+- Added Outlook sync cursor persistence migration:
+  - `20260216033000-email-provider-outlook-sync-cursor.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

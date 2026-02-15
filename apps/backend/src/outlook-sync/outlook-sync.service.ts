@@ -35,16 +35,26 @@ type OutlookMessage = {
   from?: OutlookRecipient;
   toRecipients?: OutlookRecipient[];
   categories?: string[];
+  '@removed'?: {
+    reason?: string;
+  };
 };
 
 type OutlookMessagesResponse = {
   value?: OutlookMessage[];
 };
 
+type OutlookDeltaResponse = OutlookMessagesResponse & {
+  '@odata.nextLink'?: string;
+  '@odata.deltaLink'?: string;
+};
+
 @Injectable()
 export class OutlookSyncService {
   private readonly logger = new Logger(OutlookSyncService.name);
   private readonly providerSecretsKeyring: ProviderSecretsKeyring;
+  private static readonly OUTLOOK_SELECT_FIELDS =
+    'id,conversationId,subject,bodyPreview,receivedDateTime,isRead,from,toRecipients,categories';
 
   constructor(
     @InjectRepository(EmailProvider)
@@ -57,12 +67,24 @@ export class OutlookSyncService {
     this.providerSecretsKeyring = resolveProviderSecretsKeyring();
   }
 
+  private resolveDeltaPageLimit(): number {
+    const rawValue = Number(process.env.OUTLOOK_SYNC_DELTA_PAGE_LIMIT || 5);
+    if (!Number.isFinite(rawValue)) return 5;
+    const normalized = Math.floor(rawValue);
+    if (normalized < 1) return 1;
+    if (normalized > 20) return 20;
+    return normalized;
+  }
+
   private async ensureFreshOutlookAccessToken(provider: EmailProvider) {
     const decryptedAccessToken = provider.accessToken
       ? decryptProviderSecret(provider.accessToken, this.providerSecretsKeyring)
       : '';
     const decryptedRefreshToken = provider.refreshToken
-      ? decryptProviderSecret(provider.refreshToken, this.providerSecretsKeyring)
+      ? decryptProviderSecret(
+          provider.refreshToken,
+          this.providerSecretsKeyring,
+        )
       : '';
 
     if (!decryptedAccessToken && !decryptedRefreshToken) {
@@ -160,6 +182,142 @@ export class OutlookSyncService {
     return Array.from(labels);
   }
 
+  private async upsertOutlookMessage(input: {
+    userId: string;
+    providerId: string;
+    message: OutlookMessage;
+  }): Promise<{ imported: boolean; categories: string[] }> {
+    const messageId = String(input.message.id || '').trim();
+    if (!messageId) {
+      return { imported: false, categories: [] };
+    }
+    if (input.message['@removed']) {
+      await this.externalEmailMessageRepo.delete({
+        providerId: input.providerId,
+        externalMessageId: messageId,
+      });
+      return { imported: false, categories: [] };
+    }
+
+    const from = this.normalizeRecipientAddress(input.message.from);
+    const to = (input.message.toRecipients || [])
+      .map((recipient) => this.normalizeRecipientAddress(recipient))
+      .filter(Boolean);
+    const labels = this.normalizeLabels(input.message);
+    const categories = (input.message.categories || [])
+      .map((categoryName) => String(categoryName || '').trim())
+      .filter(Boolean);
+
+    await this.externalEmailMessageRepo.upsert(
+      [
+        {
+          userId: input.userId,
+          providerId: input.providerId,
+          externalMessageId: messageId,
+          threadId: input.message.conversationId || undefined,
+          from: from || undefined,
+          to,
+          subject: input.message.subject || undefined,
+          snippet: input.message.bodyPreview || undefined,
+          internalDate: input.message.receivedDateTime
+            ? new Date(input.message.receivedDateTime)
+            : undefined,
+          labels,
+        },
+      ],
+      ['providerId', 'externalMessageId'],
+    );
+    return { imported: true, categories };
+  }
+
+  private async runDeltaSync(input: {
+    accessToken: string;
+    providerId: string;
+    userId: string;
+    cursor: string;
+    pageLimit: number;
+  }): Promise<{
+    imported: number;
+    removed: number;
+    categories: Set<string>;
+    nextCursor: string;
+  }> {
+    let currentCursor = input.cursor;
+    let imported = 0;
+    let removed = 0;
+    const categories = new Set<string>();
+    const authHeaders = { Authorization: `Bearer ${input.accessToken}` };
+
+    for (let page = 0; page < input.pageLimit; page += 1) {
+      const response = await axios.get<OutlookDeltaResponse>(currentCursor, {
+        headers: authHeaders,
+      });
+      const messages = response.data.value || [];
+
+      for (const message of messages) {
+        const hasRemovedMarker = Boolean(message['@removed']);
+        const result = await this.upsertOutlookMessage({
+          userId: input.userId,
+          providerId: input.providerId,
+          message,
+        });
+        if (result.imported) imported += 1;
+        if (hasRemovedMarker) removed += 1;
+        for (const categoryName of result.categories) {
+          categories.add(categoryName);
+        }
+      }
+
+      const deltaLink = response.data['@odata.deltaLink'];
+      const nextLink = response.data['@odata.nextLink'];
+      currentCursor = String(deltaLink || nextLink || currentCursor);
+      if (!nextLink) break;
+    }
+
+    return {
+      imported,
+      removed,
+      categories,
+      nextCursor: currentCursor,
+    };
+  }
+
+  private async bootstrapDeltaCursor(input: {
+    accessToken: string;
+    maxMessages: number;
+    pageLimit: number;
+  }): Promise<string | null> {
+    const authHeaders = { Authorization: `Bearer ${input.accessToken}` };
+    let cursorUrl = 'https://graph.microsoft.com/v1.0/me/messages/delta';
+    let requestParams:
+      | {
+          $top: number;
+          $select: string;
+        }
+      | undefined = {
+      $top: input.maxMessages,
+      $select: OutlookSyncService.OUTLOOK_SELECT_FIELDS,
+    };
+    let latestCursor: string | null = null;
+
+    for (let page = 0; page < input.pageLimit; page += 1) {
+      const response = await axios.get<OutlookDeltaResponse>(cursorUrl, {
+        headers: authHeaders,
+        params: requestParams,
+      });
+      const deltaLink = String(response.data['@odata.deltaLink'] || '').trim();
+      const nextLink = String(response.data['@odata.nextLink'] || '').trim();
+      if (deltaLink) return deltaLink;
+      if (!nextLink) break;
+
+      latestCursor = nextLink;
+      cursorUrl = nextLink;
+      requestParams = undefined;
+    }
+
+    return latestCursor;
+  }
+
   private async syncLabelMetadata(input: {
     userId: string;
     providerId: string;
@@ -221,55 +379,75 @@ export class OutlookSyncService {
     );
 
     try {
-      const response = await axios.get<OutlookMessagesResponse>(
-        'https://graph.microsoft.com/v1.0/me/messages',
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          params: {
-            $top: maxMessages,
-            $orderby: 'receivedDateTime desc',
-            $select:
-              'id,conversationId,subject,bodyPreview,receivedDateTime,isRead,from,toRecipients,categories',
-          },
-        },
-      );
-
-      const messages = response.data.value || [];
+      const normalizedMaxMessages = Math.max(1, Math.min(100, maxMessages));
+      const deltaPageLimit = this.resolveDeltaPageLimit();
+      const providerCursor = String(provider.outlookSyncCursor || '').trim();
       let imported = 0;
+      let removed = 0;
       const categorySet = new Set<string>();
+      let nextCursor: string | null = providerCursor || null;
+      let shouldRunFullSync = !providerCursor;
 
-      for (const message of messages) {
-        if (!message.id) continue;
-        const from = this.normalizeRecipientAddress(message.from);
-        const to = (message.toRecipients || [])
-          .map((recipient) => this.normalizeRecipientAddress(recipient))
-          .filter(Boolean);
-        const labels = this.normalizeLabels(message);
-        for (const categoryName of message.categories || []) {
-          if (categoryName?.trim()) categorySet.add(categoryName.trim());
+      if (providerCursor) {
+        this.logger.log(
+          `Starting Outlook incremental sync provider=${providerId} pageLimit=${deltaPageLimit}`,
+        );
+        try {
+          const deltaSyncResult = await this.runDeltaSync({
+            accessToken,
+            providerId,
+            userId,
+            cursor: providerCursor,
+            pageLimit: deltaPageLimit,
+          });
+          imported = deltaSyncResult.imported;
+          removed = deltaSyncResult.removed;
+          nextCursor = deltaSyncResult.nextCursor;
+          for (const categoryName of deltaSyncResult.categories) {
+            categorySet.add(categoryName);
+          }
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          this.logger.warn(
+            `Outlook incremental cursor failed provider=${providerId}; fallback to full sync: ${message}`,
+          );
+          shouldRunFullSync = true;
+          nextCursor = null;
+        }
+      }
+
+      if (shouldRunFullSync) {
+        const response = await axios.get<OutlookMessagesResponse>(
+          'https://graph.microsoft.com/v1.0/me/messages',
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            params: {
+              $top: normalizedMaxMessages,
+              $orderby: 'receivedDateTime desc',
+              $select: OutlookSyncService.OUTLOOK_SELECT_FIELDS,
+            },
+          },
+        );
+        const messages = response.data.value || [];
+
+        for (const message of messages) {
+          const result = await this.upsertOutlookMessage({
+            userId,
+            providerId,
+            message,
+          });
+          if (result.imported) imported += 1;
+          for (const categoryName of result.categories) {
+            categorySet.add(categoryName);
+          }
         }
 
-        await this.externalEmailMessageRepo.upsert(
-          [
-            {
-              userId,
-              providerId,
-              externalMessageId: message.id,
-              threadId: message.conversationId || undefined,
-              from: from || undefined,
-              to,
-              subject: message.subject || undefined,
-              snippet: message.bodyPreview || undefined,
-              internalDate: message.receivedDateTime
-                ? new Date(message.receivedDateTime)
-                : undefined,
-              labels,
-            },
-          ],
-          ['providerId', 'externalMessageId'],
-        );
-
-        imported += 1;
+        nextCursor = await this.bootstrapDeltaCursor({
+          accessToken,
+          maxMessages: normalizedMaxMessages,
+          pageLimit: deltaPageLimit,
+        });
       }
 
       await this.syncLabelMetadata({
@@ -286,11 +464,12 @@ export class OutlookSyncService {
           syncLeaseExpiresAt: null,
           lastSyncError: null,
           lastSyncErrorAt: null,
+          outlookSyncCursor: nextCursor,
         },
       );
 
       this.logger.log(
-        `Finished Outlook sync provider=${providerId} imported=${imported}`,
+        `Finished Outlook sync provider=${providerId} imported=${imported} removed=${removed} cursor=${nextCursor ? 'set' : 'unset'}`,
       );
       return { imported };
     } catch (error: unknown) {
