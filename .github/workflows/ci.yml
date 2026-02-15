@@ -36,6 +36,8 @@ jobs:
           gmail-sync/gmail-sync.service.spec.ts
           email-integration/email-provider.service.spec.ts
           mailbox/mailbox.service.spec.ts
+          workspace/workspace.service.spec.ts
+          inbox/inbox.service.spec.ts
 
       - name: Backend build
         working-directory: apps/backend
