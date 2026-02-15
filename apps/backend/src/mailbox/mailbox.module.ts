@@ -3,10 +3,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Mailbox } from './entities/mailbox.entity';
 import { MailboxService } from './mailbox.service';
 import { MailboxResolver } from './mailbox.resolver';
+import { MailboxInboundService } from './mailbox-inbound.service';
+import { MailboxInboundController } from './mailbox-inbound.controller';
 import { BillingModule } from '../billing/billing.module';
 import { User } from '../user/entities/user.entity';
 import { MailServerModule } from './mail-server.module';
 import { WorkspaceModule } from '../workspace/workspace.module';
+import { Email } from '../email/entities/email.entity';
+import { NotificationModule } from '../notification/notification.module';
 
 /**
  * MailboxModule - Self-hosted mailbox management
@@ -14,12 +18,14 @@ import { WorkspaceModule } from '../workspace/workspace.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Mailbox, User]),
+    TypeOrmModule.forFeature([Mailbox, User, Email]),
     MailServerModule,
     BillingModule,
     WorkspaceModule,
+    NotificationModule,
   ],
-  providers: [MailboxService, MailboxResolver],
+  controllers: [MailboxInboundController],
+  providers: [MailboxService, MailboxResolver, MailboxInboundService],
   exports: [MailboxService],
 })
 export class MailboxModule {}

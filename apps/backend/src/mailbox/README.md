@@ -11,6 +11,7 @@ This module covers:
 - mailbox persistence in Postgres (`mailboxes` table)
 - credential generation + encryption
 - optional external mail-server provisioning API call
+- inbound webhook ingestion for `@mailzen.com` mailbox delivery events
 
 ## Key files
 
@@ -27,6 +28,15 @@ This module covers:
   - GraphQL:
     - `createMyMailbox(desiredLocalPart?: String): String!`
     - `myMailboxes(workspaceId?: String): [String!]!`
+- `mailbox-inbound.controller.ts`
+  - REST:
+    - `POST /mailbox/inbound/events`
+  - validates webhook auth token + payload and stores inbound message rows
+- `mailbox-inbound.service.ts`
+  - resolves mailbox owner/workspace
+  - persists inbound payload in `emails` table with `status=NEW`
+  - updates mailbox `usedBytes`
+  - emits `MAILBOX_INBOUND` notification metadata context
 
 ## Provisioning flow
 
@@ -59,6 +69,12 @@ flowchart TD
   - optional bearer token for admin API
 - `MAILZEN_MAIL_ADMIN_API_TIMEOUT_MS` (default `5000`)
 
+### Inbound webhook authentication
+- `MAILZEN_INBOUND_WEBHOOK_TOKEN`
+  - shared secret expected in `x-mailzen-inbound-token` header
+  - production requires this to be configured
+  - non-production allows local bypass with warning logs
+
 ### Mail connection defaults persisted on mailbox rows
 - `MAILZEN_SMTP_HOST` (default `smtp.mailzen.local`)
 - `MAILZEN_SMTP_PORT` (default `587`)
@@ -80,4 +96,24 @@ flowchart TD
 
 - This module provisions credentials and metadata; full inbound mailbox ingestion pipeline is handled by inbox/sync modules.
 - Keep `SECRETS_KEY` managed via secure secret store in production.
+
+## Inbound ingestion flow
+
+```mermaid
+sequenceDiagram
+  participant MailInfra as Mail Server / Inbound Worker
+  participant API as MailboxInboundController
+  participant SVC as MailboxInboundService
+  participant DB as Postgres
+  participant Notif as NotificationService
+
+  MailInfra->>API: POST /mailbox/inbound/events + x-mailzen-inbound-token
+  API->>SVC: ingestInboundEvent(payload, authHeaders)
+  SVC->>DB: mailboxes.findOne(email)
+  SVC->>DB: emails.insert(status=NEW)
+  SVC->>DB: mailboxes.update(usedBytes)
+  SVC->>Notif: createNotification(type=MAILBOX_INBOUND)
+  SVC-->>API: accepted + emailId/mailboxId
+  API-->>MailInfra: 202 Accepted
+```
 
