@@ -45,6 +45,14 @@ export class Email {
   @Column('text', { array: true })
   to: string[];
 
+  @Column({ nullable: true })
+  @Index()
+  inboundMessageId?: string | null;
+
+  @Column({ nullable: true })
+  @Index()
+  inboundThreadKey?: string | null;
+
   @Field()
   @Column({ default: 'DRAFT' })
   status: string;

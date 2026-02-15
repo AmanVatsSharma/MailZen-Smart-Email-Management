@@ -35,7 +35,7 @@ This module covers:
 - `mailbox-inbound.service.ts`
   - resolves mailbox owner/workspace
   - enforces mailbox status/quota guardrails before persisting
-  - persists inbound payload in `emails` table with `status=NEW`
+  - persists inbound payload in `emails` table with `status=NEW`, `inboundMessageId`, `inboundThreadKey`
   - updates mailbox `usedBytes`
   - emits `MAILBOX_INBOUND` notification metadata context
 
@@ -108,6 +108,9 @@ flowchart TD
   - throws `UnauthorizedException`
 - If duplicate `messageId` arrives inside idempotency cache window:
   - request is accepted and marked deduplicated without writing duplicate email row
+- If process restarts and duplicate `messageId` arrives:
+  - service checks persisted `emails.inboundMessageId` before insert
+  - request remains idempotent across cache misses
 
 ## Notes
 

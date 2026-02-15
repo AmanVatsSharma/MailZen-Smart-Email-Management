@@ -39,5 +39,9 @@ export class MailboxInboundWebhookInput {
 
   @IsOptional()
   @IsString()
+  inReplyTo?: string;
+
+  @IsOptional()
+  @IsString()
   sizeBytes?: string;
 }

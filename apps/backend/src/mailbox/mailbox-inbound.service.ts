@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { Repository } from 'typeorm';
 import { Email } from '../email/entities/email.entity';
 import { NotificationService } from '../notification/notification.service';
@@ -48,6 +48,23 @@ export class MailboxInboundService {
 
   private normalizeEmailAddress(input: string): string {
     return input.trim().toLowerCase();
+  }
+
+  private normalizeMessageId(input?: string | null): string | null {
+    const normalized = String(input || '')
+      .trim()
+      .toLowerCase();
+    if (!normalized) return null;
+    return normalized;
+  }
+
+  private normalizeSubjectForThread(input?: string): string {
+    return String(input || '')
+      .trim()
+      .toLowerCase()
+      .replace(/^(re|fwd|fw)\s*:\s*/gi, '')
+      .replace(/\s+/g, ' ')
+      .slice(0, 180);
   }
 
   private resolveExpectedWebhookToken(): string | null {
@@ -104,7 +121,7 @@ export class MailboxInboundService {
     return [
       this.normalizeEmailAddress(input.mailboxEmail),
       this.normalizeEmailAddress(input.from),
-      (input.messageId || '').trim(),
+      this.normalizeMessageId(input.messageId) || '',
       (input.subject || '').trim(),
     ].join('.');
   }
@@ -183,7 +200,7 @@ export class MailboxInboundService {
     mailboxId: string,
     messageId?: string,
   ): { emailId: string } | null {
-    const normalizedMessageId = (messageId || '').trim().toLowerCase();
+    const normalizedMessageId = this.normalizeMessageId(messageId);
     if (!normalizedMessageId) return null;
     const nowMs = Date.now();
     this.pruneExpiredMessageIdCache(nowMs);
@@ -203,7 +220,7 @@ export class MailboxInboundService {
     messageId: string | undefined,
     emailId: string,
   ): void {
-    const normalizedMessageId = (messageId || '').trim().toLowerCase();
+    const normalizedMessageId = this.normalizeMessageId(messageId);
     if (!normalizedMessageId) return;
     const cacheKey = `${mailboxId}:${normalizedMessageId}`;
     this.processedMessageIds.set(cacheKey, {
@@ -284,6 +301,41 @@ export class MailboxInboundService {
     throw new BadRequestException('Mailbox storage quota exceeded');
   }
 
+  private resolveInboundThreadKey(input: {
+    mailboxEmail: string;
+    from: string;
+    subject: string;
+    messageId?: string | null;
+    inReplyTo?: string | null;
+  }): string {
+    const normalizedReplyTo = this.normalizeMessageId(input.inReplyTo);
+    if (normalizedReplyTo) return `msg:${normalizedReplyTo}`;
+
+    const normalizedMessageId = this.normalizeMessageId(input.messageId);
+    if (normalizedMessageId) return `msg:${normalizedMessageId}`;
+
+    const stablePayload = [
+      this.normalizeEmailAddress(input.mailboxEmail),
+      this.normalizeEmailAddress(input.from),
+      this.normalizeSubjectForThread(input.subject),
+    ].join('.');
+    const digest = createHash('sha256').update(stablePayload).digest('hex');
+    return `fallback:${digest.slice(0, 32)}`;
+  }
+
+  private async findPersistedDuplicateMessage(input: {
+    userId: string;
+    inboundMessageId?: string | null;
+  }): Promise<Email | null> {
+    if (!input.inboundMessageId) return null;
+    return this.emailRepo.findOne({
+      where: {
+        userId: input.userId,
+        inboundMessageId: input.inboundMessageId,
+      },
+    });
+  }
+
   async ingestInboundEvent(
     input: MailboxInboundWebhookInput,
     auth: InboundAuthInput,
@@ -300,7 +352,11 @@ export class MailboxInboundService {
       throw new NotFoundException('Mailbox not found for inbound webhook');
     }
 
-    const duplicate = this.findDuplicateMessageId(mailbox.id, input.messageId);
+    const normalizedMessageId = this.normalizeMessageId(input.messageId);
+    const duplicate = this.findDuplicateMessageId(
+      mailbox.id,
+      normalizedMessageId || undefined,
+    );
     if (duplicate) {
       this.logger.log(
         `mailbox-inbound: duplicate messageId accepted mailbox=${mailbox.email} emailId=${duplicate.emailId}`,
@@ -310,6 +366,28 @@ export class MailboxInboundService {
         mailboxId: mailbox.id,
         mailboxEmail: mailbox.email,
         emailId: duplicate.emailId,
+        deduplicated: true,
+      };
+    }
+
+    const persistedDuplicate = await this.findPersistedDuplicateMessage({
+      userId: mailbox.userId,
+      inboundMessageId: normalizedMessageId,
+    });
+    if (persistedDuplicate) {
+      this.rememberMessageId(
+        mailbox.id,
+        normalizedMessageId || undefined,
+        persistedDuplicate.id,
+      );
+      this.logger.log(
+        `mailbox-inbound: persistent duplicate accepted mailbox=${mailbox.email} emailId=${persistedDuplicate.id}`,
+      );
+      return {
+        accepted: true,
+        mailboxId: mailbox.id,
+        mailboxEmail: mailbox.email,
+        emailId: persistedDuplicate.id,
         deduplicated: true,
       };
     }
@@ -326,6 +404,13 @@ export class MailboxInboundService {
     if (!to.includes(mailboxEmail)) {
       to.push(mailboxEmail);
     }
+    const inboundThreadKey = this.resolveInboundThreadKey({
+      mailboxEmail,
+      from: input.from,
+      subject,
+      messageId: normalizedMessageId,
+      inReplyTo: this.normalizeMessageId(input.inReplyTo),
+    });
 
     const email = await this.emailRepo.save(
       this.emailRepo.create({
@@ -336,6 +421,8 @@ export class MailboxInboundService {
         to,
         status: 'NEW',
         isImportant: false,
+        inboundMessageId: normalizedMessageId,
+        inboundThreadKey,
       }),
     );
 
@@ -355,7 +442,8 @@ export class MailboxInboundService {
         mailboxEmail: mailbox.email,
         workspaceId: mailbox.workspaceId || null,
         sizeBytes: inboundSizeBytes.toString(),
-        messageId: input.messageId || null,
+        messageId: normalizedMessageId,
+        inboundThreadKey,
         sourceIp: auth.sourceIp || null,
       },
     });
@@ -363,7 +451,11 @@ export class MailboxInboundService {
     this.logger.log(
       `mailbox-inbound: accepted mailbox=${mailbox.email} emailId=${email.id} sourceIp=${auth.sourceIp || 'unknown'}`,
     );
-    this.rememberMessageId(mailbox.id, input.messageId, email.id);
+    this.rememberMessageId(
+      mailbox.id,
+      normalizedMessageId || undefined,
+      email.id,
+    );
 
     return {
       accepted: true,

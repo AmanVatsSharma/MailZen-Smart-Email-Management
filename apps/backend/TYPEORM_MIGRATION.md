@@ -178,3 +178,25 @@ WHERE "isPersonal" = true
 GROUP BY "ownerUserId"
 HAVING COUNT(*) > 1;
 ```
+
+## Mailbox Inbound Threading Rollout Notes (2026-02-15)
+
+New migration: `20260215193000-mailbox-inbound-threading.ts`
+
+This migration introduces:
+
+- `emails.inboundMessageId` (nullable, indexed)
+- `emails.inboundThreadKey` (nullable, indexed)
+
+### Safe rollout sequence
+
+1. Deploy backend image containing migration and webhook ingestion code.
+2. Run `npm run migration:run` before enabling inbound webhook traffic.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Run mailbox inbound signed webhook smoke (see mailbox module runbook).
+6. Verify inbox notification + email row behavior:
+   - duplicate `messageId` stays idempotent
+   - new message writes `inboundMessageId` and `inboundThreadKey`

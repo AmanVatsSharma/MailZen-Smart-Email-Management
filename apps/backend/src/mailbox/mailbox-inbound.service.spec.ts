@@ -37,6 +37,7 @@ describe('MailboxInboundService', () => {
     } as unknown as jest.Mocked<Repository<Mailbox>>;
     emailRepo = {
       create: jest.fn(),
+      findOne: jest.fn(),
       save: jest.fn(),
     } as unknown as jest.Mocked<Repository<Email>>;
     notificationService = {
@@ -81,6 +82,7 @@ describe('MailboxInboundService', () => {
     notificationService.createNotification.mockResolvedValue(
       {} as UserNotification,
     );
+    emailRepo.findOne.mockResolvedValue(null);
 
     const result = await service.ingestInboundEvent(
       {
@@ -145,6 +147,7 @@ describe('MailboxInboundService', () => {
 
   it('rejects inbound payload for unknown mailbox', async () => {
     mailboxRepo.findOne.mockResolvedValue(null);
+    emailRepo.findOne.mockResolvedValue(null);
 
     await expect(
       service.ingestInboundEvent(
@@ -169,6 +172,7 @@ describe('MailboxInboundService', () => {
       status: 'SUSPENDED',
       quotaLimitMb: 51200,
     } as Mailbox);
+    emailRepo.findOne.mockResolvedValue(null);
 
     await expect(
       service.ingestInboundEvent(
@@ -194,6 +198,7 @@ describe('MailboxInboundService', () => {
       status: 'ACTIVE',
       quotaLimitMb: 2,
     } as Mailbox);
+    emailRepo.findOne.mockResolvedValue(null);
 
     await expect(
       service.ingestInboundEvent(
@@ -220,6 +225,7 @@ describe('MailboxInboundService', () => {
       status: 'ACTIVE',
       quotaLimitMb: 51200,
     } as Mailbox);
+    emailRepo.findOne.mockResolvedValue(null);
     emailRepo.create.mockImplementation((payload) => payload as Email);
     emailRepo.save.mockResolvedValue({
       id: 'email-1',
@@ -300,6 +306,7 @@ describe('MailboxInboundService', () => {
       status: 'ACTIVE',
       quotaLimitMb: 51200,
     } as Mailbox);
+    emailRepo.findOne.mockResolvedValue(null);
     emailRepo.create.mockImplementation((payload) => payload as Email);
     emailRepo.save.mockResolvedValue({
       id: 'email-2',
@@ -343,5 +350,40 @@ describe('MailboxInboundService', () => {
 
     expect(result.accepted).toBe(true);
     expect(result.emailId).toBe('email-2');
+  });
+
+  it('deduplicates by persisted inbound message id across cache misses', async () => {
+    mailboxRepo.findOne.mockResolvedValue({
+      id: 'mailbox-1',
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      email: 'sales@mailzen.com',
+      usedBytes: '120',
+      status: 'ACTIVE',
+      quotaLimitMb: 51200,
+    } as Mailbox);
+    emailRepo.findOne.mockResolvedValue({
+      id: 'existing-email-1',
+      userId: 'user-1',
+      inboundMessageId: '<persisted@example.com>',
+    } as Email);
+
+    const result = await service.ingestInboundEvent(
+      {
+        mailboxEmail: 'sales@mailzen.com',
+        from: 'lead@example.com',
+        subject: 'New lead',
+        textBody: 'Hello',
+        messageId: '<persisted@example.com>',
+      },
+      { inboundTokenHeader: 'test-inbound-token' },
+    );
+
+    expect(emailRepo.save).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      accepted: true,
+      deduplicated: true,
+      emailId: 'existing-email-1',
+    });
   });
 });

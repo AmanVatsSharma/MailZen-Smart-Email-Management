@@ -15,6 +15,8 @@
 - Added baseline migration marker in `src/database/migrations`
 - Added workspace scope + entitlement migration:
   - `20260215161000-workspace-scoping-and-entitlements.ts`
+- Added mailbox inbound threading migration:
+  - `20260215193000-mailbox-inbound-threading.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 
