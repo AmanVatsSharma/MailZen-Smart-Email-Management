@@ -27,6 +27,8 @@ modern two-level navigation system:
   - Notification dropdown includes workspace-scoped "mark all as read" action
     via `markMyNotificationsRead`
   - Notification feed is scoped to active workspace context when selected
+  - Header also listens to backend SSE stream (`/notifications/stream`) for
+    realtime feed/unread refresh on new or acknowledged notifications
   - Unread badge count query is also scoped to active workspace context while
     retaining global notifications
   - Notification dropdown renders workspace/provider context from notification
@@ -78,6 +80,8 @@ flowchart TD
 
 ## Changelog
 
+- 2026-02-15: Added realtime notification refresh bridge in header using backend
+  SSE stream events (`NOTIFICATION_CREATED`, `NOTIFICATIONS_MARKED_READ`).
 - 2026-02-15: Added workspace-scoped "mark all notifications as read" action to
   header notification dropdown.
 - 2026-02-15: Added SLA status indicators to mailbox inbound notification

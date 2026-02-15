@@ -98,6 +98,97 @@ describe('NotificationService', () => {
     );
   });
 
+  it('emits realtime notification-created events for workspace subscribers', async () => {
+    preferenceRepo.findOne.mockResolvedValue({
+      ...basePreference,
+    } as UserNotificationPreference);
+    notificationRepo.create.mockImplementation(
+      (value: Partial<UserNotification>) =>
+        ({
+          id: 'notif-live-1',
+          createdAt: new Date('2026-02-16T03:10:00.000Z'),
+          updatedAt: new Date('2026-02-16T03:10:00.000Z'),
+          ...value,
+        }) as UserNotification,
+    );
+    notificationRepo.save.mockImplementation((value: UserNotification) =>
+      Promise.resolve(value),
+    );
+    const events: Array<Record<string, unknown>> = [];
+    const subscription = service
+      .observeRealtimeEvents({
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+      })
+      .subscribe((event) => {
+        events.push(event as unknown as Record<string, unknown>);
+      });
+
+    await service.createNotification({
+      userId: 'user-1',
+      type: 'SYNC_FAILED',
+      title: 'Sync failed',
+      message: 'Provider sync failed',
+      metadata: { workspaceId: 'workspace-1' },
+    });
+
+    subscription.unsubscribe();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual(
+      expect.objectContaining({
+        eventType: 'NOTIFICATION_CREATED',
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        notificationId: 'notif-live-1',
+      }),
+    );
+  });
+
+  it('includes global realtime events in workspace-scoped subscriptions', async () => {
+    preferenceRepo.findOne.mockResolvedValue({
+      ...basePreference,
+    } as UserNotificationPreference);
+    notificationRepo.create.mockImplementation(
+      (value: Partial<UserNotification>) =>
+        ({
+          id: 'notif-global-1',
+          createdAt: new Date('2026-02-16T03:11:00.000Z'),
+          updatedAt: new Date('2026-02-16T03:11:00.000Z'),
+          ...value,
+        }) as UserNotification,
+    );
+    notificationRepo.save.mockImplementation((value: UserNotification) =>
+      Promise.resolve(value),
+    );
+    const events: Array<Record<string, unknown>> = [];
+    const subscription = service
+      .observeRealtimeEvents({
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+      })
+      .subscribe((event) => {
+        events.push(event as unknown as Record<string, unknown>);
+      });
+
+    await service.createNotification({
+      userId: 'user-1',
+      type: 'SYNC_FAILED',
+      title: 'Global sync failed',
+      message: 'Global provider sync failed',
+      metadata: {},
+    });
+
+    subscription.unsubscribe();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual(
+      expect.objectContaining({
+        eventType: 'NOTIFICATION_CREATED',
+        userId: 'user-1',
+        workspaceId: null,
+      }),
+    );
+  });
+
   it('honors sync failure preference and marks ignored notifications as read', async () => {
     const preferences = {
       ...basePreference,
@@ -487,12 +578,24 @@ describe('NotificationService', () => {
       updateQueryBuilder as any,
     );
 
+    const events: Array<Record<string, unknown>> = [];
+    const subscription = service
+      .observeRealtimeEvents({
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+      })
+      .subscribe((event) => {
+        events.push(event as unknown as Record<string, unknown>);
+      });
+
     const updatedCount = await service.markNotificationsRead({
       userId: 'user-1',
       workspaceId: 'workspace-1',
       sinceHours: 24,
       types: ['MAILBOX_INBOUND_SLA_ALERT'],
     });
+
+    subscription.unsubscribe();
 
     expect(updateQueryBuilder.update).toHaveBeenCalled();
     expect(updateQueryBuilder.andWhere).toHaveBeenCalledWith(
@@ -505,5 +608,14 @@ describe('NotificationService', () => {
     );
     expect(updateQueryBuilder.execute).toHaveBeenCalled();
     expect(updatedCount).toBe(4);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual(
+      expect.objectContaining({
+        eventType: 'NOTIFICATIONS_MARKED_READ',
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        markedCount: 4,
+      }),
+    );
   });
 });

@@ -87,6 +87,31 @@ type MailboxInboundStatsSnapshot = {
   lastProcessedAt?: string | null;
 };
 
+type NotificationRealtimeEvent = {
+  eventType: 'NOTIFICATION_CREATED' | 'NOTIFICATIONS_MARKED_READ';
+  userId: string;
+  workspaceId?: string | null;
+  notificationId?: string;
+  notificationType?: string;
+  markedCount?: number;
+  createdAtIso: string;
+};
+
+const resolveBackendBaseUrl = (): string => {
+  const graphqlEndpoint =
+    process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql';
+  try {
+    const parsedEndpoint = new URL(graphqlEndpoint);
+    return `${parsedEndpoint.protocol}//${parsedEndpoint.host}`;
+  } catch {
+    console.warn(
+      '[Header] invalid NEXT_PUBLIC_GRAPHQL_ENDPOINT; using localhost backend',
+      { graphqlEndpoint },
+    );
+    return 'http://localhost:4000';
+  }
+};
+
 const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -145,16 +170,17 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       console.error('[Workspace] setActiveWorkspace failed', error);
     },
   });
-  const { data: mailboxInboundStatsData } = useQuery<{
-    myMailboxInboundEventStats: MailboxInboundStatsSnapshot;
-  }>(GET_MY_MAILBOX_INBOUND_EVENT_STATS, {
-    variables: {
-      windowHours: 24,
-      workspaceId: selectedWorkspaceId || undefined,
-    },
-    fetchPolicy: 'cache-and-network',
-    pollInterval: 30_000,
-  });
+  const { data: mailboxInboundStatsData, refetch: refetchMailboxInboundStats } =
+    useQuery<{
+      myMailboxInboundEventStats: MailboxInboundStatsSnapshot;
+    }>(GET_MY_MAILBOX_INBOUND_EVENT_STATS, {
+      variables: {
+        windowHours: 24,
+        workspaceId: selectedWorkspaceId || undefined,
+      },
+      fetchPolicy: 'cache-and-network',
+      pollInterval: 30_000,
+    });
 
   useEffect(() => {
     // Try to get user data if available
@@ -228,6 +254,50 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       localStorage.setItem('mailzen.selectedWorkspaceId', fallbackWorkspaceId);
     }
   }, [selectedWorkspaceId, backendActiveWorkspaceId, workspaces]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const backendBaseUrl = resolveBackendBaseUrl();
+    const streamUrl = new URL('/notifications/stream', backendBaseUrl);
+    if (selectedWorkspaceId) {
+      streamUrl.searchParams.set('workspaceId', selectedWorkspaceId);
+    }
+    const eventSource = new EventSource(streamUrl.toString(), {
+      withCredentials: true,
+    });
+    eventSource.onmessage = (event) => {
+      if (!event.data) return;
+      let parsedEvent: NotificationRealtimeEvent | null = null;
+      try {
+        parsedEvent = JSON.parse(event.data) as NotificationRealtimeEvent;
+      } catch {
+        return;
+      }
+      if (
+        !parsedEvent ||
+        (parsedEvent.eventType !== 'NOTIFICATION_CREATED' &&
+          parsedEvent.eventType !== 'NOTIFICATIONS_MARKED_READ')
+      ) {
+        return;
+      }
+      void Promise.all([
+        refetchNotifications(),
+        refetchUnreadCount(),
+        refetchMailboxInboundStats(),
+      ]);
+    };
+    eventSource.onerror = (error) => {
+      console.warn('[Header] notification stream disconnected', error);
+    };
+    return () => {
+      eventSource.close();
+    };
+  }, [
+    selectedWorkspaceId,
+    refetchNotifications,
+    refetchUnreadCount,
+    refetchMailboxInboundStats,
+  ]);
 
   const handleNotificationClick = async (notification: DashboardNotification) => {
     if (notification.isRead) return;

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Observable, Subject, filter, map } from 'rxjs';
 import { In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
 import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
@@ -18,6 +19,15 @@ type MailboxInboundNotificationStatus =
   | 'DEDUPLICATED'
   | 'REJECTED';
 type MailboxInboundSlaStatus = 'WARNING' | 'CRITICAL' | 'HEALTHY' | 'NO_DATA';
+export type NotificationRealtimeEvent = {
+  eventType: 'NOTIFICATION_CREATED' | 'NOTIFICATIONS_MARKED_READ';
+  userId: string;
+  workspaceId?: string | null;
+  notificationId?: string;
+  notificationType?: string;
+  markedCount?: number;
+  createdAtIso: string;
+};
 
 @Injectable()
 export class NotificationService {
@@ -33,6 +43,7 @@ export class NotificationService {
   private static readonly DEFAULT_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES = 60;
   private static readonly MIN_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES = 5;
   private static readonly MAX_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES = 24 * 60;
+  private readonly realtimeEventBus = new Subject<NotificationRealtimeEvent>();
 
   constructor(
     @InjectRepository(UserNotification)
@@ -340,7 +351,33 @@ export class NotificationService {
       metadata: input.metadata,
       isRead: false,
     });
-    return this.notificationRepo.save(notification);
+    const savedNotification = await this.notificationRepo.save(notification);
+    this.publishRealtimeEvent({
+      eventType: 'NOTIFICATION_CREATED',
+      userId: savedNotification.userId,
+      workspaceId: savedNotification.workspaceId || null,
+      notificationId: savedNotification.id,
+      notificationType: savedNotification.type,
+    });
+    return savedNotification;
+  }
+
+  observeRealtimeEvents(input: {
+    userId: string;
+    workspaceId?: string | null;
+  }): Observable<NotificationRealtimeEvent> {
+    const normalizedWorkspaceId = String(input.workspaceId || '').trim();
+    return this.realtimeEventBus.pipe(
+      filter((event) => event.userId === input.userId),
+      filter((event) => {
+        if (!normalizedWorkspaceId) return true;
+        return (
+          event.workspaceId === normalizedWorkspaceId ||
+          event.workspaceId === null
+        );
+      }),
+      map((event) => ({ ...event })),
+    );
   }
 
   async listNotificationsForUser(input: {
@@ -418,7 +455,14 @@ export class NotificationService {
     }
     if (notification.isRead) return notification;
     notification.isRead = true;
-    return this.notificationRepo.save(notification);
+    const savedNotification = await this.notificationRepo.save(notification);
+    this.publishRealtimeEvent({
+      eventType: 'NOTIFICATIONS_MARKED_READ',
+      userId: savedNotification.userId,
+      workspaceId: savedNotification.workspaceId || null,
+      markedCount: 1,
+    });
+    return savedNotification;
   }
 
   async markNotificationsRead(input: {
@@ -462,7 +506,16 @@ export class NotificationService {
       });
     }
     const result = await updateQuery.execute();
-    return Number(result.affected || 0);
+    const affectedCount = Number(result.affected || 0);
+    if (affectedCount > 0) {
+      this.publishRealtimeEvent({
+        eventType: 'NOTIFICATIONS_MARKED_READ',
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId || null,
+        markedCount: affectedCount,
+      });
+    }
+    return affectedCount;
   }
 
   async getMailboxInboundSlaIncidentStats(input: {
@@ -664,5 +717,14 @@ export class NotificationService {
     if (normalizedStatus === 'WARNING') return 'WARNING';
     if (normalizedStatus === 'CRITICAL') return 'CRITICAL';
     return null;
+  }
+
+  private publishRealtimeEvent(
+    eventInput: Omit<NotificationRealtimeEvent, 'createdAtIso'>,
+  ): void {
+    this.realtimeEventBus.next({
+      ...eventInput,
+      createdAtIso: new Date().toISOString(),
+    });
   }
 }

@@ -13,6 +13,7 @@ Provide a persistent notification foundation for user-visible product events
 - Track unread notification count
 - Mark notifications as read
 - Provide reusable `createNotification` API for other backend modules
+- Publish realtime notification stream events for in-app consumers
 
 ## GraphQL API
 
@@ -30,6 +31,18 @@ Provide a persistent notification foundation for user-visible product events
 - `markMyNotificationsRead(workspaceId?, sinceHours?, types?)` → marks matching
   notifications as read in bulk (used by SLA incident acknowledgement)
 - `updateMyNotificationPreferences(input)` → update channel + event preferences
+
+## Realtime API
+
+- `GET /notifications/stream?workspaceId=<optional>` (Server-Sent Events)
+  - authenticated via `JwtAuthGuard` (cookie or bearer token)
+  - emits event type `notification` with payload:
+    - `NOTIFICATION_CREATED`
+    - `NOTIFICATIONS_MARKED_READ`
+  - emits event type `heartbeat` every 25s to keep clients connected
+  - when `workspaceId` is provided, stream includes both:
+    - matching workspace events
+    - global events (`workspaceId = null`)
 
 ## Initial event producers
 
@@ -77,7 +90,10 @@ metadata at write time) so workspace-scoped filtering is query-efficient.
 flowchart TD
   Scheduler[Provider Sync Scheduler] --> NotificationService
   NotificationService --> Repo[(user_notifications table)]
+  NotificationService --> RealtimeBus[(in-memory realtime event bus)]
+  RealtimeBus --> NotificationStream[notifications/stream SSE]
   UserUI[Authenticated frontend] --> NotificationResolver
+  UserUI --> NotificationStream
   NotificationResolver --> NotificationService
   NotificationService --> UserUI
 ```
