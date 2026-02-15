@@ -73,6 +73,7 @@ describe('NotificationService', () => {
     mailboxInboundSlaWarningRejectedPercent: 1,
     mailboxInboundSlaCriticalRejectedPercent: 5,
     mailboxInboundSlaAlertsEnabled: true,
+    notificationDigestEnabled: true,
     mailboxInboundSlaAlertCooldownMinutes: 60,
     mailboxInboundSlaLastAlertStatus: null,
     mailboxInboundSlaLastAlertedAt: null,
@@ -283,12 +284,14 @@ describe('NotificationService', () => {
       pushEnabled: true,
       mailboxInboundRejectedEnabled: false,
       mailboxInboundSlaAlertsEnabled: false,
+      notificationDigestEnabled: false,
     });
 
     expect(result.emailEnabled).toBe(false);
     expect(result.pushEnabled).toBe(true);
     expect(result.mailboxInboundRejectedEnabled).toBe(false);
     expect(result.mailboxInboundSlaAlertsEnabled).toBe(false);
+    expect(result.notificationDigestEnabled).toBe(false);
   });
 
   it('normalizes inbound SLA thresholds when preferences are updated', async () => {

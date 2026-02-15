@@ -102,6 +102,7 @@ Digest tuning env vars:
     - `mailboxInboundSlaWarningRejectedPercent`
     - `mailboxInboundSlaCriticalRejectedPercent`
   - `mailboxInboundSlaAlertsEnabled`
+  - `notificationDigestEnabled`
   - `mailboxInboundSlaAlertCooldownMinutes`
 
 ### Metadata conventions

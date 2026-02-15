@@ -106,6 +106,7 @@ export const GET_NOTIFICATION_PREFERENCES = gql`
       mailboxInboundSlaWarningRejectedPercent
       mailboxInboundSlaCriticalRejectedPercent
       mailboxInboundSlaAlertsEnabled
+      notificationDigestEnabled
       mailboxInboundSlaAlertCooldownMinutes
       updatedAt
     }
@@ -129,6 +130,7 @@ export const UPDATE_NOTIFICATION_PREFERENCES = gql`
       mailboxInboundSlaWarningRejectedPercent
       mailboxInboundSlaCriticalRejectedPercent
       mailboxInboundSlaAlertsEnabled
+      notificationDigestEnabled
       mailboxInboundSlaAlertCooldownMinutes
       updatedAt
     }

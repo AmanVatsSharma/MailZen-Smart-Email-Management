@@ -31,6 +31,8 @@
   - `20260216011000-notification-mailbox-inbound-sla-cooldown.ts`
 - Added notification digest last-sent state migration:
   - `20260216013000-notification-digest-last-sent.ts`
+- Added notification digest preference toggle migration:
+  - `20260216015000-notification-digest-enabled.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

@@ -92,6 +92,7 @@ export class NotificationService {
       mailboxInboundSlaCriticalRejectedPercent:
         normalizedThresholds.criticalRejectedPercent,
       mailboxInboundSlaAlertsEnabled: true,
+      notificationDigestEnabled: true,
       mailboxInboundSlaAlertCooldownMinutes: alertCooldownMinutes,
       mailboxInboundSlaLastAlertStatus: null,
       mailboxInboundSlaLastAlertedAt: null,
@@ -165,6 +166,9 @@ export class NotificationService {
     if (typeof input.mailboxInboundSlaAlertsEnabled === 'boolean') {
       existing.mailboxInboundSlaAlertsEnabled =
         input.mailboxInboundSlaAlertsEnabled;
+    }
+    if (typeof input.notificationDigestEnabled === 'boolean') {
+      existing.notificationDigestEnabled = input.notificationDigestEnabled;
     }
     if (typeof input.mailboxInboundSlaAlertCooldownMinutes === 'number') {
       existing.mailboxInboundSlaAlertCooldownMinutes =

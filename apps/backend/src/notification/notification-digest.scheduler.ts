@@ -45,7 +45,7 @@ export class NotificationDigestScheduler {
       maximumValue: 50,
     });
     const preferences = await this.preferenceRepo.find({
-      where: { emailEnabled: true },
+      where: { emailEnabled: true, notificationDigestEnabled: true },
       order: { updatedAt: 'DESC' },
       take: maxUsersPerRun,
     });

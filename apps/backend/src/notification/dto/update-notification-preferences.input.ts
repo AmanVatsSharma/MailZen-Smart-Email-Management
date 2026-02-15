@@ -35,6 +35,9 @@ export class UpdateNotificationPreferencesInput {
   @Field({ nullable: true })
   mailboxInboundSlaAlertsEnabled?: boolean;
 
+  @Field({ nullable: true })
+  notificationDigestEnabled?: boolean;
+
   @Field(() => Int, { nullable: true })
   mailboxInboundSlaAlertCooldownMinutes?: number;
 }

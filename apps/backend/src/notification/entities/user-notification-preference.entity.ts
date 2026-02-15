@@ -64,6 +64,10 @@ export class UserNotificationPreference {
   @Column({ default: true })
   mailboxInboundSlaAlertsEnabled: boolean;
 
+  @Field()
+  @Column({ default: true })
+  notificationDigestEnabled: boolean;
+
   @Field(() => Int)
   @Column({ default: 60 })
   mailboxInboundSlaAlertCooldownMinutes: number;

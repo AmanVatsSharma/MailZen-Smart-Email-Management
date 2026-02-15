@@ -432,3 +432,34 @@ SELECT
   COUNT(*) FILTER (WHERE "notificationDigestLastSentAt" IS NOT NULL) AS digest_sent_rows
 FROM user_notification_preferences;
 ```
+
+## Notification Digest Enabled Preference Rollout Notes (2026-02-16)
+
+New migration: `20260216015000-notification-digest-enabled.ts`
+
+This migration introduces:
+
+- `user_notification_preferences.notificationDigestEnabled`
+
+### Safe rollout sequence
+
+1. Deploy backend containing digest preference toggle support.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- notification/notification.service.spec.ts notification/notification-digest.scheduler.spec.ts`
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Verify preference behavior:
+   - `myNotificationPreferences` returns `notificationDigestEnabled`
+   - `updateMyNotificationPreferences` updates digest toggle
+   - digest scheduler skips users with `notificationDigestEnabled=false`
+
+### Staging verification SQL (digest toggle defaults)
+
+```sql
+SELECT
+  COUNT(*) FILTER (WHERE "notificationDigestEnabled" = true) AS digest_enabled_rows,
+  COUNT(*) FILTER (WHERE "notificationDigestEnabled" = false) AS digest_disabled_rows
+FROM user_notification_preferences;
+```

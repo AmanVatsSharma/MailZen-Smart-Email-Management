@@ -787,6 +787,7 @@ type UserNotificationPreference {
   mailboxInboundSlaWarningRejectedPercent: Float!
   mailboxInboundSlaCriticalRejectedPercent: Float!
   mailboxInboundSlaAlertsEnabled: Boolean!
+  notificationDigestEnabled: Boolean!
   mailboxInboundSlaAlertCooldownMinutes: Int!
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -804,6 +805,7 @@ input UpdateNotificationPreferencesInput {
   mailboxInboundSlaWarningRejectedPercent: Float
   mailboxInboundSlaCriticalRejectedPercent: Float
   mailboxInboundSlaAlertsEnabled: Boolean
+  notificationDigestEnabled: Boolean
   mailboxInboundSlaAlertCooldownMinutes: Int
 }
 

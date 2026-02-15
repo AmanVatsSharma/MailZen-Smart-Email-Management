@@ -34,6 +34,7 @@ type NotificationPreferences = {
   mailboxInboundSlaWarningRejectedPercent: number;
   mailboxInboundSlaCriticalRejectedPercent: number;
   mailboxInboundSlaAlertsEnabled: boolean;
+  notificationDigestEnabled: boolean;
   mailboxInboundSlaAlertCooldownMinutes: number;
 };
 
@@ -49,6 +50,7 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   mailboxInboundSlaWarningRejectedPercent: 1,
   mailboxInboundSlaCriticalRejectedPercent: 5,
   mailboxInboundSlaAlertsEnabled: true,
+  notificationDigestEnabled: true,
   mailboxInboundSlaAlertCooldownMinutes: 60,
 };
 
@@ -97,6 +99,7 @@ const NotificationsSettingsPage = () => {
         serverPreferences.mailboxInboundSlaCriticalRejectedPercent,
       mailboxInboundSlaAlertsEnabled:
         serverPreferences.mailboxInboundSlaAlertsEnabled,
+      notificationDigestEnabled: serverPreferences.notificationDigestEnabled,
       mailboxInboundSlaAlertCooldownMinutes:
         serverPreferences.mailboxInboundSlaAlertCooldownMinutes,
     });
@@ -152,6 +155,7 @@ const NotificationsSettingsPage = () => {
           mailboxInboundSlaCriticalRejectedPercent: normalizedCriticalThreshold,
           mailboxInboundSlaAlertsEnabled:
             preferences.mailboxInboundSlaAlertsEnabled,
+          notificationDigestEnabled: preferences.notificationDigestEnabled,
           mailboxInboundSlaAlertCooldownMinutes: normalizeCooldownMinutes(
             preferences.mailboxInboundSlaAlertCooldownMinutes,
           ),
@@ -248,22 +252,41 @@ const NotificationsSettingsPage = () => {
           </div>
         </CardContent>
         <CardFooter className="border-t pt-4">
-          <div className="flex w-full items-center justify-between gap-4">
-            <div>
-              <h3 className="text-sm font-medium">Sync failure alerts</h3>
-              <p className="text-sm text-muted-foreground">
-                Alert me when provider synchronization fails.
-              </p>
+          <div className="w-full space-y-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-medium">Sync failure alerts</h3>
+                <p className="text-sm text-muted-foreground">
+                  Alert me when provider synchronization fails.
+                </p>
+              </div>
+              <Switch
+                checked={preferences.syncFailureEnabled}
+                onCheckedChange={(checked) =>
+                  setPreferences((prev) => ({
+                    ...prev,
+                    syncFailureEnabled: checked,
+                  }))
+                }
+              />
             </div>
-            <Switch
-              checked={preferences.syncFailureEnabled}
-              onCheckedChange={(checked) =>
-                setPreferences((prev) => ({
-                  ...prev,
-                  syncFailureEnabled: checked,
-                }))
-              }
-            />
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-medium">Email digest notifications</h3>
+                <p className="text-sm text-muted-foreground">
+                  Send periodic digest emails for unread notifications.
+                </p>
+              </div>
+              <Switch
+                checked={preferences.notificationDigestEnabled}
+                onCheckedChange={(checked) =>
+                  setPreferences((prev) => ({
+                    ...prev,
+                    notificationDigestEnabled: checked,
+                  }))
+                }
+              />
+            </div>
           </div>
         </CardFooter>
       </Card>

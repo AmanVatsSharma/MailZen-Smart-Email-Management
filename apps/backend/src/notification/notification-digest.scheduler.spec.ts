@@ -46,6 +46,7 @@ describe('NotificationDigestScheduler', () => {
       id: 'pref-1',
       userId: 'user-1',
       emailEnabled: true,
+      notificationDigestEnabled: true,
       notificationDigestLastSentAt: null,
     } as UserNotificationPreference;
     preferenceRepo.find.mockResolvedValue([preference]);
@@ -90,6 +91,7 @@ describe('NotificationDigestScheduler', () => {
         id: 'pref-1',
         userId: 'user-1',
         emailEnabled: true,
+        notificationDigestEnabled: true,
       } as UserNotificationPreference,
     ]);
     userRepo.findOne.mockResolvedValue({
@@ -110,6 +112,7 @@ describe('NotificationDigestScheduler', () => {
         id: 'pref-1',
         userId: 'user-1',
         emailEnabled: true,
+        notificationDigestEnabled: true,
       } as UserNotificationPreference,
     ]);
     userRepo.findOne.mockResolvedValue({
@@ -132,5 +135,20 @@ describe('NotificationDigestScheduler', () => {
 
     expect(mailerService.sendMail).toHaveBeenCalledTimes(1);
     expect(preferenceRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('queries only digest-enabled preferences', async () => {
+    preferenceRepo.find.mockResolvedValue([]);
+
+    await scheduler.sendUnreadDigestEmails();
+
+    expect(preferenceRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          emailEnabled: true,
+          notificationDigestEnabled: true,
+        },
+      }),
+    );
   });
 });
