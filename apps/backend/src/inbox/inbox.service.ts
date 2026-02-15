@@ -21,7 +21,7 @@ export class InboxService {
     @InjectRepository(EmailProvider)
     private readonly providerRepository: Repository<EmailProvider>,
   ) {
-    console.log('[InboxService] Initialized with TypeORM repositories');
+    // intentionally quiet in constructor to reduce startup log noise
   }
 
   /**
@@ -30,8 +30,6 @@ export class InboxService {
    * @returns Combined list of inbox sources
    */
   async listUserInboxes(userId: string) {
-    console.log('[InboxService] Listing inboxes for user:', userId);
-
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
     const activeWorkspaceId = user.activeWorkspaceId || undefined;
@@ -72,13 +70,6 @@ export class InboxService {
       status: p.status || 'connected',
     }));
 
-    console.log(
-      '[InboxService] Found',
-      mailboxInboxes.length,
-      'mailboxes and',
-      providerInboxes.length,
-      'providers',
-    );
     return [...mailboxInboxes, ...providerInboxes];
   }
 
@@ -94,13 +85,6 @@ export class InboxService {
     type: 'MAILBOX' | 'PROVIDER',
     id: string,
   ) {
-    console.log(
-      '[InboxService] Setting active inbox:',
-      type,
-      id,
-      'for user:',
-      userId,
-    );
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
     const activeWorkspaceId = user.activeWorkspaceId || undefined;

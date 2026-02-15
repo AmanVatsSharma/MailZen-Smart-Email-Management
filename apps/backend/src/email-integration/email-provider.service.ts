@@ -51,7 +51,6 @@ export class EmailProviderService {
     private readonly billingService: BillingService,
     private readonly workspaceService: WorkspaceService,
   ) {
-    console.log('[EmailProviderService] Initialized with TypeORM repository');
     this.providerSecretsKey = resolveProviderSecretsKey();
 
     // Setup Google OAuth client
