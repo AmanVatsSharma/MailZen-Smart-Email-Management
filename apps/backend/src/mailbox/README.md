@@ -38,6 +38,7 @@ This module covers:
   - persists inbound payload in `emails` table with `status=NEW`, `inboundMessageId`, `inboundThreadKey`
   - updates mailbox `usedBytes`
   - emits `MAILBOX_INBOUND` notification metadata context
+  - derives thread key from `inReplyTo` / `messageId` for unified inbox mailbox threading
 
 ## Provisioning flow
 

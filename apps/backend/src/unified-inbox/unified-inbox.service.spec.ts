@@ -210,6 +210,107 @@ describe('UnifiedInboxService', () => {
     });
   });
 
+  it('groups mailbox emails by inbound thread key in thread list', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: userId,
+      activeInboxType: 'MAILBOX',
+      activeInboxId: 'mailbox-1',
+    } as any);
+    mailboxRepo.findOne.mockResolvedValue({
+      id: 'mailbox-1',
+      userId,
+      email: 'sales@mailzen.com',
+    } as any);
+    emailRepo.find.mockResolvedValue([
+      {
+        id: 'mail-1',
+        userId,
+        inboundThreadKey: 'thread-msg-1',
+        inboundMessageId: '<msg-1@example.com>',
+        subject: 'Warm welcome',
+        body: '<p>Welcome to MailZen</p>',
+        from: 'client@example.com',
+        to: ['sales@mailzen.com'],
+        status: 'READ',
+        isImportant: false,
+        createdAt: new Date('2026-02-15T10:00:00.000Z'),
+        updatedAt: new Date('2026-02-15T10:00:00.000Z'),
+      } as any,
+      {
+        id: 'mail-2',
+        userId,
+        inboundThreadKey: 'thread-msg-1',
+        inboundMessageId: '<msg-2@example.com>',
+        subject: 'Re: Warm welcome',
+        body: '<p>Thanks for sharing</p>',
+        from: 'sales@mailzen.com',
+        to: ['client@example.com'],
+        status: 'UNREAD',
+        isImportant: true,
+        createdAt: new Date('2026-02-15T10:05:00.000Z'),
+        updatedAt: new Date('2026-02-15T10:05:00.000Z'),
+      } as any,
+    ]);
+
+    const threads = await service.listThreads(userId, 20, 0, null, null);
+
+    expect(threads).toHaveLength(1);
+    expect(threads[0].id).toBe('thread-msg-1');
+    expect(threads[0].messages).toHaveLength(2);
+    expect(threads[0].messages[1].providerEmailId).toBe('<msg-2@example.com>');
+    expect(threads[0].isUnread).toBe(true);
+  });
+
+  it('returns mailbox thread details by inbound thread key', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: userId,
+      activeInboxType: 'MAILBOX',
+      activeInboxId: 'mailbox-1',
+    } as any);
+    mailboxRepo.findOne.mockResolvedValue({
+      id: 'mailbox-1',
+      userId,
+      email: 'sales@mailzen.com',
+    } as any);
+    emailRepo.find.mockResolvedValue([
+      {
+        id: 'mail-1',
+        userId,
+        inboundThreadKey: 'thread-msg-9',
+        inboundMessageId: '<msg-9a@example.com>',
+        subject: 'Contract update',
+        body: '<p>Initial draft</p>',
+        from: 'ceo@example.com',
+        to: ['sales@mailzen.com'],
+        status: 'READ',
+        isImportant: false,
+        createdAt: new Date('2026-02-15T09:00:00.000Z'),
+        updatedAt: new Date('2026-02-15T09:00:00.000Z'),
+      } as any,
+      {
+        id: 'mail-2',
+        userId,
+        inboundThreadKey: 'thread-msg-9',
+        inboundMessageId: '<msg-9b@example.com>',
+        subject: 'Re: Contract update',
+        body: '<p>Follow-up question</p>',
+        from: 'sales@mailzen.com',
+        to: ['ceo@example.com'],
+        status: 'UNREAD',
+        isImportant: false,
+        createdAt: new Date('2026-02-15T09:30:00.000Z'),
+        updatedAt: new Date('2026-02-15T09:30:00.000Z'),
+      } as any,
+    ]);
+
+    const thread = await service.getThread(userId, 'thread-msg-9');
+
+    expect(thread.id).toBe('thread-msg-9');
+    expect(thread.messages).toHaveLength(2);
+    expect(thread.messages[0].providerEmailId).toBe('<msg-9a@example.com>');
+    expect(thread.messages[1].providerEmailId).toBe('<msg-9b@example.com>');
+  });
+
   it('scopes requested provider resolution to active workspace', async () => {
     userRepo.findOne.mockResolvedValue({
       id: userId,
@@ -275,6 +376,7 @@ describe('UnifiedInboxService', () => {
       {
         id: 'mail-1',
         userId,
+        inboundThreadKey: 'thread-msg-1',
         subject: 'Warm welcome',
         body: '<p>Welcome to MailZen</p>',
         from: 'client@example.com',
@@ -284,18 +386,49 @@ describe('UnifiedInboxService', () => {
         createdAt: new Date('2026-02-15T10:00:00.000Z'),
         updatedAt: new Date('2026-02-15T10:00:00.000Z'),
       } as any,
+      {
+        id: 'mail-2',
+        userId,
+        inboundThreadKey: 'thread-msg-1',
+        subject: 'Re: Warm welcome',
+        body: '<p>Follow-up note</p>',
+        from: 'sales@mailzen.com',
+        to: ['client@example.com'],
+        status: 'UNREAD',
+        isImportant: false,
+        createdAt: new Date('2026-02-15T10:02:00.000Z'),
+        updatedAt: new Date('2026-02-15T10:02:00.000Z'),
+      } as any,
     ]);
-    emailRepo.findOne.mockResolvedValue({
-      id: 'mail-1',
-      userId,
+    jest.spyOn(service, 'getThread').mockResolvedValue({
+      id: 'thread-msg-1',
       subject: 'Warm welcome',
-      body: '<p>Welcome to MailZen</p>',
-      from: 'client@example.com',
-      to: ['sales@mailzen.com'],
-      status: 'READ',
-      isImportant: true,
-      createdAt: new Date('2026-02-15T10:00:00.000Z'),
-      updatedAt: new Date('2026-02-15T10:05:00.000Z'),
+      participants: [],
+      lastMessageDate: new Date().toISOString(),
+      isUnread: false,
+      messages: [
+        {
+          id: 'mail-1',
+          threadId: 'thread-msg-1',
+          subject: 'Warm welcome',
+          from: { name: 'client', email: 'client@example.com' },
+          to: [{ name: 'sales', email: 'sales@mailzen.com' }],
+          content: '<p>Welcome to MailZen</p>',
+          contentPreview: 'Welcome to MailZen',
+          date: new Date().toISOString(),
+          folder: 'inbox',
+          isStarred: true,
+          importance: 'high',
+          attachments: [],
+          status: 'read',
+          labelIds: [],
+          providerId: 'mailbox-1',
+          providerEmailId: 'mail-1',
+        },
+      ],
+      folder: 'inbox',
+      labelIds: [],
+      providerId: 'mailbox-1',
     } as any);
     emailRepo.update.mockResolvedValue({} as any);
 
@@ -304,8 +437,17 @@ describe('UnifiedInboxService', () => {
       starred: true,
     } as any);
 
-    expect(emailRepo.update).toHaveBeenCalledWith(
+    expect(emailRepo.update).toHaveBeenNthCalledWith(
+      1,
       { id: 'mail-1', userId },
+      expect.objectContaining({
+        status: 'READ',
+        isImportant: true,
+      }),
+    );
+    expect(emailRepo.update).toHaveBeenNthCalledWith(
+      2,
+      { id: 'mail-2', userId },
       expect.objectContaining({
         status: 'READ',
         isImportant: true,

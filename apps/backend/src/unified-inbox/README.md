@@ -30,8 +30,8 @@ These names intentionally match the frontend inbox UI (`apps/frontend/lib/apollo
     - `id` is treated as provider thread id (`threadId`) or provider message id fallback
     - lazily hydrates Gmail message bodies (`format=full`) and caches payload in `ExternalEmailMessage.rawPayload`
   - Mailbox mode:
-    - `id` maps to internal `Email.id`
-    - returned as one-message thread to keep frontend contract consistent.
+    - `id` can be internal `Email.id`, `emails.inboundThreadKey`, or stored inbound message id
+    - returns grouped mailbox thread messages when `inboundThreadKey` links related messages.
 
 - **`folders: [EmailFolder!]!`**
   - Provider mode: counts derived from provider labels.
@@ -73,6 +73,18 @@ Read/star state:
 Read/star state:
 - unread = `status in [UNREAD, NEW]`
 - starred = `isImportant=true`
+
+## Mailbox threading model
+
+- Incoming alias webhook writes:
+  - `emails.inboundMessageId` (normalized message-id)
+  - `emails.inboundThreadKey` (derived thread key)
+- Mailbox inbox list groups rows by `inboundThreadKey` (fallback: `Email.id`)
+- Mailbox detail + update operations accept:
+  - thread key
+  - email row id
+  - inbound message id
+  and resolve to the grouped mailbox thread payload.
 
 ## Security / authz
 

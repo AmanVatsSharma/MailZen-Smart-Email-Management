@@ -141,6 +141,14 @@ export class UnifiedInboxService {
       .toLowerCase();
   }
 
+  private normalizeMailboxMessageIdentifier(
+    value: string | null | undefined,
+  ): string {
+    return String(value || '')
+      .trim()
+      .toLowerCase();
+  }
+
   private isMailboxEmailParticipant(email: Email, mailboxAddress: string): boolean {
     const normalizedMailbox = this.normalizeEmailAddress(mailboxAddress);
     if (!normalizedMailbox) return false;
@@ -303,10 +311,17 @@ export class UnifiedInboxService {
     });
   }
 
-  private mapMailboxEmailToThreadSummary(
+  private resolveMailboxThreadKey(email: Email): string {
+    const inboundThreadKey = String((email as any).inboundThreadKey || '').trim();
+    if (inboundThreadKey) return inboundThreadKey;
+    return email.id;
+  }
+
+  private mapMailboxEmailToThreadMessage(
     email: Email,
     source: { id: string; address: string },
-  ): EmailThread {
+    threadId: string,
+  ): EmailThread['messages'][number] {
     const from = this.parseMailboxAddress(email.from) || {
       name: 'Unknown',
       email: 'unknown',
@@ -324,58 +339,100 @@ export class UnifiedInboxService {
     const contentPreview = this.sanitizeContentPreview(email.body || '');
     const labelIds = email.folderId ? [email.folderId] : [];
 
-    const participants = [from, ...to].reduce(
+    return {
+      id: email.id,
+      threadId,
+      subject,
+      from: { name: from.name, email: from.email },
+      to: to.map((participant) => ({
+        name: participant.name,
+        email: participant.email,
+      })),
+      content,
+      contentPreview,
+      date,
+      folder,
+      isStarred,
+      importance: email.isImportant ? 'high' : 'normal',
+      attachments: [],
+      status: isUnread ? 'unread' : 'read',
+      labelIds,
+      providerId: source.id,
+      providerEmailId: String((email as any).inboundMessageId || email.id),
+    };
+  }
+
+  private mapMailboxEmailGroupToThreadSummary(
+    emails: Email[],
+    source: { id: string; address: string },
+  ): EmailThread {
+    const sortedEmails = emails
+      .slice()
+      .sort(
+        (left, right) =>
+          new Date(left.createdAt || left.updatedAt || new Date()).getTime() -
+          new Date(right.createdAt || right.updatedAt || new Date()).getTime(),
+      );
+    const latestEmail = sortedEmails[sortedEmails.length - 1] || emails[0];
+    const threadId = this.resolveMailboxThreadKey(latestEmail);
+    const messages = sortedEmails.map((email) =>
+      this.mapMailboxEmailToThreadMessage(email, source, threadId),
+    );
+    const latestMessage = messages[messages.length - 1];
+
+    const participants = messages.reduce(
       (acc, participant) => {
-        if (
-          !acc.find(
-            (existing) =>
-              existing.email.toLowerCase() === participant.email.toLowerCase(),
-          )
-        ) {
-          acc.push(participant);
+        const addParticipant = (candidate: { name: string; email: string }) => {
+          if (
+            !acc.find(
+              (existing) =>
+                existing.email.toLowerCase() === candidate.email.toLowerCase(),
+            )
+          ) {
+            acc.push(candidate);
+          }
+        };
+        addParticipant(participant.from);
+        for (const recipient of participant.to || []) {
+          addParticipant(recipient);
         }
         return acc;
       },
       [] as Array<{ name: string; email: string }>,
     );
 
+    const labelIds = Array.from(
+      new Set(messages.flatMap((message) => message.labelIds || [])),
+    );
+    const isUnread = sortedEmails.some((email) => this.mailboxEmailIsUnread(email));
+    const folder = this.mailboxEmailToFolder(latestEmail, source.address);
+    const subject = latestMessage?.subject || latestEmail.subject || '(no subject)';
+    const lastMessageDate =
+      latestMessage?.date ||
+      (latestEmail.createdAt || latestEmail.updatedAt || new Date()).toISOString();
+
     return {
-      id: email.id,
+      id: threadId,
       providerThreadId: undefined,
       subject,
       participants: participants.map((participant) => ({
         name: participant.name,
         email: participant.email,
       })),
-      lastMessageDate: date,
+      lastMessageDate,
       isUnread,
       folder,
       labelIds,
       providerId: source.id,
-      messages: [
-        {
-          id: email.id,
-          threadId: email.id,
-          subject,
-          from: { name: from.name, email: from.email },
-          to: to.map((participant) => ({
-            name: participant.name,
-            email: participant.email,
-          })),
-          content,
-          contentPreview,
-          date,
-          folder,
-          isStarred,
-          importance: email.isImportant ? 'high' : 'normal',
-          attachments: [],
-          status: isUnread ? 'unread' : 'read',
-          labelIds,
-          providerId: source.id,
-          providerEmailId: email.id,
-        },
-      ],
+      messages,
     };
+  }
+
+  private mapMailboxEmailToThreadSummary(
+    email: Email,
+    source: { id: string; address: string },
+  ): EmailThread {
+    return this.mapMailboxEmailGroupToThreadSummary([email], source);
   }
 
   private async resolveActiveInboxSource(
@@ -467,15 +524,23 @@ export class UnifiedInboxService {
         userId,
         source.address,
       );
+      const mailboxThreadBuckets = new Map<string, Email[]>();
+      for (const mailboxEmail of mailboxEmails) {
+        const threadKey = this.resolveMailboxThreadKey(mailboxEmail);
+        const bucket = mailboxThreadBuckets.get(threadKey) || [];
+        bucket.push(mailboxEmail);
+        mailboxThreadBuckets.set(threadKey, bucket);
+      }
 
-      let mailboxThreads = mailboxEmails.map((email) =>
-        this.mapMailboxEmailToThreadSummary(email, source),
+      let mailboxThreads = Array.from(mailboxThreadBuckets.values()).map(
+        (threadEmails) =>
+          this.mapMailboxEmailGroupToThreadSummary(threadEmails, source),
       );
 
       const search = filter?.search?.trim().toLowerCase();
       if (search) {
         mailboxThreads = mailboxThreads.filter((thread) => {
-          const message = thread.messages[0];
+          const message = thread.messages[thread.messages.length - 1];
           const haystack = [
             thread.subject,
             message?.contentPreview || '',
@@ -518,8 +583,10 @@ export class UnifiedInboxService {
 
       if (sort?.field === 'from') {
         mailboxThreads.sort((left, right) =>
-          (left.messages[0]?.from?.email || '').localeCompare(
-            right.messages[0]?.from?.email || '',
+          (
+            left.messages[left.messages.length - 1]?.from?.email || ''
+          ).localeCompare(
+            right.messages[right.messages.length - 1]?.from?.email || '',
           ),
         );
       } else if (sort?.field === 'subject') {
@@ -882,11 +949,29 @@ export class UnifiedInboxService {
         userId,
         source.address,
       );
-      const mailboxEmail = mailboxEmails.find((email) => email.id === threadId);
-      if (!mailboxEmail) {
+      const normalizedThreadIdentifier =
+        this.normalizeMailboxMessageIdentifier(threadId);
+      const anchorEmail = mailboxEmails.find((email) => {
+        const threadKey = this.resolveMailboxThreadKey(email);
+        const inboundMessageId = this.normalizeMailboxMessageIdentifier(
+          (email as any).inboundMessageId,
+        );
+        return (
+          this.normalizeMailboxMessageIdentifier(email.id) ===
+            normalizedThreadIdentifier ||
+          this.normalizeMailboxMessageIdentifier(threadKey) ===
+            normalizedThreadIdentifier ||
+          inboundMessageId === normalizedThreadIdentifier
+        );
+      });
+      if (!anchorEmail) {
         throw new NotFoundException('Email not found');
       }
-      return this.mapMailboxEmailToThreadSummary(mailboxEmail, source);
+      const anchorThreadKey = this.resolveMailboxThreadKey(anchorEmail);
+      const threadEmails = mailboxEmails.filter(
+        (email) => this.resolveMailboxThreadKey(email) === anchorThreadKey,
+      );
+      return this.mapMailboxEmailGroupToThreadSummary(threadEmails, source);
     }
 
     const providerId = source.id;
@@ -1065,8 +1150,27 @@ export class UnifiedInboxService {
         userId,
         source.address,
       );
-      const mailboxEmail = mailboxEmails.find((email) => email.id === threadId);
-      if (!mailboxEmail) throw new NotFoundException('Email not found');
+      const normalizedThreadIdentifier =
+        this.normalizeMailboxMessageIdentifier(threadId);
+      const anchorEmail = mailboxEmails.find((email) => {
+        const threadKey = this.resolveMailboxThreadKey(email);
+        const inboundMessageId = this.normalizeMailboxMessageIdentifier(
+          (email as any).inboundMessageId,
+        );
+        return (
+          this.normalizeMailboxMessageIdentifier(email.id) ===
+            normalizedThreadIdentifier ||
+          this.normalizeMailboxMessageIdentifier(threadKey) ===
+            normalizedThreadIdentifier ||
+          inboundMessageId === normalizedThreadIdentifier
+        );
+      });
+      if (!anchorEmail) throw new NotFoundException('Email not found');
+      const anchorThreadKey = this.resolveMailboxThreadKey(anchorEmail);
+      const targetMailboxEmails = mailboxEmails.filter(
+        (email) => this.resolveMailboxThreadKey(email) === anchorThreadKey,
+      );
+      if (!targetMailboxEmails.length) throw new NotFoundException('Email not found');
 
       const updates: Partial<Email> = {};
       if (typeof input.read === 'boolean') {
@@ -1089,22 +1193,41 @@ export class UnifiedInboxService {
       const removeLabels = input.removeLabelIds || [];
       if (addLabels.length > 0) {
         updates.folderId = addLabels[0];
-      } else if (
-        mailboxEmail.folderId &&
-        removeLabels.includes(mailboxEmail.folderId)
-      ) {
-        updates.folderId = null as any;
       }
 
       if (Object.keys(updates).length > 0) {
-        await this.emailRepo.update({ id: mailboxEmail.id, userId }, updates);
+        for (const mailboxEmail of targetMailboxEmails) {
+          const scopedUpdates = { ...updates } as Partial<Email>;
+          if (addLabels.length === 0 && mailboxEmail.folderId) {
+            if (removeLabels.includes(mailboxEmail.folderId)) {
+              scopedUpdates.folderId = null as any;
+            } else if (Object.prototype.hasOwnProperty.call(scopedUpdates, 'folderId')) {
+              delete scopedUpdates.folderId;
+            }
+          }
+          if (Object.keys(scopedUpdates).length === 0) continue;
+          await this.emailRepo.update(
+            { id: mailboxEmail.id, userId },
+            scopedUpdates,
+          );
+        }
       }
 
-      const refreshedEmail = await this.emailRepo.findOne({
-        where: { id: mailboxEmail.id, userId },
-      });
-      if (!refreshedEmail) throw new NotFoundException('Email not found');
-      return this.mapMailboxEmailToThreadSummary(refreshedEmail, source);
+      const refreshedMailboxEmails = await this.listMailboxEmailsForUser(
+        userId,
+        source.address,
+      );
+      const refreshedThreadEmails = refreshedMailboxEmails.filter(
+        (email) => this.resolveMailboxThreadKey(email) === anchorThreadKey,
+      );
+      if (!refreshedThreadEmails.length) {
+        throw new NotFoundException('Email not found');
+      }
+      const resolvedThreadId = this.resolveMailboxThreadKey(
+        refreshedThreadEmails[refreshedThreadEmails.length - 1],
+      );
+      const fallbackId = anchorThreadKey || anchorEmail.id;
+      return this.getThread(userId, resolvedThreadId || fallbackId);
     }
 
     const providerId = source.id;
