@@ -31,6 +31,13 @@ Notes:
 
 On each `syncGmailProvider`, we best-effort sync Gmail labels into `ExternalEmailLabel` so the UI can render human label names and colors.
 
+## Scheduler failure notification context
+
+`GmailSyncScheduler` emits `SYNC_FAILED` notifications with metadata including:
+- `providerId`
+- `providerType`
+- `workspaceId` (when available)
+
 ## Incremental cursor behavior
 
 - `EmailProvider.gmailHistoryId` is used as the preferred sync cursor.

@@ -51,4 +51,5 @@ Used during refresh token exchange when access tokens expire.
 
 - Current sync strategy is recent-message pull (`$top=maxMessages`) with metadata sufficient for inbox list/detail hydration.
 - Full incremental cursor strategy can be added later without changing the unified inbox contract.
+- Scheduler emits `SYNC_FAILED` notifications with `providerId`, `providerType`, and `workspaceId` metadata for workspace-aware alerting.
 

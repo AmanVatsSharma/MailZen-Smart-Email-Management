@@ -44,7 +44,11 @@ export class GmailSyncScheduler {
           title: 'Gmail sync failed',
           message:
             'MailZen failed to sync your Gmail account. We will retry automatically.',
-          metadata: { providerId: p.id, providerType: 'GMAIL' },
+          metadata: {
+            providerId: p.id,
+            providerType: 'GMAIL',
+            workspaceId: p.workspaceId || null,
+          },
         });
       }
     }

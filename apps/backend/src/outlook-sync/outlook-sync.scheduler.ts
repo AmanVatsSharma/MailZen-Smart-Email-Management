@@ -50,7 +50,11 @@ export class OutlookSyncScheduler {
           title: 'Outlook sync failed',
           message:
             'MailZen failed to sync your Outlook account. We will retry automatically.',
-          metadata: { providerId: provider.id, providerType: 'OUTLOOK' },
+          metadata: {
+            providerId: provider.id,
+            providerType: 'OUTLOOK',
+            workspaceId: provider.workspaceId || null,
+          },
         });
       }
     }
