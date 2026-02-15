@@ -1,6 +1,10 @@
 import { Logger } from '@nestjs/common';
-import { randomUUID } from 'crypto';
 import { NextFunction, Request, Response } from 'express';
+import {
+  fingerprintIdentifier,
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../logging/structured-log.util';
 import { RequestRateLimiter } from './request-rate-limiter';
 
 type HttpRateLimitConfig = {
@@ -76,20 +80,22 @@ export function createHttpRateLimitMiddleware(
     res.setHeader('x-rate-limit-remaining', String(rateLimitResult.remaining));
     if (rateLimitResult.allowed) return next();
 
-    const requestIdHeader = res.getHeader('x-request-id');
-    const requestId = String(requestIdHeader || randomUUID());
+    const requestId = resolveCorrelationId(
+      (res.getHeader('x-request-id') as string | string[] | undefined) ||
+        req.headers['x-request-id'],
+    );
     res.setHeader('x-request-id', requestId);
     res.setHeader(
       'retry-after',
       String(Math.max(rateLimitResult.retryAfterSeconds, 1)),
     );
     logger.warn(
-      JSON.stringify({
+      serializeStructuredLog({
         event: 'http_rate_limited',
         requestId,
         method: req.method,
         path: pathValue,
-        clientIdentifier,
+        clientFingerprint: fingerprintIdentifier(clientIdentifier),
         maxRequests: config.maxRequests,
         windowMs: config.windowMs,
         retryAfterSeconds: rateLimitResult.retryAfterSeconds,

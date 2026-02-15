@@ -4,6 +4,10 @@ import axios from 'axios';
 import { randomUUID } from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from './common/logging/structured-log.util';
 import { createHttpRateLimitMiddleware } from './common/rate-limit/http-rate-limit.middleware';
 
 const bootstrapLogger = new Logger('Bootstrap');
@@ -93,31 +97,29 @@ async function bootstrap() {
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     const incomingRequestIdHeader = req.headers['x-request-id'];
-    const incomingRequestId = Array.isArray(incomingRequestIdHeader)
-      ? incomingRequestIdHeader[0]
-      : incomingRequestIdHeader;
-    const requestId =
-      (incomingRequestId && incomingRequestId.trim()) || randomUUID();
+    const requestId = resolveCorrelationId(incomingRequestIdHeader);
 
     res.setHeader('x-request-id', requestId);
 
     const requestStartedAt = Date.now();
+    const requestPath = String(req.originalUrl || req.url || '/').split('?')[0];
     bootstrapLogger.log(
-      JSON.stringify({
+      serializeStructuredLog({
         event: 'http_request_start',
         requestId,
         method: req.method,
-        path: req.originalUrl || req.url,
+        path: requestPath || '/',
+        query: req.query as Record<string, unknown>,
       }),
     );
 
     res.on('finish', () => {
       bootstrapLogger.log(
-        JSON.stringify({
+        serializeStructuredLog({
           event: 'http_request_complete',
           requestId,
           method: req.method,
-          path: req.originalUrl || req.url,
+          path: requestPath || '/',
           statusCode: res.statusCode,
           durationMs: Date.now() - requestStartedAt,
         }),

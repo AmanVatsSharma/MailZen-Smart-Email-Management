@@ -85,6 +85,9 @@ flowchart TD
   - shared secret expected in `x-mailzen-inbound-token` header
   - production requires this to be configured
   - non-production allows local bypass with warning logs
+- optional `x-request-id` header
+  - when present, propagated into structured inbound logs for correlation
+  - when absent, backend generates a UUID correlation id
 - `MAILZEN_INBOUND_WEBHOOK_SIGNING_KEY`
   - optional HMAC-SHA256 signing key
   - when configured, request must include:
@@ -172,7 +175,8 @@ flowchart TD
 
 - This module provisions credentials and metadata; full inbound mailbox ingestion pipeline is handled by inbox/sync modules.
 - Keep provider/mailbox encryption keys managed via secure secret store in production.
-- Each inbound request emits structured log event `mailbox_inbound_processed` with outcome, latency, signature status, and dedupe signal.
+- Each inbound request emits structured log events (`mailbox_inbound_*`) through
+  common structured logging utilities, with recursive PII redaction and request correlation id propagation.
 
 ## Inbound ingestion flow
 

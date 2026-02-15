@@ -24,9 +24,11 @@ export class MailboxInboundController {
     @Headers('x-mailzen-inbound-timestamp')
     timestampHeader: string | undefined,
     @Headers('authorization') authorizationHeader: string | undefined,
+    @Headers('x-request-id') requestIdHeader: string | undefined,
     @Ip() ipAddress: string,
   ) {
     return this.mailboxInboundService.ingestInboundEvent(input, {
+      requestIdHeader,
       inboundTokenHeader,
       signatureHeader,
       timestampHeader,

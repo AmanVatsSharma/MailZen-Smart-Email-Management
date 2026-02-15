@@ -9,6 +9,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { Repository } from 'typeorm';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 import { Email } from '../email/entities/email.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { MailboxInboundWebhookInput } from './dto/mailbox-inbound-webhook.input';
@@ -16,6 +20,7 @@ import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
 import { Mailbox } from './entities/mailbox.entity';
 
 type InboundAuthInput = {
+  requestIdHeader?: string;
   inboundTokenHeader?: string;
   signatureHeader?: string;
   timestampHeader?: string;
@@ -382,6 +387,7 @@ export class MailboxInboundService {
   }
 
   private async emitInboundNotification(input: {
+    requestId?: string;
     userId: string;
     mailboxId: string;
     mailboxEmail: string;
@@ -437,7 +443,16 @@ export class MailboxInboundService {
       });
     } catch (notificationError) {
       this.logger.warn(
-        `mailbox-inbound: notification emit failed mailbox=${input.mailboxEmail} status=${input.status} reason=${notificationError instanceof Error ? notificationError.message : 'unknown'}`,
+        serializeStructuredLog({
+          event: 'mailbox_inbound_notification_emit_failed',
+          requestId: input.requestId || null,
+          mailboxEmail: input.mailboxEmail,
+          inboundStatus: input.status,
+          reason:
+            notificationError instanceof Error
+              ? notificationError.message
+              : 'unknown',
+        }),
       );
     }
   }
@@ -447,6 +462,7 @@ export class MailboxInboundService {
     auth: InboundAuthInput,
   ): Promise<MailboxInboundIngestResult> {
     const startedAtMs = Date.now();
+    const requestId = resolveCorrelationId(auth.requestIdHeader);
     const mailboxEmail = this.normalizeEmailAddress(input.mailboxEmail);
     const normalizedMessageId = this.normalizeMessageId(input.messageId);
     let outcome: 'ACCEPTED' | 'DEDUPLICATED' | 'REJECTED' = 'REJECTED';
@@ -488,9 +504,16 @@ export class MailboxInboundService {
           status: 'DEDUPLICATED',
         });
         this.logger.log(
-          `mailbox-inbound: duplicate messageId accepted mailbox=${mailbox.email} emailId=${duplicate.emailId}`,
+          serializeStructuredLog({
+            event: 'mailbox_inbound_duplicate_cached',
+            requestId,
+            mailboxEmail: mailbox.email,
+            emailId: duplicate.emailId,
+            messageId: normalizedMessageId,
+          }),
         );
         await this.emitInboundNotification({
+          requestId,
           userId: mailbox.userId,
           mailboxId: mailbox.id,
           mailboxEmail: mailbox.email,
@@ -524,6 +547,7 @@ export class MailboxInboundService {
           persistedInboundEvent.emailId,
         );
         await this.emitInboundNotification({
+          requestId,
           userId: mailbox.userId,
           mailboxId: mailbox.id,
           mailboxEmail: mailbox.email,
@@ -566,9 +590,16 @@ export class MailboxInboundService {
           status: 'DEDUPLICATED',
         });
         this.logger.log(
-          `mailbox-inbound: persistent duplicate accepted mailbox=${mailbox.email} emailId=${persistedDuplicate.id}`,
+          serializeStructuredLog({
+            event: 'mailbox_inbound_duplicate_persisted',
+            requestId,
+            mailboxEmail: mailbox.email,
+            emailId: persistedDuplicate.id,
+            messageId: normalizedMessageId,
+          }),
         );
         await this.emitInboundNotification({
+          requestId,
           userId: mailbox.userId,
           mailboxId: mailbox.id,
           mailboxEmail: mailbox.email,
@@ -633,6 +664,7 @@ export class MailboxInboundService {
       );
 
       await this.emitInboundNotification({
+        requestId,
         userId: mailbox.userId,
         mailboxId: mailbox.id,
         mailboxEmail: mailbox.email,
@@ -660,7 +692,13 @@ export class MailboxInboundService {
       outcome = 'ACCEPTED';
 
       this.logger.log(
-        `mailbox-inbound: accepted mailbox=${mailbox.email} emailId=${email.id} sourceIp=${auth.sourceIp || 'unknown'}`,
+        serializeStructuredLog({
+          event: 'mailbox_inbound_accepted',
+          requestId,
+          mailboxEmail: mailbox.email,
+          emailId: email.id,
+          sourceIp: auth.sourceIp || 'unknown',
+        }),
       );
       this.rememberMessageId(
         mailbox.id,
@@ -692,6 +730,7 @@ export class MailboxInboundService {
       });
       if (resolvedMailboxId && resolvedUserId) {
         await this.emitInboundNotification({
+          requestId,
           userId: resolvedUserId,
           mailboxId: resolvedMailboxId,
           mailboxEmail,
@@ -707,8 +746,9 @@ export class MailboxInboundService {
       throw error;
     } finally {
       this.logger.log(
-        JSON.stringify({
+        serializeStructuredLog({
           event: 'mailbox_inbound_processed',
+          requestId,
           mailboxId: resolvedMailboxId,
           mailboxEmail,
           messageId: normalizedMessageId,

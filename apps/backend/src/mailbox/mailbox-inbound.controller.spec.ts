@@ -45,6 +45,7 @@ describe('MailboxInboundController', () => {
       'signature-1',
       '1771175187910',
       undefined,
+      'req-inbound-1',
       '203.0.113.10',
     );
 
@@ -53,6 +54,7 @@ describe('MailboxInboundController', () => {
       signatureHeader: 'signature-1',
       timestampHeader: '1771175187910',
       authorizationHeader: undefined,
+      requestIdHeader: 'req-inbound-1',
       sourceIp: '203.0.113.10',
     });
     expect(response.accepted).toBe(true);
@@ -81,6 +83,7 @@ describe('MailboxInboundController', () => {
       undefined,
       undefined,
       'Bearer token-via-auth-header',
+      'req-inbound-2',
       '198.51.100.5',
     );
 
@@ -89,6 +92,7 @@ describe('MailboxInboundController', () => {
       signatureHeader: undefined,
       timestampHeader: undefined,
       authorizationHeader: 'Bearer token-via-auth-header',
+      requestIdHeader: 'req-inbound-2',
       sourceIp: '198.51.100.5',
     });
   });

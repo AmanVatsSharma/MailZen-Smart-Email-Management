@@ -103,5 +103,10 @@ describe('createHttpRateLimitMiddleware', () => {
       }),
     );
     expect(logger.warn).toHaveBeenCalled();
+    const logPayload = JSON.parse(
+      String((logger.warn as unknown as jest.Mock).mock.calls[0]?.[0] || '{}'),
+    ) as Record<string, unknown>;
+    expect(logPayload.clientFingerprint).toEqual(expect.any(String));
+    expect(JSON.stringify(logPayload)).not.toContain('127.0.0.1');
   });
 });
