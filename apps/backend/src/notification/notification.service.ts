@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, MoreThanOrEqual, Repository } from 'typeorm';
 import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
 import { UserNotification } from './entities/user-notification.entity';
@@ -291,8 +291,17 @@ export class NotificationService {
     limit?: number;
     unreadOnly?: boolean;
     types?: string[] | null;
+    sinceHours?: number | null;
   }): Promise<UserNotification[]> {
     const limit = Math.max(1, Math.min(100, input.limit || 20));
+    const normalizedSinceHours =
+      typeof input.sinceHours === 'number' && Number.isFinite(input.sinceHours)
+        ? Math.max(1, Math.min(24 * 30, Math.floor(input.sinceHours)))
+        : null;
+    const createdAfterDate =
+      normalizedSinceHours === null
+        ? null
+        : new Date(Date.now() - normalizedSinceHours * 60 * 60 * 1000);
     const normalizedTypes = (input.types || [])
       .map((type) =>
         String(type || '')
@@ -305,6 +314,9 @@ export class NotificationService {
         userId: input.userId,
         ...(input.unreadOnly ? { isRead: false } : {}),
         ...(normalizedTypes.length ? { type: In(normalizedTypes) } : {}),
+        ...(createdAfterDate
+          ? { createdAt: MoreThanOrEqual(createdAfterDate) }
+          : {}),
       },
       order: { createdAt: 'DESC' },
       take: limit,

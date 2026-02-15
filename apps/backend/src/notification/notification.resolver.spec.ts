@@ -26,7 +26,7 @@ describe('NotificationResolver', () => {
   it('passes optional type filters to myNotifications', async () => {
     notificationService.listNotificationsForUser.mockResolvedValue([]);
 
-    await resolver.myNotifications(15, false, context as never, [
+    await resolver.myNotifications(15, false, context as never, 24, [
       'MAILBOX_INBOUND_SLA_ALERT',
     ]);
 
@@ -34,6 +34,7 @@ describe('NotificationResolver', () => {
       userId: 'user-1',
       limit: 15,
       unreadOnly: false,
+      sinceHours: 24,
       types: ['MAILBOX_INBOUND_SLA_ALERT'],
     });
   });
@@ -41,12 +42,19 @@ describe('NotificationResolver', () => {
   it('falls back to empty type filters when omitted', async () => {
     notificationService.listNotificationsForUser.mockResolvedValue([]);
 
-    await resolver.myNotifications(10, false, context as never, undefined);
+    await resolver.myNotifications(
+      10,
+      false,
+      context as never,
+      undefined,
+      undefined,
+    );
 
     expect(notificationService.listNotificationsForUser).toHaveBeenCalledWith({
       userId: 'user-1',
       limit: 10,
       unreadOnly: false,
+      sinceHours: null,
       types: [],
     });
   });

@@ -319,6 +319,7 @@ describe('NotificationService', () => {
       userId: 'user-1',
       limit: 5,
       types: ['MAILBOX_INBOUND_SLA_ALERT', '  '],
+      sinceHours: 24,
     });
 
     const findInput = notificationRepo.find.mock.calls[0]?.[0] as
@@ -330,6 +331,7 @@ describe('NotificationService', () => {
     expect(findInput?.take).toBe(5);
     expect(findInput?.where?.userId).toBe('user-1');
     expect(findInput?.where?.type).toBeDefined();
+    expect(findInput?.where?.createdAt).toBeDefined();
     expect(result).toHaveLength(1);
   });
 });

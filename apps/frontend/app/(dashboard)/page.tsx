@@ -127,6 +127,7 @@ export default function DashboardPage() {
       variables: {
         limit: 10,
         unreadOnly: false,
+        sinceHours: 24,
         types: ['MAILBOX_INBOUND_SLA_ALERT'],
       },
       fetchPolicy: 'cache-and-network',
@@ -210,15 +211,14 @@ export default function DashboardPage() {
     return {};
   };
   const slaAlertNotifications = slaAlertsData?.myNotifications || [];
-  const slaWindowStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const slaAlerts24h = slaAlertNotifications.filter(
-    (notification) => new Date(notification.createdAt) >= slaWindowStart,
-  );
-  const criticalAlertCount = slaAlerts24h.filter((notification) => {
+  const criticalAlertCount = slaAlertNotifications.filter((notification) => {
     const payload = resolveNotificationMetadata(notification);
     return String(payload.slaStatus || '').toUpperCase() === 'CRITICAL';
   }).length;
-  const warningAlertCount = Math.max(slaAlerts24h.length - criticalAlertCount, 0);
+  const warningAlertCount = Math.max(
+    slaAlertNotifications.length - criticalAlertCount,
+    0,
+  );
   const latestSlaAlert = slaAlertNotifications[0];
 
   return (
@@ -511,7 +511,7 @@ export default function DashboardPage() {
               </Alert>
             )}
             <div className="grid grid-cols-3 gap-2">
-              <Badge variant="outline">Total: {slaAlerts24h.length}</Badge>
+              <Badge variant="outline">Total: {slaAlertNotifications.length}</Badge>
               <Badge
                 variant="outline"
                 className="border-amber-200/60 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
