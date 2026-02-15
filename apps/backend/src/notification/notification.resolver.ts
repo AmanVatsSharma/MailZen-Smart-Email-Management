@@ -1,6 +1,9 @@
 import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
+import { AdminGuard } from '../common/guards/admin.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { NotificationDataExportResponse } from './dto/notification-data-export.response';
+import { NotificationRetentionPurgeResponse } from './dto/notification-retention-purge.response';
 import { RegisterNotificationPushSubscriptionInput } from './dto/register-notification-push-subscription.input';
 import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
 import {
@@ -118,6 +121,19 @@ export class NotificationResolver {
     });
   }
 
+  @Query(() => NotificationDataExportResponse, {
+    description: 'Export notification preferences and history for current user',
+  })
+  async myNotificationDataExport(
+    @Context() ctx: RequestContext,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+  ) {
+    return this.notificationService.exportNotificationData({
+      userId: ctx.req.user.id,
+      limit,
+    });
+  }
+
   @Mutation(() => UserNotification, {
     description: 'Mark a notification as read',
   })
@@ -180,6 +196,23 @@ export class NotificationResolver {
     return this.notificationService.unregisterPushSubscription({
       userId: ctx.req.user.id,
       endpoint,
+    });
+  }
+
+  @Mutation(() => NotificationRetentionPurgeResponse, {
+    description:
+      'Purge expired notification data using configured retention policy',
+  })
+  @UseGuards(AdminGuard)
+  async purgeNotificationRetentionData(
+    @Args('notificationRetentionDays', { type: () => Int, nullable: true })
+    notificationRetentionDays?: number,
+    @Args('disabledPushRetentionDays', { type: () => Int, nullable: true })
+    disabledPushRetentionDays?: number,
+  ) {
+    return this.notificationService.purgeNotificationRetentionData({
+      notificationRetentionDays,
+      disabledPushRetentionDays,
     });
   }
 }

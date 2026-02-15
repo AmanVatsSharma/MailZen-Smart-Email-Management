@@ -44,6 +44,7 @@ describe('NotificationService', () => {
       save: jest.fn(),
       find: jest.fn(),
       findOne: jest.fn(),
+      createQueryBuilder: jest.fn(),
     } as unknown as jest.Mocked<Repository<NotificationPushSubscription>>;
     webhookService = {
       dispatchNotificationCreated: jest.fn(),
@@ -344,6 +345,80 @@ describe('NotificationService', () => {
     expect(result.mailboxInboundRejectedEnabled).toBe(false);
     expect(result.mailboxInboundSlaAlertsEnabled).toBe(false);
     expect(result.notificationDigestEnabled).toBe(false);
+  });
+
+  it('exports notification data snapshot for legal/compliance portability', async () => {
+    preferenceRepo.findOne.mockResolvedValue({
+      ...basePreference,
+      pushEnabled: true,
+    } as UserNotificationPreference);
+    notificationRepo.find.mockResolvedValue([
+      {
+        id: 'notif-export-1',
+        userId: 'user-1',
+        workspaceId: null,
+        type: 'SYNC_FAILED',
+        title: 'Sync failed',
+        message: 'Provider failed',
+        isRead: false,
+        createdAt: new Date('2026-02-16T00:00:00.000Z'),
+        updatedAt: new Date('2026-02-16T00:00:00.000Z'),
+      } as UserNotification,
+    ]);
+    pushSubscriptionRepo.find.mockResolvedValue([
+      {
+        id: 'push-1',
+        userId: 'user-1',
+        endpoint: 'https://push.mailzen.test/sub-1',
+        isActive: true,
+        failureCount: 0,
+        workspaceId: null,
+        updatedAt: new Date('2026-02-16T00:00:00.000Z'),
+      } as NotificationPushSubscription,
+    ]);
+
+    const result = await service.exportNotificationData({
+      userId: 'user-1',
+      limit: 100,
+    });
+
+    expect(result.generatedAtIso).toBeTruthy();
+    expect(result.dataJson).toContain('"preferences"');
+    expect(result.dataJson).toContain('"notifications"');
+    expect(result.dataJson).toContain('"pushSubscriptions"');
+  });
+
+  it('purges expired read notifications and disabled push subscriptions', async () => {
+    const notificationDeleteBuilder = {
+      delete: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 5 }),
+    };
+    const pushDeleteBuilder = {
+      delete: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 2 }),
+    };
+    notificationRepo.createQueryBuilder.mockReturnValueOnce(
+      notificationDeleteBuilder as any,
+    );
+    pushSubscriptionRepo.createQueryBuilder.mockReturnValueOnce(
+      pushDeleteBuilder as any,
+    );
+
+    const result = await service.purgeNotificationRetentionData({
+      notificationRetentionDays: 200,
+      disabledPushRetentionDays: 120,
+    });
+
+    expect(result.notificationsDeleted).toBe(5);
+    expect(result.pushSubscriptionsDeleted).toBe(2);
+    expect(result.notificationRetentionDays).toBe(200);
+    expect(result.disabledPushRetentionDays).toBe(120);
   });
 
   it('normalizes inbound SLA thresholds when preferences are updated', async () => {

@@ -788,6 +788,7 @@ extend type Query {
   myBillingInvoices(limit: Int): [BillingInvoice!]!
   myBillingDataExport: BillingDataExportResponse!
   myNotifications(limit: Int, unreadOnly: Boolean, workspaceId: String, sinceHours: Int, types: [String!]): [UserNotification!]!
+  myNotificationDataExport(limit: Int): NotificationDataExportResponse!
   myMailboxInboundSlaIncidentStats(workspaceId: String, windowHours: Int): MailboxInboundSlaIncidentStatsResponse!
   myMailboxInboundSlaIncidentSeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [MailboxInboundSlaIncidentTrendPointResponse!]!
   myUnreadNotificationCount(workspaceId: String): Int!
@@ -825,6 +826,10 @@ extend type Mutation {
   updateMyNotificationPreferences(
     input: UpdateNotificationPreferencesInput!
   ): UserNotificationPreference!
+  purgeNotificationRetentionData(
+    notificationRetentionDays: Int
+    disabledPushRetentionDays: Int
+  ): NotificationRetentionPurgeResponse!
   registerMyNotificationPushSubscription(
     input: RegisterNotificationPushSubscriptionInput!
   ): NotificationPushSubscription!
@@ -954,6 +959,19 @@ type UserNotification {
   metadata: String
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+type NotificationDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type NotificationRetentionPurgeResponse {
+  notificationsDeleted: Int!
+  pushSubscriptionsDeleted: Int!
+  notificationRetentionDays: Int!
+  disabledPushRetentionDays: Int!
+  executedAtIso: String!
 }
 
 type MailboxInboundSlaIncidentStatsResponse {

@@ -9,6 +9,7 @@ import { UserNotificationPreference } from './entities/user-notification-prefere
 import { UserNotification } from './entities/user-notification.entity';
 import { NotificationDigestScheduler } from './notification-digest.scheduler';
 import { NotificationPushService } from './notification-push.service';
+import { NotificationRetentionScheduler } from './notification-retention.scheduler';
 import { NotificationResolver } from './notification.resolver';
 import { NotificationService } from './notification.service';
 import { NotificationWebhookService } from './notification-webhook.service';
@@ -43,6 +44,7 @@ import { NotificationWebhookService } from './notification-webhook.service';
     NotificationPushService,
     NotificationEventBusService,
     NotificationDigestScheduler,
+    NotificationRetentionScheduler,
     NotificationResolver,
   ],
   exports: [NotificationService, NotificationEventBusService],

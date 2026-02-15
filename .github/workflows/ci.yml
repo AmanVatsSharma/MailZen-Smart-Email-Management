@@ -37,6 +37,7 @@ jobs:
           notification/notification-event-bus.service.spec.ts
           notification/notification-stream.controller.spec.ts
           notification/notification-digest.scheduler.spec.ts
+          notification/notification-retention.scheduler.spec.ts
           notification/notification-webhook.service.spec.ts
           notification/notification-push.service.spec.ts
           feature/feature.service.spec.ts

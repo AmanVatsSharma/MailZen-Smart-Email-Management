@@ -10,9 +10,11 @@ describe('NotificationResolver', () => {
     getUnreadCount: jest.fn(),
     getOrCreatePreferences: jest.fn(),
     listPushSubscriptionsForUser: jest.fn(),
+    exportNotificationData: jest.fn(),
     markNotificationRead: jest.fn(),
     registerPushSubscription: jest.fn(),
     unregisterPushSubscription: jest.fn(),
+    purgeNotificationRetentionData: jest.fn(),
     updatePreferences: jest.fn(),
   };
 
@@ -164,6 +166,20 @@ describe('NotificationResolver', () => {
     });
   });
 
+  it('forwards notification data export query payload', async () => {
+    notificationService.exportNotificationData.mockResolvedValue({
+      generatedAtIso: '2026-02-16T00:00:00.000Z',
+      dataJson: '{"notifications":[]}',
+    });
+
+    await resolver.myNotificationDataExport(context as never, 120);
+
+    expect(notificationService.exportNotificationData).toHaveBeenCalledWith({
+      userId: 'user-1',
+      limit: 120,
+    });
+  });
+
   it('forwards push registration mutation payload', async () => {
     notificationService.registerPushSubscription.mockResolvedValue({
       id: 'push-1',
@@ -204,5 +220,24 @@ describe('NotificationResolver', () => {
         endpoint: 'https://push.mailzen.test/sub-1',
       },
     );
+  });
+
+  it('forwards retention purge mutation payload', async () => {
+    notificationService.purgeNotificationRetentionData.mockResolvedValue({
+      notificationsDeleted: 12,
+      pushSubscriptionsDeleted: 3,
+      notificationRetentionDays: 180,
+      disabledPushRetentionDays: 90,
+      executedAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    await resolver.purgeNotificationRetentionData(180, 120);
+
+    expect(
+      notificationService.purgeNotificationRetentionData,
+    ).toHaveBeenCalledWith({
+      notificationRetentionDays: 180,
+      disabledPushRetentionDays: 120,
+    });
   });
 });

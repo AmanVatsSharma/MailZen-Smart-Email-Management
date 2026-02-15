@@ -19,6 +19,8 @@ Provide a persistent notification foundation for user-visible product events
 - Send periodic unread-notification digest emails for users with email channel enabled
 - Deliver optional webhook callbacks for external automation consumers
 - Support web-push subscription registration and delivery for browser/mobile clients
+- Export user notification data snapshots for legal/compliance portability
+- Auto-purge expired notification data using configurable retention policy
 
 ## GraphQL API
 
@@ -32,11 +34,14 @@ Provide a persistent notification foundation for user-visible product events
   bucketed warning/critical incident trend points for dashboards
 - `myUnreadNotificationCount(workspaceId?)` → unread badge count (workspace + global scope)
 - `myNotificationPreferences` → get per-user notification channel settings
+- `myNotificationDataExport(limit?)` → export notification history/preferences JSON
 - `myNotificationPushSubscriptions(workspaceId?)` → list user push subscriptions
 - `markNotificationRead(id)` → marks one notification as read
 - `markMyNotificationsRead(workspaceId?, sinceHours?, types?)` → marks matching
   notifications as read in bulk (used by SLA incident acknowledgement)
 - `updateMyNotificationPreferences(input)` → update channel + event preferences
+- `purgeNotificationRetentionData(notificationRetentionDays?, disabledPushRetentionDays?)` →
+  admin-only retention purge mutation
 - `registerMyNotificationPushSubscription(input)` → upsert web-push endpoint + keys
 - `unregisterMyNotificationPushSubscription(endpoint)` → deactivate one endpoint
 
@@ -84,6 +89,18 @@ Digest tuning env vars:
 - `MAILZEN_NOTIFICATION_DIGEST_WINDOW_HOURS` (default `24`)
 - `MAILZEN_NOTIFICATION_DIGEST_MAX_USERS_PER_RUN` (default `250`)
 - `MAILZEN_NOTIFICATION_DIGEST_MAX_ITEMS` (default `8`)
+
+## Retention controls
+
+- `NotificationRetentionScheduler` runs daily at 03:00 server time.
+- Purge targets:
+  - read notifications older than retention cutoff
+  - inactive push subscriptions older than retention cutoff
+
+Retention env vars:
+- `MAILZEN_NOTIFICATION_RETENTION_AUTOPURGE_ENABLED` (default `true`)
+- `MAILZEN_NOTIFICATION_RETENTION_DAYS` (default `180`)
+- `MAILZEN_NOTIFICATION_PUSH_RETENTION_DAYS` (default `90`)
 
 ## Web push channel
 
@@ -160,6 +177,7 @@ flowchart TD
   NotificationService --> Repo[(user_notifications table)]
   NotificationService --> RealtimeBus[(in-memory realtime event bus)]
   NotificationService --> DigestScheduler[Hourly unread digest scheduler]
+  NotificationService --> RetentionScheduler[Daily retention purge scheduler]
   NotificationService --> WebhookService[Notification webhook dispatcher]
   NotificationService --> PushService[Web push dispatcher]
   DigestScheduler --> Mailer[SMTP mailer channel]

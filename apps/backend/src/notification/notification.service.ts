@@ -7,6 +7,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Observable, Subject, filter, map } from 'rxjs';
 import { In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
+import { NotificationDataExportResponse } from './dto/notification-data-export.response';
+import { NotificationRetentionPurgeResponse } from './dto/notification-retention-purge.response';
 import { RegisterNotificationPushSubscriptionInput } from './dto/register-notification-push-subscription.input';
 import { NotificationPushSubscription } from './entities/notification-push-subscription.entity';
 import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
@@ -659,6 +661,181 @@ export class NotificationService {
     return affectedCount;
   }
 
+  private resolveNotificationRetentionPolicy(): {
+    notificationRetentionDays: number;
+    disabledPushRetentionDays: number;
+  } {
+    const notificationRetentionDays = this.resolvePositiveInteger({
+      rawValue: process.env.MAILZEN_NOTIFICATION_RETENTION_DAYS,
+      fallbackValue: 180,
+      minimumValue: 7,
+      maximumValue: 3650,
+    });
+    const disabledPushRetentionDays = this.resolvePositiveInteger({
+      rawValue: process.env.MAILZEN_NOTIFICATION_PUSH_RETENTION_DAYS,
+      fallbackValue: 90,
+      minimumValue: 7,
+      maximumValue: 3650,
+    });
+    return {
+      notificationRetentionDays,
+      disabledPushRetentionDays,
+    };
+  }
+
+  async exportNotificationData(input: {
+    userId: string;
+    limit?: number;
+  }): Promise<NotificationDataExportResponse> {
+    const generatedAt = new Date();
+    const notificationLimit = this.resolvePositiveInteger({
+      rawValue: input.limit,
+      fallbackValue: 200,
+      minimumValue: 1,
+      maximumValue: 1000,
+    });
+
+    const [preferences, notifications, pushSubscriptions] = await Promise.all([
+      this.getOrCreatePreferences(input.userId),
+      this.listNotificationsForUser({
+        userId: input.userId,
+        limit: notificationLimit,
+        unreadOnly: false,
+        workspaceId: null,
+        sinceHours: null,
+        types: [],
+      }),
+      this.pushSubscriptionRepo.find({
+        where: { userId: input.userId },
+        order: { updatedAt: 'DESC' },
+        take: 100,
+      }),
+    ]);
+
+    const unreadCount = notifications.filter(
+      (notification) => !notification.isRead,
+    ).length;
+    const retentionPolicy = this.resolveNotificationRetentionPolicy();
+    const payload = {
+      userId: input.userId,
+      generatedAtIso: generatedAt.toISOString(),
+      preferences: {
+        inAppEnabled: preferences.inAppEnabled,
+        emailEnabled: preferences.emailEnabled,
+        pushEnabled: preferences.pushEnabled,
+        syncFailureEnabled: preferences.syncFailureEnabled,
+        mailboxInboundAcceptedEnabled:
+          preferences.mailboxInboundAcceptedEnabled,
+        mailboxInboundDeduplicatedEnabled:
+          preferences.mailboxInboundDeduplicatedEnabled,
+        mailboxInboundRejectedEnabled:
+          preferences.mailboxInboundRejectedEnabled,
+        mailboxInboundSlaAlertsEnabled:
+          preferences.mailboxInboundSlaAlertsEnabled,
+        notificationDigestEnabled: preferences.notificationDigestEnabled,
+        mailboxInboundSlaAlertCooldownMinutes:
+          preferences.mailboxInboundSlaAlertCooldownMinutes,
+      },
+      notificationSummary: {
+        total: notifications.length,
+        unread: unreadCount,
+      },
+      notifications: notifications.map((notification) => ({
+        id: notification.id,
+        workspaceId: notification.workspaceId || null,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        isRead: notification.isRead,
+        createdAtIso: notification.createdAt.toISOString(),
+        updatedAtIso: notification.updatedAt.toISOString(),
+      })),
+      pushSubscriptions: pushSubscriptions.map((subscription) => ({
+        id: subscription.id,
+        endpoint: subscription.endpoint,
+        workspaceId: subscription.workspaceId || null,
+        isActive: subscription.isActive,
+        failureCount: subscription.failureCount,
+        lastDeliveredAtIso: subscription.lastDeliveredAt
+          ? subscription.lastDeliveredAt.toISOString()
+          : null,
+        lastFailureAtIso: subscription.lastFailureAt
+          ? subscription.lastFailureAt.toISOString()
+          : null,
+        updatedAtIso: subscription.updatedAt.toISOString(),
+      })),
+      retentionPolicy,
+    };
+
+    return {
+      generatedAtIso: generatedAt.toISOString(),
+      dataJson: JSON.stringify(payload),
+    };
+  }
+
+  async purgeNotificationRetentionData(
+    input: {
+      notificationRetentionDays?: number;
+      disabledPushRetentionDays?: number;
+    } = {},
+  ): Promise<NotificationRetentionPurgeResponse> {
+    const policy = this.resolveNotificationRetentionPolicy();
+    const notificationRetentionDays = this.resolvePositiveInteger({
+      rawValue: input.notificationRetentionDays,
+      fallbackValue: policy.notificationRetentionDays,
+      minimumValue: 7,
+      maximumValue: 3650,
+    });
+    const disabledPushRetentionDays = this.resolvePositiveInteger({
+      rawValue: input.disabledPushRetentionDays,
+      fallbackValue: policy.disabledPushRetentionDays,
+      minimumValue: 7,
+      maximumValue: 3650,
+    });
+
+    const now = new Date();
+    const notificationCutoffDate = new Date(
+      now.getTime() - notificationRetentionDays * 24 * 60 * 60 * 1000,
+    );
+    const disabledPushCutoffDate = new Date(
+      now.getTime() - disabledPushRetentionDays * 24 * 60 * 60 * 1000,
+    );
+
+    const notificationsDelete = await this.notificationRepo
+      .createQueryBuilder()
+      .delete()
+      .from(UserNotification)
+      .where('"createdAt" < :cutoff', {
+        cutoff: notificationCutoffDate.toISOString(),
+      })
+      .andWhere('"isRead" = :isRead', { isRead: true })
+      .execute();
+
+    const pushSubscriptionsDelete = await this.pushSubscriptionRepo
+      .createQueryBuilder()
+      .delete()
+      .from(NotificationPushSubscription)
+      .where('"updatedAt" < :cutoff', {
+        cutoff: disabledPushCutoffDate.toISOString(),
+      })
+      .andWhere('"isActive" = :isActive', { isActive: false })
+      .execute();
+
+    const notificationsDeleted = Number(notificationsDelete.affected || 0);
+    const pushSubscriptionsDeleted = Number(
+      pushSubscriptionsDelete.affected || 0,
+    );
+    const executedAtIso = now.toISOString();
+
+    return {
+      notificationsDeleted,
+      pushSubscriptionsDeleted,
+      notificationRetentionDays,
+      disabledPushRetentionDays,
+      executedAtIso,
+    };
+  }
+
   async getMailboxInboundSlaIncidentStats(input: {
     userId: string;
     workspaceId?: string | null;
@@ -884,7 +1061,7 @@ export class NotificationService {
   }
 
   private resolvePositiveInteger(input: {
-    rawValue?: string;
+    rawValue?: string | number;
     fallbackValue: number;
     minimumValue: number;
     maximumValue: number;
