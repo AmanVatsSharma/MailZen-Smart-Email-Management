@@ -626,3 +626,88 @@ input EmailUpdateInput {
   addLabelIds: [String!]
   removeLabelIds: [String!]
 }
+
+"""Incremental schema contract extensions for billing + notifications."""
+extend type Query {
+  billingPlans: [BillingPlan!]!
+  mySubscription: UserSubscription!
+  myNotifications(limit: Int, unreadOnly: Boolean): [UserNotification!]!
+  myUnreadNotificationCount: Int!
+  myNotificationPreferences: UserNotificationPreference!
+}
+
+extend type Mutation {
+  selectMyPlan(planCode: String!): UserSubscription!
+  requestMyPlanUpgrade(
+    targetPlanCode: String!
+    note: String
+  ): BillingUpgradeIntentResponse!
+  markNotificationRead(id: String!): UserNotification!
+  updateMyNotificationPreferences(
+    input: UpdateNotificationPreferencesInput!
+  ): UserNotificationPreference!
+}
+
+type BillingPlan {
+  id: ID!
+  code: String!
+  name: String!
+  priceMonthlyCents: Int!
+  currency: String!
+  providerLimit: Int!
+  mailboxLimit: Int!
+  aiCreditsPerMonth: Int!
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type UserSubscription {
+  id: ID!
+  userId: String!
+  planCode: String!
+  status: String!
+  startedAt: DateTime!
+  endsAt: DateTime
+  cancelAtPeriodEnd: Boolean!
+  billingProviderCustomerId: String
+  metadata: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type BillingUpgradeIntentResponse {
+  success: Boolean!
+  targetPlanCode: String!
+  message: String!
+}
+
+type UserNotification {
+  id: ID!
+  userId: String!
+  type: String!
+  title: String!
+  message: String!
+  isRead: Boolean!
+  metadata: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type UserNotificationPreference {
+  id: ID!
+  userId: String!
+  inAppEnabled: Boolean!
+  emailEnabled: Boolean!
+  pushEnabled: Boolean!
+  syncFailureEnabled: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input UpdateNotificationPreferencesInput {
+  inAppEnabled: Boolean
+  emailEnabled: Boolean
+  pushEnabled: Boolean
+  syncFailureEnabled: Boolean
+}
