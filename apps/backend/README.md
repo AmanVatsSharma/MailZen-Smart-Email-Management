@@ -103,6 +103,7 @@ npm run migration:show
 npm run build
 npm run test
 npm run lint
+npm run check:schema:contracts
 ```
 
 ## References
