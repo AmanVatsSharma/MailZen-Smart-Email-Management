@@ -145,6 +145,8 @@ export class GmailSyncScheduler {
           {
             status: 'error',
             syncLeaseExpiresAt: null,
+            lastSyncError: message.slice(0, 500),
+            lastSyncErrorAt: new Date(),
           },
         );
         await this.notificationEventBus.publishSafely({

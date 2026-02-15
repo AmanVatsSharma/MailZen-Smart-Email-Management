@@ -15,6 +15,7 @@ The Email Integration Module is responsible for managing email providers within 
 - **Credential Key Rotation**: Keyring-based decrypt fallback with active-key writes
 - **OAuth Token Management**: Automatic refresh of OAuth tokens for Gmail and Outlook
 - **Provider Sync Lease Coordination**: Provider-level DB leases prevent duplicate scheduler workers
+- **Sync Error Telemetry**: Providers persist `lastSyncError` + `lastSyncErrorAt` for debugging and support workflows
 - **Automatic Provider Detection**: Auto-detect provider type based on email address domain
 - **Connection Pooling**: Efficient SMTP connection management for improved performance
 - **Plan Entitlements**: Enforces provider count limits from user subscription plan
@@ -235,6 +236,14 @@ The module automatically handles OAuth token refresh for Gmail and Outlook provi
   - `syncLeaseExpiresAt=now()+lease_ttl`
 - Lease TTL is configurable via `PROVIDER_SYNC_LEASE_TTL_MS`.
 - Gmail/Outlook schedulers skip providers with active leases and retry later.
+
+## Provider sync error telemetry
+
+- `EmailProvider` now tracks:
+  - `lastSyncErrorAt` (timestamp of last failure)
+  - `lastSyncError` (trimmed failure reason)
+- Sync services clear these fields when starting and when completing successfully.
+- Scheduler fallback failures also write these fields when retries are exhausted.
 
 ## Connection Pooling
 

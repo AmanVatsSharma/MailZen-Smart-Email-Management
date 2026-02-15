@@ -90,13 +90,19 @@ describe('OutlookSyncService', () => {
     expect(messageUpsertMock).toHaveBeenCalled();
     expect(providerUpdateMock).toHaveBeenCalledWith(
       { id: providerId },
-      { status: 'syncing' },
+      {
+        status: 'syncing',
+        lastSyncError: null,
+        lastSyncErrorAt: null,
+      },
     );
     expect(providerUpdateMock).toHaveBeenCalledWith(
       { id: providerId },
       expect.objectContaining({
         status: 'connected',
         syncLeaseExpiresAt: null,
+        lastSyncError: null,
+        lastSyncErrorAt: null,
       }),
     );
   });
@@ -164,10 +170,12 @@ describe('OutlookSyncService', () => {
 
     expect(providerUpdateMock).toHaveBeenCalledWith(
       { id: providerId },
-      {
+      expect.objectContaining({
         status: 'error',
         syncLeaseExpiresAt: null,
-      },
+        lastSyncError: 'graph unavailable',
+        lastSyncErrorAt: expect.any(Date),
+      }),
     );
   });
 });

@@ -440,6 +440,10 @@ export class EmailProviderService {
         ? provider.lastSyncedAt.toISOString()
         : null,
       status: provider.status || 'connected',
+      lastSyncErrorAt: provider.lastSyncErrorAt
+        ? provider.lastSyncErrorAt.toISOString()
+        : null,
+      lastSyncError: provider.lastSyncError || null,
       workspaceId: provider.workspaceId || null,
     };
   }

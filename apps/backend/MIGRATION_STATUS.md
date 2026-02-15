@@ -41,6 +41,8 @@
   - `20260216021000-agent-action-audits.ts`
 - Added provider sync lease expiry column migration:
   - `20260216023000-email-provider-sync-lease.ts`
+- Added provider sync error-state columns migration:
+  - `20260216024000-email-provider-sync-error-state.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

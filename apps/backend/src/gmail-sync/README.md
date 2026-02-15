@@ -44,6 +44,10 @@ Scheduler hardening features:
 - provider-level DB lease (`email_providers.syncLeaseExpiresAt`) to prevent duplicate workers
 - retry with backoff (`GMAIL_SYNC_SCHEDULER_RETRIES`, `GMAIL_SYNC_SCHEDULER_RETRY_BACKOFF_MS`)
 - per-provider jitter (`GMAIL_SYNC_SCHEDULER_JITTER_MS`) to reduce thundering-herd traffic
+- sync lifecycle telemetry:
+  - success updates `lastSyncedAt`
+  - failures persist `lastSyncError` and `lastSyncErrorAt`
+  - fresh sync start clears stale error state
 
 ## Incremental cursor behavior
 

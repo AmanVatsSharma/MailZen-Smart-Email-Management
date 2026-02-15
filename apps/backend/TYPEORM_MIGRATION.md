@@ -607,3 +607,50 @@ FROM email_providers
 GROUP BY status
 ORDER BY status;
 ```
+
+## Provider Sync Error State Rollout Notes (2026-02-16)
+
+New migration: `20260216024000-email-provider-sync-error-state.ts`
+
+This migration introduces:
+
+- `email_providers.lastSyncErrorAt` timestamp
+- `email_providers.lastSyncError` text payload (trimmed runtime error context)
+- index on `lastSyncErrorAt` for support/ops triage queries
+
+### Safe rollout sequence
+
+1. Deploy backend with provider sync error-state writes.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- gmail-sync/gmail-sync.service.spec.ts outlook-sync/outlook-sync.service.spec.ts gmail-sync/gmail-sync.scheduler.spec.ts outlook-sync/outlook-sync.scheduler.spec.ts`
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Validate runtime behavior:
+   - sync start clears stale error state
+   - sync failures persist `lastSyncError` + `lastSyncErrorAt`
+   - successful sync clears error state and updates `lastSyncedAt`
+
+### Staging verification SQL
+
+```sql
+SELECT
+  status,
+  COUNT(*) AS total,
+  COUNT(*) FILTER (WHERE "lastSyncErrorAt" IS NOT NULL) AS with_error_timestamp
+FROM email_providers
+GROUP BY status
+ORDER BY status;
+
+SELECT
+  id,
+  type,
+  status,
+  "lastSyncErrorAt",
+  LEFT(COALESCE("lastSyncError", ''), 120) AS error_preview
+FROM email_providers
+WHERE "lastSyncErrorAt" IS NOT NULL
+ORDER BY "lastSyncErrorAt" DESC
+LIMIT 25;
+```

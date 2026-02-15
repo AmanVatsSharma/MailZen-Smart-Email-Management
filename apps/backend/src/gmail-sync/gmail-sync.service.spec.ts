@@ -88,7 +88,11 @@ describe('GmailSyncService', () => {
     expect(messageRepo.upsert).toHaveBeenCalled();
     expect(emailProviderRepo.update).toHaveBeenCalledWith(
       { id: providerId },
-      { status: 'syncing' },
+      {
+        status: 'syncing',
+        lastSyncError: null,
+        lastSyncErrorAt: null,
+      },
     );
   });
 
@@ -154,6 +158,8 @@ describe('GmailSyncService', () => {
         status: 'connected',
         gmailHistoryId: 'hist-2',
         syncLeaseExpiresAt: null,
+        lastSyncError: null,
+        lastSyncErrorAt: null,
       }),
     );
   });
@@ -179,16 +185,18 @@ describe('GmailSyncService', () => {
       throw new Error(`Unexpected URL: ${url}`);
     });
 
-    await expect(service.syncGmailProvider(providerId, userId, 1)).rejects.toThrow(
-      'Failed to sync Gmail provider',
-    );
+    await expect(
+      service.syncGmailProvider(providerId, userId, 1),
+    ).rejects.toThrow('Failed to sync Gmail provider');
 
     expect(emailProviderRepo.update).toHaveBeenCalledWith(
       { id: providerId },
-      {
+      expect.objectContaining({
         status: 'error',
         syncLeaseExpiresAt: null,
-      },
+        lastSyncError: 'gmail unavailable',
+        lastSyncErrorAt: expect.any(Date),
+      }),
     );
   });
 });

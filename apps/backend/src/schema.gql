@@ -10,6 +10,8 @@ type EmailProvider {
   isActive: Boolean!
   lastSyncedAt: DateTime
   status: String!
+  lastSyncErrorAt: DateTime
+  lastSyncError: String
   workspaceId: String
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -112,6 +114,8 @@ type Provider {
   isActive: Boolean!
   lastSynced: String
   status: String!
+  lastSyncErrorAt: String
+  lastSyncError: String
   workspaceId: String
 }
 

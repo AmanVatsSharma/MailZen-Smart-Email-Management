@@ -31,6 +31,10 @@ label metadata into `ExternalEmailLabel`, similar to Gmail sync.
 - retry with backoff (`OUTLOOK_SYNC_SCHEDULER_RETRIES`, `OUTLOOK_SYNC_SCHEDULER_RETRY_BACKOFF_MS`)
 - jitter (`OUTLOOK_SYNC_SCHEDULER_JITTER_MS`) to smooth burst traffic
 - failure notifications include `attempts` and short error context
+- sync lifecycle telemetry:
+  - success updates `lastSyncedAt`
+  - failures persist `lastSyncError` and `lastSyncErrorAt`
+  - new sync attempts clear stale error state
 
 ## Graph API flow
 

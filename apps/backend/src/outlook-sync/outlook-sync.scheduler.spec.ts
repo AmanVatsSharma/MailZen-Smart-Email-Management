@@ -74,6 +74,15 @@ describe('OutlookSyncScheduler', () => {
     expect(notificationCallPayload.metadata?.providerId).toBe('provider-1');
     expect(notificationCallPayload.metadata?.workspaceId).toBe('workspace-1');
     expect(notificationCallPayload.metadata?.attempts).toBe(2);
+    expect(providerRepo.update).toHaveBeenCalledWith(
+      { id: 'provider-1' },
+      expect.objectContaining({
+        status: 'error',
+        syncLeaseExpiresAt: null,
+        lastSyncError: 'sync failed',
+        lastSyncErrorAt: expect.any(Date),
+      }),
+    );
   });
 
   it('skips provider sync when lease is already active', async () => {
