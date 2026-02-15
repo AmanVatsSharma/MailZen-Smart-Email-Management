@@ -24,7 +24,8 @@ modern two-level navigation system:
   - Notification bell now reads real backend notification feed (`myNotifications`)
     and unread count (`myUnreadNotificationCount`), and marks notifications
     read via `markNotificationRead`
-  - Account links now route only to valid dashboard destinations
+  - Account links route to dashboard destinations including smart-replies,
+    notifications, and billing settings
 - `InboxSwitcherModal.tsx`
   - Lists all user inbox sources via `myInboxes`
   - Switches active source via `setActiveInbox`

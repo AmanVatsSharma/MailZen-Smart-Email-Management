@@ -4,7 +4,15 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Menu, Bell, Search, Users, LogOut, Settings } from 'lucide-react';
+import {
+  Menu,
+  Bell,
+  Search,
+  Users,
+  LogOut,
+  Settings,
+  CreditCard,
+} from 'lucide-react';
 import { useMutation, useQuery } from '@apollo/client';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -261,6 +269,14 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               <DropdownMenuItem onClick={() => router.push('/settings/smart-replies')}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Smart Replies Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/settings/notifications')}>
+                <Bell className="mr-2 h-4 w-4" />
+                <span>Notification Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/settings/billing')}>
+                <CreditCard className="mr-2 h-4 w-4" />
+                <span>Billing Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
