@@ -1,5 +1,6 @@
 'use client'
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Plus, Trash2, RefreshCw, Settings, Mail } from 'lucide-react';
 import { useQuery, useMutation } from '@apollo/client';
@@ -214,6 +215,9 @@ export function ProviderManagement() {
                 <Badge variant="outline">
                   AI credits/month: {activePlan.aiCreditsPerMonth}
                 </Badge>
+                <Button asChild variant="outline" size="sm" className="h-7 px-2 text-xs">
+                  <Link href="/settings/billing">Manage plan</Link>
+                </Button>
               </div>
             </div>
           </CardContent>
