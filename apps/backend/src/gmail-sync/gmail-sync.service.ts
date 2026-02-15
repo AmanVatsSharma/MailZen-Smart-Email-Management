@@ -12,7 +12,8 @@ import { Repository } from 'typeorm';
 import {
   decryptProviderSecret,
   encryptProviderSecret,
-  resolveProviderSecretsKey,
+  resolveProviderSecretsKeyring,
+  ProviderSecretsKeyring,
 } from '../common/provider-secrets.util';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
@@ -62,7 +63,7 @@ type GmailHistoryResponse = {
 export class GmailSyncService {
   private readonly logger = new Logger(GmailSyncService.name);
   private readonly googleOAuth2Client: OAuth2Client;
-  private readonly providerSecretsKey: Buffer;
+  private readonly providerSecretsKeyring: ProviderSecretsKeyring;
 
   constructor(
     @InjectRepository(EmailProvider)
@@ -72,7 +73,7 @@ export class GmailSyncService {
     @InjectRepository(ExternalEmailMessage)
     private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
   ) {
-    this.providerSecretsKey = resolveProviderSecretsKey();
+    this.providerSecretsKeyring = resolveProviderSecretsKeyring();
     // Dedicated client for Gmail API access token refresh.
     this.googleOAuth2Client = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID,
@@ -84,10 +85,10 @@ export class GmailSyncService {
 
   private async ensureFreshGmailAccessToken(provider: any): Promise<string> {
     const decryptedAccessToken = provider.accessToken
-      ? decryptProviderSecret(provider.accessToken, this.providerSecretsKey)
+      ? decryptProviderSecret(provider.accessToken, this.providerSecretsKeyring)
       : '';
     const decryptedRefreshToken = provider.refreshToken
-      ? decryptProviderSecret(provider.refreshToken, this.providerSecretsKey)
+      ? decryptProviderSecret(provider.refreshToken, this.providerSecretsKeyring)
       : '';
 
     if (!decryptedRefreshToken && !decryptedAccessToken) {
@@ -120,7 +121,7 @@ export class GmailSyncService {
         {
           accessToken: encryptProviderSecret(
             credentials.access_token,
-            this.providerSecretsKey,
+            this.providerSecretsKeyring,
           ),
           tokenExpiry: credentials.expiry_date
             ? new Date(credentials.expiry_date)

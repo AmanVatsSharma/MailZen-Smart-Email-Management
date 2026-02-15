@@ -10,7 +10,7 @@ Provide shared cross-cutting backend utilities used by multiple modules
 - `guards/jwt-auth.guard.ts` — GraphQL/HTTP authentication enforcement.
 - `guards/admin.guard.ts` — role-based admin access guardrails.
 - `provider-secrets.util.ts` — AES-256-GCM encryption/decryption utilities for
-  provider/mailbox secrets at rest.
+  provider/mailbox secrets at rest, including keyring-based rotation support.
 - `rate-limit/request-rate-limiter.ts` — in-memory windowed request counter with
   bounded key-compaction.
 - `rate-limit/http-rate-limit.middleware.ts` — global HTTP rate-limit middleware
@@ -42,3 +42,14 @@ flowchart TD
   Route --> Guards[Auth/Admin guards]
   Guards --> Services[Module services]
 ```
+
+## Provider secret key rotation
+
+Provider/mailbox secret encryption supports keyring-based rotation:
+
+- `PROVIDER_SECRETS_KEYRING` format: `keyId:secret,keyId2:secret`
+- `PROVIDER_SECRETS_ACTIVE_KEY_ID` selects which key encrypts new writes
+- decrypt path can read both:
+  - legacy `enc:v1` payloads
+  - key-id tagged `enc:v2` payloads
+  across all configured keys in the keyring.

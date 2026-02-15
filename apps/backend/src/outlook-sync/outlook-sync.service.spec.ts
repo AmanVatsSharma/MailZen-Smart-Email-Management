@@ -137,7 +137,7 @@ describe('OutlookSyncService', () => {
       accessToken: string;
       refreshToken: string;
     };
-    expect(tokenUpdatePayload.accessToken).toMatch(/^enc:v1:/);
-    expect(tokenUpdatePayload.refreshToken).toMatch(/^enc:v1:/);
+    expect(tokenUpdatePayload.accessToken).toMatch(/^enc:v2:/);
+    expect(tokenUpdatePayload.refreshToken).toMatch(/^enc:v2:/);
   });
 });

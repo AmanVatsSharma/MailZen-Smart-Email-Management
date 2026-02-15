@@ -12,6 +12,7 @@ The Email Integration Module is responsible for managing email providers within 
 - **Multi-Provider Support**: Support for Gmail, Outlook, and custom SMTP servers
 - **Security**: Secure handling of authentication credentials
 - **Credential Encryption at Rest**: OAuth/SMTP secrets are encrypted before persistence
+- **Credential Key Rotation**: Keyring-based decrypt fallback with active-key writes
 - **OAuth Token Management**: Automatic refresh of OAuth tokens for Gmail and Outlook
 - **Automatic Provider Detection**: Auto-detect provider type based on email address domain
 - **Connection Pooling**: Efficient SMTP connection management for improved performance
@@ -250,6 +251,10 @@ The module provides detailed error responses with appropriate HTTP status codes:
 
 - OAuth credentials are never exposed in GraphQL responses
 - Passwords are securely stored in the database
+- Provider secret encryption supports rotation via:
+  - `PROVIDER_SECRETS_KEYRING`
+  - `PROVIDER_SECRETS_ACTIVE_KEY_ID`
+  while maintaining backward compatibility for legacy `enc:v1` encrypted rows.
 - All endpoints are protected with JWT authentication
 - User-based access control ensures users can only access their own providers
 

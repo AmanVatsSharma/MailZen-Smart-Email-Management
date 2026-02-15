@@ -11,7 +11,8 @@ import { Repository } from 'typeorm';
 import {
   decryptProviderSecret,
   encryptProviderSecret,
-  resolveProviderSecretsKey,
+  resolveProviderSecretsKeyring,
+  ProviderSecretsKeyring,
 } from '../common/provider-secrets.util';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
@@ -43,7 +44,7 @@ type OutlookMessagesResponse = {
 @Injectable()
 export class OutlookSyncService {
   private readonly logger = new Logger(OutlookSyncService.name);
-  private readonly providerSecretsKey: Buffer;
+  private readonly providerSecretsKeyring: ProviderSecretsKeyring;
 
   constructor(
     @InjectRepository(EmailProvider)
@@ -53,15 +54,15 @@ export class OutlookSyncService {
     @InjectRepository(ExternalEmailMessage)
     private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
   ) {
-    this.providerSecretsKey = resolveProviderSecretsKey();
+    this.providerSecretsKeyring = resolveProviderSecretsKeyring();
   }
 
   private async ensureFreshOutlookAccessToken(provider: EmailProvider) {
     const decryptedAccessToken = provider.accessToken
-      ? decryptProviderSecret(provider.accessToken, this.providerSecretsKey)
+      ? decryptProviderSecret(provider.accessToken, this.providerSecretsKeyring)
       : '';
     const decryptedRefreshToken = provider.refreshToken
-      ? decryptProviderSecret(provider.refreshToken, this.providerSecretsKey)
+      ? decryptProviderSecret(provider.refreshToken, this.providerSecretsKeyring)
       : '';
 
     if (!decryptedAccessToken && !decryptedRefreshToken) {
@@ -118,11 +119,11 @@ export class OutlookSyncService {
         {
           accessToken: encryptProviderSecret(
             nextAccessToken,
-            this.providerSecretsKey,
+            this.providerSecretsKeyring,
           ),
           refreshToken: encryptProviderSecret(
             nextRefreshToken,
-            this.providerSecretsKey,
+            this.providerSecretsKeyring,
           ),
           tokenExpiry: nextExpiry,
         },

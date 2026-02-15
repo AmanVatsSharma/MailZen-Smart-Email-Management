@@ -114,7 +114,7 @@ describe('EmailProviderService', () => {
       expect.objectContaining({
         type: 'GMAIL',
         email: 'founder@gmail.com',
-        accessToken: expect.stringMatching(/^enc:v1:/),
+        accessToken: expect.stringMatching(/^enc:v2:/),
         workspaceId: 'workspace-1',
         userId: 'user-1',
       }),
@@ -230,7 +230,7 @@ describe('EmailProviderService', () => {
       expect.objectContaining({
         host: 'smtp.new-host.com',
         port: 587,
-        password: expect.stringMatching(/^enc:v1:/),
+        password: expect.stringMatching(/^enc:v2:/),
       }),
     );
   });

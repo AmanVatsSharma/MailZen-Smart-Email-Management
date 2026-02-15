@@ -20,7 +20,8 @@ import { WorkspaceService } from '../workspace/workspace.service';
 import {
   decryptProviderSecret,
   encryptProviderSecret,
-  resolveProviderSecretsKey,
+  resolveProviderSecretsKeyring,
+  ProviderSecretsKeyring,
 } from '../common/provider-secrets.util';
 
 interface SmtpConnectionPool {
@@ -38,7 +39,7 @@ interface SmtpConnectionPool {
 export class EmailProviderService {
   private readonly logger = new Logger(EmailProviderService.name);
   private readonly googleOAuth2Client: OAuth2Client;
-  private readonly providerSecretsKey: Buffer;
+  private readonly providerSecretsKeyring: ProviderSecretsKeyring;
   private readonly smtpConnectionPool: SmtpConnectionPool = {};
   private readonly connectionCache = new NodeCache({
     stdTTL: 3600,
@@ -51,7 +52,7 @@ export class EmailProviderService {
     private readonly billingService: BillingService,
     private readonly workspaceService: WorkspaceService,
   ) {
-    this.providerSecretsKey = resolveProviderSecretsKey();
+    this.providerSecretsKeyring = resolveProviderSecretsKeyring();
 
     // Setup Google OAuth client
     this.googleOAuth2Client = new OAuth2Client(
@@ -76,12 +77,12 @@ export class EmailProviderService {
 
   private encryptSecretIfPresent(secret?: string | null): string | undefined {
     if (!secret) return undefined;
-    return encryptProviderSecret(secret, this.providerSecretsKey);
+    return encryptProviderSecret(secret, this.providerSecretsKeyring);
   }
 
   private decryptSecretIfPresent(secret?: string | null): string | undefined {
     if (!secret) return undefined;
-    return decryptProviderSecret(secret, this.providerSecretsKey);
+    return decryptProviderSecret(secret, this.providerSecretsKeyring);
   }
 
   /**

@@ -41,6 +41,7 @@ jobs:
           smart-replies/smart-reply.service.spec.ts
           ai-agent-gateway/ai-agent-gateway.service.spec.ts
           ai-agent-gateway/ai-agent-gateway.resolver.spec.ts
+          common/provider-secrets.util.spec.ts
           common/rate-limit/request-rate-limiter.spec.ts
           common/rate-limit/http-rate-limit.middleware.spec.ts
           gmail-sync/gmail-sync.scheduler.spec.ts
