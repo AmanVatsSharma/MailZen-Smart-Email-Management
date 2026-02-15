@@ -148,22 +148,48 @@ export class MailboxService {
     userId: string,
     options?: {
       mailboxId?: string | null;
+      workspaceId?: string | null;
       status?: string | null;
       limit?: number | null;
     },
   ): Promise<MailboxInboundEventObservabilityResponse[]> {
     const normalizedMailboxId = String(options?.mailboxId || '').trim() || null;
+    const normalizedWorkspaceId = this.normalizeWorkspaceId(
+      options?.workspaceId,
+    );
     const normalizedStatus = this.normalizeInboundEventStatus(options?.status);
     const limit = this.normalizeInboundEventLimit(options?.limit);
+    const scopedMailboxIds = await this.resolveScopedMailboxIds({
+      userId,
+      workspaceId: normalizedWorkspaceId,
+    });
 
-    if (normalizedMailboxId) {
-      await this.assertMailboxOwnership(userId, normalizedMailboxId);
+    if (normalizedWorkspaceId && !scopedMailboxIds.length) {
+      return [];
     }
 
-    const whereClause: { userId: string; mailboxId?: string; status?: string } =
-      { userId };
+    if (normalizedMailboxId) {
+      const mailbox = await this.assertMailboxOwnership(
+        userId,
+        normalizedMailboxId,
+      );
+      if (
+        normalizedWorkspaceId &&
+        mailbox.workspaceId !== normalizedWorkspaceId
+      ) {
+        throw new NotFoundException('Mailbox not found');
+      }
+    }
+
+    const whereClause: {
+      userId: string;
+      mailboxId?: string | ReturnType<typeof In>;
+      status?: string;
+    } = { userId };
     if (normalizedMailboxId) {
       whereClause.mailboxId = normalizedMailboxId;
+    } else if (normalizedWorkspaceId) {
+      whereClause.mailboxId = In(scopedMailboxIds);
     }
     if (normalizedStatus) {
       whereClause.status = normalizedStatus;
@@ -201,19 +227,46 @@ export class MailboxService {
     userId: string,
     options?: {
       mailboxId?: string | null;
+      workspaceId?: string | null;
       windowHours?: number | null;
     },
   ): Promise<MailboxInboundEventStatsResponse> {
     const normalizedMailboxId = String(options?.mailboxId || '').trim() || null;
+    const normalizedWorkspaceId = this.normalizeWorkspaceId(
+      options?.workspaceId,
+    );
     const windowHours = this.normalizeStatsWindowHours(options?.windowHours);
     const windowStartDate = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const scopedMailboxIds = await this.resolveScopedMailboxIds({
+      userId,
+      workspaceId: normalizedWorkspaceId,
+    });
     let mailboxEmail: string | null = null;
+
+    if (normalizedWorkspaceId && !scopedMailboxIds.length) {
+      return {
+        mailboxId: normalizedMailboxId,
+        mailboxEmail: null,
+        windowHours,
+        totalCount: 0,
+        acceptedCount: 0,
+        deduplicatedCount: 0,
+        rejectedCount: 0,
+        lastProcessedAt: null,
+      };
+    }
 
     if (normalizedMailboxId) {
       const mailbox = await this.assertMailboxOwnership(
         userId,
         normalizedMailboxId,
       );
+      if (
+        normalizedWorkspaceId &&
+        mailbox.workspaceId !== normalizedWorkspaceId
+      ) {
+        throw new NotFoundException('Mailbox not found');
+      }
       mailboxEmail = mailbox.email;
     }
 
@@ -230,6 +283,10 @@ export class MailboxService {
       query.andWhere('event.mailboxId = :mailboxId', {
         mailboxId: normalizedMailboxId,
       });
+    } else if (normalizedWorkspaceId) {
+      query.andWhere('event.mailboxId IN (:...workspaceMailboxIds)', {
+        workspaceMailboxIds: scopedMailboxIds,
+      });
     }
 
     const groupedCounts = await query.groupBy('event.status').getRawMany<{
@@ -237,9 +294,14 @@ export class MailboxService {
       count: string;
     }>();
 
-    const whereClause: { userId: string; mailboxId?: string } = { userId };
+    const whereClause: {
+      userId: string;
+      mailboxId?: string | ReturnType<typeof In>;
+    } = { userId };
     if (normalizedMailboxId) {
       whereClause.mailboxId = normalizedMailboxId;
+    } else if (normalizedWorkspaceId) {
+      whereClause.mailboxId = In(scopedMailboxIds);
     }
     const latestEvent = await this.mailboxInboundEventRepo.findOne({
       where: whereClause,
@@ -283,31 +345,56 @@ export class MailboxService {
     userId: string,
     options?: {
       mailboxId?: string | null;
+      workspaceId?: string | null;
       windowHours?: number | null;
       bucketMinutes?: number | null;
     },
   ): Promise<MailboxInboundEventTrendPointResponse[]> {
     const normalizedMailboxId = String(options?.mailboxId || '').trim() || null;
+    const normalizedWorkspaceId = this.normalizeWorkspaceId(
+      options?.workspaceId,
+    );
     const windowHours = this.normalizeStatsWindowHours(options?.windowHours);
     const bucketMinutes = this.normalizeTrendBucketMinutes(
       options?.bucketMinutes,
     );
     const nowMs = Date.now();
     const windowStartDate = new Date(nowMs - windowHours * 60 * 60 * 1000);
+    const scopedMailboxIds = await this.resolveScopedMailboxIds({
+      userId,
+      workspaceId: normalizedWorkspaceId,
+    });
 
     if (normalizedMailboxId) {
-      await this.assertMailboxOwnership(userId, normalizedMailboxId);
+      const mailbox = await this.assertMailboxOwnership(
+        userId,
+        normalizedMailboxId,
+      );
+      if (
+        normalizedWorkspaceId &&
+        mailbox.workspaceId !== normalizedWorkspaceId
+      ) {
+        throw new NotFoundException('Mailbox not found');
+      }
     }
 
-    const whereClause: { userId: string; mailboxId?: string } = { userId };
+    const whereClause: {
+      userId: string;
+      mailboxId?: string | ReturnType<typeof In>;
+    } = { userId };
     if (normalizedMailboxId) {
       whereClause.mailboxId = normalizedMailboxId;
+    } else if (normalizedWorkspaceId && scopedMailboxIds.length) {
+      whereClause.mailboxId = In(scopedMailboxIds);
     }
 
-    const events = await this.mailboxInboundEventRepo.find({
-      where: whereClause,
-      order: { createdAt: 'ASC' },
-    });
+    const events =
+      normalizedWorkspaceId && scopedMailboxIds.length === 0
+        ? []
+        : await this.mailboxInboundEventRepo.find({
+            where: whereClause,
+            order: { createdAt: 'ASC' },
+          });
     const filteredEvents = events.filter(
       (event) => event.createdAt.getTime() >= windowStartDate.getTime(),
     );
@@ -442,6 +529,23 @@ export class MailboxService {
       return MailboxService.MAX_TREND_BUCKET_MINUTES;
     }
     return rawBucketMinutes;
+  }
+
+  private normalizeWorkspaceId(workspaceId?: string | null): string | null {
+    return String(workspaceId || '').trim() || null;
+  }
+
+  private async resolveScopedMailboxIds(input: {
+    userId: string;
+    workspaceId?: string | null;
+  }): Promise<string[]> {
+    const normalizedWorkspaceId = this.normalizeWorkspaceId(input.workspaceId);
+    if (!normalizedWorkspaceId) return [];
+    const scopedMailboxes = await this.mailboxRepo.find({
+      where: { userId: input.userId, workspaceId: normalizedWorkspaceId },
+      select: ['id'],
+    });
+    return scopedMailboxes.map((mailbox) => mailbox.id);
   }
 
   private async assertMailboxOwnership(

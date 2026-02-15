@@ -11,7 +11,7 @@ monitoring subscription-aware limits.
   - Lists connected external providers and MailZen mailboxes
   - Supports optional workspace-scoped listing using active workspace selection
   - Supports provider connect/sync/pause/remove actions
-  - Surfaces mailbox inbound telemetry with status/mailbox/window filters
+  - Surfaces mailbox inbound telemetry with workspace/status/mailbox/window filters
   - Shows inbound event-store outcomes (accepted/deduplicated/rejected)
   - Shows live subscription plan usage:
     - provider usage (`used/limit`)

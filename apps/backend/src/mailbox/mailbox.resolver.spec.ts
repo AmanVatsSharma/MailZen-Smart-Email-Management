@@ -65,12 +65,14 @@ describe('MailboxResolver', () => {
     const result = await resolver.myMailboxInboundEvents(
       ctx as any,
       'mailbox-1',
+      'workspace-1',
       'ACCEPTED',
       25,
     );
 
     expect(mailboxServiceMock.getInboundEvents).toHaveBeenCalledWith('user-1', {
       mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
       status: 'ACCEPTED',
       limit: 25,
     });
@@ -94,6 +96,7 @@ describe('MailboxResolver', () => {
     const result = await resolver.myMailboxInboundEventStats(
       ctx as any,
       'mailbox-1',
+      'workspace-1',
       24,
     );
 
@@ -101,6 +104,7 @@ describe('MailboxResolver', () => {
       'user-1',
       {
         mailboxId: 'mailbox-1',
+        workspaceId: 'workspace-1',
         windowHours: 24,
       },
     );
@@ -122,6 +126,7 @@ describe('MailboxResolver', () => {
     const result = await resolver.myMailboxInboundEventSeries(
       ctx as any,
       'mailbox-1',
+      'workspace-1',
       24,
       60,
     );
@@ -130,6 +135,7 @@ describe('MailboxResolver', () => {
       'user-1',
       {
         mailboxId: 'mailbox-1',
+        workspaceId: 'workspace-1',
         windowHours: 24,
         bucketMinutes: 60,
       },

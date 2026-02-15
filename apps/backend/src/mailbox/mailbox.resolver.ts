@@ -46,11 +46,13 @@ export class MailboxResolver {
   async myMailboxInboundEvents(
     @Context() ctx: RequestContext,
     @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
     @Args('status', { nullable: true }) status?: string,
     @Args('limit', { type: () => Int, nullable: true }) limit?: number,
   ): Promise<MailboxInboundEventObservabilityResponse[]> {
     return this.mailboxService.getInboundEvents(ctx.req.user.id, {
       mailboxId,
+      workspaceId,
       status,
       limit,
     });
@@ -60,11 +62,13 @@ export class MailboxResolver {
   async myMailboxInboundEventStats(
     @Context() ctx: RequestContext,
     @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
     @Args('windowHours', { type: () => Int, nullable: true })
     windowHours?: number,
   ): Promise<MailboxInboundEventStatsResponse> {
     return this.mailboxService.getInboundEventStats(ctx.req.user.id, {
       mailboxId,
+      workspaceId,
       windowHours,
     });
   }
@@ -73,6 +77,7 @@ export class MailboxResolver {
   async myMailboxInboundEventSeries(
     @Context() ctx: RequestContext,
     @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
     @Args('windowHours', { type: () => Int, nullable: true })
     windowHours?: number,
     @Args('bucketMinutes', { type: () => Int, nullable: true })
@@ -80,6 +85,7 @@ export class MailboxResolver {
   ): Promise<MailboxInboundEventTrendPointResponse[]> {
     return this.mailboxService.getInboundEventSeries(ctx.req.user.id, {
       mailboxId,
+      workspaceId,
       windowHours,
       bucketMinutes,
     });

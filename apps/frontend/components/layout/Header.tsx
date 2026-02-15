@@ -126,7 +126,10 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const { data: mailboxInboundStatsData } = useQuery<{
     myMailboxInboundEventStats: MailboxInboundStatsSnapshot;
   }>(GET_MY_MAILBOX_INBOUND_EVENT_STATS, {
-    variables: { windowHours: 24 },
+    variables: {
+      windowHours: 24,
+      workspaceId: selectedWorkspaceId || undefined,
+    },
     fetchPolicy: 'cache-and-network',
     pollInterval: 30_000,
   });

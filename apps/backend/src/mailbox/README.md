@@ -28,9 +28,9 @@ This module covers:
   - GraphQL:
     - `createMyMailbox(desiredLocalPart?: String): String!`
     - `myMailboxes(workspaceId?: String): [String!]!`
-    - `myMailboxInboundEvents(mailboxId?: String, status?: String, limit?: Int): [MailboxInboundEventObservabilityResponse!]!`
-    - `myMailboxInboundEventStats(mailboxId?: String, windowHours?: Int): MailboxInboundEventStatsResponse!`
-    - `myMailboxInboundEventSeries(mailboxId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxInboundEventTrendPointResponse!]!`
+    - `myMailboxInboundEvents(mailboxId?: String, workspaceId?: String, status?: String, limit?: Int): [MailboxInboundEventObservabilityResponse!]!`
+    - `myMailboxInboundEventStats(mailboxId?: String, workspaceId?: String, windowHours?: Int): MailboxInboundEventStatsResponse!`
+    - `myMailboxInboundEventSeries(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxInboundEventTrendPointResponse!]!`
 - `mailbox-inbound.controller.ts`
   - REST:
     - `POST /mailbox/inbound/events`
@@ -126,14 +126,14 @@ flowchart TD
 
 - `myMailboxInboundEvents`
   - scoped to authenticated user ownership
-  - supports optional `mailboxId`, `status`, and `limit`
+  - supports optional `workspaceId`, `mailboxId`, `status`, and `limit`
   - includes mailbox email, signature validation flag, dedupe/reject status, and error reason
 - `myMailboxInboundEventStats`
   - returns accepted/deduplicated/rejected totals for a rolling window
-  - supports optional mailbox scoping and configurable `windowHours` (clamped server-side)
+  - supports optional workspace/mailbox scoping and configurable `windowHours` (clamped server-side)
 - `myMailboxInboundEventSeries`
   - returns trend buckets for accepted/deduplicated/rejected counts
-  - supports optional mailbox scoping + rolling window and bucket granularity controls
+  - supports optional workspace/mailbox scoping + rolling window and bucket granularity controls
 
 ## Notes
 

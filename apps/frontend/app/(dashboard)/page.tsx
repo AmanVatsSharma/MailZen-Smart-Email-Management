@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -70,6 +70,18 @@ const item: Variants = {
 };
 
 export default function DashboardPage() {
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    const storedWorkspaceId =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('mailzen.selectedWorkspaceId')
+        : null;
+    setActiveWorkspaceId(storedWorkspaceId);
+  }, []);
+
   const { data, loading, error } = useQuery(GET_DASHBOARD_ANALYTICS, {
     fetchPolicy: 'network-only',
   });
@@ -78,13 +90,20 @@ export default function DashboardPage() {
     loading: mailboxInboundLoading,
     error: mailboxInboundError,
   } = useQuery(GET_MY_MAILBOX_INBOUND_EVENT_STATS, {
-    variables: { windowHours: 24 },
+    variables: {
+      windowHours: 24,
+      workspaceId: activeWorkspaceId || undefined,
+    },
     fetchPolicy: 'cache-and-network',
   });
   const { data: mailboxInboundSeriesData } = useQuery<{
     myMailboxInboundEventSeries: MailboxInboundTrendPoint[];
   }>(GET_MY_MAILBOX_INBOUND_EVENT_SERIES, {
-    variables: { windowHours: 24, bucketMinutes: 60 },
+    variables: {
+      windowHours: 24,
+      bucketMinutes: 60,
+      workspaceId: activeWorkspaceId || undefined,
+    },
     fetchPolicy: 'cache-and-network',
   });
 
@@ -296,6 +315,9 @@ export default function DashboardPage() {
             <CardTitle>Mailbox inbound health (24h)</CardTitle>
             <CardDescription>
               Operational snapshot from mailbox inbound observability telemetry.
+              {activeWorkspaceId
+                ? ' Scoped to your active workspace.'
+                : ' Aggregated across all workspaces.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

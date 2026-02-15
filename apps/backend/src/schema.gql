@@ -304,9 +304,9 @@ type Query {
   getEmailProviders(workspaceId: String): [Provider!]!
   getInboxMessages(inboxType: String!, inboxId: String!, limit: Int, offset: Int): [InboxMessage!]!
   myMailboxes(workspaceId: String): [String!]!
-  myMailboxInboundEvents(mailboxId: String, status: String, limit: Int): [MailboxInboundEventObservabilityResponse!]!
-  myMailboxInboundEventStats(mailboxId: String, windowHours: Int): MailboxInboundEventStatsResponse!
-  myMailboxInboundEventSeries(mailboxId: String, windowHours: Int, bucketMinutes: Int): [MailboxInboundEventTrendPointResponse!]!
+  myMailboxInboundEvents(mailboxId: String, workspaceId: String, status: String, limit: Int): [MailboxInboundEventObservabilityResponse!]!
+  myMailboxInboundEventStats(mailboxId: String, workspaceId: String, windowHours: Int): MailboxInboundEventStatsResponse!
+  myMailboxInboundEventSeries(mailboxId: String, workspaceId: String, windowHours: Int, bucketMinutes: Int): [MailboxInboundEventTrendPointResponse!]!
 
   """Get all features"""
   getAllFeatures: [Feature!]!

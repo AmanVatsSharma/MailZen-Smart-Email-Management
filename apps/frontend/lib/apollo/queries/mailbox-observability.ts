@@ -1,8 +1,18 @@
 import { gql } from '@apollo/client';
 
 export const GET_MY_MAILBOX_INBOUND_EVENTS = gql`
-  query MyMailboxInboundEvents($mailboxId: String, $status: String, $limit: Int) {
-    myMailboxInboundEvents(mailboxId: $mailboxId, status: $status, limit: $limit) {
+  query MyMailboxInboundEvents(
+    $mailboxId: String
+    $workspaceId: String
+    $status: String
+    $limit: Int
+  ) {
+    myMailboxInboundEvents(
+      mailboxId: $mailboxId
+      workspaceId: $workspaceId
+      status: $status
+      limit: $limit
+    ) {
       id
       mailboxId
       mailboxEmail
@@ -19,8 +29,16 @@ export const GET_MY_MAILBOX_INBOUND_EVENTS = gql`
 `;
 
 export const GET_MY_MAILBOX_INBOUND_EVENT_STATS = gql`
-  query MyMailboxInboundEventStats($mailboxId: String, $windowHours: Int) {
-    myMailboxInboundEventStats(mailboxId: $mailboxId, windowHours: $windowHours) {
+  query MyMailboxInboundEventStats(
+    $mailboxId: String
+    $workspaceId: String
+    $windowHours: Int
+  ) {
+    myMailboxInboundEventStats(
+      mailboxId: $mailboxId
+      workspaceId: $workspaceId
+      windowHours: $windowHours
+    ) {
       mailboxId
       mailboxEmail
       windowHours
@@ -36,11 +54,13 @@ export const GET_MY_MAILBOX_INBOUND_EVENT_STATS = gql`
 export const GET_MY_MAILBOX_INBOUND_EVENT_SERIES = gql`
   query MyMailboxInboundEventSeries(
     $mailboxId: String
+    $workspaceId: String
     $windowHours: Int
     $bucketMinutes: Int
   ) {
     myMailboxInboundEventSeries(
       mailboxId: $mailboxId
+      workspaceId: $workspaceId
       windowHours: $windowHours
       bucketMinutes: $bucketMinutes
     ) {

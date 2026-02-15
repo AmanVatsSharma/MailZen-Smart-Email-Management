@@ -162,6 +162,7 @@ export function ProviderManagement() {
     {
       variables: {
         mailboxId: selectedMailboxFilter,
+        workspaceId: activeWorkspaceId || undefined,
         status: selectedStatusFilter,
         limit: 25,
       },
@@ -180,6 +181,7 @@ export function ProviderManagement() {
     {
       variables: {
         mailboxId: selectedMailboxFilter,
+        workspaceId: activeWorkspaceId || undefined,
         windowHours: selectedStatsWindowHours,
       },
       skip: mailboxInboxes.length === 0,

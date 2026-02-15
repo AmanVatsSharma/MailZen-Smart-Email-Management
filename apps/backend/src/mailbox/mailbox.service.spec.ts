@@ -161,6 +161,17 @@ describe('MailboxService', () => {
     ]);
   });
 
+  it('returns empty inbound events when scoped workspace has no mailboxes', async () => {
+    mailboxRepo.find.mockResolvedValue([]);
+
+    const events = await service.getInboundEvents('user-1', {
+      workspaceId: 'workspace-empty',
+    });
+
+    expect(events).toEqual([]);
+    expect(mailboxInboundEventRepo.find).not.toHaveBeenCalled();
+  });
+
   it('rejects inbound event query with invalid status filter', async () => {
     await expect(
       service.getInboundEvents('user-1', { status: 'invalid-status' }),
@@ -206,6 +217,26 @@ describe('MailboxService', () => {
       deduplicatedCount: 1,
       rejectedCount: 2,
       lastProcessedAt: new Date('2026-02-15T13:00:00.000Z'),
+    });
+  });
+
+  it('returns zeroed inbound stats when workspace has no mailboxes', async () => {
+    mailboxRepo.find.mockResolvedValue([]);
+
+    const stats = await service.getInboundEventStats('user-1', {
+      workspaceId: 'workspace-empty',
+      windowHours: 24,
+    });
+
+    expect(stats).toEqual({
+      mailboxId: null,
+      mailboxEmail: null,
+      windowHours: 24,
+      totalCount: 0,
+      acceptedCount: 0,
+      deduplicatedCount: 0,
+      rejectedCount: 0,
+      lastProcessedAt: null,
     });
   });
 
