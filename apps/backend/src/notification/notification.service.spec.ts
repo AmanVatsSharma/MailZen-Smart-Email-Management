@@ -437,4 +437,25 @@ describe('NotificationService', () => {
     expect(series.some((point) => point.warningCount > 0)).toBe(true);
     expect(series.some((point) => point.criticalCount > 0)).toBe(true);
   });
+
+  it('counts unread notifications scoped to workspace plus global rows', async () => {
+    notificationRepo.count.mockResolvedValue(3);
+
+    const count = await service.getUnreadCount('user-1', 'workspace-1');
+
+    const countInput = notificationRepo.count.mock.calls[0]?.[0] as
+      | {
+          where?: Array<Record<string, unknown>> | Record<string, unknown>;
+        }
+      | undefined;
+    const whereEntries = Array.isArray(countInput?.where)
+      ? countInput.where
+      : [];
+    expect(whereEntries).toHaveLength(2);
+    expect(whereEntries[0]?.userId).toBe('user-1');
+    expect(whereEntries[0]?.workspaceId).toBe('workspace-1');
+    expect(whereEntries[0]?.isRead).toBe(false);
+    expect(whereEntries[1]?.workspaceId).toBeDefined();
+    expect(count).toBe(3);
+  });
 });

@@ -113,6 +113,9 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const { data: unreadCountData, refetch: refetchUnreadCount } = useQuery(
     GET_UNREAD_NOTIFICATION_COUNT,
     {
+      variables: {
+        workspaceId: selectedWorkspaceId || undefined,
+      },
       fetchPolicy: 'cache-and-network',
       pollInterval: 30_000,
     },

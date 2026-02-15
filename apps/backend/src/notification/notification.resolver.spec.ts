@@ -114,4 +114,15 @@ describe('NotificationResolver', () => {
       bucketMinutes: 60,
     });
   });
+
+  it('forwards workspace context to unread count query', async () => {
+    notificationService.getUnreadCount.mockResolvedValue(4);
+
+    await resolver.myUnreadNotificationCount(context as never, 'workspace-1');
+
+    expect(notificationService.getUnreadCount).toHaveBeenCalledWith(
+      'user-1',
+      'workspace-1',
+    );
+  });
 });

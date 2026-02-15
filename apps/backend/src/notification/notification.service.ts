@@ -351,9 +351,19 @@ export class NotificationService {
     });
   }
 
-  async getUnreadCount(userId: string): Promise<number> {
+  async getUnreadCount(
+    userId: string,
+    workspaceId?: string | null,
+  ): Promise<number> {
+    const normalizedWorkspaceId = String(workspaceId || '').trim();
+    const whereClause = normalizedWorkspaceId
+      ? [
+          { userId, isRead: false, workspaceId: normalizedWorkspaceId },
+          { userId, isRead: false, workspaceId: IsNull() },
+        ]
+      : { userId, isRead: false };
     return this.notificationRepo.count({
-      where: { userId, isRead: false },
+      where: whereClause,
     });
   }
 

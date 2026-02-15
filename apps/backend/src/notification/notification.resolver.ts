@@ -49,8 +49,14 @@ export class NotificationResolver {
   @Query(() => Int, {
     description: 'Unread notification count for current user',
   })
-  async myUnreadNotificationCount(@Context() ctx: RequestContext) {
-    return this.notificationService.getUnreadCount(ctx.req.user.id);
+  async myUnreadNotificationCount(
+    @Context() ctx: RequestContext,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+  ) {
+    return this.notificationService.getUnreadCount(
+      ctx.req.user.id,
+      workspaceId || null,
+    );
   }
 
   @Query(() => MailboxInboundSlaIncidentStatsResponse, {

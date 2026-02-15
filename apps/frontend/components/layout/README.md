@@ -25,6 +25,8 @@ modern two-level navigation system:
     and unread count (`myUnreadNotificationCount`), and marks notifications
     read via `markNotificationRead`
   - Notification feed is scoped to active workspace context when selected
+  - Unread badge count query is also scoped to active workspace context while
+    retaining global notifications
   - Notification dropdown renders workspace/provider context from notification
     metadata when available (e.g. sync-failure events), including safe parsing
     when metadata arrives as a JSON string

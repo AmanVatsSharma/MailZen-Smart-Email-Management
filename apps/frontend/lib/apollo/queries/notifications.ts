@@ -28,8 +28,8 @@ export const GET_MY_NOTIFICATIONS = gql`
 `;
 
 export const GET_UNREAD_NOTIFICATION_COUNT = gql`
-  query MyUnreadNotificationCount {
-    myUnreadNotificationCount
+  query MyUnreadNotificationCount($workspaceId: String) {
+    myUnreadNotificationCount(workspaceId: $workspaceId)
   }
 `;
 
