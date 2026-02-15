@@ -12,6 +12,7 @@ const requiredContracts = [
   'myMailboxInboundSlaIncidentStats',
   'myMailboxInboundSlaIncidentSeries',
   'myNotificationPreferences',
+  'markMyNotificationsRead',
   'updateMyNotificationPreferences',
   'myWorkspaces',
   'myActiveWorkspace',

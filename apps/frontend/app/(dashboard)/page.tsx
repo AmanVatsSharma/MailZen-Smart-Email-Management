@@ -29,7 +29,7 @@ import { TiltCard } from '@/components/ui/TiltCard';
 import { OverviewChart } from '@/components/ui/charts/OverviewChart';
 import { StorageChart } from '@/components/ui/charts/StorageChart';
 import { ResponseTimeChart } from '@/components/ui/charts/ResponseTimeChart';
-import { useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import { GET_DASHBOARD_ANALYTICS } from '@/lib/apollo/queries/analytics';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import {
@@ -39,6 +39,7 @@ import {
 import {
   GET_MAILBOX_INBOUND_SLA_INCIDENT_SERIES,
   GET_MAILBOX_INBOUND_SLA_INCIDENT_STATS,
+  MARK_MY_NOTIFICATIONS_READ,
 } from '@/lib/apollo/queries/notifications';
 
 type MailboxInboundTrendPoint = {
@@ -130,6 +131,7 @@ export default function DashboardPage() {
     data: slaIncidentStatsData,
     loading: slaAlertsLoading,
     error: slaAlertsError,
+    refetch: refetchSlaIncidentStats,
   } = useQuery<{
     myMailboxInboundSlaIncidentStats: MailboxInboundSlaIncidentStats;
   }>(GET_MAILBOX_INBOUND_SLA_INCIDENT_STATS, {
@@ -151,6 +153,15 @@ export default function DashboardPage() {
     fetchPolicy: 'cache-and-network',
     pollInterval: 30_000,
   });
+  const [markMyNotificationsRead, { loading: markingSlaAlertsRead }] =
+    useMutation(MARK_MY_NOTIFICATIONS_READ, {
+      onError: (mutationError) => {
+        console.error(
+          '[Dashboard] markMyNotificationsRead failed',
+          mutationError,
+        );
+      },
+    });
 
   const analytics = data?.getAllEmailAnalytics ?? [];
   const scheduledEmails = data?.getAllScheduledEmails ?? [];
@@ -218,6 +229,16 @@ export default function DashboardPage() {
     ...incidentTrendPoints.map((point) => Number(point.totalCount || 0)),
     1,
   );
+  const handleMarkSlaIncidentsRead = async () => {
+    await markMyNotificationsRead({
+      variables: {
+        workspaceId: activeWorkspaceId || undefined,
+        sinceHours: 24,
+        types: ['MAILBOX_INBOUND_SLA_ALERT'],
+      },
+    });
+    await refetchSlaIncidentStats();
+  };
 
   return (
     <DashboardPageShell
@@ -577,9 +598,20 @@ export default function DashboardPage() {
             )}
           </CardContent>
           <CardFooter>
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/settings/notifications">Manage SLA alerting preferences</Link>
-            </Button>
+            <div className="grid w-full grid-cols-1 gap-2 md:grid-cols-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  void handleMarkSlaIncidentsRead();
+                }}
+                disabled={markingSlaAlertsRead || totalSlaAlertCount === 0}
+              >
+                {markingSlaAlertsRead ? 'Acknowledging...' : 'Mark incidents read'}
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/settings/notifications">Manage SLA alerting preferences</Link>
+              </Button>
+            </div>
           </CardFooter>
         </Card>
       </motion.div>

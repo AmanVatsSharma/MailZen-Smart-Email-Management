@@ -693,6 +693,11 @@ extend type Mutation {
     note: String
   ): BillingUpgradeIntentResponse!
   markNotificationRead(id: String!): UserNotification!
+  markMyNotificationsRead(
+    workspaceId: String
+    sinceHours: Int
+    types: [String!]
+  ): Int!
   updateMyNotificationPreferences(
     input: UpdateNotificationPreferencesInput!
   ): UserNotificationPreference!

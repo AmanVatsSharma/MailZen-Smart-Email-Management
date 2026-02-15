@@ -69,6 +69,8 @@ flowchart TD
   lightweight workspace-scoped warning/critical aggregates.
 - 2026-02-15: Added SLA incident hourly trend visualization using dedicated
   incident-series query.
+- 2026-02-15: Added dashboard action to acknowledge (bulk mark-read) SLA
+  incidents for the active workspace window.
 - 2026-02-15: Added mailbox inbound SLA alert toggle in notification settings
   to control warning/critical alert notifications.
 - 2026-02-15: Added notification-settings controls for mailbox inbound SLA

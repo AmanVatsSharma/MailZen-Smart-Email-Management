@@ -27,6 +27,8 @@ Provide a persistent notification foundation for user-visible product events
 - `myUnreadNotificationCount(workspaceId?)` → unread badge count (workspace + global scope)
 - `myNotificationPreferences` → get per-user notification channel settings
 - `markNotificationRead(id)` → marks one notification as read
+- `markMyNotificationsRead(workspaceId?, sinceHours?, types?)` → marks matching
+  notifications as read in bulk (used by SLA incident acknowledgement)
 - `updateMyNotificationPreferences(input)` → update channel + event preferences
 
 ## Initial event producers

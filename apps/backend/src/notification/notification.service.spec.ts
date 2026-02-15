@@ -458,4 +458,36 @@ describe('NotificationService', () => {
     expect(whereEntries[1]?.workspaceId).toBeDefined();
     expect(count).toBe(3);
   });
+
+  it('marks filtered notifications as read in bulk', async () => {
+    const updateQueryBuilder = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 4 }),
+    };
+    notificationRepo.createQueryBuilder.mockReturnValue(
+      updateQueryBuilder as any,
+    );
+
+    const updatedCount = await service.markNotificationsRead({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      sinceHours: 24,
+      types: ['MAILBOX_INBOUND_SLA_ALERT'],
+    });
+
+    expect(updateQueryBuilder.update).toHaveBeenCalled();
+    expect(updateQueryBuilder.andWhere).toHaveBeenCalledWith(
+      'type IN (:...types)',
+      { types: ['MAILBOX_INBOUND_SLA_ALERT'] },
+    );
+    expect(updateQueryBuilder.andWhere).toHaveBeenCalledWith(
+      '(workspaceId = :workspaceId OR workspaceId IS NULL)',
+      { workspaceId: 'workspace-1' },
+    );
+    expect(updateQueryBuilder.execute).toHaveBeenCalled();
+    expect(updatedCount).toBe(4);
+  });
 });

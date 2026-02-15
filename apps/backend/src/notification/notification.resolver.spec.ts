@@ -6,6 +6,7 @@ describe('NotificationResolver', () => {
     listNotificationsForUser: jest.fn(),
     getMailboxInboundSlaIncidentStats: jest.fn(),
     getMailboxInboundSlaIncidentSeries: jest.fn(),
+    markNotificationsRead: jest.fn(),
     getUnreadCount: jest.fn(),
     getOrCreatePreferences: jest.fn(),
     markNotificationRead: jest.fn(),
@@ -124,5 +125,23 @@ describe('NotificationResolver', () => {
       'user-1',
       'workspace-1',
     );
+  });
+
+  it('forwards mark notifications read mutation filters', async () => {
+    notificationService.markNotificationsRead.mockResolvedValue(2);
+
+    await resolver.markMyNotificationsRead(
+      'workspace-1',
+      context as never,
+      24,
+      ['MAILBOX_INBOUND_SLA_ALERT'],
+    );
+
+    expect(notificationService.markNotificationsRead).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      sinceHours: 24,
+      types: ['MAILBOX_INBOUND_SLA_ALERT'],
+    });
   });
 });

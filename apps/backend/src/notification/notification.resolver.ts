@@ -113,6 +113,25 @@ export class NotificationResolver {
     return this.notificationService.markNotificationRead(id, ctx.req.user.id);
   }
 
+  @Mutation(() => Int, {
+    description:
+      'Mark notifications as read for current user with optional filters',
+  })
+  async markMyNotificationsRead(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Context() ctx: RequestContext,
+    @Args('sinceHours', { type: () => Int, nullable: true })
+    sinceHours: number,
+    @Args('types', { type: () => [String], nullable: true }) types: string[],
+  ) {
+    return this.notificationService.markNotificationsRead({
+      userId: ctx.req.user.id,
+      workspaceId: workspaceId || null,
+      sinceHours: sinceHours ?? null,
+      types: types || [],
+    });
+  }
+
   @Mutation(() => UserNotificationPreference, {
     description: 'Update notification preferences',
   })

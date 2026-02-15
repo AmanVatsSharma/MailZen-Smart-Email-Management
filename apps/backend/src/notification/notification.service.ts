@@ -382,6 +382,50 @@ export class NotificationService {
     return this.notificationRepo.save(notification);
   }
 
+  async markNotificationsRead(input: {
+    userId: string;
+    workspaceId?: string | null;
+    sinceHours?: number | null;
+    types?: string[] | null;
+  }): Promise<number> {
+    const normalizedWorkspaceId = String(input.workspaceId || '').trim();
+    const normalizedTypes = (input.types || [])
+      .map((type) =>
+        String(type || '')
+          .trim()
+          .toUpperCase(),
+      )
+      .filter((type) => type.length > 0);
+    const normalizedSinceHours =
+      typeof input.sinceHours === 'number' && Number.isFinite(input.sinceHours)
+        ? Math.max(1, Math.min(24 * 30, Math.floor(input.sinceHours)))
+        : null;
+    const updateQuery = this.notificationRepo
+      .createQueryBuilder()
+      .update(UserNotification)
+      .set({ isRead: true })
+      .where('userId = :userId', { userId: input.userId })
+      .andWhere('isRead = :isRead', { isRead: false });
+    if (normalizedTypes.length) {
+      updateQuery.andWhere('type IN (:...types)', { types: normalizedTypes });
+    }
+    if (normalizedWorkspaceId) {
+      updateQuery.andWhere(
+        '(workspaceId = :workspaceId OR workspaceId IS NULL)',
+        { workspaceId: normalizedWorkspaceId },
+      );
+    }
+    if (normalizedSinceHours !== null) {
+      updateQuery.andWhere('createdAt >= :windowStart', {
+        windowStart: new Date(
+          Date.now() - normalizedSinceHours * 60 * 60 * 1000,
+        ).toISOString(),
+      });
+    }
+    const result = await updateQuery.execute();
+    return Number(result.affected || 0);
+  }
+
   async getMailboxInboundSlaIncidentStats(input: {
     userId: string;
     workspaceId?: string | null;

@@ -77,6 +77,20 @@ export const MARK_NOTIFICATION_READ = gql`
   }
 `;
 
+export const MARK_MY_NOTIFICATIONS_READ = gql`
+  mutation MarkMyNotificationsRead(
+    $workspaceId: String
+    $sinceHours: Int
+    $types: [String!]
+  ) {
+    markMyNotificationsRead(
+      workspaceId: $workspaceId
+      sinceHours: $sinceHours
+      types: $types
+    )
+  }
+`;
+
 export const GET_NOTIFICATION_PREFERENCES = gql`
   query MyNotificationPreferences {
     myNotificationPreferences {
