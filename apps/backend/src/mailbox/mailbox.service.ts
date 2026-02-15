@@ -18,6 +18,8 @@ import {
   MailboxInboundEventStatsResponse,
   MailboxInboundEventTrendPointResponse,
 } from './dto/mailbox-inbound-event-observability.response';
+import { MailboxInboundDataExportResponse } from './dto/mailbox-inbound-data-export.response';
+import { MailboxInboundRetentionPurgeResponse } from './dto/mailbox-inbound-retention-purge.response';
 
 @Injectable()
 export class MailboxService {
@@ -493,6 +495,125 @@ export class MailboxService {
       });
     }
     return series;
+  }
+
+  private resolveInboundRetentionDays(rawValue?: number | string): number {
+    const parsedValue = Number(rawValue);
+    const candidate = Number.isFinite(parsedValue)
+      ? Math.floor(parsedValue)
+      : 180;
+    if (candidate < 7) return 7;
+    if (candidate > 3650) return 3650;
+    return candidate;
+  }
+
+  async exportInboundEventData(input: {
+    userId: string;
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+    limit?: number | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<MailboxInboundDataExportResponse> {
+    const generatedAt = new Date();
+    const limit = this.normalizeInboundEventLimit(input.limit);
+    const [events, stats, series] = await Promise.all([
+      this.getInboundEvents(input.userId, {
+        mailboxId: input.mailboxId || null,
+        workspaceId: input.workspaceId || null,
+        limit,
+      }),
+      this.getInboundEventStats(input.userId, {
+        mailboxId: input.mailboxId || null,
+        workspaceId: input.workspaceId || null,
+        windowHours: input.windowHours ?? null,
+      }),
+      this.getInboundEventSeries(input.userId, {
+        mailboxId: input.mailboxId || null,
+        workspaceId: input.workspaceId || null,
+        windowHours: input.windowHours ?? null,
+        bucketMinutes: input.bucketMinutes ?? null,
+      }),
+    ]);
+
+    const retentionDays = this.resolveInboundRetentionDays(
+      process.env.MAILZEN_MAILBOX_INBOUND_RETENTION_DAYS,
+    );
+    const payload = {
+      userId: input.userId,
+      generatedAtIso: generatedAt.toISOString(),
+      mailboxId: input.mailboxId || null,
+      workspaceId: input.workspaceId || null,
+      retentionPolicy: {
+        inboundEventsRetentionDays: retentionDays,
+      },
+      stats: {
+        ...stats,
+        lastProcessedAtIso: stats.lastProcessedAt
+          ? stats.lastProcessedAt.toISOString()
+          : null,
+      },
+      series: series.map((point) => ({
+        bucketStartIso: point.bucketStart.toISOString(),
+        totalCount: point.totalCount,
+        acceptedCount: point.acceptedCount,
+        deduplicatedCount: point.deduplicatedCount,
+        rejectedCount: point.rejectedCount,
+      })),
+      events: events.map((event) => ({
+        id: event.id,
+        mailboxId: event.mailboxId,
+        mailboxEmail: event.mailboxEmail,
+        messageId: event.messageId,
+        emailId: event.emailId,
+        inboundThreadKey: event.inboundThreadKey,
+        status: event.status,
+        sourceIp: event.sourceIp,
+        signatureValidated: event.signatureValidated,
+        errorReason: event.errorReason,
+        createdAtIso: event.createdAt.toISOString(),
+      })),
+    };
+
+    return {
+      generatedAtIso: generatedAt.toISOString(),
+      dataJson: JSON.stringify(payload),
+    };
+  }
+
+  async purgeInboundEventRetentionData(input: {
+    userId?: string | null;
+    retentionDays?: number | null;
+  }): Promise<MailboxInboundRetentionPurgeResponse> {
+    const retentionDays = this.resolveInboundRetentionDays(
+      input.retentionDays ??
+        process.env.MAILZEN_MAILBOX_INBOUND_RETENTION_DAYS ??
+        undefined,
+    );
+    const now = new Date();
+    const cutoffDate = new Date(
+      now.getTime() - retentionDays * 24 * 60 * 60 * 1000,
+    );
+    const normalizedUserId = String(input.userId || '').trim();
+
+    const deleteQuery = this.mailboxInboundEventRepo
+      .createQueryBuilder()
+      .delete()
+      .from(MailboxInboundEvent)
+      .where('"createdAt" < :cutoff', {
+        cutoff: cutoffDate.toISOString(),
+      });
+    if (normalizedUserId) {
+      deleteQuery.andWhere('"userId" = :userId', { userId: normalizedUserId });
+    }
+    const deleteResult = await deleteQuery.execute();
+    const deletedEvents = Number(deleteResult.affected || 0);
+
+    return {
+      deletedEvents,
+      retentionDays,
+      executedAtIso: now.toISOString(),
+    };
   }
 
   private async deriveBaseFromUser(userId: string): Promise<string> {

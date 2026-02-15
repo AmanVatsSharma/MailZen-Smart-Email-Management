@@ -31,6 +31,8 @@ This module covers:
     - `myMailboxInboundEvents(mailboxId?: String, workspaceId?: String, status?: String, limit?: Int): [MailboxInboundEventObservabilityResponse!]!`
     - `myMailboxInboundEventStats(mailboxId?: String, workspaceId?: String, windowHours?: Int): MailboxInboundEventStatsResponse!`
     - `myMailboxInboundEventSeries(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxInboundEventTrendPointResponse!]!`
+    - `myMailboxInboundDataExport(mailboxId?: String, workspaceId?: String, limit?: Int, windowHours?: Int, bucketMinutes?: Int): MailboxInboundDataExportResponse!`
+    - `purgeMyMailboxInboundRetentionData(retentionDays?: Int): MailboxInboundRetentionPurgeResponse!`
 - `mailbox-inbound.controller.ts`
   - REST:
     - `POST /mailbox/inbound/events`
@@ -112,6 +114,10 @@ flowchart TD
     overrides this fallback
 - `MAILZEN_INBOUND_SLA_ALERT_MAX_USERS_PER_RUN` (default `500`)
   - safety cap for monitored users in each scheduler cycle
+- `MAILZEN_MAILBOX_INBOUND_RETENTION_AUTOPURGE_ENABLED` (default `true`)
+  - enables daily inbound-event retention purge scheduler
+- `MAILZEN_MAILBOX_INBOUND_RETENTION_DAYS` (default `180`)
+  - retention horizon for mailbox inbound observability events
 
 ### Mail connection defaults persisted on mailbox rows
 - `MAILZEN_SMTP_HOST` (default `smtp.mailzen.local`)
@@ -148,6 +154,8 @@ flowchart TD
   when warning/critical thresholds are breached (with per-user cooldown suppression).
   Scheduler monitors both recently active users and users with persisted
   prior-alert state so recovered/no-data periods can clear stale alert flags.
+- `MailboxInboundRetentionScheduler` runs daily and purges stale inbound-event
+  observability rows according to retention policy env controls.
 
 ## Inbound observability GraphQL queries
 
@@ -170,6 +178,10 @@ flowchart TD
 - `myMailboxInboundEventSeries`
   - returns trend buckets for accepted/deduplicated/rejected counts
   - supports optional workspace/mailbox scoping + rolling window and bucket granularity controls
+- `myMailboxInboundDataExport`
+  - exports mailbox inbound observability as JSON snapshot (events, stats, trend, retention policy)
+- `purgeMyMailboxInboundRetentionData`
+  - purges authenticated user inbound observability rows older than retention cutoff
 
 ## Notes
 

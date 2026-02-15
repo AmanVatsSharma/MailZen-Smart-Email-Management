@@ -2,11 +2,13 @@ import { Resolver, Mutation, Args, Query, Context, Int } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { MailboxService } from './mailbox.service';
+import { MailboxInboundDataExportResponse } from './dto/mailbox-inbound-data-export.response';
 import {
   MailboxInboundEventObservabilityResponse,
   MailboxInboundEventStatsResponse,
   MailboxInboundEventTrendPointResponse,
 } from './dto/mailbox-inbound-event-observability.response';
+import { MailboxInboundRetentionPurgeResponse } from './dto/mailbox-inbound-retention-purge.response';
 
 interface RequestContext {
   req: { user: { id: string } };
@@ -88,6 +90,39 @@ export class MailboxResolver {
       workspaceId,
       windowHours,
       bucketMinutes,
+    });
+  }
+
+  @Query(() => MailboxInboundDataExportResponse)
+  async myMailboxInboundDataExport(
+    @Context() ctx: RequestContext,
+    @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<MailboxInboundDataExportResponse> {
+    return this.mailboxService.exportInboundEventData({
+      userId: ctx.req.user.id,
+      mailboxId,
+      workspaceId,
+      limit,
+      windowHours,
+      bucketMinutes,
+    });
+  }
+
+  @Mutation(() => MailboxInboundRetentionPurgeResponse)
+  async purgeMyMailboxInboundRetentionData(
+    @Context() ctx: RequestContext,
+    @Args('retentionDays', { type: () => Int, nullable: true })
+    retentionDays?: number,
+  ): Promise<MailboxInboundRetentionPurgeResponse> {
+    return this.mailboxService.purgeInboundEventRetentionData({
+      userId: ctx.req.user.id,
+      retentionDays: retentionDays ?? null,
     });
   }
 }

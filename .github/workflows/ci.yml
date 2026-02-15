@@ -60,6 +60,7 @@ jobs:
           mailbox/mailbox.resolver.spec.ts
           mailbox/mail-server.service.spec.ts
           mailbox/mailbox-inbound-sla.scheduler.spec.ts
+          mailbox/mailbox-inbound-retention.scheduler.spec.ts
           mailbox/mailbox-inbound.service.spec.ts
           mailbox/mailbox-inbound.controller.spec.ts
           user/user.service.spec.ts

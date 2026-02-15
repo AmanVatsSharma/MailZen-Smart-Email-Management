@@ -10,6 +10,8 @@ describe('MailboxResolver', () => {
     getInboundEvents: jest.fn(),
     getInboundEventStats: jest.fn(),
     getInboundEventSeries: jest.fn(),
+    exportInboundEventData: jest.fn(),
+    purgeInboundEventRetentionData: jest.fn(),
   };
 
   const ctx = {
@@ -142,5 +144,52 @@ describe('MailboxResolver', () => {
     );
     expect(result).toHaveLength(1);
     expect(result[0].totalCount).toBe(3);
+  });
+
+  it('forwards mailbox inbound export query to service', async () => {
+    mailboxServiceMock.exportInboundEventData.mockResolvedValue({
+      generatedAtIso: '2026-02-16T00:00:00.000Z',
+      dataJson: '{"events":[]}',
+    });
+
+    const result = await resolver.myMailboxInboundDataExport(
+      ctx as any,
+      'mailbox-1',
+      'workspace-1',
+      50,
+      24,
+      60,
+    );
+
+    expect(mailboxServiceMock.exportInboundEventData).toHaveBeenCalledWith({
+      userId: 'user-1',
+      mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
+      limit: 50,
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+    expect(result.generatedAtIso).toBe('2026-02-16T00:00:00.000Z');
+  });
+
+  it('forwards mailbox inbound retention purge mutation to service', async () => {
+    mailboxServiceMock.purgeInboundEventRetentionData.mockResolvedValue({
+      deletedEvents: 12,
+      retentionDays: 180,
+      executedAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    const result = await resolver.purgeMyMailboxInboundRetentionData(
+      ctx as any,
+      180,
+    );
+
+    expect(
+      mailboxServiceMock.purgeInboundEventRetentionData,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      retentionDays: 180,
+    });
+    expect(result.deletedEvents).toBe(12);
   });
 });

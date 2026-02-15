@@ -367,4 +367,96 @@ describe('MailboxService', () => {
     expect(acceptedBucket?.acceptedCount).toBe(1);
     expect(acceptedBucket?.deduplicatedCount).toBe(1);
   });
+
+  it('exports mailbox inbound observability data snapshot', async () => {
+    const inboundEventsSpy = jest
+      .spyOn(service, 'getInboundEvents')
+      .mockResolvedValue([
+        {
+          id: 'event-1',
+          mailboxId: 'mailbox-1',
+          mailboxEmail: 'sales@mailzen.com',
+          messageId: 'msg-1',
+          emailId: 'email-1',
+          inboundThreadKey: 'thread-1',
+          status: 'ACCEPTED',
+          sourceIp: '198.51.100.1',
+          signatureValidated: true,
+          errorReason: null,
+          createdAt: new Date('2026-02-16T00:00:00.000Z'),
+        },
+      ]);
+    const inboundStatsSpy = jest
+      .spyOn(service, 'getInboundEventStats')
+      .mockResolvedValue({
+        mailboxId: 'mailbox-1',
+        mailboxEmail: 'sales@mailzen.com',
+        windowHours: 24,
+        totalCount: 1,
+        acceptedCount: 1,
+        deduplicatedCount: 0,
+        rejectedCount: 0,
+        successRatePercent: 100,
+        rejectionRatePercent: 0,
+        slaTargetSuccessPercent: 99,
+        slaWarningRejectedPercent: 1,
+        slaCriticalRejectedPercent: 5,
+        slaStatus: 'HEALTHY',
+        meetsSla: true,
+        lastProcessedAt: new Date('2026-02-16T00:00:00.000Z'),
+      });
+    const inboundSeriesSpy = jest
+      .spyOn(service, 'getInboundEventSeries')
+      .mockResolvedValue([
+        {
+          bucketStart: new Date('2026-02-16T00:00:00.000Z'),
+          totalCount: 1,
+          acceptedCount: 1,
+          deduplicatedCount: 0,
+          rejectedCount: 0,
+        },
+      ]);
+
+    const result = await service.exportInboundEventData({
+      userId: 'user-1',
+      mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
+      limit: 50,
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+
+    expect(result.generatedAtIso).toBeTruthy();
+    expect(result.dataJson).toContain('"stats"');
+    expect(result.dataJson).toContain('"events"');
+    expect(result.dataJson).toContain('"retentionPolicy"');
+
+    inboundEventsSpy.mockRestore();
+    inboundStatsSpy.mockRestore();
+    inboundSeriesSpy.mockRestore();
+  });
+
+  it('purges old mailbox inbound events by retention window', async () => {
+    const deleteBuilder = {
+      delete: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 7 }),
+    };
+    mailboxInboundEventRepo.createQueryBuilder.mockReturnValueOnce(
+      deleteBuilder as any,
+    );
+
+    const result = await service.purgeInboundEventRetentionData({
+      userId: 'user-1',
+      retentionDays: 200,
+    });
+
+    expect(result.deletedEvents).toBe(7);
+    expect(result.retentionDays).toBe(200);
+    expect(deleteBuilder.andWhere).toHaveBeenCalledWith('"userId" = :userId', {
+      userId: 'user-1',
+    });
+  });
 });
