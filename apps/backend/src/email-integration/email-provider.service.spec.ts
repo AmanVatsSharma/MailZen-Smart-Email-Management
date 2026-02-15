@@ -39,6 +39,7 @@ describe('EmailProviderService', () => {
       planCode: 'PRO',
       providerLimit: 5,
       mailboxLimit: 5,
+      workspaceLimit: 5,
       aiCreditsPerMonth: 500,
     }),
   };

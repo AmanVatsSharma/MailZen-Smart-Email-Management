@@ -13,6 +13,7 @@ monitoring subscription-aware limits.
   - Shows live subscription plan usage:
     - provider usage (`used/limit`)
     - mailbox usage (`used/limit`)
+    - workspace usage (`used/limit`)
     - AI credits/month snapshot
 - `ProviderWizard.tsx`
   - Guided connect flow for Gmail/Outlook/SMTP
@@ -23,6 +24,7 @@ monitoring subscription-aware limits.
 - `myMailboxes`
 - `mySubscription`
 - `billingPlans`
+- `myWorkspaces`
 
 ## Flow
 
@@ -31,7 +33,7 @@ flowchart TD
   User --> ProviderManagement
   ProviderManagement --> ProvidersQuery[providers]
   ProviderManagement --> MailboxesQuery[myMailboxes]
-  ProviderManagement --> BillingQuery[mySubscription + billingPlans]
+  ProviderManagement --> BillingQuery[mySubscription + billingPlans + myWorkspaces]
   ProviderManagement --> ProviderWizard
   ProviderWizard --> ConnectMutations[connectSmtp/connectGmail/connectOutlook]
 ```

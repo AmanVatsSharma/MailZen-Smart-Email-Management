@@ -102,6 +102,7 @@ describe('BillingService', () => {
       id: 'plan-1',
       code: 'PRO',
       isActive: true,
+      workspaceLimit: 5,
     } as BillingPlan);
     subscriptionRepo.findOne.mockResolvedValue(current);
     subscriptionRepo.save.mockImplementation((value: UserSubscription) =>
@@ -122,6 +123,7 @@ describe('BillingService', () => {
       isActive: true,
       providerLimit: 25,
       mailboxLimit: 25,
+      workspaceLimit: 25,
       aiCreditsPerMonth: 5000,
     } as BillingPlan);
     subscriptionRepo.findOne.mockResolvedValue({

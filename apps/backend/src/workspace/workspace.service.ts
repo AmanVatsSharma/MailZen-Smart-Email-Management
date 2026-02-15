@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { BillingService } from '../billing/billing.service';
 import { User } from '../user/entities/user.entity';
 import { Workspace } from './entities/workspace.entity';
 import { WorkspaceMember } from './entities/workspace-member.entity';
@@ -19,6 +20,7 @@ export class WorkspaceService {
     private readonly workspaceMemberRepo: Repository<WorkspaceMember>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    private readonly billingService: BillingService,
   ) {}
 
   private normalizeWorkspaceName(name: string): string {
@@ -85,6 +87,7 @@ export class WorkspaceService {
 
   async createWorkspace(userId: string, name: string): Promise<Workspace> {
     await this.getOrCreatePersonalWorkspace(userId);
+    await this.enforceWorkspaceLimit(userId);
     const normalizedName = this.normalizeWorkspaceName(name);
     const slug = await this.createUniqueSlug(normalizedName);
     const created = await this.workspaceRepo.save(
@@ -198,5 +201,17 @@ export class WorkspaceService {
       invitedByUserId: actorUserId,
     });
     return this.workspaceMemberRepo.save(member);
+  }
+
+  private async enforceWorkspaceLimit(userId: string): Promise<void> {
+    const entitlements = await this.billingService.getEntitlements(userId);
+    const existingWorkspaceCount = await this.workspaceRepo.count({
+      where: { ownerUserId: userId },
+    });
+    if (existingWorkspaceCount >= entitlements.workspaceLimit) {
+      throw new BadRequestException(
+        `Plan limit reached. Your ${entitlements.planCode} plan supports up to ${entitlements.workspaceLimit} workspaces.`,
+      );
+    }
   }
 }

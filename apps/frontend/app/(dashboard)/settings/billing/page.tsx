@@ -29,6 +29,7 @@ type BillingPlan = {
   currency: string;
   providerLimit: number;
   mailboxLimit: number;
+  workspaceLimit: number;
   aiCreditsPerMonth: number;
   isActive: boolean;
 };
@@ -71,6 +72,7 @@ const BillingSettingsPage = () => {
 
   const plans: BillingPlan[] = data?.billingPlans || [];
   const currentPlanCode: string = data?.mySubscription?.planCode || 'FREE';
+  const usedWorkspaceCount = Number(data?.myWorkspaces?.length || 0);
   const currentPlan = plans.find((plan) => plan.code === currentPlanCode);
 
   const handleSelectPlan = async (planCode: string) => {
@@ -122,6 +124,9 @@ const BillingSettingsPage = () => {
               Mailboxes: {currentPlan.mailboxLimit}
             </Badge>
             <Badge variant="outline">
+              Workspaces: {usedWorkspaceCount}/{currentPlan.workspaceLimit}
+            </Badge>
+            <Badge variant="outline">
               AI credits/month: {currentPlan.aiCreditsPerMonth}
             </Badge>
           </CardContent>
@@ -148,6 +153,7 @@ const BillingSettingsPage = () => {
                 <ul className="space-y-1 text-sm text-muted-foreground">
                   <li>Providers: up to {plan.providerLimit}</li>
                   <li>Mailboxes: up to {plan.mailboxLimit}</li>
+                  <li>Workspaces: up to {plan.workspaceLimit}</li>
                   <li>AI credits: {plan.aiCreditsPerMonth}/month</li>
                 </ul>
 

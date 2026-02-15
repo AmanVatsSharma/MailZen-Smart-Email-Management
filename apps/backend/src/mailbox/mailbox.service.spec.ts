@@ -20,6 +20,7 @@ describe('MailboxService', () => {
       planCode: 'PRO',
       providerLimit: 5,
       mailboxLimit: 5,
+      workspaceLimit: 5,
       aiCreditsPerMonth: 500,
     }),
   };
@@ -38,6 +39,7 @@ describe('MailboxService', () => {
       planCode: 'PRO',
       providerLimit: 5,
       mailboxLimit: 5,
+      workspaceLimit: 5,
       aiCreditsPerMonth: 500,
     });
   });

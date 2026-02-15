@@ -32,6 +32,7 @@ export class BillingService {
         currency: 'USD',
         providerLimit: 1,
         mailboxLimit: 1,
+        workspaceLimit: 1,
         aiCreditsPerMonth: 50,
         isActive: true,
       },
@@ -42,6 +43,7 @@ export class BillingService {
         currency: 'USD',
         providerLimit: 5,
         mailboxLimit: 5,
+        workspaceLimit: 5,
         aiCreditsPerMonth: 500,
         isActive: true,
       },
@@ -52,6 +54,7 @@ export class BillingService {
         currency: 'USD',
         providerLimit: 25,
         mailboxLimit: 25,
+        workspaceLimit: 25,
         aiCreditsPerMonth: 5000,
         isActive: true,
       },
@@ -135,6 +138,7 @@ export class BillingService {
     planCode: string;
     providerLimit: number;
     mailboxLimit: number;
+    workspaceLimit: number;
     aiCreditsPerMonth: number;
   }> {
     await this.ensureDefaultPlans();
@@ -152,6 +156,7 @@ export class BillingService {
       planCode: plan.code,
       providerLimit: plan.providerLimit,
       mailboxLimit: plan.mailboxLimit,
+      workspaceLimit: plan.workspaceLimit,
       aiCreditsPerMonth: plan.aiCreditsPerMonth,
     };
   }

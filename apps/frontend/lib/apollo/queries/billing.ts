@@ -14,8 +14,12 @@ export const GET_BILLING_SNAPSHOT = gql`
       currency
       providerLimit
       mailboxLimit
+      workspaceLimit
       aiCreditsPerMonth
       isActive
+    }
+    myWorkspaces {
+      id
     }
   }
 `;

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Repository } from 'typeorm';
+import { BillingService } from '../billing/billing.service';
 import { User } from '../user/entities/user.entity';
 import { WorkspaceMember } from './entities/workspace-member.entity';
 import { Workspace } from './entities/workspace.entity';
@@ -11,6 +12,7 @@ describe('WorkspaceService', () => {
   let workspaceRepo: jest.Mocked<Repository<Workspace>>;
   let workspaceMemberRepo: jest.Mocked<Repository<WorkspaceMember>>;
   let userRepo: jest.Mocked<Repository<User>>;
+  let billingService: jest.Mocked<Pick<BillingService, 'getEntitlements'>>;
 
   beforeEach(() => {
     workspaceRepo = {
@@ -18,6 +20,7 @@ describe('WorkspaceService', () => {
       find: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
+      count: jest.fn(),
     } as unknown as jest.Mocked<Repository<Workspace>>;
     workspaceMemberRepo = {
       findOne: jest.fn(),
@@ -28,11 +31,22 @@ describe('WorkspaceService', () => {
     userRepo = {
       findOne: jest.fn(),
     } as unknown as jest.Mocked<Repository<User>>;
+    billingService = {
+      getEntitlements: jest.fn().mockResolvedValue({
+        planCode: 'PRO',
+        providerLimit: 5,
+        mailboxLimit: 5,
+        workspaceLimit: 5,
+        aiCreditsPerMonth: 500,
+      }),
+    };
+    workspaceRepo.count.mockResolvedValue(1);
 
     service = new WorkspaceService(
       workspaceRepo,
       workspaceMemberRepo,
       userRepo,
+      billingService as unknown as BillingService,
     );
   });
 
@@ -92,5 +106,40 @@ describe('WorkspaceService', () => {
         'invitee@example.com',
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('rejects workspace creation when entitlement limit reached', async () => {
+    workspaceRepo.findOne.mockResolvedValue(null);
+    workspaceRepo.count.mockResolvedValue(5);
+    billingService.getEntitlements.mockResolvedValue({
+      planCode: 'PRO',
+      providerLimit: 5,
+      mailboxLimit: 5,
+      workspaceLimit: 5,
+      aiCreditsPerMonth: 500,
+    });
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-1',
+      email: 'owner@mailzen.com',
+      name: 'Owner User',
+    } as User);
+    workspaceRepo.create.mockImplementation(
+      (value: Partial<Workspace>) => value as Workspace,
+    );
+    workspaceRepo.save.mockResolvedValueOnce({
+      id: 'personal-1',
+      ownerUserId: 'user-1',
+      name: "Owner User's Workspace",
+      slug: 'owner-users-workspace',
+      isPersonal: true,
+    } as Workspace);
+    workspaceMemberRepo.create.mockImplementation(
+      (value: Partial<WorkspaceMember>) => value as WorkspaceMember,
+    );
+    workspaceMemberRepo.save.mockResolvedValue({} as WorkspaceMember);
+
+    await expect(
+      service.createWorkspace('user-1', 'Blocked Workspace'),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

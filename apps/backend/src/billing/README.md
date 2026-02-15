@@ -44,5 +44,6 @@ flowchart TD
 - Current integrations:
   - `EmailProviderService` enforces `providerLimit`
   - `MailboxService` enforces `mailboxLimit`
+  - `WorkspaceService` enforces `workspaceLimit`
   - `NotificationService` stores `BILLING_UPGRADE_INTENT` intents
 

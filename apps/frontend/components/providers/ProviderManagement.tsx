@@ -62,7 +62,11 @@ export function ProviderManagement() {
         name
         providerLimit
         mailboxLimit
+        workspaceLimit
         aiCreditsPerMonth
+      }
+      myWorkspaces {
+        id
       }
     }
   `);
@@ -72,6 +76,7 @@ export function ProviderManagement() {
     name: string;
     providerLimit: number;
     mailboxLimit: number;
+    workspaceLimit: number;
     aiCreditsPerMonth: number;
   }> = billingData?.billingPlans || [];
   const activePlan =
@@ -79,6 +84,7 @@ export function ProviderManagement() {
     planCatalog.find((plan) => plan.code === 'FREE');
   const usedProviderCount = providers.length;
   const usedMailboxCount = mailzenBoxes.length;
+  const usedWorkspaceCount = Number(billingData?.myWorkspaces?.length || 0);
 
   // Add a new provider
   const openAddProviderDialog = () => {
@@ -211,6 +217,9 @@ export function ProviderManagement() {
                 </Badge>
                 <Badge variant="outline">
                   Mailboxes: {usedMailboxCount}/{activePlan.mailboxLimit}
+                </Badge>
+                <Badge variant="outline">
+                  Workspaces: {usedWorkspaceCount}/{activePlan.workspaceLimit}
                 </Badge>
                 <Badge variant="outline">
                   AI credits/month: {activePlan.aiCreditsPerMonth}

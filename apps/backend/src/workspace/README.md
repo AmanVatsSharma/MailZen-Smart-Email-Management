@@ -11,6 +11,7 @@ organization features.
 - Auto-provision personal workspace for each user
 - Track workspace members with role and invitation status
 - Enforce membership access checks for member listing/invites
+- Enforce billing entitlement limits for workspace count
 
 ## GraphQL Surface
 
