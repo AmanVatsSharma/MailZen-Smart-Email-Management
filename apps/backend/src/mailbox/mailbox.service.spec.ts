@@ -208,4 +208,49 @@ describe('MailboxService', () => {
       lastProcessedAt: new Date('2026-02-15T13:00:00.000Z'),
     });
   });
+
+  it('returns mailbox inbound trend series with status bucket counts', async () => {
+    const nowMs = Date.now();
+    mailboxInboundEventRepo.find.mockResolvedValue([
+      {
+        id: 'event-1',
+        mailboxId: 'mailbox-1',
+        userId: 'user-1',
+        status: 'ACCEPTED',
+        createdAt: new Date(nowMs - 80 * 60 * 1000),
+      },
+      {
+        id: 'event-2',
+        mailboxId: 'mailbox-1',
+        userId: 'user-1',
+        status: 'DEDUPLICATED',
+        createdAt: new Date(nowMs - 80 * 60 * 1000),
+      },
+      {
+        id: 'event-3',
+        mailboxId: 'mailbox-1',
+        userId: 'user-1',
+        status: 'REJECTED',
+        createdAt: new Date(nowMs - 20 * 60 * 1000),
+      },
+    ]);
+
+    const series = await service.getInboundEventSeries('user-1', {
+      windowHours: 2,
+      bucketMinutes: 60,
+    });
+
+    expect(mailboxInboundEventRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1' },
+        order: { createdAt: 'ASC' },
+      }),
+    );
+    expect(series.length).toBeGreaterThanOrEqual(2);
+    const rejectedBucket = series.find((point) => point.rejectedCount > 0);
+    expect(rejectedBucket?.rejectedCount).toBe(1);
+    const acceptedBucket = series.find((point) => point.acceptedCount > 0);
+    expect(acceptedBucket?.acceptedCount).toBe(1);
+    expect(acceptedBucket?.deduplicatedCount).toBe(1);
+  });
 });

@@ -32,3 +32,23 @@ export const GET_MY_MAILBOX_INBOUND_EVENT_STATS = gql`
     }
   }
 `;
+
+export const GET_MY_MAILBOX_INBOUND_EVENT_SERIES = gql`
+  query MyMailboxInboundEventSeries(
+    $mailboxId: String
+    $windowHours: Int
+    $bucketMinutes: Int
+  ) {
+    myMailboxInboundEventSeries(
+      mailboxId: $mailboxId
+      windowHours: $windowHours
+      bucketMinutes: $bucketMinutes
+    ) {
+      bucketStart
+      totalCount
+      acceptedCount
+      deduplicatedCount
+      rejectedCount
+    }
+  }
+`;

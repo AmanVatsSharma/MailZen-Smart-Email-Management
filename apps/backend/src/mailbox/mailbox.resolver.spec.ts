@@ -9,6 +9,7 @@ describe('MailboxResolver', () => {
     getUserMailboxes: jest.fn(),
     getInboundEvents: jest.fn(),
     getInboundEventStats: jest.fn(),
+    getInboundEventSeries: jest.fn(),
   };
 
   const ctx = {
@@ -105,5 +106,35 @@ describe('MailboxResolver', () => {
     );
     expect(result.totalCount).toBe(8);
     expect(result.acceptedCount).toBe(5);
+  });
+
+  it('forwards mailbox inbound trend series query to service', async () => {
+    mailboxServiceMock.getInboundEventSeries.mockResolvedValue([
+      {
+        bucketStart: '2026-02-15T12:00:00.000Z',
+        totalCount: 3,
+        acceptedCount: 2,
+        deduplicatedCount: 1,
+        rejectedCount: 0,
+      },
+    ]);
+
+    const result = await resolver.myMailboxInboundEventSeries(
+      ctx as any,
+      'mailbox-1',
+      24,
+      60,
+    );
+
+    expect(mailboxServiceMock.getInboundEventSeries).toHaveBeenCalledWith(
+      'user-1',
+      {
+        mailboxId: 'mailbox-1',
+        windowHours: 24,
+        bucketMinutes: 60,
+      },
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].totalCount).toBe(3);
   });
 });

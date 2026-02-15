@@ -274,6 +274,14 @@ type MailboxInboundEventStatsResponse {
   lastProcessedAt: DateTime
 }
 
+type MailboxInboundEventTrendPointResponse {
+  bucketStart: DateTime!
+  totalCount: Int!
+  acceptedCount: Int!
+  deduplicatedCount: Int!
+  rejectedCount: Int!
+}
+
 type Query {
   users: [User!]!
   user(id: ID!): User
@@ -298,6 +306,7 @@ type Query {
   myMailboxes(workspaceId: String): [String!]!
   myMailboxInboundEvents(mailboxId: String, status: String, limit: Int): [MailboxInboundEventObservabilityResponse!]!
   myMailboxInboundEventStats(mailboxId: String, windowHours: Int): MailboxInboundEventStatsResponse!
+  myMailboxInboundEventSeries(mailboxId: String, windowHours: Int, bucketMinutes: Int): [MailboxInboundEventTrendPointResponse!]!
 
   """Get all features"""
   getAllFeatures: [Feature!]!

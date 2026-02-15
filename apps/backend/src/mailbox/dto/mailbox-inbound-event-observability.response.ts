@@ -62,3 +62,21 @@ export class MailboxInboundEventStatsResponse {
   @Field({ nullable: true })
   lastProcessedAt?: Date | null;
 }
+
+@ObjectType()
+export class MailboxInboundEventTrendPointResponse {
+  @Field()
+  bucketStart: Date;
+
+  @Field(() => Int)
+  totalCount: number;
+
+  @Field(() => Int)
+  acceptedCount: number;
+
+  @Field(() => Int)
+  deduplicatedCount: number;
+
+  @Field(() => Int)
+  rejectedCount: number;
+}

@@ -30,6 +30,7 @@ This module covers:
     - `myMailboxes(workspaceId?: String): [String!]!`
     - `myMailboxInboundEvents(mailboxId?: String, status?: String, limit?: Int): [MailboxInboundEventObservabilityResponse!]!`
     - `myMailboxInboundEventStats(mailboxId?: String, windowHours?: Int): MailboxInboundEventStatsResponse!`
+    - `myMailboxInboundEventSeries(mailboxId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxInboundEventTrendPointResponse!]!`
 - `mailbox-inbound.controller.ts`
   - REST:
     - `POST /mailbox/inbound/events`
@@ -130,6 +131,9 @@ flowchart TD
 - `myMailboxInboundEventStats`
   - returns accepted/deduplicated/rejected totals for a rolling window
   - supports optional mailbox scoping and configurable `windowHours` (clamped server-side)
+- `myMailboxInboundEventSeries`
+  - returns trend buckets for accepted/deduplicated/rejected counts
+  - supports optional mailbox scoping + rolling window and bucket granularity controls
 
 ## Notes
 

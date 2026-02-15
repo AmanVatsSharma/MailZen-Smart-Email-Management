@@ -5,6 +5,7 @@ import { MailboxService } from './mailbox.service';
 import {
   MailboxInboundEventObservabilityResponse,
   MailboxInboundEventStatsResponse,
+  MailboxInboundEventTrendPointResponse,
 } from './dto/mailbox-inbound-event-observability.response';
 
 interface RequestContext {
@@ -65,6 +66,22 @@ export class MailboxResolver {
     return this.mailboxService.getInboundEventStats(ctx.req.user.id, {
       mailboxId,
       windowHours,
+    });
+  }
+
+  @Query(() => [MailboxInboundEventTrendPointResponse])
+  async myMailboxInboundEventSeries(
+    @Context() ctx: RequestContext,
+    @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<MailboxInboundEventTrendPointResponse[]> {
+    return this.mailboxService.getInboundEventSeries(ctx.req.user.id, {
+      mailboxId,
+      windowHours,
+      bucketMinutes,
     });
   }
 }

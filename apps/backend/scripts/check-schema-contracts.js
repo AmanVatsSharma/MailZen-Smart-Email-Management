@@ -19,6 +19,7 @@ const requiredContracts = [
   'inviteWorkspaceMember',
   'myMailboxInboundEvents',
   'myMailboxInboundEventStats',
+  'myMailboxInboundEventSeries',
 ];
 
 const run = () => {

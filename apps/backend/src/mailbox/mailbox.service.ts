@@ -15,6 +15,7 @@ import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
 import {
   MailboxInboundEventObservabilityResponse,
   MailboxInboundEventStatsResponse,
+  MailboxInboundEventTrendPointResponse,
 } from './dto/mailbox-inbound-event-observability.response';
 
 @Injectable()
@@ -31,6 +32,9 @@ export class MailboxService {
   private static readonly MAX_INBOUND_EVENT_LIMIT = 100;
   private static readonly DEFAULT_STATS_WINDOW_HOURS = 24;
   private static readonly MAX_STATS_WINDOW_HOURS = 168;
+  private static readonly DEFAULT_TREND_BUCKET_MINUTES = 60;
+  private static readonly MIN_TREND_BUCKET_MINUTES = 5;
+  private static readonly MAX_TREND_BUCKET_MINUTES = 24 * 60;
 
   constructor(
     @InjectRepository(Mailbox)
@@ -275,6 +279,91 @@ export class MailboxService {
     };
   }
 
+  async getInboundEventSeries(
+    userId: string,
+    options?: {
+      mailboxId?: string | null;
+      windowHours?: number | null;
+      bucketMinutes?: number | null;
+    },
+  ): Promise<MailboxInboundEventTrendPointResponse[]> {
+    const normalizedMailboxId = String(options?.mailboxId || '').trim() || null;
+    const windowHours = this.normalizeStatsWindowHours(options?.windowHours);
+    const bucketMinutes = this.normalizeTrendBucketMinutes(
+      options?.bucketMinutes,
+    );
+    const nowMs = Date.now();
+    const windowStartDate = new Date(nowMs - windowHours * 60 * 60 * 1000);
+
+    if (normalizedMailboxId) {
+      await this.assertMailboxOwnership(userId, normalizedMailboxId);
+    }
+
+    const whereClause: { userId: string; mailboxId?: string } = { userId };
+    if (normalizedMailboxId) {
+      whereClause.mailboxId = normalizedMailboxId;
+    }
+
+    const events = await this.mailboxInboundEventRepo.find({
+      where: whereClause,
+      order: { createdAt: 'ASC' },
+    });
+    const filteredEvents = events.filter(
+      (event) => event.createdAt.getTime() >= windowStartDate.getTime(),
+    );
+
+    const bucketSizeMs = bucketMinutes * 60 * 1000;
+    const windowStartMs =
+      Math.floor(windowStartDate.getTime() / bucketSizeMs) * bucketSizeMs;
+    const bucketAccumulator = new Map<
+      number,
+      {
+        totalCount: number;
+        acceptedCount: number;
+        deduplicatedCount: number;
+        rejectedCount: number;
+      }
+    >();
+
+    for (const event of filteredEvents) {
+      const bucketStartMs =
+        Math.floor(event.createdAt.getTime() / bucketSizeMs) * bucketSizeMs;
+      const bucketStats = bucketAccumulator.get(bucketStartMs) || {
+        totalCount: 0,
+        acceptedCount: 0,
+        deduplicatedCount: 0,
+        rejectedCount: 0,
+      };
+      bucketStats.totalCount += 1;
+      if (event.status === 'ACCEPTED') {
+        bucketStats.acceptedCount += 1;
+      } else if (event.status === 'DEDUPLICATED') {
+        bucketStats.deduplicatedCount += 1;
+      } else if (event.status === 'REJECTED') {
+        bucketStats.rejectedCount += 1;
+      }
+      bucketAccumulator.set(bucketStartMs, bucketStats);
+    }
+
+    const series: MailboxInboundEventTrendPointResponse[] = [];
+    for (let cursor = windowStartMs; cursor <= nowMs; cursor += bucketSizeMs) {
+      const bucketStats = bucketAccumulator.get(cursor) || {
+        totalCount: 0,
+        acceptedCount: 0,
+        deduplicatedCount: 0,
+        rejectedCount: 0,
+      };
+      series.push({
+        bucketStart: new Date(cursor),
+        totalCount: bucketStats.totalCount,
+        acceptedCount: bucketStats.acceptedCount,
+        deduplicatedCount: bucketStats.deduplicatedCount,
+        rejectedCount: bucketStats.rejectedCount,
+      });
+    }
+    return series;
+  }
+
   private async deriveBaseFromUser(userId: string): Promise<string> {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
@@ -339,6 +428,20 @@ export class MailboxService {
       return MailboxService.MAX_STATS_WINDOW_HOURS;
     }
     return rawWindow;
+  }
+
+  private normalizeTrendBucketMinutes(bucketMinutes?: number | null): number {
+    const rawBucketMinutes =
+      typeof bucketMinutes === 'number' && Number.isFinite(bucketMinutes)
+        ? Math.floor(bucketMinutes)
+        : MailboxService.DEFAULT_TREND_BUCKET_MINUTES;
+    if (rawBucketMinutes < MailboxService.MIN_TREND_BUCKET_MINUTES) {
+      return MailboxService.MIN_TREND_BUCKET_MINUTES;
+    }
+    if (rawBucketMinutes > MailboxService.MAX_TREND_BUCKET_MINUTES) {
+      return MailboxService.MAX_TREND_BUCKET_MINUTES;
+    }
+    return rawBucketMinutes;
   }
 
   private async assertMailboxOwnership(

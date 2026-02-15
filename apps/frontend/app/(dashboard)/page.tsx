@@ -32,7 +32,18 @@ import { ResponseTimeChart } from '@/components/ui/charts/ResponseTimeChart';
 import { useQuery } from '@apollo/client';
 import { GET_DASHBOARD_ANALYTICS } from '@/lib/apollo/queries/analytics';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
-import { GET_MY_MAILBOX_INBOUND_EVENT_STATS } from '@/lib/apollo/queries/mailbox-observability';
+import {
+  GET_MY_MAILBOX_INBOUND_EVENT_SERIES,
+  GET_MY_MAILBOX_INBOUND_EVENT_STATS,
+} from '@/lib/apollo/queries/mailbox-observability';
+
+type MailboxInboundTrendPoint = {
+  bucketStart: string;
+  totalCount: number;
+  acceptedCount: number;
+  deduplicatedCount: number;
+  rejectedCount: number;
+};
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -70,10 +81,18 @@ export default function DashboardPage() {
     variables: { windowHours: 24 },
     fetchPolicy: 'cache-and-network',
   });
+  const { data: mailboxInboundSeriesData } = useQuery<{
+    myMailboxInboundEventSeries: MailboxInboundTrendPoint[];
+  }>(GET_MY_MAILBOX_INBOUND_EVENT_SERIES, {
+    variables: { windowHours: 24, bucketMinutes: 60 },
+    fetchPolicy: 'cache-and-network',
+  });
 
   const analytics = data?.getAllEmailAnalytics ?? [];
   const scheduledEmails = data?.getAllScheduledEmails ?? [];
   const mailboxInboundStats = mailboxInboundData?.myMailboxInboundEventStats;
+  const mailboxInboundSeries =
+    mailboxInboundSeriesData?.myMailboxInboundEventSeries || [];
 
   const todayStart = useMemo(() => {
     const date = new Date();
@@ -115,6 +134,11 @@ export default function DashboardPage() {
     inboundTotal > 0
       ? Math.round(((inboundAccepted + inboundDeduplicated) / inboundTotal) * 100)
       : 100;
+  const trendPoints = mailboxInboundSeries.slice(-12);
+  const trendMaxTotal = Math.max(
+    ...trendPoints.map((point) => Number(point.totalCount || 0)),
+    1,
+  );
 
   return (
     <DashboardPageShell
@@ -321,6 +345,41 @@ export default function DashboardPage() {
                     : 'No inbound mailbox events tracked yet for this window.'}
               </p>
             </div>
+            {trendPoints.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  Hourly trend (last 12 buckets)
+                </p>
+                <div className="grid grid-cols-12 items-end gap-1">
+                  {trendPoints.map((point) => {
+                    const totalHeight = Math.max(
+                      4,
+                      Math.round((point.totalCount / trendMaxTotal) * 48),
+                    );
+                    const rejectedHeight = Math.max(
+                      0,
+                      Math.round((point.rejectedCount / trendMaxTotal) * 48),
+                    );
+                    return (
+                      <div key={point.bucketStart} className="flex flex-col items-center gap-1">
+                        <div
+                          className="w-full rounded-sm bg-emerald-500/25"
+                          style={{ height: `${totalHeight}px` }}
+                          title={`${new Date(point.bucketStart).toLocaleString()} • total ${point.totalCount}`}
+                        >
+                          {rejectedHeight > 0 && (
+                            <div
+                              className="mt-auto w-full rounded-sm bg-destructive/70"
+                              style={{ height: `${rejectedHeight}px` }}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </CardContent>
           <CardFooter>
             <Button asChild variant="outline" className="w-full">

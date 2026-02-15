@@ -63,6 +63,8 @@ flowchart TD
 
 ## Changelog
 
+- 2026-02-15: Added mailbox inbound hourly trend visualization support on the
+  dashboard health card.
 - 2026-02-15: Expanded notification settings with mailbox inbound status
   toggles (accepted/deduplicated/rejected).
 - 2026-02-15: Added dashboard-level mailbox inbound health snapshot card with
