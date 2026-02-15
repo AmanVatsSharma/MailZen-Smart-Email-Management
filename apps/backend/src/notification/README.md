@@ -62,6 +62,10 @@ Webhook event types:
 - `NOTIFICATION_CREATED`
 - `NOTIFICATIONS_MARKED_READ`
 
+Webhook requests include:
+- `x-mailzen-notification-timestamp`
+- `x-mailzen-notification-signature` (optional when signing key is configured)
+
 ## Email digest scheduler
 
 - `NotificationDigestScheduler` runs hourly (`0 * * * *`).

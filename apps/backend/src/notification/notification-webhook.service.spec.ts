@@ -65,6 +65,7 @@ describe('NotificationWebhookService', () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           authorization: 'Bearer token-1',
+          'x-mailzen-notification-timestamp': expect.any(String),
           'x-mailzen-notification-signature': expect.any(String),
         }),
       }),

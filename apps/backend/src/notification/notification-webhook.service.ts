@@ -76,8 +76,11 @@ export class NotificationWebhookService {
       process.env.MAILZEN_NOTIFICATION_WEBHOOK_SIGNING_KEY || '',
     ).trim();
     const serializedPayload = JSON.stringify(payload);
+    const timestamp = Date.now().toString();
     const signature = signingKey
-      ? createHmac('sha256', signingKey).update(serializedPayload).digest('hex')
+      ? createHmac('sha256', signingKey)
+          .update(`${timestamp}.${serializedPayload}`)
+          .digest('hex')
       : null;
 
     for (let attempt = 0; attempt <= retries; attempt += 1) {
@@ -86,6 +89,7 @@ export class NotificationWebhookService {
           timeout: timeoutMs,
           headers: {
             'content-type': 'application/json',
+            'x-mailzen-notification-timestamp': timestamp,
             ...(token ? { authorization: `Bearer ${token}` } : {}),
             ...(signature
               ? { 'x-mailzen-notification-signature': signature }
