@@ -136,3 +136,42 @@ sequenceDiagram
   API-->>MailInfra: 202 Accepted
 ```
 
+## Operational runbook: signed webhook test (curl)
+
+1) Generate signature payload:
+
+```bash
+npm run mailbox:inbound:signature -- \
+  --mailboxEmail "sales@mailzen.com" \
+  --from "lead@example.com" \
+  --messageId "<lead-1001@example.com>" \
+  --subject "New lead"
+```
+
+2) Use generated `timestamp` + `signature`:
+
+```bash
+curl -i -X POST "http://localhost:4000/mailbox/inbound/events" \
+  -H "content-type: application/json" \
+  -H "x-mailzen-inbound-token: ${MAILZEN_INBOUND_WEBHOOK_TOKEN}" \
+  -H "x-mailzen-inbound-timestamp: <timestamp>" \
+  -H "x-mailzen-inbound-signature: <signature>" \
+  -d '{
+    "mailboxEmail": "sales@mailzen.com",
+    "from": "lead@example.com",
+    "subject": "New lead",
+    "textBody": "Hello from signed webhook",
+    "messageId": "<lead-1001@example.com>"
+  }'
+```
+
+## Staging verification checklist (inbound rollout)
+
+- [ ] `MAILZEN_INBOUND_WEBHOOK_TOKEN` configured and rotated in secret store.
+- [ ] `MAILZEN_INBOUND_WEBHOOK_SIGNING_KEY` configured in backend + upstream sender.
+- [ ] Positive test: signed inbound webhook returns `202` and creates one `NEW` email.
+- [ ] Replay test: same `messageId` returns `202` with `deduplicated=true`, without new email row.
+- [ ] Negative test: invalid signature returns `401`.
+- [ ] Negative test: stale timestamp beyond tolerance returns `401`.
+- [ ] Notification feed shows `MAILBOX_INBOUND` entry with mailbox/workspace metadata.
+

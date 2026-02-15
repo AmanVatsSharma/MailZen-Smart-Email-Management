@@ -105,6 +105,7 @@ npm run build
 npm run test
 npm run lint
 npm run check:schema:contracts
+npm run mailbox:inbound:signature -- --mailboxEmail "sales@mailzen.com" --from "lead@example.com"
 ```
 
 ## References

@@ -21,6 +21,7 @@
     "migration:show": "npm run typeorm -- migration:show -d src/database/data-source.ts",
     "backfill:workspace-scopes": "ts-node -r tsconfig-paths/register scripts/backfill-workspace-scopes.ts --dry-run",
     "backfill:workspace-scopes:apply": "ts-node -r tsconfig-paths/register scripts/backfill-workspace-scopes.ts --apply",
+    "mailbox:inbound:signature": "node scripts/generate-mailbox-inbound-signature.js",
     "check:schema:contracts": "node scripts/check-schema-contracts.js",
     "test": "jest",
     "test:watch": "jest --watch",
