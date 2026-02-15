@@ -27,11 +27,13 @@ export class NotificationResolver {
     @Args('unreadOnly', { type: () => Boolean, nullable: true })
     unreadOnly: boolean,
     @Context() ctx: RequestContext,
+    @Args('types', { type: () => [String], nullable: true }) types?: string[],
   ) {
     return this.notificationService.listNotificationsForUser({
       userId: ctx.req.user.id,
       limit: limit ?? 20,
       unreadOnly: unreadOnly ?? false,
+      types: types || [],
     });
   }
 

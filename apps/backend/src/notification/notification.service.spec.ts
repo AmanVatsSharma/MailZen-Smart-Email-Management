@@ -306,4 +306,30 @@ describe('NotificationService', () => {
     expect(result.mailboxInboundSlaLastAlertStatus).toBe('CRITICAL');
     expect(result.mailboxInboundSlaLastAlertedAt).toEqual(now);
   });
+
+  it('filters notification list by provided types', async () => {
+    notificationRepo.find.mockResolvedValue([
+      {
+        id: 'notif-sla-1',
+        type: 'MAILBOX_INBOUND_SLA_ALERT',
+      } as UserNotification,
+    ]);
+
+    const result: UserNotification[] = await service.listNotificationsForUser({
+      userId: 'user-1',
+      limit: 5,
+      types: ['MAILBOX_INBOUND_SLA_ALERT', '  '],
+    });
+
+    const findInput = notificationRepo.find.mock.calls[0]?.[0] as
+      | {
+          where?: Record<string, unknown>;
+          take?: number;
+        }
+      | undefined;
+    expect(findInput?.take).toBe(5);
+    expect(findInput?.where?.userId).toBe('user-1');
+    expect(findInput?.where?.type).toBeDefined();
+    expect(result).toHaveLength(1);
+  });
 });

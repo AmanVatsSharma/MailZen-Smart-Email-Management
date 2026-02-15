@@ -16,7 +16,7 @@ Provide a persistent notification foundation for user-visible product events
 
 ## GraphQL API
 
-- `myNotifications(limit, unreadOnly)` → list recent notifications
+- `myNotifications(limit, unreadOnly, types?)` → list recent notifications (optional type filtering)
 - `myUnreadNotificationCount` → unread badge count
 - `myNotificationPreferences` → get per-user notification channel settings
 - `markNotificationRead(id)` → marks one notification as read

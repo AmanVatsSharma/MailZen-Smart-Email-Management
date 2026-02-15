@@ -36,6 +36,7 @@ import {
   GET_MY_MAILBOX_INBOUND_EVENT_SERIES,
   GET_MY_MAILBOX_INBOUND_EVENT_STATS,
 } from '@/lib/apollo/queries/mailbox-observability';
+import { GET_MY_NOTIFICATIONS } from '@/lib/apollo/queries/notifications';
 
 type MailboxInboundTrendPoint = {
   bucketStart: string;
@@ -43,6 +44,16 @@ type MailboxInboundTrendPoint = {
   acceptedCount: number;
   deduplicatedCount: number;
   rejectedCount: number;
+};
+
+type DashboardNotification = {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  metadata?: Record<string, unknown> | string | null;
+  isRead: boolean;
+  createdAt: string;
 };
 
 const container: Variants = {
@@ -106,6 +117,22 @@ export default function DashboardPage() {
     },
     fetchPolicy: 'cache-and-network',
   });
+  const {
+    data: slaAlertsData,
+    loading: slaAlertsLoading,
+    error: slaAlertsError,
+  } = useQuery<{ myNotifications: DashboardNotification[] }>(
+    GET_MY_NOTIFICATIONS,
+    {
+      variables: {
+        limit: 10,
+        unreadOnly: false,
+        types: ['MAILBOX_INBOUND_SLA_ALERT'],
+      },
+      fetchPolicy: 'cache-and-network',
+      pollInterval: 30_000,
+    },
+  );
 
   const analytics = data?.getAllEmailAnalytics ?? [];
   const scheduledEmails = data?.getAllScheduledEmails ?? [];
@@ -161,6 +188,38 @@ export default function DashboardPage() {
     ...trendPoints.map((point) => Number(point.totalCount || 0)),
     1,
   );
+  const resolveNotificationMetadata = (
+    notification: DashboardNotification,
+  ): Record<string, unknown> => {
+    const rawMetadata = notification.metadata;
+    if (!rawMetadata) return {};
+    if (typeof rawMetadata === 'string') {
+      try {
+        const parsed = JSON.parse(rawMetadata) as unknown;
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+        return {};
+      } catch {
+        return {};
+      }
+    }
+    if (typeof rawMetadata === 'object' && !Array.isArray(rawMetadata)) {
+      return rawMetadata as Record<string, unknown>;
+    }
+    return {};
+  };
+  const slaAlertNotifications = slaAlertsData?.myNotifications || [];
+  const slaWindowStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const slaAlerts24h = slaAlertNotifications.filter(
+    (notification) => new Date(notification.createdAt) >= slaWindowStart,
+  );
+  const criticalAlertCount = slaAlerts24h.filter((notification) => {
+    const payload = resolveNotificationMetadata(notification);
+    return String(payload.slaStatus || '').toUpperCase() === 'CRITICAL';
+  }).length;
+  const warningAlertCount = Math.max(slaAlerts24h.length - criticalAlertCount, 0);
+  const latestSlaAlert = slaAlertNotifications[0];
 
   return (
     <DashboardPageShell
@@ -427,6 +486,56 @@ export default function DashboardPage() {
           <CardFooter>
             <Button asChild variant="outline" className="w-full">
               <Link href="/email-providers">Open mailbox observability panel</Link>
+            </Button>
+          </CardFooter>
+        </Card>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.55, duration: 0.5 }}
+      >
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle>Mailbox inbound SLA incidents (24h)</CardTitle>
+            <CardDescription>
+              Scheduler-generated warning/critical incidents for inbound SLA breaches.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {slaAlertsError && (
+              <Alert variant="destructive">
+                <AlertTitle>SLA incidents unavailable</AlertTitle>
+                <AlertDescription>{slaAlertsError.message}</AlertDescription>
+              </Alert>
+            )}
+            <div className="grid grid-cols-3 gap-2">
+              <Badge variant="outline">Total: {slaAlerts24h.length}</Badge>
+              <Badge
+                variant="outline"
+                className="border-amber-200/60 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
+              >
+                Warning: {warningAlertCount}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="border-destructive/20 bg-destructive/10 text-destructive dark:border-destructive/30 dark:bg-destructive/15"
+              >
+                Critical: {criticalAlertCount}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {slaAlertsLoading
+                ? 'Refreshing SLA incidents...'
+                : latestSlaAlert
+                  ? `Latest incident: ${new Date(latestSlaAlert.createdAt).toLocaleString()}`
+                  : 'No SLA incidents detected in the selected period.'}
+            </p>
+          </CardContent>
+          <CardFooter>
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/settings/notifications">Manage SLA alerting preferences</Link>
             </Button>
           </CardFooter>
         </Card>

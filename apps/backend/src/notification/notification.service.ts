@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
 import { UserNotification } from './entities/user-notification.entity';
@@ -290,12 +290,21 @@ export class NotificationService {
     userId: string;
     limit?: number;
     unreadOnly?: boolean;
+    types?: string[] | null;
   }): Promise<UserNotification[]> {
     const limit = Math.max(1, Math.min(100, input.limit || 20));
+    const normalizedTypes = (input.types || [])
+      .map((type) =>
+        String(type || '')
+          .trim()
+          .toUpperCase(),
+      )
+      .filter((type) => type.length > 0);
     return this.notificationRepo.find({
       where: {
         userId: input.userId,
         ...(input.unreadOnly ? { isRead: false } : {}),
+        ...(normalizedTypes.length ? { type: In(normalizedTypes) } : {}),
       },
       order: { createdAt: 'DESC' },
       take: limit,
