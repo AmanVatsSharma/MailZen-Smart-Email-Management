@@ -151,3 +151,30 @@ This migration introduces:
    - `setActiveWorkspace`
    - `providers(workspaceId)`
    - `myMailboxes(workspaceId)`
+
+### Staging verification SQL (post-backfill)
+
+Run these in staging DB to verify backfill outcomes:
+
+```sql
+-- Users should have active workspace after backfill
+SELECT COUNT(*) AS users_without_active_workspace
+FROM users
+WHERE "activeWorkspaceId" IS NULL;
+
+-- Providers/mailboxes should be workspace-tagged
+SELECT COUNT(*) AS providers_without_workspace
+FROM email_providers
+WHERE "workspaceId" IS NULL;
+
+SELECT COUNT(*) AS mailboxes_without_workspace
+FROM mailboxes
+WHERE "workspaceId" IS NULL;
+
+-- Personal workspace cardinality sanity check (one personal per user expected)
+SELECT "ownerUserId", COUNT(*) AS personal_workspace_count
+FROM workspaces
+WHERE "isPersonal" = true
+GROUP BY "ownerUserId"
+HAVING COUNT(*) > 1;
+```

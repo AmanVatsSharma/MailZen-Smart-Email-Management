@@ -40,3 +40,4 @@
   - create personal workspace rows for existing users
   - assign `workspaceId` to existing providers/mailboxes
   - run `npm run backfill:workspace-scopes` (dry run), then `npm run backfill:workspace-scopes:apply`
+  - execute post-backfill verification SQL checks from `TYPEORM_MIGRATION.md`
