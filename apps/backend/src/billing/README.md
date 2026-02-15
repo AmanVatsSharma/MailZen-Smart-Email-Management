@@ -18,10 +18,12 @@ state, enabling entitlement-aware product rollouts.
   - reading current subscription
   - reading current AI credit balance
   - listing invoices
+  - exporting billing data (`myBillingDataExport`)
   - starting plan trial
   - selecting active plan
   - recording upgrade intent (`requestMyPlanUpgrade`)
   - ingesting provider webhook events (`ingestBillingWebhook`, admin-only)
+  - purging retention-scoped records (`purgeBillingRetentionData`, admin-only)
 - Expose REST webhook endpoint:
   - `POST /billing/webhooks/:provider` with optional shared-secret validation
 
@@ -31,10 +33,13 @@ state, enabling entitlement-aware product rollouts.
 - `mySubscription`: get current user subscription (auto-provisions FREE plan)
 - `myAiCreditBalance`: get current month AI credit usage + remaining credits
 - `myBillingInvoices(limit?)`: list authenticated user invoices (newest first)
+- `myBillingDataExport`: returns legal/compliance-ready billing JSON export snapshot
 - `selectMyPlan(planCode)`: switch current user subscription to active plan
 - `startMyPlanTrial(planCode, trialDays?)`: start bounded trial for paid plans
 - `requestMyPlanUpgrade(targetPlanCode, note?)`: records upgrade intent notification
 - `ingestBillingWebhook(provider, eventType, externalEventId, payloadJson?)`: admin-only webhook replay/ingest mutation
+- `purgeBillingRetentionData(webhookRetentionDays?, aiUsageRetentionMonths?)`:
+  admin-only retention purge utility
 - `POST /billing/webhooks/:provider`: webhook ingestion endpoint supporting
   payload key aliases:
   - event type: `type` or `eventType`
@@ -52,6 +57,7 @@ flowchart TD
   Service --> AiUsageRepo[(user_ai_credit_usages)]
   Service --> InvoiceRepo[(billing_invoices)]
   Service --> WebhookRepo[(billing_webhook_events)]
+  Scheduler[BillingRetentionScheduler] --> Service
   PlanRepo --> Service
   SubRepo --> Service
   AiUsageRepo --> Service
@@ -68,6 +74,12 @@ flowchart TD
   invoice and webhook event storage.
 - Trial workflow supports 1-30 day trials for paid plans and publishes
   `BILLING_TRIAL_STARTED` notification events.
+- Retention controls:
+  - Daily auto-purge via `BillingRetentionScheduler`
+  - Configurable windows:
+    - `BILLING_WEBHOOK_RETENTION_DAYS` (default `120`)
+    - `BILLING_AI_USAGE_RETENTION_MONTHS` (default `36`)
+    - `BILLING_RETENTION_AUTOPURGE_ENABLED` (default `true`)
 - Current integrations:
   - `EmailProviderService` enforces `providerLimit`
   - `MailboxService` enforces `mailboxLimit`

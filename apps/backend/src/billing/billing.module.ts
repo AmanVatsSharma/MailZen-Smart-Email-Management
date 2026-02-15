@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BillingRetentionScheduler } from './billing-retention.scheduler';
 import { NotificationModule } from '../notification/notification.module';
 import { BillingWebhookController } from './billing-webhook.controller';
 import { BillingResolver } from './billing.resolver';
@@ -22,7 +23,7 @@ import { UserSubscription } from './entities/user-subscription.entity';
     NotificationModule,
   ],
   controllers: [BillingWebhookController],
-  providers: [BillingService, BillingResolver],
+  providers: [BillingService, BillingResolver, BillingRetentionScheduler],
   exports: [BillingService],
 })
 export class BillingModule {}

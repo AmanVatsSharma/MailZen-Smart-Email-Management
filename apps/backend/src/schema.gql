@@ -785,6 +785,7 @@ extend type Query {
   mySubscription: UserSubscription!
   myAiCreditBalance: AiCreditBalanceResponse!
   myBillingInvoices(limit: Int): [BillingInvoice!]!
+  myBillingDataExport: BillingDataExportResponse!
   myNotifications(limit: Int, unreadOnly: Boolean, workspaceId: String, sinceHours: Int, types: [String!]): [UserNotification!]!
   myMailboxInboundSlaIncidentStats(workspaceId: String, windowHours: Int): MailboxInboundSlaIncidentStatsResponse!
   myMailboxInboundSlaIncidentSeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [MailboxInboundSlaIncidentTrendPointResponse!]!
@@ -800,6 +801,10 @@ extend type Query {
 extend type Mutation {
   selectMyPlan(planCode: String!): UserSubscription!
   startMyPlanTrial(planCode: String!, trialDays: Int): UserSubscription!
+  purgeBillingRetentionData(
+    webhookRetentionDays: Int
+    aiUsageRetentionMonths: Int
+  ): BillingRetentionPurgeResponse!
   requestMyPlanUpgrade(
     targetPlanCode: String!
     note: String
@@ -917,6 +922,19 @@ type BillingUpgradeIntentResponse {
   success: Boolean!
   targetPlanCode: String!
   message: String!
+}
+
+type BillingDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type BillingRetentionPurgeResponse {
+  webhookEventsDeleted: Int!
+  aiUsageRowsDeleted: Int!
+  webhookRetentionDays: Int!
+  aiUsageRetentionMonths: Int!
+  executedAtIso: String!
 }
 
 type UserNotification {

@@ -31,6 +31,7 @@ jobs:
           billing/billing.service.spec.ts
           billing/billing.resolver.spec.ts
           billing/billing-webhook.controller.spec.ts
+          billing/billing-retention.scheduler.spec.ts
           notification/notification.service.spec.ts
           notification/notification.resolver.spec.ts
           notification/notification-event-bus.service.spec.ts

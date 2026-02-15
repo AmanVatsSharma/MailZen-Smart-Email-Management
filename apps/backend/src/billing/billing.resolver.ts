@@ -4,6 +4,8 @@ import { AdminGuard } from '../common/guards/admin.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { BillingService } from './billing.service';
 import { AiCreditBalanceResponse } from './dto/ai-credit-balance.response';
+import { BillingDataExportResponse } from './dto/billing-data-export.response';
+import { BillingRetentionPurgeResponse } from './dto/billing-retention-purge.response';
 import { BillingUpgradeIntentResponse } from './dto/billing-upgrade-intent.response';
 import { BillingInvoice } from './entities/billing-invoice.entity';
 import { BillingPlan } from './entities/billing-plan.entity';
@@ -55,6 +57,13 @@ export class BillingResolver {
     return this.billingService.listMyInvoices(context.req.user.id, limit);
   }
 
+  @Query(() => BillingDataExportResponse, {
+    description: 'Export authenticated user billing data JSON payload',
+  })
+  async myBillingDataExport(@Context() context: RequestContext) {
+    return this.billingService.exportMyBillingData(context.req.user.id);
+  }
+
   @Mutation(() => UserSubscription, {
     description: 'Select an active plan for current user',
   })
@@ -93,6 +102,22 @@ export class BillingResolver {
       planCode,
       trialDays,
     );
+  }
+
+  @Mutation(() => BillingRetentionPurgeResponse, {
+    description: 'Purge expired billing compliance data by retention policy',
+  })
+  @UseGuards(AdminGuard)
+  async purgeBillingRetentionData(
+    @Args('webhookRetentionDays', { nullable: true })
+    webhookRetentionDays: number,
+    @Args('aiUsageRetentionMonths', { nullable: true })
+    aiUsageRetentionMonths: number,
+  ) {
+    return this.billingService.purgeExpiredBillingData({
+      webhookRetentionDays,
+      aiUsageRetentionMonths,
+    });
   }
 
   @Mutation(() => BillingWebhookEvent, {

@@ -34,6 +34,8 @@ describe('BillingService', () => {
     } as unknown as jest.Mocked<Repository<UserSubscription>>;
     const queryBuilderMock = {
       update: jest.fn().mockReturnThis(),
+      delete: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
       set: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -41,6 +43,7 @@ describe('BillingService', () => {
     };
     usageRepo = {
       findOne: jest.fn(),
+      find: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
       upsert: jest.fn(),
@@ -60,6 +63,13 @@ describe('BillingService', () => {
       save: jest
         .fn()
         .mockImplementation((value) => Promise.resolve(value as never)),
+      createQueryBuilder: jest.fn().mockReturnValue({
+        delete: jest.fn().mockReturnThis(),
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      }),
     } as unknown as jest.Mocked<Repository<BillingWebhookEvent>>;
     notificationEventBus = {
       publishSafely: jest.fn(),
@@ -281,6 +291,91 @@ describe('BillingService', () => {
       }),
     );
     expect(result).toHaveLength(1);
+  });
+
+  it('exports billing data payload for legal/compliance requests', async () => {
+    planRepo.count.mockResolvedValue(1);
+    subscriptionRepo.findOne.mockResolvedValue({
+      id: 'sub-1',
+      userId: 'user-1',
+      planCode: 'PRO',
+      status: 'active',
+      startedAt: new Date('2026-02-01T00:00:00.000Z'),
+      cancelAtPeriodEnd: false,
+      isTrial: false,
+      trialEndsAt: null,
+      metadata: undefined,
+      createdAt: new Date('2026-02-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-01T00:00:00.000Z'),
+    } as UserSubscription);
+    planRepo.findOne.mockResolvedValue({
+      id: 'plan-pro',
+      code: 'PRO',
+      isActive: true,
+      providerLimit: 5,
+      mailboxLimit: 5,
+      workspaceLimit: 5,
+      aiCreditsPerMonth: 500,
+    } as BillingPlan);
+    usageRepo.upsert.mockResolvedValue({} as never);
+    usageRepo.findOne.mockResolvedValue({
+      id: 'usage-latest',
+      userId: 'user-1',
+      periodStart: '2026-02-01',
+      usedCredits: 100,
+      lastConsumedAt: new Date('2026-02-10T00:00:00.000Z'),
+    } as UserAiCreditUsage);
+    usageRepo.find.mockResolvedValue([
+      {
+        id: 'usage-history-1',
+        userId: 'user-1',
+        periodStart: '2026-01-01',
+        usedCredits: 80,
+        lastConsumedAt: new Date('2026-01-20T00:00:00.000Z'),
+      } as UserAiCreditUsage,
+    ]);
+    invoiceRepo.find.mockResolvedValue([
+      {
+        id: 'inv-1',
+        userId: 'user-1',
+        invoiceNumber: 'MZ-202602-001',
+        provider: 'INTERNAL',
+        status: 'paid',
+        amountCents: 1900,
+        currency: 'USD',
+        periodStart: new Date('2026-02-01T00:00:00.000Z'),
+        periodEnd: new Date('2026-03-01T00:00:00.000Z'),
+        createdAt: new Date('2026-02-01T00:00:00.000Z'),
+      } as BillingInvoice,
+    ]);
+
+    const result = await service.exportMyBillingData('user-1');
+
+    expect(result.generatedAtIso).toBeTruthy();
+    expect(result.dataJson).toContain('"subscription"');
+    expect(result.dataJson).toContain('"retentionPolicy"');
+  });
+
+  it('purges expired billing webhook and ai-usage retention data', async () => {
+    const webhookDeleteBuilder =
+      webhookRepo.createQueryBuilder() as unknown as {
+        execute: jest.Mock;
+      };
+    webhookDeleteBuilder.execute.mockResolvedValue({ affected: 3 });
+    const usageDeleteBuilder = usageRepo.createQueryBuilder() as unknown as {
+      execute: jest.Mock;
+    };
+    usageDeleteBuilder.execute.mockResolvedValue({ affected: 5 });
+
+    const result = await service.purgeExpiredBillingData({
+      webhookRetentionDays: 180,
+      aiUsageRetentionMonths: 24,
+    });
+
+    expect(result.webhookEventsDeleted).toBe(3);
+    expect(result.aiUsageRowsDeleted).toBe(5);
+    expect(result.webhookRetentionDays).toBe(180);
+    expect(result.aiUsageRetentionMonths).toBe(24);
   });
 
   it('starts trial on paid plan and emits notification', async () => {

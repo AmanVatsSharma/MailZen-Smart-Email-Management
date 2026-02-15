@@ -8,6 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { AiCreditBalanceResponse } from './dto/ai-credit-balance.response';
+import { BillingDataExportResponse } from './dto/billing-data-export.response';
+import { BillingRetentionPurgeResponse } from './dto/billing-retention-purge.response';
 import { BillingInvoice } from './entities/billing-invoice.entity';
 import { BillingPlan } from './entities/billing-plan.entity';
 import { BillingWebhookEvent } from './entities/billing-webhook-event.entity';
@@ -94,6 +96,16 @@ export class BillingService {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return fallback;
     return Math.floor(parsed);
+  }
+
+  private resolveBoundedInteger(input: {
+    value: unknown;
+    fallback: number;
+    min: number;
+    max: number;
+  }): number {
+    const parsed = this.toSafeNumber(input.value, input.fallback);
+    return Math.min(Math.max(parsed, input.min), input.max);
   }
 
   private getDefaultPlans(): Array<Partial<BillingPlan>> {
@@ -397,6 +409,157 @@ export class BillingService {
       order: { createdAt: 'DESC' },
       take: boundedLimit,
     });
+  }
+
+  private resolveRetentionPolicy() {
+    return {
+      webhookRetentionDays: this.resolveBoundedInteger({
+        value: process.env.BILLING_WEBHOOK_RETENTION_DAYS,
+        fallback: 120,
+        min: 7,
+        max: 3650,
+      }),
+      aiUsageRetentionMonths: this.resolveBoundedInteger({
+        value: process.env.BILLING_AI_USAGE_RETENTION_MONTHS,
+        fallback: 36,
+        min: 1,
+        max: 120,
+      }),
+    };
+  }
+
+  async exportMyBillingData(
+    userId: string,
+  ): Promise<BillingDataExportResponse> {
+    await this.ensureDefaultPlans();
+    const generatedAt = new Date();
+    const subscription = await this.getMySubscription(userId);
+    const entitlements = await this.getEntitlements(userId);
+    const aiCreditBalance = await this.getAiCreditBalance(userId);
+    const invoices = await this.listMyInvoices(userId, 100);
+    const aiUsageHistory = await this.userAiCreditUsageRepo.find({
+      where: { userId },
+      order: { periodStart: 'DESC' },
+      take: 48,
+    });
+    const retentionPolicy = this.resolveRetentionPolicy();
+
+    const payload = {
+      userId,
+      generatedAtIso: generatedAt.toISOString(),
+      subscription: {
+        id: subscription.id,
+        planCode: subscription.planCode,
+        status: subscription.status,
+        startedAtIso: subscription.startedAt.toISOString(),
+        endsAtIso: subscription.endsAt
+          ? subscription.endsAt.toISOString()
+          : null,
+        isTrial: subscription.isTrial,
+        trialEndsAtIso: subscription.trialEndsAt
+          ? subscription.trialEndsAt.toISOString()
+          : null,
+        cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      },
+      entitlements,
+      aiCreditBalance,
+      aiUsageHistory: aiUsageHistory.map((usage) => ({
+        periodStart: usage.periodStart,
+        usedCredits: usage.usedCredits,
+        lastConsumedAtIso: usage.lastConsumedAt
+          ? usage.lastConsumedAt.toISOString()
+          : null,
+      })),
+      invoices: invoices.map((invoice) => ({
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        provider: invoice.provider,
+        providerInvoiceId: invoice.providerInvoiceId || null,
+        status: invoice.status,
+        amountCents: invoice.amountCents,
+        currency: invoice.currency,
+        periodStartIso: invoice.periodStart.toISOString(),
+        periodEndIso: invoice.periodEnd.toISOString(),
+        dueAtIso: invoice.dueAt ? invoice.dueAt.toISOString() : null,
+        paidAtIso: invoice.paidAt ? invoice.paidAt.toISOString() : null,
+        createdAtIso: invoice.createdAt.toISOString(),
+      })),
+      retentionPolicy,
+    };
+
+    return {
+      generatedAtIso: generatedAt.toISOString(),
+      dataJson: JSON.stringify(payload),
+    };
+  }
+
+  async purgeExpiredBillingData(
+    input: {
+      webhookRetentionDays?: number;
+      aiUsageRetentionMonths?: number;
+    } = {},
+  ): Promise<BillingRetentionPurgeResponse> {
+    const policy = this.resolveRetentionPolicy();
+    const webhookRetentionDays = this.resolveBoundedInteger({
+      value: input.webhookRetentionDays,
+      fallback: policy.webhookRetentionDays,
+      min: 7,
+      max: 3650,
+    });
+    const aiUsageRetentionMonths = this.resolveBoundedInteger({
+      value: input.aiUsageRetentionMonths,
+      fallback: policy.aiUsageRetentionMonths,
+      min: 1,
+      max: 120,
+    });
+
+    const now = new Date();
+    const webhookCutoffDate = new Date(
+      now.getTime() - webhookRetentionDays * 24 * 60 * 60 * 1000,
+    );
+    const aiUsageCutoffDate = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth() - aiUsageRetentionMonths,
+        1,
+      ),
+    );
+    const aiUsageCutoffIso = aiUsageCutoffDate.toISOString().slice(0, 10);
+
+    const webhookDelete = await this.billingWebhookEventRepo
+      .createQueryBuilder()
+      .delete()
+      .from(BillingWebhookEvent)
+      .where('"createdAt" < :cutoff', {
+        cutoff: webhookCutoffDate.toISOString(),
+      })
+      .andWhere('"status" IN (:...statuses)', {
+        statuses: ['processed', 'failed'],
+      })
+      .execute();
+
+    const aiUsageDelete = await this.userAiCreditUsageRepo
+      .createQueryBuilder()
+      .delete()
+      .from(UserAiCreditUsage)
+      .where('"periodStart" < :cutoff', { cutoff: aiUsageCutoffIso })
+      .execute();
+
+    const webhookEventsDeleted = Number(webhookDelete.affected || 0);
+    const aiUsageRowsDeleted = Number(aiUsageDelete.affected || 0);
+    const executedAtIso = now.toISOString();
+
+    this.logger.log(
+      `billing-service: retention purge webhookDeleted=${webhookEventsDeleted} aiUsageDeleted=${aiUsageRowsDeleted} webhookDays=${webhookRetentionDays} aiUsageMonths=${aiUsageRetentionMonths}`,
+    );
+
+    return {
+      webhookEventsDeleted,
+      aiUsageRowsDeleted,
+      webhookRetentionDays,
+      aiUsageRetentionMonths,
+      executedAtIso,
+    };
   }
 
   async startPlanTrial(
