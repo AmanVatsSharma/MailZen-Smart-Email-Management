@@ -46,6 +46,7 @@ jobs:
           ai-agent-gateway/ai-agent-gateway.service.spec.ts
           ai-agent-gateway/ai-agent-gateway.resolver.spec.ts
           common/provider-secrets.util.spec.ts
+          common/sms/sms-dispatcher.util.spec.ts
           common/logging/structured-log.util.spec.ts
           common/rate-limit/request-rate-limiter.spec.ts
           common/rate-limit/http-rate-limit.middleware.spec.ts
@@ -63,6 +64,8 @@ jobs:
           mailbox/mailbox-inbound-retention.scheduler.spec.ts
           mailbox/mailbox-inbound.service.spec.ts
           mailbox/mailbox-inbound.controller.spec.ts
+          phone/phone.service.spec.ts
+          auth/auth.service.spec.ts
           user/user.service.spec.ts
           user/user.resolver.spec.ts
           workspace/workspace.service.spec.ts

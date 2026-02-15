@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -6,6 +6,7 @@ import { User } from '../user/entities/user.entity';
 import { UserSession } from './entities/user-session.entity';
 import { VerificationToken } from './entities/verification-token.entity';
 import { SignupVerification } from '../phone/entities/signup-verification.entity';
+import { dispatchSmsOtp } from '../common/sms/sms-dispatcher.util';
 import { randomBytes, createHash } from 'crypto';
 import { addSeconds, addMinutes, isAfter } from 'date-fns';
 
@@ -58,7 +59,9 @@ export class AuthService {
     return this.jwtService.verify(token, { secret });
   }
 
-  login(user: any): { accessToken: string } {
+  login(user: { id: string; email: string; role?: string; roles?: string }): {
+    accessToken: string;
+  } {
     // Keep JWT payload minimal and stable across auth methods (password, OAuth, etc.)
     // NOTE: Some older callers may pass `roles`; current auth payload uses `role` (string).
     const payload = {
@@ -295,11 +298,24 @@ export class AuthService {
       expiresAt: addMinutes(new Date(), 10),
     });
 
-    await this.signupVerificationRepository.save(verification);
+    const savedRecord =
+      await this.signupVerificationRepository.save(verification);
     console.log('[AuthService] Signup OTP created:', code);
 
-    // TODO: integrate AWS SNS to send code
-    console.log('[AuthService] TODO: Send OTP via SMS service');
+    try {
+      const deliveryResult = await dispatchSmsOtp({
+        phoneNumber,
+        code,
+        purpose: 'SIGNUP_OTP',
+      });
+      console.log(
+        `[AuthService] Signup OTP delivery provider=${deliveryResult.provider} delivered=${deliveryResult.delivered}`,
+      );
+    } catch (error: unknown) {
+      const reason = error instanceof Error ? error.message : String(error);
+      await this.signupVerificationRepository.delete({ id: savedRecord.id });
+      throw new BadRequestException(`Failed to deliver signup OTP: ${reason}`);
+    }
 
     return true;
   }

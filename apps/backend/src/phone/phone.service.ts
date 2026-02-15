@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { addMinutes, isAfter } from 'date-fns';
 import { PhoneVerification } from './entities/phone-verification.entity';
 import { User } from '../user/entities/user.entity';
+import { dispatchSmsOtp } from '../common/sms/sms-dispatcher.util';
 
 function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -20,7 +21,7 @@ export class PhoneService {
 
   async sendOtp(userId: string, phoneNumber: string): Promise<boolean> {
     const code = generateOtp();
-    await this.phoneVerificationRepo.save(
+    const savedRecord = await this.phoneVerificationRepo.save(
       this.phoneVerificationRepo.create({
         userId,
         phoneNumber,
@@ -28,7 +29,22 @@ export class PhoneService {
         expiresAt: addMinutes(new Date(), 10),
       }),
     );
-    // TODO: integrate AWS SNS/Twilio to actually send `code`
+
+    try {
+      const deliveryResult = await dispatchSmsOtp({
+        phoneNumber,
+        code,
+        purpose: 'PHONE_VERIFY_OTP',
+      });
+      console.log(
+        `[PhoneService] OTP delivery provider=${deliveryResult.provider} delivered=${deliveryResult.delivered} userId=${userId}`,
+      );
+    } catch (error: unknown) {
+      const reason = error instanceof Error ? error.message : String(error);
+      await this.phoneVerificationRepo.delete({ id: savedRecord.id });
+      throw new BadRequestException(`Failed to deliver OTP: ${reason}`);
+    }
+
     return true;
   }
 

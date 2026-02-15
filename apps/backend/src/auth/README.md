@@ -19,6 +19,12 @@ Web sessions are persisted with an HttpOnly `token` cookie.
 - Recommended:
   - `OAUTH_STATE_SECRET`
   - `GOOGLE_OAUTH_SCOPES` (defaults include identity + Gmail access for auto-connect)
+  - SMS OTP delivery settings (used by signup phone verification):
+    - `MAILZEN_SMS_PROVIDER` (`CONSOLE` | `WEBHOOK` | `DISABLED`)
+    - `MAILZEN_SMS_STRICT_DELIVERY`
+    - `MAILZEN_SMS_WEBHOOK_URL`
+    - `MAILZEN_SMS_WEBHOOK_TOKEN`
+    - `MAILZEN_SMS_WEBHOOK_TIMEOUT_MS`
 
 ## Auth response contract
 `AuthResponse` now includes onboarding metadata:
