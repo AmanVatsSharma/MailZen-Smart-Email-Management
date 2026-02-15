@@ -204,6 +204,105 @@ export class UnifiedInboxService {
     );
   }
 
+  private async findScopedProviderById(
+    userId: string,
+    providerId: string,
+    activeWorkspaceId?: string | null,
+  ): Promise<EmailProvider | null> {
+    if (activeWorkspaceId) {
+      const scopedProvider = await this.emailProviderRepo.findOne({
+        where: { id: providerId, userId, workspaceId: activeWorkspaceId },
+      });
+      if (scopedProvider) return scopedProvider;
+      return this.emailProviderRepo.findOne({
+        where: { id: providerId, userId, workspaceId: null as any },
+      });
+    }
+    return this.emailProviderRepo.findOne({
+      where: { id: providerId, userId },
+    });
+  }
+
+  private async findScopedMailboxById(
+    userId: string,
+    mailboxId: string,
+    activeWorkspaceId?: string | null,
+  ): Promise<Mailbox | null> {
+    if (activeWorkspaceId) {
+      const scopedMailbox = await this.mailboxRepo.findOne({
+        where: { id: mailboxId, userId, workspaceId: activeWorkspaceId },
+      });
+      if (scopedMailbox) return scopedMailbox;
+      return this.mailboxRepo.findOne({
+        where: { id: mailboxId, userId, workspaceId: null as any },
+      });
+    }
+    return this.mailboxRepo.findOne({
+      where: { id: mailboxId, userId },
+    });
+  }
+
+  private async findScopedPreferredProvider(input: {
+    userId: string;
+    activeWorkspaceId?: string | null;
+    isActive?: boolean;
+  }): Promise<EmailProvider | null> {
+    if (input.activeWorkspaceId) {
+      const scopedProvider = await this.emailProviderRepo.findOne({
+        where: {
+          userId: input.userId,
+          workspaceId: input.activeWorkspaceId,
+          ...(typeof input.isActive === 'boolean'
+            ? { isActive: input.isActive }
+            : {}),
+        },
+        order: { createdAt: 'DESC' },
+      });
+      if (scopedProvider) return scopedProvider;
+      return this.emailProviderRepo.findOne({
+        where: {
+          userId: input.userId,
+          workspaceId: null as any,
+          ...(typeof input.isActive === 'boolean'
+            ? { isActive: input.isActive }
+            : {}),
+        },
+        order: { createdAt: 'DESC' },
+      });
+    }
+
+    return this.emailProviderRepo.findOne({
+      where: {
+        userId: input.userId,
+        ...(typeof input.isActive === 'boolean'
+          ? { isActive: input.isActive }
+          : {}),
+      },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  private async findScopedNewestMailbox(
+    userId: string,
+    activeWorkspaceId?: string | null,
+  ): Promise<Mailbox | null> {
+    if (activeWorkspaceId) {
+      const scopedMailbox = await this.mailboxRepo.findOne({
+        where: { userId, workspaceId: activeWorkspaceId },
+        order: { createdAt: 'DESC' },
+      });
+      if (scopedMailbox) return scopedMailbox;
+      return this.mailboxRepo.findOne({
+        where: { userId, workspaceId: null as any },
+        order: { createdAt: 'DESC' },
+      });
+    }
+    return this.mailboxRepo.findOne({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   private mapMailboxEmailToThreadSummary(
     email: Email,
     source: { id: string; address: string },
@@ -283,28 +382,39 @@ export class UnifiedInboxService {
     userId: string,
     requestedProviderId?: string,
   ): Promise<ActiveInboxSource | null> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    const activeWorkspaceId = (user as any)?.activeWorkspaceId as
+      | string
+      | null
+      | undefined;
+
     if (requestedProviderId) {
-      const p = await this.emailProviderRepo.findOne({
-        where: { id: requestedProviderId, userId },
-      });
+      const p = await this.findScopedProviderById(
+        userId,
+        requestedProviderId,
+        activeWorkspaceId,
+      );
       if (!p) throw new NotFoundException('Provider not found');
       return { type: 'PROVIDER', id: p.id };
     }
 
-    const user = await this.userRepo.findOne({ where: { id: userId } });
     const activeType = (user as any)?.activeInboxType as string | null;
     const activeId = (user as any)?.activeInboxId as string | null;
     if (activeType === 'PROVIDER' && activeId) {
-      const p = await this.emailProviderRepo.findOne({
-        where: { id: activeId, userId },
-      });
+      const p = await this.findScopedProviderById(
+        userId,
+        activeId,
+        activeWorkspaceId,
+      );
       if (p) return { type: 'PROVIDER', id: p.id };
     }
 
     if (activeType === 'MAILBOX' && activeId) {
-      const mailbox = await this.mailboxRepo.findOne({
-        where: { id: activeId, userId },
-      });
+      const mailbox = await this.findScopedMailboxById(
+        userId,
+        activeId,
+        activeWorkspaceId,
+      );
       if (mailbox)
         return { type: 'MAILBOX', id: mailbox.id, address: mailbox.email };
     }
@@ -313,21 +423,22 @@ export class UnifiedInboxService {
     // 1) active provider
     // 2) newest provider
     // 3) newest mailbox
-    const activeProvider = await this.emailProviderRepo.findOne({
-      where: { userId, isActive: true },
-      order: { createdAt: 'DESC' },
+    const activeProvider = await this.findScopedPreferredProvider({
+      userId,
+      activeWorkspaceId,
+      isActive: true,
     });
     if (activeProvider) return { type: 'PROVIDER', id: activeProvider.id };
-    const newestProvider = await this.emailProviderRepo.findOne({
-      where: { userId },
-      order: { createdAt: 'DESC' },
+    const newestProvider = await this.findScopedPreferredProvider({
+      userId,
+      activeWorkspaceId,
     });
     if (newestProvider) return { type: 'PROVIDER', id: newestProvider.id };
 
-    const newestMailbox = await this.mailboxRepo.findOne({
-      where: { userId },
-      order: { createdAt: 'DESC' },
-    });
+    const newestMailbox = await this.findScopedNewestMailbox(
+      userId,
+      activeWorkspaceId,
+    );
     if (newestMailbox)
       return {
         type: 'MAILBOX',

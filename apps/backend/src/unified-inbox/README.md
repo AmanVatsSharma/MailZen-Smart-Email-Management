@@ -78,6 +78,7 @@ Read/star state:
 
 Every operation is **user-scoped**:
 - active provider/mailbox must belong to the authenticated user
+- when `User.activeWorkspaceId` is set, provider/mailbox source resolution is scoped to that workspace (with legacy null fallback during rollout)
 - provider message queries are filtered by `userId` + `providerId`
 - mailbox message queries are filtered by `userId` + mailbox address participation
 

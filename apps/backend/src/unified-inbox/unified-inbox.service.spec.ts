@@ -210,6 +210,56 @@ describe('UnifiedInboxService', () => {
     });
   });
 
+  it('scopes requested provider resolution to active workspace', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: userId,
+      activeWorkspaceId: 'workspace-1',
+    } as any);
+    providerRepo.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: providerId,
+        userId,
+        workspaceId: null,
+        type: 'GMAIL',
+      } as any);
+    const queryBuilderMock = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    };
+    messageRepo.createQueryBuilder.mockReturnValue(queryBuilderMock as any);
+
+    const threads = await service.listThreads(
+      userId,
+      10,
+      0,
+      { providerId } as any,
+      null,
+    );
+
+    expect(providerRepo.findOne).toHaveBeenNthCalledWith(1, {
+      where: {
+        id: providerId,
+        userId,
+        workspaceId: 'workspace-1',
+      },
+    });
+    expect(providerRepo.findOne).toHaveBeenNthCalledWith(2, {
+      where: {
+        id: providerId,
+        userId,
+        workspaceId: null,
+      },
+    });
+    expect(threads).toEqual([]);
+  });
+
   it('updates mailbox thread read/star state locally', async () => {
     userRepo.findOne.mockResolvedValue({
       id: userId,
