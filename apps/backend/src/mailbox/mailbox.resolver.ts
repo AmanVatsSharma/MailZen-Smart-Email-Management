@@ -26,8 +26,14 @@ export class MailboxResolver {
   }
 
   @Query(() => [String])
-  async myMailboxes(@Context() ctx: RequestContext) {
-    const boxes = await this.mailboxService.getUserMailboxes(ctx.req.user.id);
+  async myMailboxes(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Context() ctx: RequestContext,
+  ) {
+    const boxes = await this.mailboxService.getUserMailboxes(
+      ctx.req.user.id,
+      workspaceId,
+    );
     return boxes.map((b) => b.email);
   }
 }

@@ -9,6 +9,7 @@ monitoring subscription-aware limits.
 
 - `ProviderManagement.tsx`
   - Lists connected external providers and MailZen mailboxes
+  - Supports optional workspace-scoped listing using active workspace selection
   - Supports provider connect/sync/pause/remove actions
   - Shows live subscription plan usage:
     - provider usage (`used/limit`)

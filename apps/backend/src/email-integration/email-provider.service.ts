@@ -399,9 +399,12 @@ export class EmailProviderService {
     return this.getProviderUi(providerId, userId);
   }
 
-  async listProvidersUi(userId: string) {
+  async listProvidersUi(userId: string, workspaceId?: string | null) {
+    const normalizedWorkspaceId = String(workspaceId || '').trim();
     const providers = await this.providerRepository.find({
-      where: { userId },
+      where: normalizedWorkspaceId
+        ? { userId, workspaceId: normalizedWorkspaceId }
+        : { userId },
       order: { createdAt: 'DESC' },
     });
     return providers.map((p) => this.mapToProviderUi(p));

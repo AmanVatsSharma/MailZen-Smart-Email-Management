@@ -13,8 +13,8 @@ import { gql } from '@apollo/client';
 
 // Query to get UI-shaped providers for the current user
 export const GET_PROVIDERS = gql`
-  query Providers {
-    providers {
+  query Providers($workspaceId: String) {
+    providers(workspaceId: $workspaceId) {
       id
       type
       name

@@ -114,9 +114,12 @@ export class MailboxService {
     return { email: created.email, id: created.id };
   }
 
-  async getUserMailboxes(userId: string) {
+  async getUserMailboxes(userId: string, workspaceId?: string | null) {
+    const normalizedWorkspaceId = String(workspaceId || '').trim();
     return this.mailboxRepo.find({
-      where: { userId },
+      where: normalizedWorkspaceId
+        ? { userId, workspaceId: normalizedWorkspaceId }
+        : { userId },
       order: { createdAt: 'DESC' },
     });
   }

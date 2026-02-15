@@ -267,10 +267,10 @@ type Query {
   getAllProviders: [EmailProvider!]!
   getProviderById(id: String!): EmailProvider!
   validateProvider(id: String!): Boolean!
-  providers: [Provider!]!
-  getEmailProviders: [Provider!]!
+  providers(workspaceId: String): [Provider!]!
+  getEmailProviders(workspaceId: String): [Provider!]!
   getInboxMessages(inboxType: String!, inboxId: String!, limit: Int, offset: Int): [InboxMessage!]!
-  myMailboxes: [String!]!
+  myMailboxes(workspaceId: String): [String!]!
 
   """Get all features"""
   getAllFeatures: [Feature!]!

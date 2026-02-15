@@ -113,8 +113,14 @@ export class EmailProviderConnectResolver {
   }
 
   @Query(() => [Provider])
-  async providers(@Context() ctx: RequestContext) {
-    return this.emailProviderService.listProvidersUi(ctx.req.user.id);
+  async providers(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.emailProviderService.listProvidersUi(
+      ctx.req.user.id,
+      workspaceId,
+    );
   }
 
   /**
@@ -122,8 +128,14 @@ export class EmailProviderConnectResolver {
    * Prefer `providers`.
    */
   @Query(() => [Provider])
-  async getEmailProviders(@Context() ctx: RequestContext) {
-    return this.emailProviderService.listProvidersUi(ctx.req.user.id);
+  async getEmailProviders(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.emailProviderService.listProvidersUi(
+      ctx.req.user.id,
+      workspaceId,
+    );
   }
 
   /**

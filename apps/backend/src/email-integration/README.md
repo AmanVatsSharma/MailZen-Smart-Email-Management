@@ -47,6 +47,7 @@ This module follows NestJS best practices and consists of:
 - `validateProvider(id: String!)`: Validate connection to a provider
 - `providers`: Frontend-facing provider list (UI shape)
 - `getEmailProviders`: Backwards-compatible alias for `providers`
+  - both now accept optional `workspaceId` for scoped listing
 
 ### Mutations
 

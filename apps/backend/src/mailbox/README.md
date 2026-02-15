@@ -26,7 +26,7 @@ This module covers:
 - `mailbox.resolver.ts`
   - GraphQL:
     - `createMyMailbox(desiredLocalPart?: String): String!`
-    - `myMailboxes: [String!]!`
+    - `myMailboxes(workspaceId?: String): [String!]!`
 
 ## Provisioning flow
 

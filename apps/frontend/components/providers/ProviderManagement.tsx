@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Plus, Trash2, RefreshCw, Settings, Mail } from 'lucide-react';
@@ -21,15 +21,35 @@ import { gql } from '@apollo/client';
 export function ProviderManagement() {
   const [isAddingProvider, setIsAddingProvider] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState<string | null>(null);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const storedWorkspaceId =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('mailzen.selectedWorkspaceId')
+        : null;
+    setActiveWorkspaceId(storedWorkspaceId);
+  }, []);
 
   // Fetch providers
-  const { data, loading, error, refetch } = useQuery(GET_PROVIDERS);
+  const { data, loading, error, refetch } = useQuery(GET_PROVIDERS, {
+    variables: { workspaceId: activeWorkspaceId || undefined },
+  });
   const providers = data?.providers || [];
   void loading;
   void error;
 
   // Fetch MailZen mailbox list
-  const { data: mailboxData } = useQuery(gql`{ myMailboxes }`);
+  const { data: mailboxData } = useQuery(
+    gql`
+      query ProviderManagementMailboxes($workspaceId: String) {
+        myMailboxes(workspaceId: $workspaceId)
+      }
+    `,
+    {
+      variables: { workspaceId: activeWorkspaceId || undefined },
+    },
+  );
   const mailzenBoxes: string[] = mailboxData?.myMailboxes || [];
 
   // Mutations
