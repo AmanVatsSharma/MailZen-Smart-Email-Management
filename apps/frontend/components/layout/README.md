@@ -21,6 +21,9 @@ modern two-level navigation system:
 - `Header.tsx`
   - Top navigation bar (mobile menu toggle, search, notifications, theme, account)
   - Includes inbox switcher modal trigger for multi-address inbox selection
+  - Notification bell now reads real backend notification feed (`myNotifications`)
+    and unread count (`myUnreadNotificationCount`), and marks notifications
+    read via `markNotificationRead`
   - Account links now route only to valid dashboard destinations
 - `InboxSwitcherModal.tsx`
   - Lists all user inbox sources via `myInboxes`
@@ -63,3 +66,5 @@ flowchart TD
   `DashboardPageShell`.
 - 2026-02-14: Added header-level inbox switcher modal (`myInboxes` +
   `setActiveInbox`) to manage multiple addresses/providers in-place.
+- 2026-02-15: Wired header notifications bell to backend notification GraphQL
+  feed and unread count.

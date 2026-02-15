@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Menu, Bell, Search, Users, LogOut, Settings } from 'lucide-react';
-import { useMutation } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -25,10 +25,24 @@ import {
   type AuthUser,
 } from '@/modules/auth';
 import { InboxSwitcherModal } from './InboxSwitcherModal';
+import {
+  GET_MY_NOTIFICATIONS,
+  GET_UNREAD_NOTIFICATION_COUNT,
+  MARK_NOTIFICATION_READ,
+} from '@/lib/apollo/queries/notifications';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
 }
+
+type DashboardNotification = {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+};
 
 const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const router = useRouter();
@@ -37,6 +51,26 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const [logout, { loading: logoutLoading }] = useMutation(LOGOUT_MUTATION, {
     onError: (e) => {
       console.error('[Logout] GraphQL error', e);
+    },
+  });
+  const { data: notificationsData, refetch: refetchNotifications } = useQuery(
+    GET_MY_NOTIFICATIONS,
+    {
+      variables: { limit: 8, unreadOnly: false },
+      fetchPolicy: 'cache-and-network',
+      pollInterval: 30_000,
+    },
+  );
+  const { data: unreadCountData, refetch: refetchUnreadCount } = useQuery(
+    GET_UNREAD_NOTIFICATION_COUNT,
+    {
+      fetchPolicy: 'cache-and-network',
+      pollInterval: 30_000,
+    },
+  );
+  const [markNotificationRead] = useMutation(MARK_NOTIFICATION_READ, {
+    onError: (error) => {
+      console.error('[Notifications] markNotificationRead failed', error);
     },
   });
 
@@ -70,6 +104,20 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     } finally {
       logoutUser();
       router.push(AUTH_ROUTES.login);
+    }
+  };
+
+  const notifications = (notificationsData?.myNotifications ||
+    []) as DashboardNotification[];
+  const unreadCount = Number(unreadCountData?.myUnreadNotificationCount || 0);
+
+  const handleNotificationClick = async (notification: DashboardNotification) => {
+    if (notification.isRead) return;
+    try {
+      await markNotificationRead({ variables: { id: notification.id } });
+      await Promise.all([refetchNotifications(), refetchUnreadCount()]);
+    } catch (error) {
+      console.error('[Notifications] click handler failed', error);
     }
   };
 
@@ -146,12 +194,48 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           transition={{ delay: 0.5 }}
         >
           <InboxSwitcherModal />
-          <Button variant="outline" size="icon" className="relative">
-            <Bell className="h-4 w-4" />
-            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-white">
-              3
-            </span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="relative">
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {notifications.length === 0 ? (
+                <div className="px-2 py-4 text-sm text-muted-foreground">
+                  You&apos;re all caught up.
+                </div>
+              ) : (
+                notifications.map((notification) => (
+                  <DropdownMenuItem
+                    key={notification.id}
+                    className="flex cursor-pointer flex-col items-start gap-1 py-2"
+                    onClick={() => handleNotificationClick(notification)}
+                  >
+                    <div className="flex w-full items-center justify-between gap-2">
+                      <span className="text-sm font-medium">{notification.title}</span>
+                      {!notification.isRead && (
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                      )}
+                    </div>
+                    <p className="line-clamp-2 text-xs text-muted-foreground">
+                      {notification.message}
+                    </p>
+                    <span className="text-[11px] text-muted-foreground">
+                      {new Date(notification.createdAt).toLocaleString()}
+                    </span>
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
