@@ -63,6 +63,8 @@ flowchart TD
 
 ## Changelog
 
+- 2026-02-15: Added dashboard-level mailbox inbound health snapshot card with
+  24h accepted/deduplicated/rejected telemetry summary.
 - 2026-02-15: Enhanced email provider management with mailbox inbound
   observability filters and event timeline telemetry.
 - 2026-02-14: Migrated dashboard pages to shared scaffold patterns and removed

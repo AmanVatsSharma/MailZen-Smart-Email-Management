@@ -28,6 +28,8 @@ modern two-level navigation system:
     metadata when available (e.g. sync-failure events), including safe parsing
     when metadata arrives as a JSON string
   - Mailbox inbound alerts include mailbox/source metadata context when provided
+  - Notification dropdown now includes a 24h mailbox inbound health snapshot
+    (accepted/deduplicated/rejected totals) for operational visibility
   - Workspace switcher now reads backend `myWorkspaces` and keeps local active
     workspace selection, and persists active workspace via
     `setActiveWorkspace` / `myActiveWorkspace`
@@ -69,6 +71,8 @@ flowchart TD
 
 ## Changelog
 
+- 2026-02-15: Added mailbox inbound health snapshot panel to notification
+  dropdown for fast operational triage.
 - 2026-02-14: Reworked dashboard shell to double-sidebar architecture, added
   route-driven nav config, centralized mail navigation, and introduced shared
   `DashboardPageShell`.

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -31,6 +32,7 @@ import { ResponseTimeChart } from '@/components/ui/charts/ResponseTimeChart';
 import { useQuery } from '@apollo/client';
 import { GET_DASHBOARD_ANALYTICS } from '@/lib/apollo/queries/analytics';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
+import { GET_MY_MAILBOX_INBOUND_EVENT_STATS } from '@/lib/apollo/queries/mailbox-observability';
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -60,9 +62,18 @@ export default function DashboardPage() {
   const { data, loading, error } = useQuery(GET_DASHBOARD_ANALYTICS, {
     fetchPolicy: 'network-only',
   });
+  const {
+    data: mailboxInboundData,
+    loading: mailboxInboundLoading,
+    error: mailboxInboundError,
+  } = useQuery(GET_MY_MAILBOX_INBOUND_EVENT_STATS, {
+    variables: { windowHours: 24 },
+    fetchPolicy: 'cache-and-network',
+  });
 
   const analytics = data?.getAllEmailAnalytics ?? [];
   const scheduledEmails = data?.getAllScheduledEmails ?? [];
+  const mailboxInboundStats = mailboxInboundData?.myMailboxInboundEventStats;
 
   const todayStart = useMemo(() => {
     const date = new Date();
@@ -96,6 +107,14 @@ export default function DashboardPage() {
     smartRepliesGenerated - smartRepliesUsedWithoutEdit - smartRepliesModified,
     0,
   );
+  const inboundTotal = Number(mailboxInboundStats?.totalCount || 0);
+  const inboundAccepted = Number(mailboxInboundStats?.acceptedCount || 0);
+  const inboundDeduplicated = Number(mailboxInboundStats?.deduplicatedCount || 0);
+  const inboundRejected = Number(mailboxInboundStats?.rejectedCount || 0);
+  const inboundHealthRate =
+    inboundTotal > 0
+      ? Math.round(((inboundAccepted + inboundDeduplicated) / inboundTotal) * 100)
+      : 100;
 
   return (
     <DashboardPageShell
@@ -241,6 +260,74 @@ export default function DashboardPage() {
             Live analytics connected. Current tracked open success rate is {successRate}%.
           </AlertDescription>
         </Alert>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5, duration: 0.5 }}
+      >
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle>Mailbox inbound health (24h)</CardTitle>
+            <CardDescription>
+              Operational snapshot from mailbox inbound observability telemetry.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {mailboxInboundError && (
+              <Alert variant="destructive">
+                <AlertTitle>Inbound telemetry unavailable</AlertTitle>
+                <AlertDescription>{mailboxInboundError.message}</AlertDescription>
+              </Alert>
+            )}
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+              <Badge variant="outline">Total: {inboundTotal}</Badge>
+              <Badge
+                variant="outline"
+                className="border-emerald-200/60 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200"
+              >
+                Accepted: {inboundAccepted}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="border-blue-200/60 bg-blue-50 text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200"
+              >
+                Deduped: {inboundDeduplicated}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="border-destructive/20 bg-destructive/10 text-destructive dark:border-destructive/30 dark:bg-destructive/15"
+              >
+                Rejected: {inboundRejected}
+              </Badge>
+              <Badge variant="outline">Health: {inboundHealthRate}%</Badge>
+            </div>
+            <div>
+              <Progress
+                value={inboundHealthRate}
+                className="h-2"
+                indicatorColor={
+                  inboundRejected > 0
+                    ? 'bg-linear-to-r from-amber-500 to-red-500'
+                    : 'bg-linear-to-r from-emerald-500 to-emerald-300'
+                }
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                {mailboxInboundLoading
+                  ? 'Refreshing inbound telemetry...'
+                  : mailboxInboundStats?.lastProcessedAt
+                    ? `Last inbound event: ${new Date(mailboxInboundStats.lastProcessedAt).toLocaleString()}`
+                    : 'No inbound mailbox events tracked yet for this window.'}
+              </p>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/email-providers">Open mailbox observability panel</Link>
+            </Button>
+          </CardFooter>
+        </Card>
       </motion.div>
 
       <motion.div 

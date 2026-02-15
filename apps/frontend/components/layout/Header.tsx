@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   Menu,
+  AlertTriangle,
   Bell,
   Building2,
   Search,
@@ -45,6 +46,7 @@ import {
   GET_MY_WORKSPACES,
   SET_ACTIVE_WORKSPACE,
 } from '@/lib/apollo/queries/workspaces';
+import { GET_MY_MAILBOX_INBOUND_EVENT_STATS } from '@/lib/apollo/queries/mailbox-observability';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -65,6 +67,15 @@ type DashboardWorkspace = {
   name: string;
   slug: string;
   isPersonal: boolean;
+};
+
+type MailboxInboundStatsSnapshot = {
+  windowHours: number;
+  totalCount: number;
+  acceptedCount: number;
+  deduplicatedCount: number;
+  rejectedCount: number;
+  lastProcessedAt?: string | null;
 };
 
 const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
@@ -111,6 +122,13 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     onError: (error) => {
       console.error('[Workspace] setActiveWorkspace failed', error);
     },
+  });
+  const { data: mailboxInboundStatsData } = useQuery<{
+    myMailboxInboundEventStats: MailboxInboundStatsSnapshot;
+  }>(GET_MY_MAILBOX_INBOUND_EVENT_STATS, {
+    variables: { windowHours: 24 },
+    fetchPolicy: 'cache-and-network',
+    pollInterval: 30_000,
   });
 
   useEffect(() => {
@@ -159,6 +177,8 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const notifications = (notificationsData?.myNotifications ||
     []) as DashboardNotification[];
   const unreadCount = Number(unreadCountData?.myUnreadNotificationCount || 0);
+  const mailboxInboundStats = mailboxInboundStatsData?.myMailboxInboundEventStats;
+  const hasMailboxInboundErrors = Number(mailboxInboundStats?.rejectedCount || 0) > 0;
   const workspaces = useMemo(
     () => (workspaceData?.myWorkspaces || []) as DashboardWorkspace[],
     [workspaceData?.myWorkspaces],
@@ -375,6 +395,38 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
             <DropdownMenuContent align="end" className="w-80">
               <DropdownMenuLabel>Notifications</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {mailboxInboundStats && (
+                <>
+                  <div className="px-2 py-2">
+                    <div className="rounded-md border bg-muted/30 p-2">
+                      <div className="mb-1.5 flex items-center justify-between text-xs">
+                        <span className="font-medium">Mailbox inbound health (24h)</span>
+                        {hasMailboxInboundErrors ? (
+                          <span className="flex items-center text-destructive">
+                            <AlertTriangle className="mr-1 h-3 w-3" />
+                            Attention
+                          </span>
+                        ) : (
+                          <span className="text-emerald-600">Healthy</span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground">
+                        <span>Total: {mailboxInboundStats.totalCount}</span>
+                        <span>Accepted: {mailboxInboundStats.acceptedCount}</span>
+                        <span>Deduped: {mailboxInboundStats.deduplicatedCount}</span>
+                        <span>Rejected: {mailboxInboundStats.rejectedCount}</span>
+                      </div>
+                      {mailboxInboundStats.lastProcessedAt && (
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          Last event:{' '}
+                          {new Date(mailboxInboundStats.lastProcessedAt).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               {notifications.length === 0 ? (
                 <div className="px-2 py-4 text-sm text-muted-foreground">
                   You&apos;re all caught up.
