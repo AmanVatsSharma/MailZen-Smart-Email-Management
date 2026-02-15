@@ -308,3 +308,35 @@ SELECT
 FROM user_notification_preferences
 WHERE "mailboxInboundSlaWarningRejectedPercent" > "mailboxInboundSlaCriticalRejectedPercent";
 ```
+
+## Notification Mailbox Inbound SLA Alert-State Rollout Notes (2026-02-16)
+
+New migration: `20260216005000-notification-mailbox-inbound-sla-alert-state.ts`
+
+This migration introduces:
+
+- `user_notification_preferences.mailboxInboundSlaAlertsEnabled`
+- `user_notification_preferences.mailboxInboundSlaLastAlertStatus`
+- `user_notification_preferences.mailboxInboundSlaLastAlertedAt`
+
+### Safe rollout sequence
+
+1. Deploy backend containing alert-state migration + mailbox SLA scheduler.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- mailbox/mailbox-inbound-sla.scheduler.spec.ts notification/notification.service.spec.ts`
+   - `npm run build`
+5. Verify operational behavior:
+   - `MAILBOX_INBOUND_SLA_ALERT` notifications emit on WARNING/CRITICAL transitions
+   - duplicate same-status alerts are suppressed during cooldown window
+   - healthy/no-data states clear stored alert status
+
+### Staging verification SQL (SLA alert-state columns)
+
+```sql
+SELECT
+  COUNT(*) FILTER (WHERE "mailboxInboundSlaAlertsEnabled" = true) AS alerts_enabled_rows,
+  COUNT(*) FILTER (WHERE "mailboxInboundSlaLastAlertStatus" IS NOT NULL) AS rows_with_alert_status
+FROM user_notification_preferences;
+```

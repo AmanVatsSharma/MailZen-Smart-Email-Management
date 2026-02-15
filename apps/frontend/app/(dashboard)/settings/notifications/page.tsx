@@ -33,6 +33,7 @@ type NotificationPreferences = {
   mailboxInboundSlaTargetSuccessPercent: number;
   mailboxInboundSlaWarningRejectedPercent: number;
   mailboxInboundSlaCriticalRejectedPercent: number;
+  mailboxInboundSlaAlertsEnabled: boolean;
 };
 
 const DEFAULT_PREFERENCES: NotificationPreferences = {
@@ -46,6 +47,7 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   mailboxInboundSlaTargetSuccessPercent: 99,
   mailboxInboundSlaWarningRejectedPercent: 1,
   mailboxInboundSlaCriticalRejectedPercent: 5,
+  mailboxInboundSlaAlertsEnabled: true,
 };
 
 const NotificationsSettingsPage = () => {
@@ -91,6 +93,8 @@ const NotificationsSettingsPage = () => {
         serverPreferences.mailboxInboundSlaWarningRejectedPercent,
       mailboxInboundSlaCriticalRejectedPercent:
         serverPreferences.mailboxInboundSlaCriticalRejectedPercent,
+      mailboxInboundSlaAlertsEnabled:
+        serverPreferences.mailboxInboundSlaAlertsEnabled,
     });
   }, [data]);
 
@@ -132,6 +136,8 @@ const NotificationsSettingsPage = () => {
           ),
           mailboxInboundSlaWarningRejectedPercent: normalizedWarningThreshold,
           mailboxInboundSlaCriticalRejectedPercent: normalizedCriticalThreshold,
+          mailboxInboundSlaAlertsEnabled:
+            preferences.mailboxInboundSlaAlertsEnabled,
         },
       },
     });
@@ -317,6 +323,23 @@ const NotificationsSettingsPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-medium">SLA alert notifications</h3>
+              <p className="text-sm text-muted-foreground">
+                Notify me when mailbox inbound SLA enters warning or critical status.
+              </p>
+            </div>
+            <Switch
+              checked={preferences.mailboxInboundSlaAlertsEnabled}
+              onCheckedChange={(checked) =>
+                setPreferences((prev) => ({
+                  ...prev,
+                  mailboxInboundSlaAlertsEnabled: checked,
+                }))
+              }
+            />
+          </div>
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <h3 className="text-sm font-medium">Target success %</h3>

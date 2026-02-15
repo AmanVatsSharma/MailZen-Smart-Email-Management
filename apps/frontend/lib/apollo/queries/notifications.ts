@@ -43,6 +43,7 @@ export const GET_NOTIFICATION_PREFERENCES = gql`
       mailboxInboundSlaTargetSuccessPercent
       mailboxInboundSlaWarningRejectedPercent
       mailboxInboundSlaCriticalRejectedPercent
+      mailboxInboundSlaAlertsEnabled
       updatedAt
     }
   }
@@ -64,6 +65,7 @@ export const UPDATE_NOTIFICATION_PREFERENCES = gql`
       mailboxInboundSlaTargetSuccessPercent
       mailboxInboundSlaWarningRejectedPercent
       mailboxInboundSlaCriticalRejectedPercent
+      mailboxInboundSlaAlertsEnabled
       updatedAt
     }
   }

@@ -31,20 +31,27 @@ describe('NotificationService', () => {
     jest.clearAllMocks();
   });
 
+  const basePreference = {
+    id: 'pref-1',
+    userId: 'user-1',
+    inAppEnabled: true,
+    emailEnabled: true,
+    pushEnabled: false,
+    syncFailureEnabled: true,
+    mailboxInboundAcceptedEnabled: true,
+    mailboxInboundDeduplicatedEnabled: false,
+    mailboxInboundRejectedEnabled: true,
+    mailboxInboundSlaTargetSuccessPercent: 99,
+    mailboxInboundSlaWarningRejectedPercent: 1,
+    mailboxInboundSlaCriticalRejectedPercent: 5,
+    mailboxInboundSlaAlertsEnabled: true,
+    mailboxInboundSlaLastAlertStatus: null,
+    mailboxInboundSlaLastAlertedAt: null,
+  } satisfies Partial<UserNotificationPreference>;
+
   it('creates unread notifications for users', async () => {
     const preferences = {
-      id: 'pref-1',
-      userId: 'user-1',
-      inAppEnabled: true,
-      emailEnabled: true,
-      pushEnabled: false,
-      syncFailureEnabled: true,
-      mailboxInboundAcceptedEnabled: true,
-      mailboxInboundDeduplicatedEnabled: false,
-      mailboxInboundRejectedEnabled: true,
-      mailboxInboundSlaTargetSuccessPercent: 99,
-      mailboxInboundSlaWarningRejectedPercent: 1,
-      mailboxInboundSlaCriticalRejectedPercent: 5,
+      ...basePreference,
     } as UserNotificationPreference;
     preferenceRepo.findOne.mockResolvedValue(preferences);
 
@@ -78,18 +85,8 @@ describe('NotificationService', () => {
 
   it('honors sync failure preference and marks ignored notifications as read', async () => {
     const preferences = {
-      id: 'pref-1',
-      userId: 'user-1',
-      inAppEnabled: true,
-      emailEnabled: true,
-      pushEnabled: false,
+      ...basePreference,
       syncFailureEnabled: false,
-      mailboxInboundAcceptedEnabled: true,
-      mailboxInboundDeduplicatedEnabled: false,
-      mailboxInboundRejectedEnabled: true,
-      mailboxInboundSlaTargetSuccessPercent: 99,
-      mailboxInboundSlaWarningRejectedPercent: 1,
-      mailboxInboundSlaCriticalRejectedPercent: 5,
     } as UserNotificationPreference;
     preferenceRepo.findOne.mockResolvedValue(preferences);
     notificationRepo.create.mockImplementation(
@@ -143,18 +140,7 @@ describe('NotificationService', () => {
 
   it('updates persisted notification preferences', async () => {
     preferenceRepo.findOne.mockResolvedValue({
-      id: 'pref-1',
-      userId: 'user-1',
-      inAppEnabled: true,
-      emailEnabled: true,
-      pushEnabled: false,
-      syncFailureEnabled: true,
-      mailboxInboundAcceptedEnabled: true,
-      mailboxInboundDeduplicatedEnabled: false,
-      mailboxInboundRejectedEnabled: true,
-      mailboxInboundSlaTargetSuccessPercent: 99,
-      mailboxInboundSlaWarningRejectedPercent: 1,
-      mailboxInboundSlaCriticalRejectedPercent: 5,
+      ...basePreference,
     } as UserNotificationPreference);
     preferenceRepo.save.mockImplementation(
       (value: UserNotificationPreference) => Promise.resolve(value),
@@ -164,27 +150,18 @@ describe('NotificationService', () => {
       emailEnabled: false,
       pushEnabled: true,
       mailboxInboundRejectedEnabled: false,
+      mailboxInboundSlaAlertsEnabled: false,
     });
 
     expect(result.emailEnabled).toBe(false);
     expect(result.pushEnabled).toBe(true);
     expect(result.mailboxInboundRejectedEnabled).toBe(false);
+    expect(result.mailboxInboundSlaAlertsEnabled).toBe(false);
   });
 
   it('normalizes inbound SLA thresholds when preferences are updated', async () => {
     preferenceRepo.findOne.mockResolvedValue({
-      id: 'pref-1',
-      userId: 'user-1',
-      inAppEnabled: true,
-      emailEnabled: true,
-      pushEnabled: false,
-      syncFailureEnabled: true,
-      mailboxInboundAcceptedEnabled: true,
-      mailboxInboundDeduplicatedEnabled: false,
-      mailboxInboundRejectedEnabled: true,
-      mailboxInboundSlaTargetSuccessPercent: 99,
-      mailboxInboundSlaWarningRejectedPercent: 1,
-      mailboxInboundSlaCriticalRejectedPercent: 5,
+      ...basePreference,
     } as UserNotificationPreference);
     preferenceRepo.save.mockImplementation(
       (value: UserNotificationPreference) => Promise.resolve(value),
@@ -203,18 +180,8 @@ describe('NotificationService', () => {
 
   it('honors mailbox inbound accepted preference and mutes accepted alerts', async () => {
     const preferences = {
-      id: 'pref-1',
-      userId: 'user-1',
-      inAppEnabled: true,
-      emailEnabled: true,
-      pushEnabled: false,
-      syncFailureEnabled: true,
+      ...basePreference,
       mailboxInboundAcceptedEnabled: false,
-      mailboxInboundDeduplicatedEnabled: false,
-      mailboxInboundRejectedEnabled: true,
-      mailboxInboundSlaTargetSuccessPercent: 99,
-      mailboxInboundSlaWarningRejectedPercent: 1,
-      mailboxInboundSlaCriticalRejectedPercent: 5,
     } as UserNotificationPreference;
     preferenceRepo.findOne.mockResolvedValue(preferences);
     notificationRepo.create.mockImplementation(
@@ -250,18 +217,8 @@ describe('NotificationService', () => {
 
   it('honors mailbox inbound rejected preference and mutes rejected alerts', async () => {
     const preferences = {
-      id: 'pref-1',
-      userId: 'user-1',
-      inAppEnabled: true,
-      emailEnabled: true,
-      pushEnabled: false,
-      syncFailureEnabled: true,
-      mailboxInboundAcceptedEnabled: true,
-      mailboxInboundDeduplicatedEnabled: false,
+      ...basePreference,
       mailboxInboundRejectedEnabled: false,
-      mailboxInboundSlaTargetSuccessPercent: 99,
-      mailboxInboundSlaWarningRejectedPercent: 1,
-      mailboxInboundSlaCriticalRejectedPercent: 5,
     } as UserNotificationPreference;
     preferenceRepo.findOne.mockResolvedValue(preferences);
     notificationRepo.create.mockImplementation(
@@ -293,5 +250,60 @@ describe('NotificationService', () => {
         ignoredPreferenceKey: 'mailboxInboundRejectedEnabled',
       }),
     );
+  });
+
+  it('honors mailbox inbound SLA alert preference and mutes SLA alerts', async () => {
+    const preferences = {
+      ...basePreference,
+      mailboxInboundSlaAlertsEnabled: false,
+    } as UserNotificationPreference;
+    preferenceRepo.findOne.mockResolvedValue(preferences);
+    notificationRepo.create.mockImplementation(
+      (value: Partial<UserNotification>) =>
+        ({
+          id: 'notif-muted-sla',
+          ...value,
+        }) as UserNotification,
+    );
+    notificationRepo.save.mockImplementation((value: UserNotification) =>
+      Promise.resolve(value),
+    );
+
+    const result = await service.createNotification({
+      userId: 'user-1',
+      type: 'MAILBOX_INBOUND_SLA_ALERT',
+      title: 'Mailbox inbound SLA critical',
+      message: 'Inbound rejection rate crossed critical threshold',
+      metadata: {
+        slaStatus: 'CRITICAL',
+      },
+    });
+
+    expect(result.isRead).toBe(true);
+    expect(result.metadata).toEqual(
+      expect.objectContaining({
+        ignoredByPreference: true,
+        ignoredPreferenceKey: 'mailboxInboundSlaAlertsEnabled',
+      }),
+    );
+  });
+
+  it('persists mailbox inbound SLA alert state', async () => {
+    preferenceRepo.findOne.mockResolvedValue({
+      ...basePreference,
+    } as UserNotificationPreference);
+    preferenceRepo.save.mockImplementation(
+      (value: UserNotificationPreference) => Promise.resolve(value),
+    );
+    const now = new Date('2026-02-16T00:30:00.000Z');
+
+    const result = await service.updateMailboxInboundSlaAlertState({
+      userId: 'user-1',
+      status: 'CRITICAL',
+      alertedAt: now,
+    });
+
+    expect(result.mailboxInboundSlaLastAlertStatus).toBe('CRITICAL');
+    expect(result.mailboxInboundSlaLastAlertedAt).toEqual(now);
   });
 });

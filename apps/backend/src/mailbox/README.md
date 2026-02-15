@@ -97,6 +97,12 @@ flowchart TD
 - `MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT` (default `5`)
   - default rejection-rate threshold that triggers `CRITICAL` SLA status
   - persisted per-user notification preference thresholds override these defaults
+- `MAILZEN_INBOUND_SLA_ALERT_WINDOW_HOURS` (default `24`)
+  - rolling window used by SLA alert scheduler to evaluate user health
+- `MAILZEN_INBOUND_SLA_ALERT_COOLDOWN_MINUTES` (default `60`)
+  - minimum delay before re-emitting same-status SLA alert for a user
+- `MAILZEN_INBOUND_SLA_ALERT_MAX_USERS_PER_RUN` (default `500`)
+  - safety cap for monitored users in each scheduler cycle
 
 ### Mail connection defaults persisted on mailbox rows
 - `MAILZEN_SMTP_HOST` (default `smtp.mailzen.local`)
@@ -128,6 +134,9 @@ flowchart TD
   `REJECTED` status in `mailbox_inbound_events` for post-incident analysis.
 - Mailbox inbound notifications are emitted with status metadata and can be
   filtered via notification preferences (`mailboxInbound*Enabled` fields).
+- `MailboxInboundSlaScheduler` evaluates `myMailboxInboundEventStats`-equivalent
+  SLA status every 15 minutes and emits `MAILBOX_INBOUND_SLA_ALERT` notifications
+  when warning/critical thresholds are breached (with cooldown suppression).
 
 ## Inbound observability GraphQL queries
 

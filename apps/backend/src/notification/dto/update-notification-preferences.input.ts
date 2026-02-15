@@ -31,4 +31,7 @@ export class UpdateNotificationPreferencesInput {
 
   @Field(() => Float, { nullable: true })
   mailboxInboundSlaCriticalRejectedPercent?: number;
+
+  @Field({ nullable: true })
+  mailboxInboundSlaAlertsEnabled?: boolean;
 }

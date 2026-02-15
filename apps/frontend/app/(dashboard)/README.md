@@ -63,6 +63,8 @@ flowchart TD
 
 ## Changelog
 
+- 2026-02-15: Added mailbox inbound SLA alert toggle in notification settings
+  to control warning/critical alert notifications.
 - 2026-02-15: Added notification-settings controls for mailbox inbound SLA
   thresholds consumed by dashboard observability health indicators.
 - 2026-02-15: Added threshold-aware SLA indicators to mailbox inbound dashboard

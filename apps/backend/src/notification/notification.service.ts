@@ -17,6 +17,7 @@ type MailboxInboundNotificationStatus =
   | 'ACCEPTED'
   | 'DEDUPLICATED'
   | 'REJECTED';
+type MailboxInboundSlaStatus = 'WARNING' | 'CRITICAL' | 'HEALTHY' | 'NO_DATA';
 
 @Injectable()
 export class NotificationService {
@@ -64,6 +65,9 @@ export class NotificationService {
         normalizedThresholds.warningRejectedPercent,
       mailboxInboundSlaCriticalRejectedPercent:
         normalizedThresholds.criticalRejectedPercent,
+      mailboxInboundSlaAlertsEnabled: true,
+      mailboxInboundSlaLastAlertStatus: null,
+      mailboxInboundSlaLastAlertedAt: null,
     });
     return row;
   }
@@ -130,6 +134,10 @@ export class NotificationService {
           existing.mailboxInboundSlaCriticalRejectedPercent,
         );
     }
+    if (typeof input.mailboxInboundSlaAlertsEnabled === 'boolean') {
+      existing.mailboxInboundSlaAlertsEnabled =
+        input.mailboxInboundSlaAlertsEnabled;
+    }
     const normalizedThresholds = this.normalizeThresholdOrder({
       targetSuccessPercent: existing.mailboxInboundSlaTargetSuccessPercent,
       warningRejectedPercent: existing.mailboxInboundSlaWarningRejectedPercent,
@@ -195,6 +203,12 @@ export class NotificationService {
   ): string | null {
     if (input.type === 'SYNC_FAILED' && !preference.syncFailureEnabled) {
       return 'syncFailureEnabled';
+    }
+    if (
+      input.type === 'MAILBOX_INBOUND_SLA_ALERT' &&
+      !preference.mailboxInboundSlaAlertsEnabled
+    ) {
+      return 'mailboxInboundSlaAlertsEnabled';
     }
 
     if (input.type !== 'MAILBOX_INBOUND') return null;
@@ -307,5 +321,16 @@ export class NotificationService {
     if (notification.isRead) return notification;
     notification.isRead = true;
     return this.notificationRepo.save(notification);
+  }
+
+  async updateMailboxInboundSlaAlertState(input: {
+    userId: string;
+    status: MailboxInboundSlaStatus | null;
+    alertedAt: Date | null;
+  }): Promise<UserNotificationPreference> {
+    const preference = await this.getOrCreatePreferences(input.userId);
+    preference.mailboxInboundSlaLastAlertStatus = input.status;
+    preference.mailboxInboundSlaLastAlertedAt = input.alertedAt;
+    return this.notificationPreferenceRepo.save(preference);
   }
 }

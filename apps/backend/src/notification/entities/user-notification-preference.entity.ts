@@ -61,6 +61,16 @@ export class UserNotificationPreference {
   mailboxInboundSlaCriticalRejectedPercent: number;
 
   @Field()
+  @Column({ default: true })
+  mailboxInboundSlaAlertsEnabled: boolean;
+
+  @Column({ nullable: true })
+  mailboxInboundSlaLastAlertStatus?: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  mailboxInboundSlaLastAlertedAt?: Date | null;
+
+  @Field()
   @CreateDateColumn()
   createdAt: Date;
 

@@ -27,6 +27,8 @@ Provide a persistent notification foundation for user-visible product events
 - `GmailSyncScheduler` emits `SYNC_FAILED` notification on cron sync failure
 - `OutlookSyncScheduler` emits `SYNC_FAILED` notification on cron sync failure
 - `AiAgentGatewayService` emits `AGENT_ACTION_REQUIRED` for follow-up reminders
+- `MailboxInboundSlaScheduler` emits `MAILBOX_INBOUND_SLA_ALERT` when mailbox
+  inbound success/rejection rates breach user-configured thresholds
 - Emission respects stored user preferences:
   - `inAppEnabled`
   - `syncFailureEnabled`
@@ -37,6 +39,7 @@ Provide a persistent notification foundation for user-visible product events
     - `mailboxInboundSlaTargetSuccessPercent`
     - `mailboxInboundSlaWarningRejectedPercent`
     - `mailboxInboundSlaCriticalRejectedPercent`
+  - `mailboxInboundSlaAlertsEnabled`
 
 ### Metadata conventions
 
@@ -47,6 +50,11 @@ Notification metadata is intentionally extensible. Current producers attach:
   - `inboundStatus` (`ACCEPTED` | `DEDUPLICATED` | `REJECTED`)
   - `mailboxId`, `mailboxEmail`, `workspaceId`, `messageId`, `sourceIp`
   - optional `errorReason` and `emailId` for rejection/dedupe context
+- Mailbox inbound SLA alerts:
+  - `slaStatus` (`WARNING` | `CRITICAL`)
+  - `successRatePercent`, `rejectionRatePercent`
+  - `slaTargetSuccessPercent`, `slaWarningRejectedPercent`, `slaCriticalRejectedPercent`
+  - `totalCount`, `acceptedCount`, `deduplicatedCount`, `rejectedCount`, `windowHours`
 
 ## Flow
 

@@ -5,6 +5,7 @@ import { MailboxService } from './mailbox.service';
 import { MailboxResolver } from './mailbox.resolver';
 import { MailboxInboundService } from './mailbox-inbound.service';
 import { MailboxInboundController } from './mailbox-inbound.controller';
+import { MailboxInboundSlaScheduler } from './mailbox-inbound-sla.scheduler';
 import { BillingModule } from '../billing/billing.module';
 import { User } from '../user/entities/user.entity';
 import { MailServerModule } from './mail-server.module';
@@ -33,7 +34,12 @@ import { UserNotificationPreference } from '../notification/entities/user-notifi
     NotificationModule,
   ],
   controllers: [MailboxInboundController],
-  providers: [MailboxService, MailboxResolver, MailboxInboundService],
+  providers: [
+    MailboxService,
+    MailboxResolver,
+    MailboxInboundService,
+    MailboxInboundSlaScheduler,
+  ],
   exports: [MailboxService],
 })
 export class MailboxModule {}

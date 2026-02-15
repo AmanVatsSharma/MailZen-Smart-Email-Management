@@ -260,6 +260,16 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       metadata.sourceIp !== '127.0.0.1'
         ? metadata.sourceIp
         : null;
+    const slaStatus =
+      typeof metadata.slaStatus === 'string' ? metadata.slaStatus : null;
+    const successRatePercent =
+      typeof metadata.successRatePercent === 'number'
+        ? metadata.successRatePercent
+        : null;
+    const rejectionRatePercent =
+      typeof metadata.rejectionRatePercent === 'number'
+        ? metadata.rejectionRatePercent
+        : null;
 
     const workspaceName =
       workspaceId &&
@@ -270,6 +280,13 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       mailboxEmail ? `Mailbox: ${mailboxEmail}` : null,
       workspaceName ? `Workspace: ${workspaceName}` : null,
       sourceIp ? `Source IP: ${sourceIp}` : null,
+      slaStatus ? `SLA: ${slaStatus}` : null,
+      successRatePercent !== null
+        ? `Success: ${successRatePercent}%`
+        : null,
+      rejectionRatePercent !== null
+        ? `Reject: ${rejectionRatePercent}%`
+        : null,
     ].filter(Boolean);
     if (!contextParts.length) return null;
     return contextParts.join(' · ');
