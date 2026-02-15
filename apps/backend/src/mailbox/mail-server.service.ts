@@ -8,48 +8,30 @@ import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import axios from 'axios';
 import { Mailbox } from './entities/mailbox.entity';
-
-function encryptSecret(
-  plaintext: string,
-  key: Buffer,
-): { iv: string; ciphertext: string } {
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const enc = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return {
-    iv: iv.toString('base64'),
-    ciphertext: Buffer.concat([enc, tag]).toString('base64'),
-  };
-}
+import {
+  encryptProviderSecret,
+  ProviderSecretsKeyring,
+  resolveProviderSecretsKeyring,
+} from '../common/provider-secrets.util';
 
 @Injectable()
 export class MailServerService {
   private readonly logger = new Logger(MailServerService.name);
+  private readonly providerSecretsKeyring: ProviderSecretsKeyring;
 
   constructor(
     @InjectRepository(Mailbox)
     private readonly mailboxRepo: Repository<Mailbox>,
-  ) {}
-
-  private resolveEncryptionKey(): Buffer {
-    const raw = process.env.SECRETS_KEY?.trim();
-    if (raw && raw.length >= 32) {
-      return Buffer.from(raw.slice(0, 32));
-    }
-
-    const env = (process.env.NODE_ENV || 'development').toLowerCase();
-    if (env === 'production') {
+  ) {
+    try {
+      this.providerSecretsKeyring = resolveProviderSecretsKeyring();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Mailbox keyring resolve failed: ${message}`);
       throw new InternalServerErrorException(
-        'SECRETS_KEY must be configured with at least 32 characters',
+        'Mailbox credential encryption keyring is misconfigured',
       );
     }
-
-    // Local-only fallback key (never used in production).
-    this.logger.warn(
-      'SECRETS_KEY missing/short; using development fallback key for mailbox credential encryption',
-    );
-    return Buffer.from('mailzen-local-dev-secrets-key-32b'.slice(0, 32));
   }
 
   private getConnectionConfig() {
@@ -122,16 +104,18 @@ export class MailServerService {
       generatedPassword: password,
     });
 
-    const key = this.resolveEncryptionKey();
-    const { iv, ciphertext } = encryptSecret(password, key);
+    const encryptedPassword = encryptProviderSecret(
+      password,
+      this.providerSecretsKeyring,
+    );
     const connectionConfig = this.getConnectionConfig();
 
     const updateResult = await this.mailboxRepo.update(
       { userId, localPart, domain: 'mailzen.com' },
       {
         username: mailboxEmail,
-        passwordEnc: ciphertext,
-        passwordIv: iv,
+        passwordEnc: encryptedPassword,
+        passwordIv: undefined,
         smtpHost: connectionConfig.smtpHost,
         smtpPort: connectionConfig.smtpPort,
         imapHost: connectionConfig.imapHost,

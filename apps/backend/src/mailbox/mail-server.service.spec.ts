@@ -49,8 +49,8 @@ describe('MailServerService', () => {
       domain: 'mailzen.com',
     });
     expect(updateInput.username).toBe('sales@mailzen.com');
-    expect(typeof updateInput.passwordEnc).toBe('string');
-    expect(typeof updateInput.passwordIv).toBe('string');
+    expect(updateInput.passwordEnc).toEqual(expect.stringMatching(/^enc:v2:/));
+    expect(updateInput.passwordIv).toBeUndefined();
   });
 
   it('throws when mailbox row cannot be updated', async () => {

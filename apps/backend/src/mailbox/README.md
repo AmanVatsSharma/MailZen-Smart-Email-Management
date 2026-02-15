@@ -22,7 +22,7 @@ This module covers:
 - `mail-server.service.ts`
   - generates mailbox password
   - optionally calls external admin API (`MAILZEN_MAIL_ADMIN_API_URL`)
-  - encrypts password using `SECRETS_KEY`
+  - encrypts password using provider-secrets keyring rotation support
   - stores SMTP/IMAP connection fields on mailbox row
 - `mailbox.resolver.ts`
   - GraphQL:
@@ -56,7 +56,7 @@ flowchart TD
   Provision --> API{MAILZEN_MAIL_ADMIN_API_URL configured?}
   API -->|yes| AdminAPI[POST /mailboxes admin API]
   API -->|no| Skip[Local dev fallback mode]
-  Provision --> Encrypt[Encrypt generated password with SECRETS_KEY]
+  Provision --> Encrypt[Encrypt generated password with active keyring key]
   Encrypt --> DB2[(mailboxes update creds + hosts)]
   DB2 --> Done[Mailbox ready]
 ```
@@ -64,10 +64,14 @@ flowchart TD
 ## Environment variables
 
 ### Required for secure production
-- `SECRETS_KEY`
+- `PROVIDER_SECRETS_KEYRING` (recommended)
+  - format: `keyId:32+charSecret,keyId2:32+charSecret`
+  - enables key rotation with decrypt fallback across configured keys
+- `PROVIDER_SECRETS_ACTIVE_KEY_ID`
+  - selects which key encrypts new mailbox credentials
+- `SECRETS_KEY` / `PROVIDER_SECRETS_KEY` (legacy fallback)
   - minimum 32 chars
-  - used for AES-256-GCM mailbox credential encryption
-  - production boot should provide strong key material
+  - used when keyring env is not configured
 
 ### Optional external mailbox provisioning
 - `MAILZEN_MAIL_ADMIN_API_URL`
@@ -119,9 +123,9 @@ flowchart TD
   - mailbox credential persistence is skipped
 - If mailbox row update fails (`affected=0`):
   - throws `InternalServerErrorException`
-- If `SECRETS_KEY` is missing/short:
-  - production: throws `InternalServerErrorException`
-  - non-production: logs warning and uses local fallback key
+- If keyring/secret encryption config is missing or invalid:
+  - production: mailbox provisioning throws `InternalServerErrorException`
+  - non-production: utility fallback key is used only for local development
 - If inbound target mailbox is suspended or exceeds quota:
   - throws `BadRequestException`
   - inbound email is not persisted
@@ -167,7 +171,7 @@ flowchart TD
 ## Notes
 
 - This module provisions credentials and metadata; full inbound mailbox ingestion pipeline is handled by inbox/sync modules.
-- Keep `SECRETS_KEY` managed via secure secret store in production.
+- Keep provider/mailbox encryption keys managed via secure secret store in production.
 - Each inbound request emits structured log event `mailbox_inbound_processed` with outcome, latency, signature status, and dedupe signal.
 
 ## Inbound ingestion flow
