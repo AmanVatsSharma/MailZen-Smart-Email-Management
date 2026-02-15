@@ -172,6 +172,24 @@ export class WorkspaceService {
     });
   }
 
+  async listPendingWorkspaceInvitations(
+    userId: string,
+  ): Promise<WorkspaceMember[]> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    const normalizedEmail = String(user?.email || '')
+      .trim()
+      .toLowerCase();
+    if (!normalizedEmail) return [];
+
+    return this.workspaceMemberRepo.find({
+      where: {
+        email: normalizedEmail,
+        status: 'pending',
+      },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
   async inviteWorkspaceMember(
     workspaceId: string,
     actorUserId: string,
@@ -217,6 +235,43 @@ export class WorkspaceService {
       invitedByUserId: actorUserId,
     });
     return this.workspaceMemberRepo.save(member);
+  }
+
+  async respondToWorkspaceInvitation(input: {
+    workspaceMemberId: string;
+    userId: string;
+    accept: boolean;
+  }): Promise<WorkspaceMember> {
+    const user = await this.userRepo.findOne({ where: { id: input.userId } });
+    if (!user?.email) {
+      throw new BadRequestException('Authenticated user email is required');
+    }
+
+    const invitation = await this.workspaceMemberRepo.findOne({
+      where: { id: input.workspaceMemberId },
+    });
+    if (!invitation) {
+      throw new NotFoundException('Workspace invitation not found');
+    }
+    if (invitation.status !== 'pending') {
+      throw new BadRequestException('Workspace invitation is no longer pending');
+    }
+
+    const invitationEmail = String(invitation.email || '')
+      .trim()
+      .toLowerCase();
+    const currentUserEmail = String(user.email || '')
+      .trim()
+      .toLowerCase();
+    if (!invitationEmail || invitationEmail !== currentUserEmail) {
+      throw new ForbiddenException(
+        'You can only respond to invitations sent to your email',
+      );
+    }
+
+    invitation.userId = input.userId;
+    invitation.status = input.accept ? 'active' : 'declined';
+    return this.workspaceMemberRepo.save(invitation);
   }
 
   async setActiveWorkspace(

@@ -789,6 +789,7 @@ extend type Query {
   myWorkspaces: [Workspace!]!
   myActiveWorkspace: Workspace
   workspaceMembers(workspaceId: String!): [WorkspaceMember!]!
+  myPendingWorkspaceInvitations: [WorkspaceMember!]!
 }
 
 extend type Mutation {
@@ -816,6 +817,10 @@ extend type Mutation {
     workspaceId: String!
     email: String!
     role: String
+  ): WorkspaceMember!
+  respondWorkspaceInvitation(
+    workspaceMemberId: String!
+    accept: Boolean!
   ): WorkspaceMember!
 }
 

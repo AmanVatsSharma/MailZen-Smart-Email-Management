@@ -22,6 +22,8 @@ organization features.
 - `setActiveWorkspace(workspaceId)`: persist active workspace
 - `workspaceMembers(workspaceId)`: list members for workspace
 - `inviteWorkspaceMember(workspaceId, email, role?)`: add/invite a member
+- `myPendingWorkspaceInvitations`: list pending invites for authenticated user email
+- `respondWorkspaceInvitation(workspaceMemberId, accept)`: accept/decline invite
 
 ## Data Model
 
@@ -29,6 +31,7 @@ organization features.
   - owner, slug, personal/team indicator
 - `workspace_members`
   - workspace membership, role, status, invited-by metadata
+  - supports `pending` / `active` / `declined` invitation lifecycle
 
 ## Flow
 
@@ -42,5 +45,9 @@ flowchart TD
   F[Invite member] --> G[Verify actor role OWNER/ADMIN]
   G --> H[Resolve existing user by email]
   H --> I[Create membership active/pending]
+
+  J[User checks pending invitations] --> K[Filter memberships by user email and status pending]
+  K --> L[respondWorkspaceInvitation]
+  L --> M[Set status active or declined + attach userId]
 ```
 

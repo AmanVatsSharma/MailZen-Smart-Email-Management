@@ -56,6 +56,15 @@ export class WorkspaceResolver {
     );
   }
 
+  @Query(() => [WorkspaceMember], {
+    description: 'List pending workspace invitations for current user email',
+  })
+  async myPendingWorkspaceInvitations(@Context() context: RequestContext) {
+    return this.workspaceService.listPendingWorkspaceInvitations(
+      context.req.user.id,
+    );
+  }
+
   @Mutation(() => WorkspaceMember, {
     description: 'Invite member to workspace',
   })
@@ -84,5 +93,20 @@ export class WorkspaceResolver {
       context.req.user.id,
       workspaceId,
     );
+  }
+
+  @Mutation(() => WorkspaceMember, {
+    description: 'Accept or decline pending workspace invitation',
+  })
+  async respondWorkspaceInvitation(
+    @Args('workspaceMemberId') workspaceMemberId: string,
+    @Args('accept', { type: () => Boolean }) accept: boolean,
+    @Context() context: RequestContext,
+  ) {
+    return this.workspaceService.respondToWorkspaceInvitation({
+      workspaceMemberId,
+      userId: context.req.user.id,
+      accept,
+    });
   }
 }

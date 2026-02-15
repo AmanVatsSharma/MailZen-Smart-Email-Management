@@ -168,4 +168,76 @@ describe('WorkspaceService', () => {
     });
     expect(result.id).toBe('workspace-1');
   });
+
+  it('lists pending invitations for user email', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-1',
+      email: 'invitee@mailzen.com',
+    } as User);
+    workspaceMemberRepo.find.mockResolvedValue([
+      {
+        id: 'member-1',
+        workspaceId: 'workspace-1',
+        email: 'invitee@mailzen.com',
+        status: 'pending',
+      } as WorkspaceMember,
+    ]);
+
+    const invitations = await service.listPendingWorkspaceInvitations('user-1');
+
+    expect(invitations).toHaveLength(1);
+    expect(workspaceMemberRepo.find).toHaveBeenCalledWith({
+      where: {
+        email: 'invitee@mailzen.com',
+        status: 'pending',
+      },
+      order: { createdAt: 'ASC' },
+    });
+  });
+
+  it('accepts invitation when pending email matches user', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-1',
+      email: 'invitee@mailzen.com',
+    } as User);
+    workspaceMemberRepo.findOne.mockResolvedValue({
+      id: 'member-1',
+      workspaceId: 'workspace-1',
+      email: 'invitee@mailzen.com',
+      status: 'pending',
+    } as WorkspaceMember);
+    workspaceMemberRepo.save.mockImplementation(
+      async (member: WorkspaceMember) => member,
+    );
+
+    const result = await service.respondToWorkspaceInvitation({
+      workspaceMemberId: 'member-1',
+      userId: 'user-1',
+      accept: true,
+    });
+
+    expect(result.status).toBe('active');
+    expect(result.userId).toBe('user-1');
+  });
+
+  it('rejects invitation response when email does not match user', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-1',
+      email: 'owner@mailzen.com',
+    } as User);
+    workspaceMemberRepo.findOne.mockResolvedValue({
+      id: 'member-1',
+      workspaceId: 'workspace-1',
+      email: 'invitee@mailzen.com',
+      status: 'pending',
+    } as WorkspaceMember);
+
+    await expect(
+      service.respondToWorkspaceInvitation({
+        workspaceMemberId: 'member-1',
+        userId: 'user-1',
+        accept: false,
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
 });
