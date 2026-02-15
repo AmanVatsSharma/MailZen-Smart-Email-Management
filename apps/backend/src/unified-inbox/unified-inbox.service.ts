@@ -12,6 +12,8 @@ import { Repository } from 'typeorm';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
+import { Email } from '../email/entities/email.entity';
+import { Mailbox } from '../mailbox/entities/mailbox.entity';
 import { User } from '../user/entities/user.entity';
 import { EmailFilterInput } from './dto/email-filter.input';
 import { EmailSortInput } from './dto/email-sort.input';
@@ -34,6 +36,17 @@ type ExternalMessage = {
   labels: string[];
 };
 
+type ActiveInboxSource =
+  | {
+      type: 'PROVIDER';
+      id: string;
+    }
+  | {
+      type: 'MAILBOX';
+      id: string;
+      address: string;
+    };
+
 const SYSTEM_FOLDERS: Array<{ id: string; name: string }> = [
   { id: 'inbox', name: 'Inbox' },
   { id: 'sent', name: 'Sent' },
@@ -55,6 +68,10 @@ export class UnifiedInboxService {
     private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
     @InjectRepository(ExternalEmailLabel)
     private readonly externalEmailLabelRepo: Repository<ExternalEmailLabel>,
+    @InjectRepository(Email)
+    private readonly emailRepo: Repository<Email>,
+    @InjectRepository(Mailbox)
+    private readonly mailboxRepo: Repository<Mailbox>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
   ) {
@@ -112,16 +129,166 @@ export class UnifiedInboxService {
     return labels.includes('STARRED');
   }
 
-  private async resolveActiveProviderId(
+  private normalizeStatus(status: string | null | undefined): string {
+    return String(status || '')
+      .trim()
+      .toUpperCase();
+  }
+
+  private normalizeEmailAddress(address: string | null | undefined): string {
+    return String(address || '')
+      .trim()
+      .toLowerCase();
+  }
+
+  private isMailboxEmailParticipant(email: Email, mailboxAddress: string): boolean {
+    const normalizedMailbox = this.normalizeEmailAddress(mailboxAddress);
+    if (!normalizedMailbox) return false;
+
+    const fromEmail = this.normalizeEmailAddress(
+      this.parseMailboxAddress(email.from)?.email || email.from,
+    );
+    if (fromEmail === normalizedMailbox) return true;
+
+    return (email.to || []).some((recipient) => {
+      const parsed = this.parseMailboxAddress(recipient);
+      return (
+        this.normalizeEmailAddress(parsed?.email || recipient) ===
+        normalizedMailbox
+      );
+    });
+  }
+
+  private mailboxEmailToFolder(email: Email, mailboxAddress: string): string {
+    const status = this.normalizeStatus(email.status);
+    if (status === 'DRAFT') return 'drafts';
+    if (status === 'TRASH') return 'trash';
+    if (status === 'SPAM') return 'spam';
+    if (status === 'ARCHIVED') return 'archive';
+
+    const fromEmail = this.normalizeEmailAddress(
+      this.parseMailboxAddress(email.from)?.email || email.from,
+    );
+    if (fromEmail === this.normalizeEmailAddress(mailboxAddress)) {
+      return 'sent';
+    }
+
+    return 'inbox';
+  }
+
+  private mailboxEmailIsUnread(email: Email): boolean {
+    const status = this.normalizeStatus(email.status);
+    return status === 'UNREAD' || status === 'NEW';
+  }
+
+  private sanitizeContentPreview(content: string): string {
+    const textOnly = content
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return textOnly.slice(0, 180);
+  }
+
+  private async listMailboxEmailsForUser(
+    userId: string,
+    mailboxAddress: string,
+  ): Promise<Email[]> {
+    const emails = await this.emailRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+    return emails.filter((email) =>
+      this.isMailboxEmailParticipant(email, mailboxAddress),
+    );
+  }
+
+  private mapMailboxEmailToThreadSummary(
+    email: Email,
+    source: { id: string; address: string },
+  ): EmailThread {
+    const from = this.parseMailboxAddress(email.from) || {
+      name: 'Unknown',
+      email: 'unknown',
+    };
+    const to = (email.to || [])
+      .map((entry) => this.parseMailboxAddress(entry))
+      .filter(Boolean) as Array<{ name: string; email: string }>;
+
+    const subject = email.subject || '(no subject)';
+    const date = (email.createdAt || email.updatedAt || new Date()).toISOString();
+    const folder = this.mailboxEmailToFolder(email, source.address);
+    const isUnread = this.mailboxEmailIsUnread(email);
+    const isStarred = !!email.isImportant;
+    const content = email.body || '';
+    const contentPreview = this.sanitizeContentPreview(email.body || '');
+    const labelIds = email.folderId ? [email.folderId] : [];
+
+    const participants = [from, ...to].reduce(
+      (acc, participant) => {
+        if (
+          !acc.find(
+            (existing) =>
+              existing.email.toLowerCase() === participant.email.toLowerCase(),
+          )
+        ) {
+          acc.push(participant);
+        }
+        return acc;
+      },
+      [] as Array<{ name: string; email: string }>,
+    );
+
+    return {
+      id: email.id,
+      providerThreadId: undefined,
+      subject,
+      participants: participants.map((participant) => ({
+        name: participant.name,
+        email: participant.email,
+      })),
+      lastMessageDate: date,
+      isUnread,
+      folder,
+      labelIds,
+      providerId: source.id,
+      messages: [
+        {
+          id: email.id,
+          threadId: email.id,
+          subject,
+          from: { name: from.name, email: from.email },
+          to: to.map((participant) => ({
+            name: participant.name,
+            email: participant.email,
+          })),
+          content,
+          contentPreview,
+          date,
+          folder,
+          isStarred,
+          importance: email.isImportant ? 'high' : 'normal',
+          attachments: [],
+          status: isUnread ? 'unread' : 'read',
+          labelIds,
+          providerId: source.id,
+          providerEmailId: email.id,
+        },
+      ],
+    };
+  }
+
+  private async resolveActiveInboxSource(
     userId: string,
     requestedProviderId?: string,
-  ): Promise<string | null> {
+  ): Promise<ActiveInboxSource | null> {
     if (requestedProviderId) {
       const p = await this.emailProviderRepo.findOne({
         where: { id: requestedProviderId, userId },
       });
       if (!p) throw new NotFoundException('Provider not found');
-      return p.id;
+      return { type: 'PROVIDER', id: p.id };
     }
 
     const user = await this.userRepo.findOne({ where: { id: userId } });
@@ -131,21 +298,44 @@ export class UnifiedInboxService {
       const p = await this.emailProviderRepo.findOne({
         where: { id: activeId, userId },
       });
-      if (p) return p.id;
+      if (p) return { type: 'PROVIDER', id: p.id };
     }
 
-    // Fallback: first active provider, then newest provider.
+    if (activeType === 'MAILBOX' && activeId) {
+      const mailbox = await this.mailboxRepo.findOne({
+        where: { id: activeId, userId },
+      });
+      if (mailbox)
+        return { type: 'MAILBOX', id: mailbox.id, address: mailbox.email };
+    }
+
+    // Fallback priority:
+    // 1) active provider
+    // 2) newest provider
+    // 3) newest mailbox
     const activeProvider = await this.emailProviderRepo.findOne({
       where: { userId, isActive: true },
       order: { createdAt: 'DESC' },
     });
-    if (activeProvider) return activeProvider.id;
+    if (activeProvider) return { type: 'PROVIDER', id: activeProvider.id };
     const newestProvider = await this.emailProviderRepo.findOne({
       where: { userId },
       order: { createdAt: 'DESC' },
     });
-    if (!newestProvider) return null;
-    return newestProvider.id;
+    if (newestProvider) return { type: 'PROVIDER', id: newestProvider.id };
+
+    const newestMailbox = await this.mailboxRepo.findOne({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+    if (newestMailbox)
+      return {
+        type: 'MAILBOX',
+        id: newestMailbox.id,
+        address: newestMailbox.email,
+      };
+
+    return null;
   }
 
   async listThreads(
@@ -155,11 +345,96 @@ export class UnifiedInboxService {
     filter?: EmailFilterInput | null,
     sort?: EmailSortInput | null,
   ): Promise<EmailThread[]> {
-    const providerId = await this.resolveActiveProviderId(
+    const source = await this.resolveActiveInboxSource(
       userId,
       filter?.providerId,
     );
-    if (!providerId) return [];
+    if (!source) return [];
+
+    if (source.type === 'MAILBOX') {
+      const mailboxEmails = await this.listMailboxEmailsForUser(
+        userId,
+        source.address,
+      );
+
+      let mailboxThreads = mailboxEmails.map((email) =>
+        this.mapMailboxEmailToThreadSummary(email, source),
+      );
+
+      const search = filter?.search?.trim().toLowerCase();
+      if (search) {
+        mailboxThreads = mailboxThreads.filter((thread) => {
+          const message = thread.messages[0];
+          const haystack = [
+            thread.subject,
+            message?.contentPreview || '',
+            message?.from?.email || '',
+            ...(message?.to || []).map((recipient) => recipient.email),
+          ]
+            .join(' ')
+            .toLowerCase();
+          return haystack.includes(search);
+        });
+      }
+
+      if (filter?.status) {
+        mailboxThreads = mailboxThreads.filter((thread) =>
+          filter.status === 'unread' ? thread.isUnread : !thread.isUnread,
+        );
+      }
+
+      if (typeof filter?.isStarred === 'boolean') {
+        mailboxThreads = mailboxThreads.filter((thread) => {
+          const latest = thread.messages[thread.messages.length - 1];
+          return !!latest?.isStarred === filter.isStarred;
+        });
+      }
+
+      if (filter?.folder) {
+        const normalizedFolder = filter.folder.toLowerCase();
+        mailboxThreads = mailboxThreads.filter(
+          (thread) => thread.folder.toLowerCase() === normalizedFolder,
+        );
+      }
+
+      if (filter?.labelIds?.length) {
+        mailboxThreads = mailboxThreads.filter((thread) =>
+          filter.labelIds!.every((labelId) =>
+            (thread.labelIds || []).includes(labelId),
+          ),
+        );
+      }
+
+      if (sort?.field === 'from') {
+        mailboxThreads.sort((left, right) =>
+          (left.messages[0]?.from?.email || '').localeCompare(
+            right.messages[0]?.from?.email || '',
+          ),
+        );
+      } else if (sort?.field === 'subject') {
+        mailboxThreads.sort((left, right) =>
+          left.subject.localeCompare(right.subject),
+        );
+      } else {
+        mailboxThreads.sort(
+          (left, right) =>
+            new Date(right.lastMessageDate).getTime() -
+            new Date(left.lastMessageDate).getTime(),
+        );
+      }
+
+      if (sort?.direction?.toUpperCase() === 'ASC') {
+        mailboxThreads = mailboxThreads.reverse();
+      }
+
+      const pagedMailboxThreads = mailboxThreads.slice(offset, offset + limit);
+      this.logger.log(
+        `emails list user=${userId} mailbox=${source.id} limit=${limit} offset=${offset} returned=${pagedMailboxThreads.length}`,
+      );
+      return pagedMailboxThreads;
+    }
+
+    const providerId = source.id;
 
     const qb = this.externalEmailMessageRepo
       .createQueryBuilder('m')
@@ -488,9 +763,22 @@ export class UnifiedInboxService {
   }
 
   async getThread(userId: string, threadId: string): Promise<EmailThread> {
-    const providerId = await this.resolveActiveProviderId(userId);
-    if (!providerId)
-      throw new NotFoundException('No email providers connected');
+    const source = await this.resolveActiveInboxSource(userId);
+    if (!source) throw new NotFoundException('No inbox sources connected');
+
+    if (source.type === 'MAILBOX') {
+      const mailboxEmails = await this.listMailboxEmailsForUser(
+        userId,
+        source.address,
+      );
+      const mailboxEmail = mailboxEmails.find((email) => email.id === threadId);
+      if (!mailboxEmail) {
+        throw new NotFoundException('Email not found');
+      }
+      return this.mapMailboxEmailToThreadSummary(mailboxEmail, source);
+    }
+
+    const providerId = source.id;
 
     const anchor = await this.externalEmailMessageRepo
       .createQueryBuilder('m')
@@ -658,9 +946,57 @@ export class UnifiedInboxService {
     threadId: string,
     input: EmailUpdateInput,
   ): Promise<EmailThread> {
-    const providerId = await this.resolveActiveProviderId(userId);
-    if (!providerId)
-      throw new NotFoundException('No email providers connected');
+    const source = await this.resolveActiveInboxSource(userId);
+    if (!source) throw new NotFoundException('No inbox sources connected');
+
+    if (source.type === 'MAILBOX') {
+      const mailboxEmails = await this.listMailboxEmailsForUser(
+        userId,
+        source.address,
+      );
+      const mailboxEmail = mailboxEmails.find((email) => email.id === threadId);
+      if (!mailboxEmail) throw new NotFoundException('Email not found');
+
+      const updates: Partial<Email> = {};
+      if (typeof input.read === 'boolean') {
+        updates.status = input.read ? 'READ' : 'UNREAD';
+      }
+      if (typeof input.starred === 'boolean') {
+        updates.isImportant = input.starred;
+      }
+      if (input.folder) {
+        const folder = input.folder.toLowerCase();
+        if (folder === 'trash') updates.status = 'TRASH';
+        else if (folder === 'spam') updates.status = 'SPAM';
+        else if (folder === 'archive') updates.status = 'ARCHIVED';
+        else if (folder === 'drafts') updates.status = 'DRAFT';
+        else if (folder === 'sent') updates.status = 'SENT';
+        else if (folder === 'inbox') updates.status = 'READ';
+      }
+
+      const addLabels = input.addLabelIds || [];
+      const removeLabels = input.removeLabelIds || [];
+      if (addLabels.length > 0) {
+        updates.folderId = addLabels[0];
+      } else if (
+        mailboxEmail.folderId &&
+        removeLabels.includes(mailboxEmail.folderId)
+      ) {
+        updates.folderId = null as any;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await this.emailRepo.update({ id: mailboxEmail.id, userId }, updates);
+      }
+
+      const refreshedEmail = await this.emailRepo.findOne({
+        where: { id: mailboxEmail.id, userId },
+      });
+      if (!refreshedEmail) throw new NotFoundException('Email not found');
+      return this.mapMailboxEmailToThreadSummary(refreshedEmail, source);
+    }
+
+    const providerId = source.id;
 
     const existing = await this.externalEmailMessageRepo
       .createQueryBuilder('m')
@@ -791,8 +1127,8 @@ export class UnifiedInboxService {
   }
 
   async listFolders(userId: string): Promise<EmailFolder[]> {
-    const providerId = await this.resolveActiveProviderId(userId);
-    if (!providerId) {
+    const source = await this.resolveActiveInboxSource(userId);
+    if (!source) {
       return SYSTEM_FOLDERS.map((f) => ({
         id: f.id,
         name: f.name,
@@ -800,6 +1136,36 @@ export class UnifiedInboxService {
         unreadCount: 0,
       }));
     }
+
+    if (source.type === 'MAILBOX') {
+      const mailboxEmails = await this.listMailboxEmailsForUser(
+        userId,
+        source.address,
+      );
+      const counts = new Map<string, { count: number; unread: number }>();
+      for (const folder of SYSTEM_FOLDERS) {
+        counts.set(folder.id, { count: 0, unread: 0 });
+      }
+
+      for (const mailboxEmail of mailboxEmails) {
+        const folder = this.mailboxEmailToFolder(mailboxEmail, source.address);
+        const bucket = counts.get(folder) || { count: 0, unread: 0 };
+        bucket.count += 1;
+        if (this.mailboxEmailIsUnread(mailboxEmail)) {
+          bucket.unread += 1;
+        }
+        counts.set(folder, bucket);
+      }
+
+      return SYSTEM_FOLDERS.map((folder) => ({
+        id: folder.id,
+        name: folder.name,
+        count: counts.get(folder.id)?.count || 0,
+        unreadCount: counts.get(folder.id)?.unread || 0,
+      }));
+    }
+
+    const providerId = source.id;
     const msgs = await this.externalEmailMessageRepo.find({
       where: { userId, providerId },
       select: { labels: true } as any,
@@ -825,8 +1191,33 @@ export class UnifiedInboxService {
   }
 
   async listLabels(userId: string): Promise<EmailLabel[]> {
-    const providerId = await this.resolveActiveProviderId(userId);
-    if (!providerId) return [];
+    const source = await this.resolveActiveInboxSource(userId);
+    if (!source) return [];
+
+    if (source.type === 'MAILBOX') {
+      const mailboxEmails = await this.listMailboxEmailsForUser(
+        userId,
+        source.address,
+      );
+      const counts = new Map<string, number>();
+      for (const mailboxEmail of mailboxEmails) {
+        if (!mailboxEmail.folderId) continue;
+        counts.set(
+          mailboxEmail.folderId,
+          (counts.get(mailboxEmail.folderId) || 0) + 1,
+        );
+      }
+
+      const palette = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+      return Array.from(counts.entries()).map(([labelId, count], index) => ({
+        id: labelId,
+        name: `Label ${labelId.slice(0, 8)}`,
+        color: palette[index % palette.length],
+        count,
+      }));
+    }
+
+    const providerId = source.id;
     const [msgs, meta] = await Promise.all([
       this.externalEmailMessageRepo.find({
         where: { userId, providerId },

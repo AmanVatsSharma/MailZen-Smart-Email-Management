@@ -5,6 +5,8 @@ import { UnifiedInboxService } from './unified-inbox.service';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
+import { Email } from '../email/entities/email.entity';
+import { Mailbox } from '../mailbox/entities/mailbox.entity';
 import { User } from '../user/entities/user.entity';
 
 @Module({
@@ -13,6 +15,8 @@ import { User } from '../user/entities/user.entity';
       EmailProvider,
       ExternalEmailLabel,
       ExternalEmailMessage,
+      Email,
+      Mailbox,
       User,
     ]),
   ],
