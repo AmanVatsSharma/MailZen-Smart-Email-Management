@@ -23,6 +23,15 @@ MIN_DISK_GB=10
 MIN_MEMORY_MB=2048
 MIN_CPU_CORES=2
 
+assert_positive_integer() {
+  local flag_name="$1"
+  local value="$2"
+  if [[ ! "${value}" =~ ^[0-9]+$ ]] || [[ "${value}" -lt 1 ]]; then
+    log_error "${flag_name} must be a positive integer (received: ${value})"
+    exit 1
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --min-disk-gb)
@@ -57,16 +66,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-for numeric_value in "${MIN_DISK_GB}" "${MIN_MEMORY_MB}" "${MIN_CPU_CORES}"; do
-  if [[ ! "${numeric_value}" =~ ^[0-9]+$ ]] || [[ "${numeric_value}" -lt 1 ]]; then
-    log_error "Threshold values must be positive integers."
-    exit 1
-  fi
-done
+assert_positive_integer "--min-disk-gb" "${MIN_DISK_GB}"
+assert_positive_integer "--min-memory-mb" "${MIN_MEMORY_MB}"
+assert_positive_integer "--min-cpu-cores" "${MIN_CPU_CORES}"
 
 require_cmd df
 require_cmd free
 require_cmd nproc
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
 
 available_disk_gb="$(df -BG / | awk 'NR==2 {gsub(/G/,"",$4); print $4}')"
 available_memory_mb="$(free -m | awk '/^Mem:/ {print $7}')"
