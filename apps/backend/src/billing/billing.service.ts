@@ -750,6 +750,46 @@ export class BillingService {
     };
   }
 
+  async exportBillingDataForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+  }): Promise<BillingDataExportResponse> {
+    const targetUserId = String(input.targetUserId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!targetUserId) {
+      throw new BadRequestException('Target user id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'billing_data_export_admin_start',
+        actorUserId,
+        targetUserId,
+      }),
+    );
+    const response = await this.exportMyBillingData(targetUserId);
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'billing_data_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        generatedAtIso: response.generatedAtIso,
+        selfRequested: actorUserId === targetUserId,
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'billing_data_export_admin_completed',
+        actorUserId,
+        targetUserId,
+      }),
+    );
+    return response;
+  }
+
   async purgeExpiredBillingData(
     input: {
       webhookRetentionDays?: number;

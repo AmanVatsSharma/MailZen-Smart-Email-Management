@@ -11,6 +11,7 @@ describe('BillingResolver', () => {
       | 'getAiCreditBalance'
       | 'getEntitlementUsageSummary'
       | 'exportMyBillingData'
+      | 'exportBillingDataForAdmin'
       | 'listMyInvoices'
       | 'purgeExpiredBillingData'
       | 'startPlanTrial'
@@ -20,6 +21,7 @@ describe('BillingResolver', () => {
     getAiCreditBalance: jest.fn(),
     getEntitlementUsageSummary: jest.fn(),
     exportMyBillingData: jest.fn(),
+    exportBillingDataForAdmin: jest.fn(),
     listMyInvoices: jest.fn(),
     purgeExpiredBillingData: jest.fn(),
     startPlanTrial: jest.fn(),
@@ -102,6 +104,23 @@ describe('BillingResolver', () => {
     expect(billingServiceMock.exportMyBillingData).toHaveBeenCalledWith(
       'user-1',
     );
+  });
+
+  it('delegates userBillingDataExport to billing service admin export method', async () => {
+    billingServiceMock.exportBillingDataForAdmin.mockResolvedValue({
+      generatedAtIso: '2026-02-16T01:00:00.000Z',
+      dataJson: '{"subscription":{"planCode":"PRO"}}',
+    });
+
+    const result = await resolver.userBillingDataExport('user-2', {
+      req: { user: { id: 'admin-1' } },
+    });
+
+    expect(result.generatedAtIso).toBe('2026-02-16T01:00:00.000Z');
+    expect(billingServiceMock.exportBillingDataForAdmin).toHaveBeenCalledWith({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+    });
   });
 
   it('delegates myEntitlementUsage to billing service', async () => {

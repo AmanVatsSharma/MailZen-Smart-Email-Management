@@ -65,6 +65,21 @@ export class BillingResolver {
     return this.billingService.exportMyBillingData(context.req.user.id);
   }
 
+  @Query(() => BillingDataExportResponse, {
+    description:
+      'Admin export of target user billing data JSON payload for legal/compliance requests',
+  })
+  @UseGuards(AdminGuard)
+  async userBillingDataExport(
+    @Args('userId') userId: string,
+    @Context() context: RequestContext,
+  ) {
+    return this.billingService.exportBillingDataForAdmin({
+      targetUserId: userId,
+      actorUserId: context.req.user.id,
+    });
+  }
+
   @Query(() => EntitlementUsageResponse, {
     description: 'Get current entitlement usage and remaining limits',
   })

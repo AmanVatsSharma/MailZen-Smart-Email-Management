@@ -36,6 +36,7 @@ state, enabling entitlement-aware product rollouts.
   across providers, mailboxes, workspaces, workspace seats, storage, and AI credits
 - `myBillingInvoices(limit?)`: list authenticated user invoices (newest first)
 - `myBillingDataExport`: returns legal/compliance-ready billing JSON export snapshot
+- `userBillingDataExport(userId)` (admin): export target user billing JSON snapshot
 - `selectMyPlan(planCode)`: switch current user subscription to active plan
 - `startMyPlanTrial(planCode, trialDays?)`: start bounded trial for paid plans
 - `requestMyPlanUpgrade(targetPlanCode, note?)`: records upgrade intent notification
@@ -86,6 +87,8 @@ flowchart TD
   - `billing_webhook_event_ignored`
   - `billing_webhook_processing_failed`
   - `billing_upgrade_intent_recorded`
+  - `billing_data_export_admin_start`
+  - `billing_data_export_admin_completed`
   - `billing_audit_log_write_failed`
   - `billing_retention_scheduler_audit_log_write_failed`
 - Compliance/audit actions persisted in `audit_logs`:
@@ -94,6 +97,7 @@ flowchart TD
   - `billing_upgrade_intent_requested`
   - `billing_webhook_subscription_updated`
   - `billing_data_export_requested`
+  - `billing_data_export_requested_by_admin`
   - `billing_retention_purged`
   - `billing_retention_autopurge_started`
   - `billing_retention_autopurge_completed`

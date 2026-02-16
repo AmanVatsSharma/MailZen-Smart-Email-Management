@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method */
+import { BadRequestException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
@@ -567,6 +568,125 @@ describe('BillingService', () => {
         action: 'billing_data_export_requested',
       }),
     );
+  });
+
+  it('exports billing data payload for admin legal/compliance requests', async () => {
+    planRepo.count.mockResolvedValue(1);
+    subscriptionRepo.findOne.mockResolvedValue({
+      id: 'sub-2',
+      userId: 'user-2',
+      planCode: 'PRO',
+      status: 'active',
+      startedAt: new Date('2026-02-01T00:00:00.000Z'),
+      cancelAtPeriodEnd: false,
+      isTrial: false,
+      trialEndsAt: null,
+      metadata: undefined,
+      createdAt: new Date('2026-02-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-01T00:00:00.000Z'),
+    } as UserSubscription);
+    planRepo.findOne.mockResolvedValue({
+      id: 'plan-pro',
+      code: 'PRO',
+      isActive: true,
+      providerLimit: 5,
+      mailboxLimit: 5,
+      workspaceLimit: 5,
+      workspaceMemberLimit: 25,
+      aiCreditsPerMonth: 500,
+      mailboxStorageLimitMb: 10240,
+    } as BillingPlan);
+    usageRepo.upsert.mockResolvedValue({} as never);
+    usageRepo.findOne.mockResolvedValue({
+      id: 'usage-latest-2',
+      userId: 'user-2',
+      periodStart: '2026-02-01',
+      usedCredits: 50,
+      lastConsumedAt: new Date('2026-02-10T00:00:00.000Z'),
+    } as UserAiCreditUsage);
+    usageRepo.find.mockResolvedValue([]);
+    invoiceRepo.find.mockResolvedValue([]);
+
+    const result = await service.exportBillingDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+    });
+
+    expect(result.generatedAtIso).toBeTruthy();
+    expect(result.dataJson).toContain('"subscription"');
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+        action: 'billing_data_export_requested',
+      }),
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'billing_data_export_requested_by_admin',
+        metadata: expect.objectContaining({
+          targetUserId: 'user-2',
+        }),
+      }),
+    );
+  });
+
+  it('does not fail admin billing export when admin audit write fails', async () => {
+    planRepo.count.mockResolvedValue(1);
+    subscriptionRepo.findOne.mockResolvedValue({
+      id: 'sub-2',
+      userId: 'user-2',
+      planCode: 'PRO',
+      status: 'active',
+      startedAt: new Date('2026-02-01T00:00:00.000Z'),
+      cancelAtPeriodEnd: false,
+      isTrial: false,
+      trialEndsAt: null,
+      metadata: undefined,
+      createdAt: new Date('2026-02-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-01T00:00:00.000Z'),
+    } as UserSubscription);
+    planRepo.findOne.mockResolvedValue({
+      id: 'plan-pro',
+      code: 'PRO',
+      isActive: true,
+      providerLimit: 5,
+      mailboxLimit: 5,
+      workspaceLimit: 5,
+      workspaceMemberLimit: 25,
+      aiCreditsPerMonth: 500,
+      mailboxStorageLimitMb: 10240,
+    } as BillingPlan);
+    usageRepo.upsert.mockResolvedValue({} as never);
+    usageRepo.findOne.mockResolvedValue({
+      id: 'usage-latest-2',
+      userId: 'user-2',
+      periodStart: '2026-02-01',
+      usedCredits: 50,
+      lastConsumedAt: new Date('2026-02-10T00:00:00.000Z'),
+    } as UserAiCreditUsage);
+    usageRepo.find.mockResolvedValue([]);
+    invoiceRepo.find.mockResolvedValue([]);
+    auditLogRepo.save
+      .mockResolvedValueOnce({ id: 'audit-log-1' } as AuditLog)
+      .mockRejectedValueOnce(new Error('audit store unavailable'));
+
+    const result = await service.exportBillingDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+    });
+
+    expect(result.generatedAtIso).toBeTruthy();
+    expect(result.dataJson).toContain('"subscription"');
+  });
+
+  it('rejects admin billing export when actor user id is missing', async () => {
+    await expect(
+      service.exportBillingDataForAdmin({
+        targetUserId: 'user-2',
+        actorUserId: '',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('purges expired billing webhook and ai-usage retention data', async () => {
