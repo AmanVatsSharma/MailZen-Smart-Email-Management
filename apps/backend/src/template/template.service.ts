@@ -1,4 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { Template } from './template.entity';
 import { CreateTemplateInput } from './dto/create-template.input';
 import { UpdateTemplateInput } from './dto/update-template.input';
@@ -10,7 +13,39 @@ export class TemplateService {
   private templates: Template[] = [];
   private idCounter = 1;
 
-  createTemplate(input: CreateTemplateInput): Template {
+  constructor(
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
+  ) {}
+
+  private async writeAuditLog(input: {
+    userId?: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'template_audit_log_write_failed',
+          userId: input.userId || null,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
+
+  async createTemplate(
+    input: CreateTemplateInput,
+    actorUserId?: string,
+  ): Promise<Template> {
     this.logger.log(
       serializeStructuredLog({
         event: 'template_create_start',
@@ -31,6 +66,14 @@ export class TemplateService {
         templateCount: this.templates.length,
       }),
     );
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'template_created',
+      metadata: {
+        templateId: template.id,
+        templateName: template.name,
+      },
+    });
     return template;
   }
 
@@ -58,7 +101,10 @@ export class TemplateService {
     return template;
   }
 
-  updateTemplate(input: UpdateTemplateInput): Template {
+  async updateTemplate(
+    input: UpdateTemplateInput,
+    actorUserId?: string,
+  ): Promise<Template> {
     this.logger.log(
       serializeStructuredLog({
         event: 'template_update_start',
@@ -75,16 +121,29 @@ export class TemplateService {
     if (input.body !== undefined) {
       template.body = input.body;
     }
+    const changedFields = Object.entries(input)
+      .filter(([key, value]) => key !== 'id' && typeof value !== 'undefined')
+      .map(([key]) => key)
+      .sort();
     this.logger.log(
       serializeStructuredLog({
         event: 'template_update_completed',
         templateId: template.id,
       }),
     );
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'template_updated',
+      metadata: {
+        templateId: template.id,
+        templateName: template.name,
+        changedFields,
+      },
+    });
     return template;
   }
 
-  deleteTemplate(id: string): Template {
+  async deleteTemplate(id: string, actorUserId?: string): Promise<Template> {
     this.logger.log(
       serializeStructuredLog({
         event: 'template_delete_start',
@@ -109,6 +168,14 @@ export class TemplateService {
         templateCount: this.templates.length,
       }),
     );
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'template_deleted',
+      metadata: {
+        templateId: deleted.id,
+        templateName: deleted.name,
+      },
+    });
     return deleted;
   }
 }

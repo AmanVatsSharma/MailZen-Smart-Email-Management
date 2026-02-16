@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Context } from '@nestjs/graphql';
 import { Template } from './template.entity';
 import { TemplateService } from './template.service';
 import { CreateTemplateInput } from './dto/create-template.input';
@@ -6,6 +6,14 @@ import { UpdateTemplateInput } from './dto/update-template.input';
 import { UseGuards, SetMetadata } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AdminGuard } from '../common/guards/admin.guard';
+
+interface RequestContext {
+  req: {
+    user: {
+      id: string;
+    };
+  };
+}
 
 @Resolver(() => Template)
 @UseGuards(JwtAuthGuard)
@@ -25,25 +33,36 @@ export class TemplateResolver {
   @Mutation(() => Template, { description: 'Create a new template' })
   @SetMetadata('roles', ['ADMIN'])
   @UseGuards(AdminGuard)
-  createTemplate(
+  async createTemplate(
     @Args('createTemplateInput') createTemplateInput: CreateTemplateInput,
-  ): Template {
-    return this.templateService.createTemplate(createTemplateInput);
+    @Context() ctx: RequestContext,
+  ): Promise<Template> {
+    return this.templateService.createTemplate(
+      createTemplateInput,
+      ctx.req.user.id,
+    );
   }
 
   @Mutation(() => Template, { description: 'Update a template' })
   @SetMetadata('roles', ['ADMIN'])
   @UseGuards(AdminGuard)
-  updateTemplate(
+  async updateTemplate(
     @Args('updateTemplateInput') updateTemplateInput: UpdateTemplateInput,
-  ): Template {
-    return this.templateService.updateTemplate(updateTemplateInput);
+    @Context() ctx: RequestContext,
+  ): Promise<Template> {
+    return this.templateService.updateTemplate(
+      updateTemplateInput,
+      ctx.req.user.id,
+    );
   }
 
   @Mutation(() => Template, { description: 'Delete a template' })
   @SetMetadata('roles', ['ADMIN'])
   @UseGuards(AdminGuard)
-  deleteTemplate(@Args('id') id: string): Template {
-    return this.templateService.deleteTemplate(id);
+  async deleteTemplate(
+    @Args('id') id: string,
+    @Context() ctx: RequestContext,
+  ): Promise<Template> {
+    return this.templateService.deleteTemplate(id, ctx.req.user.id);
   }
 }

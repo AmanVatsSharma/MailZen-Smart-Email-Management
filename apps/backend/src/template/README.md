@@ -46,3 +46,11 @@ flowchart TD
   - `template_delete_start`
   - `template_delete_missing`
   - `template_delete_completed`
+  - `template_audit_log_write_failed`
+
+## Compliance / Audit Trail
+
+- Persisted audit actions:
+  - `template_created`
+  - `template_updated`
+  - `template_deleted`
