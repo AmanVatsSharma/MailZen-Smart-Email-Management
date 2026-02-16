@@ -587,6 +587,8 @@ export class EmailProviderService {
     const previousErrorSignature = this.normalizeSyncErrorSignature(
       provider.lastSyncError,
     );
+    let syncResultStatus: 'SUCCESS' | 'FAILED' = 'SUCCESS';
+    let syncErrorSignature: string | null = null;
     await this.providerRepository.update(providerId, {
       status: 'syncing',
       lastSyncError: null,
@@ -645,6 +647,8 @@ export class EmailProviderService {
       const message =
         error instanceof Error ? error.message : 'Provider sync failed';
       const normalizedErrorMessage = this.normalizeSyncErrorSignature(message);
+      syncResultStatus = 'FAILED';
+      syncErrorSignature = normalizedErrorMessage;
       this.logger.warn(
         serializeStructuredLog({
           event: 'provider_sync_failed',
@@ -677,6 +681,18 @@ export class EmailProviderService {
         });
       }
     }
+    await this.writeAuditLog({
+      userId,
+      action: 'provider_sync_requested',
+      metadata: {
+        providerId,
+        providerType: provider.type,
+        workspaceId: provider.workspaceId || null,
+        accountFingerprint: this.resolveAccountFingerprint(provider.email),
+        status: syncResultStatus,
+        errorSignature: syncErrorSignature,
+      },
+    });
 
     return this.getProviderUi(providerId, userId);
   }

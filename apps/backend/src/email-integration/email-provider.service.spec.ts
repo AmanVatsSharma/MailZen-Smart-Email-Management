@@ -506,6 +506,12 @@ describe('EmailProviderService', () => {
       25,
     );
     expect(providerUi.status).toBe('connected');
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'provider_sync_requested',
+      }),
+    );
   });
 
   it('emits sync recovered notification when manual sync succeeds after prior error', async () => {
@@ -582,6 +588,15 @@ describe('EmailProviderService', () => {
       expect.objectContaining({
         userId: 'user-1',
         type: 'SYNC_FAILED',
+      }),
+    );
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'provider_sync_requested',
+        metadata: expect.objectContaining({
+          status: 'FAILED',
+        }),
       }),
     );
   });
