@@ -295,6 +295,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # 5) Check status
 ./deploy/ec2/scripts/status.sh
 
+# Optional: status with runtime checks
+./deploy/ec2/scripts/status.sh --with-runtime-checks
+
 # 6) Future updates (includes verify checks)
 ./deploy/ec2/scripts/update.sh
 

@@ -27,6 +27,7 @@ Primary flow:
   ./deploy/ec2/scripts/deploy.sh
   ./deploy/ec2/scripts/verify.sh
   ./deploy/ec2/scripts/status.sh
+  ./deploy/ec2/scripts/status.sh --with-runtime-checks
 
 Setup and env:
   ./deploy/ec2/scripts/setup.sh --non-interactive --skip-daemon

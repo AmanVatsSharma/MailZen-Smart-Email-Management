@@ -141,6 +141,12 @@ Example:
 # Health/status
 ./deploy/ec2/scripts/status.sh
 
+# Status with runtime checks (host/dns/ssl/ports)
+./deploy/ec2/scripts/status.sh --with-runtime-checks
+
+# Strict status mode (fail if daemon unavailable)
+./deploy/ec2/scripts/status.sh --strict
+
 # Validate env + compose config before deploy
 ./deploy/ec2/scripts/preflight.sh
 
