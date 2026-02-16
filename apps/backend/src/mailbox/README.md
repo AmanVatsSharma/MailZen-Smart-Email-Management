@@ -465,6 +465,10 @@ flowchart TD
   - `mailbox_created`
   - `mailbox_inbound_retention_purged`
   - `mailbox_sync_run_retention_purged`
+  - `mailbox_sync_data_export_requested`
+  - `mailbox_sync_incident_data_export_requested`
+  - `mailbox_sync_incident_alert_history_export_requested`
+  - `mailbox_sync_incident_alert_delivery_export_requested`
 
 ## Inbound ingestion flow
 

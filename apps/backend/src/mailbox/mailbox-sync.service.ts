@@ -1583,6 +1583,17 @@ export class MailboxSyncService {
       }),
     ]);
     const generatedAtIso = new Date().toISOString();
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'mailbox_sync_incident_data_export_requested',
+      metadata: {
+        mailboxId: stats.mailboxId || null,
+        workspaceId: stats.workspaceId || null,
+        windowHours,
+        bucketMinutes,
+        incidentRuns: stats.incidentRuns,
+      },
+    });
     return {
       generatedAtIso,
       dataJson: JSON.stringify({
@@ -1759,6 +1770,16 @@ export class MailboxSyncService {
       limit,
     });
     const generatedAtIso = new Date().toISOString();
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'mailbox_sync_incident_alert_history_export_requested',
+      metadata: {
+        workspaceId: this.normalizeWorkspaceId(input.workspaceId),
+        windowHours,
+        limit,
+        alertCount: alerts.length,
+      },
+    });
     return {
       generatedAtIso,
       dataJson: JSON.stringify({
@@ -1896,6 +1917,16 @@ export class MailboxSyncService {
       }),
     ]);
     const generatedAtIso = new Date().toISOString();
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'mailbox_sync_incident_alert_delivery_export_requested',
+      metadata: {
+        workspaceId: stats.workspaceId || null,
+        windowHours,
+        bucketMinutes,
+        totalCount: stats.totalCount,
+      },
+    });
     return {
       generatedAtIso,
       dataJson: JSON.stringify({
@@ -1955,6 +1986,18 @@ export class MailboxSyncService {
       }),
     ]);
     const generatedAtIso = new Date().toISOString();
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'mailbox_sync_data_export_requested',
+      metadata: {
+        mailboxId: stats.mailboxId || null,
+        workspaceId: stats.workspaceId || null,
+        windowHours,
+        bucketMinutes,
+        limit,
+        totalRuns: stats.totalRuns,
+      },
+    });
     return {
       generatedAtIso,
       dataJson: JSON.stringify({

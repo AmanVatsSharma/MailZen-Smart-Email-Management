@@ -737,6 +737,12 @@ describe('MailboxSyncService', () => {
     expect(payload.stats.totalRuns).toBe(1);
     expect(payload.series[0]?.totalRuns).toBe(1);
     expect(payload.runs[0]?.id).toBe('run-1');
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'mailbox_sync_data_export_requested',
+      }),
+    );
   });
 
   it('returns mailbox sync incident stats for user', async () => {
@@ -857,6 +863,12 @@ describe('MailboxSyncService', () => {
     };
     expect(payload.stats.incidentRuns).toBe(2);
     expect(payload.series[0]?.incidentRuns).toBe(1);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'mailbox_sync_incident_data_export_requested',
+      }),
+    );
   });
 
   it('returns mailbox sync incident alert delivery stats', async () => {
@@ -966,6 +978,12 @@ describe('MailboxSyncService', () => {
     };
     expect(payload.alertCount).toBe(1);
     expect(payload.alerts[0]?.notificationId).toBe('notif-1');
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'mailbox_sync_incident_alert_history_export_requested',
+      }),
+    );
   });
 
   it('returns mailbox sync incident alert delivery series', async () => {
@@ -1031,6 +1049,12 @@ describe('MailboxSyncService', () => {
     };
     expect(payload.stats.totalCount).toBe(2);
     expect(payload.series[0]?.totalCount).toBe(2);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'mailbox_sync_incident_alert_delivery_export_requested',
+      }),
+    );
   });
 
   it('purges mailbox sync run retention rows for a scoped user', async () => {
