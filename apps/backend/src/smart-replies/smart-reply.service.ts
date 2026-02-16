@@ -361,6 +361,27 @@ export class SmartReplyService {
     };
   }
 
+  getProviderHealthSummary(): {
+    mode: string;
+    hybridPrimary: string;
+    providers: Array<{
+      providerId: string;
+      enabled: boolean;
+      configured: boolean;
+      priority: number;
+      note?: string;
+    }>;
+    executedAtIso: string;
+  } {
+    const snapshot = this.providerRouter.getProviderHealthSnapshot();
+    return {
+      mode: snapshot.mode,
+      hybridPrimary: snapshot.hybridPrimary,
+      providers: snapshot.providers,
+      executedAtIso: new Date().toISOString(),
+    };
+  }
+
   async getSettings(userId: string): Promise<SmartReplySettings> {
     const existing = await this.settingsRepo.findOne({ where: { userId } });
     if (existing) return existing;

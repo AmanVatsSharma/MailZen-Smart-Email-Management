@@ -29,6 +29,7 @@ describe('SmartReplyService', () => {
     } as unknown as jest.Mocked<Repository<SmartReplyHistory>>;
     const providerRouterMock = {
       generateSuggestions: jest.fn(),
+      getProviderHealthSnapshot: jest.fn(),
     } as unknown as jest.Mocked<SmartReplyProviderRouter>;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -55,6 +56,19 @@ describe('SmartReplyService', () => {
     );
     historyRepo.delete.mockResolvedValue({ affected: 0 } as DeleteResult);
     historyRepo.find.mockResolvedValue([]);
+    providerRouter.getProviderHealthSnapshot.mockReturnValue({
+      mode: 'hybrid',
+      hybridPrimary: 'openai',
+      providers: [
+        {
+          providerId: 'template',
+          enabled: true,
+          configured: true,
+          priority: 999,
+          note: 'deterministic fallback provider',
+        },
+      ],
+    });
   });
 
   afterEach(() => {
@@ -378,5 +392,37 @@ describe('SmartReplyService', () => {
     ]);
     expect(payload.settings.keepHistory).toBe(true);
     expect(payload.retentionPolicy.historyLengthDays).toBe(30);
+  });
+
+  it('returns provider health summary snapshot', () => {
+    providerRouter.getProviderHealthSnapshot.mockReturnValue({
+      mode: 'openai',
+      hybridPrimary: 'openai',
+      providers: [
+        {
+          providerId: 'openai',
+          enabled: true,
+          configured: true,
+          priority: 1,
+        },
+      ],
+    });
+
+    const result = service.getProviderHealthSummary();
+
+    expect(providerRouter.getProviderHealthSnapshot).toHaveBeenCalled();
+    expect(result).toEqual(
+      expect.objectContaining({
+        mode: 'openai',
+        hybridPrimary: 'openai',
+        providers: [
+          expect.objectContaining({
+            providerId: 'openai',
+            priority: 1,
+          }),
+        ],
+        executedAtIso: expect.any(String),
+      }),
+    );
   });
 });

@@ -40,6 +40,20 @@ describe('SmartReplyResolver', () => {
       generatedAtIso: '2026-02-16T00:00:00.000Z',
       dataJson: '{"ok":true}',
     }),
+    getProviderHealthSummary: jest.fn().mockResolvedValue({
+      mode: 'hybrid',
+      hybridPrimary: 'openai',
+      providers: [
+        {
+          providerId: 'template',
+          enabled: true,
+          configured: true,
+          priority: 999,
+          note: 'deterministic fallback provider',
+        },
+      ],
+      executedAtIso: '2026-02-16T00:00:00.000Z',
+    }),
   };
 
   beforeEach(async () => {
@@ -181,6 +195,16 @@ describe('SmartReplyResolver', () => {
         'user-1',
         150,
       );
+    });
+
+    it('should return provider health summary', async () => {
+      await expect(resolver.mySmartReplyProviderHealth()).resolves.toEqual(
+        expect.objectContaining({
+          mode: 'hybrid',
+          hybridPrimary: 'openai',
+        }),
+      );
+      expect(mockSmartReplyService.getProviderHealthSummary).toHaveBeenCalled();
     });
   });
 });

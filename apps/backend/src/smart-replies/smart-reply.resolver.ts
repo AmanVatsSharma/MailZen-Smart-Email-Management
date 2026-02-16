@@ -3,6 +3,7 @@ import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { SmartReplyService } from './smart-reply.service';
 import { SmartReplyDataExportResponse } from './entities/smart-reply-data-export.response';
+import { SmartReplyProviderHealthResponse } from './entities/smart-reply-provider-health.response';
 import { SmartReplyInput } from './dto/smart-reply.input';
 import { UpdateSmartReplySettingsInput } from './dto/update-smart-reply-settings.input';
 import { SmartReplyHistoryPurgeResponse } from './entities/smart-reply-history-purge.response';
@@ -100,5 +101,13 @@ export class SmartReplyResolver {
       context.req.user.id,
       limit,
     );
+  }
+
+  @Query(() => SmartReplyProviderHealthResponse, {
+    description:
+      'Get current smart-reply provider routing mode and provider readiness',
+  })
+  mySmartReplyProviderHealth(): SmartReplyProviderHealthResponse {
+    return this.smartReplyService.getProviderHealthSummary();
   }
 }

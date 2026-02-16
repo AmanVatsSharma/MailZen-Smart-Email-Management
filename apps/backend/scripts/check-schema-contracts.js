@@ -37,6 +37,7 @@ const requiredContracts = [
   'smartReplySettings',
   'mySmartReplyHistory',
   'mySmartReplyDataExport',
+  'mySmartReplyProviderHealth',
   'updateSmartReplySettings',
   'purgeMySmartReplyHistory',
   'myWorkspaces',

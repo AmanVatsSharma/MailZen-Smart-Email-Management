@@ -30,11 +30,22 @@ describe('SmartReplyProviderRouter', () => {
   } as unknown as jest.Mocked<SmartReplyExternalModelAdapter>;
   const originalMode = process.env.SMART_REPLY_PROVIDER_MODE;
   const originalHybridPrimary = process.env.SMART_REPLY_HYBRID_PRIMARY;
+  const originalUseAzureOpenAi = process.env.SMART_REPLY_USE_AZURE_OPENAI;
+  const originalAzureOpenAiApiKey =
+    process.env.SMART_REPLY_AZURE_OPENAI_API_KEY;
+  const originalAzureOpenAiEndpoint =
+    process.env.SMART_REPLY_AZURE_OPENAI_ENDPOINT;
+  const originalAzureOpenAiDeployment =
+    process.env.SMART_REPLY_AZURE_OPENAI_DEPLOYMENT;
 
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.SMART_REPLY_PROVIDER_MODE;
     delete process.env.SMART_REPLY_HYBRID_PRIMARY;
+    delete process.env.SMART_REPLY_USE_AZURE_OPENAI;
+    delete process.env.SMART_REPLY_AZURE_OPENAI_API_KEY;
+    delete process.env.SMART_REPLY_AZURE_OPENAI_ENDPOINT;
+    delete process.env.SMART_REPLY_AZURE_OPENAI_DEPLOYMENT;
     router = new SmartReplyProviderRouter(
       templateProvider,
       openAiProvider,
@@ -54,6 +65,28 @@ describe('SmartReplyProviderRouter', () => {
       process.env.SMART_REPLY_HYBRID_PRIMARY = originalHybridPrimary;
     } else {
       delete process.env.SMART_REPLY_HYBRID_PRIMARY;
+    }
+    if (typeof originalUseAzureOpenAi === 'string') {
+      process.env.SMART_REPLY_USE_AZURE_OPENAI = originalUseAzureOpenAi;
+    } else {
+      delete process.env.SMART_REPLY_USE_AZURE_OPENAI;
+    }
+    if (typeof originalAzureOpenAiApiKey === 'string') {
+      process.env.SMART_REPLY_AZURE_OPENAI_API_KEY = originalAzureOpenAiApiKey;
+    } else {
+      delete process.env.SMART_REPLY_AZURE_OPENAI_API_KEY;
+    }
+    if (typeof originalAzureOpenAiEndpoint === 'string') {
+      process.env.SMART_REPLY_AZURE_OPENAI_ENDPOINT =
+        originalAzureOpenAiEndpoint;
+    } else {
+      delete process.env.SMART_REPLY_AZURE_OPENAI_ENDPOINT;
+    }
+    if (typeof originalAzureOpenAiDeployment === 'string') {
+      process.env.SMART_REPLY_AZURE_OPENAI_DEPLOYMENT =
+        originalAzureOpenAiDeployment;
+    } else {
+      delete process.env.SMART_REPLY_AZURE_OPENAI_DEPLOYMENT;
     }
   });
 
@@ -396,5 +429,30 @@ describe('SmartReplyProviderRouter', () => {
       source: 'azure_openai',
       fallbackUsed: false,
     });
+  });
+
+  it('reports provider health snapshot with priorities', () => {
+    process.env.SMART_REPLY_PROVIDER_MODE = 'hybrid';
+    process.env.SMART_REPLY_HYBRID_PRIMARY = 'azure_openai';
+    process.env.SMART_REPLY_USE_AZURE_OPENAI = 'true';
+    process.env.SMART_REPLY_AZURE_OPENAI_API_KEY = 'key';
+    process.env.SMART_REPLY_AZURE_OPENAI_ENDPOINT =
+      'https://resource.openai.azure.com';
+    process.env.SMART_REPLY_AZURE_OPENAI_DEPLOYMENT = 'mailzen-mini';
+
+    const health = router.getProviderHealthSnapshot();
+    const azureProvider = health.providers.find(
+      (provider) => provider.providerId === 'azure_openai',
+    );
+
+    expect(health.mode).toBe('hybrid');
+    expect(health.hybridPrimary).toBe('azure_openai');
+    expect(azureProvider).toEqual(
+      expect.objectContaining({
+        enabled: true,
+        configured: true,
+        priority: 1,
+      }),
+    );
   });
 });

@@ -166,6 +166,28 @@ query {
 
 Returns a JSON snapshot containing settings, retention policy, and recent history rows.
 
+#### My Smart Reply Provider Health
+
+```graphql
+query {
+  mySmartReplyProviderHealth {
+    mode
+    hybridPrimary
+    providers {
+      providerId
+      enabled
+      configured
+      priority
+      note
+    }
+    executedAtIso
+  }
+}
+```
+
+Returns runtime provider-mode routing readiness for OpenAI / Azure OpenAI /
+Anthropic / agent-platform / template fallback.
+
 ## Operational runbook: smart reply history
 
 1. Validate settings via `smartReplySettings`:

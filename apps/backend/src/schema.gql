@@ -432,6 +432,7 @@ type Query {
   smartReplySettings: SmartReplySettings!
   mySmartReplyHistory(limit: Int! = 20): [SmartReplyHistory!]!
   mySmartReplyDataExport(limit: Int! = 200): SmartReplyDataExportResponse!
+  mySmartReplyProviderHealth: SmartReplyProviderHealthResponse!
   agentPlatformHealth: AgentPlatformHealthResponse!
   myAgentActionAudits(limit: Int): [AgentActionAudit!]!
   myAgentActionDataExport(limit: Int! = 200): AgentActionDataExportResponse!
@@ -608,6 +609,21 @@ type SmartReplyHistoryPurgeResponse {
 type SmartReplyDataExportResponse {
   generatedAtIso: String!
   dataJson: String!
+}
+
+type SmartReplyProviderHealthItemResponse {
+  providerId: String!
+  enabled: Boolean!
+  configured: Boolean!
+  priority: Int!
+  note: String
+}
+
+type SmartReplyProviderHealthResponse {
+  mode: String!
+  hybridPrimary: String!
+  providers: [SmartReplyProviderHealthItemResponse!]!
+  executedAtIso: String!
 }
 
 type Mutation {
