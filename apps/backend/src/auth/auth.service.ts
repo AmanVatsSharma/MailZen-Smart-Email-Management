@@ -61,6 +61,14 @@ export class AuthService {
     return 60 * 60 * 24;
   }
 
+  private resolveSignupOtpMaxAttempts(): number {
+    const parsed = Number(process.env.MAILZEN_SIGNUP_OTP_MAX_ATTEMPTS || '5');
+    const candidate = Number.isFinite(parsed) ? Math.floor(parsed) : 5;
+    if (candidate < 1) return 1;
+    if (candidate > 20) return 20;
+    return candidate;
+  }
+
   validateToken(token: string): any {
     const secret = process.env.JWT_SECRET;
     if (!secret || secret === 'default-secret') {
@@ -452,16 +460,31 @@ export class AuthService {
       throw new Error('Invalid or expired code');
     }
 
+    const maxAttempts = this.resolveSignupOtpMaxAttempts();
+    if (record.attempts >= maxAttempts) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'auth_signup_otp_verify_attempts_exceeded',
+          phoneFingerprint,
+          attempts: record.attempts,
+          maxAttempts,
+        }),
+      );
+      throw new Error('Invalid or expired code');
+    }
+
     if (record.code !== code) {
+      const updatedAttempts = record.attempts + 1;
       this.logger.warn(
         serializeStructuredLog({
           event: 'auth_signup_otp_verify_code_mismatch',
           phoneFingerprint,
-          attempts: record.attempts + 1,
+          attempts: updatedAttempts,
+          maxAttempts,
         }),
       );
       await this.signupVerificationRepository.update(record.id, {
-        attempts: record.attempts + 1,
+        attempts: updatedAttempts,
       });
       throw new Error('Invalid code');
     }

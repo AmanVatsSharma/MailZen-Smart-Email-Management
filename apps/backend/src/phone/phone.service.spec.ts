@@ -14,6 +14,8 @@ describe('PhoneService', () => {
   let service: PhoneService;
   let phoneVerificationRepo: jest.Mocked<Repository<PhoneVerification>>;
   let userRepo: jest.Mocked<Repository<User>>;
+  const originalPhoneOtpMaxAttempts =
+    process.env.MAILZEN_PHONE_OTP_MAX_ATTEMPTS;
   const dispatchSmsOtpMock = dispatchSmsOtp as jest.MockedFunction<
     typeof dispatchSmsOtp
   >;
@@ -33,7 +35,16 @@ describe('PhoneService', () => {
       update: jest.fn(),
     } as unknown as jest.Mocked<Repository<User>>;
     service = new PhoneService(phoneVerificationRepo, userRepo);
+    delete process.env.MAILZEN_PHONE_OTP_MAX_ATTEMPTS;
     jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    if (typeof originalPhoneOtpMaxAttempts === 'string') {
+      process.env.MAILZEN_PHONE_OTP_MAX_ATTEMPTS = originalPhoneOtpMaxAttempts;
+      return;
+    }
+    delete process.env.MAILZEN_PHONE_OTP_MAX_ATTEMPTS;
   });
 
   it('sends otp and keeps verification record on success', async () => {
@@ -87,5 +98,45 @@ describe('PhoneService', () => {
     expect(phoneVerificationRepo.delete).toHaveBeenCalledWith({
       id: 'verification-2',
     });
+  });
+
+  it('rejects verifyOtp when max attempts exceeded', async () => {
+    process.env.MAILZEN_PHONE_OTP_MAX_ATTEMPTS = '3';
+    phoneVerificationRepo.findOne.mockResolvedValue({
+      id: 'verification-3',
+      userId: 'user-1',
+      phoneNumber: '+15550000000',
+      code: '123456',
+      attempts: 3,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      createdAt: new Date(),
+    } as unknown as PhoneVerification);
+
+    await expect(service.verifyOtp('user-1', '123456')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(phoneVerificationRepo.increment).not.toHaveBeenCalled();
+  });
+
+  it('increments attempts when verifyOtp code mismatches', async () => {
+    process.env.MAILZEN_PHONE_OTP_MAX_ATTEMPTS = '5';
+    phoneVerificationRepo.findOne.mockResolvedValue({
+      id: 'verification-4',
+      userId: 'user-1',
+      phoneNumber: '+15550000000',
+      code: '123456',
+      attempts: 1,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      createdAt: new Date(),
+    } as unknown as PhoneVerification);
+
+    await expect(service.verifyOtp('user-1', '000000')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(phoneVerificationRepo.increment).toHaveBeenCalledWith(
+      { id: 'verification-4' },
+      'attempts',
+      1,
+    );
   });
 });

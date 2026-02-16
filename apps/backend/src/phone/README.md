@@ -41,6 +41,7 @@ Provide OTP-driven phone verification flows for authenticated users and phone-fi
 - `MAILZEN_SMS_TWILIO_API_BASE_URL` (default `https://api.twilio.com`)
 - `MAILZEN_SMS_TWILIO_TIMEOUT_MS` (default `5000`)
 - `MAILZEN_SMS_TWILIO_STATUS_CALLBACK_URL` (optional Twilio delivery callback)
+- `MAILZEN_PHONE_OTP_MAX_ATTEMPTS` (default `5`)
 
 ## OTP delivery flow
 
@@ -64,6 +65,7 @@ flowchart TD
 - `phone_otp_send_delivery_failed`
 - `phone_otp_verify_start`
 - `phone_otp_verify_invalid_or_expired`
+- `phone_otp_verify_attempts_exceeded`
 - `phone_otp_verify_code_mismatch`
 - `phone_otp_verify_completed`
 

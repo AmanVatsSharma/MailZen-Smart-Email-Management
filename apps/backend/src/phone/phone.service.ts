@@ -25,6 +25,14 @@ export class PhoneService {
     private readonly userRepo: Repository<User>,
   ) {}
 
+  private resolvePhoneOtpMaxAttempts(): number {
+    const parsed = Number(process.env.MAILZEN_PHONE_OTP_MAX_ATTEMPTS || '5');
+    const candidate = Number.isFinite(parsed) ? Math.floor(parsed) : 5;
+    if (candidate < 1) return 1;
+    if (candidate > 20) return 20;
+    return candidate;
+  }
+
   async sendOtp(userId: string, phoneNumber: string): Promise<boolean> {
     const phoneFingerprint = fingerprintIdentifier(phoneNumber || '');
     this.logger.log(
@@ -101,7 +109,21 @@ export class PhoneService {
       );
       throw new BadRequestException('Invalid or expired code');
     }
+    const maxAttempts = this.resolvePhoneOtpMaxAttempts();
+    if (record.attempts >= maxAttempts) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'phone_otp_verify_attempts_exceeded',
+          userId,
+          phoneFingerprint,
+          attempts: record.attempts,
+          maxAttempts,
+        }),
+      );
+      throw new BadRequestException('Invalid or expired code');
+    }
     if (record.code !== code) {
+      const updatedAttempts = record.attempts + 1;
       await this.phoneVerificationRepo.increment(
         { id: record.id },
         'attempts',
@@ -112,7 +134,8 @@ export class PhoneService {
           event: 'phone_otp_verify_code_mismatch',
           userId,
           phoneFingerprint,
-          attempts: record.attempts + 1,
+          attempts: updatedAttempts,
+          maxAttempts,
         }),
       );
       throw new BadRequestException('Invalid code');

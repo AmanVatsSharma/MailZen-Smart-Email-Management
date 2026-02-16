@@ -16,6 +16,8 @@ jest.mock('../common/sms/sms-dispatcher.util', () => ({
 describe('AuthService signup OTP delivery', () => {
   let service: AuthService;
   let signupVerificationRepo: jest.Mocked<Repository<SignupVerification>>;
+  const originalSignupOtpMaxAttempts =
+    process.env.MAILZEN_SIGNUP_OTP_MAX_ATTEMPTS;
   const dispatchSmsOtpMock = dispatchSmsOtp as jest.MockedFunction<
     typeof dispatchSmsOtp
   >;
@@ -31,6 +33,7 @@ describe('AuthService signup OTP delivery', () => {
       findOne: jest.fn(),
       update: jest.fn(),
     } as unknown as jest.Mocked<Repository<SignupVerification>>;
+    delete process.env.MAILZEN_SIGNUP_OTP_MAX_ATTEMPTS;
 
     service = new AuthService(
       { sign: jest.fn(), verify: jest.fn() } as unknown as JwtService,
@@ -40,6 +43,15 @@ describe('AuthService signup OTP delivery', () => {
       signupVerificationRepo,
     );
     jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    if (typeof originalSignupOtpMaxAttempts === 'string') {
+      process.env.MAILZEN_SIGNUP_OTP_MAX_ATTEMPTS =
+        originalSignupOtpMaxAttempts;
+      return;
+    }
+    delete process.env.MAILZEN_SIGNUP_OTP_MAX_ATTEMPTS;
   });
 
   it('returns true when signup otp dispatch succeeds', async () => {
@@ -88,5 +100,44 @@ describe('AuthService signup OTP delivery', () => {
     expect(signupVerificationRepo.delete).toHaveBeenCalledWith({
       id: 'signup-verification-2',
     });
+  });
+
+  it('rejects signup OTP verification when max attempts exceeded', async () => {
+    process.env.MAILZEN_SIGNUP_OTP_MAX_ATTEMPTS = '3';
+    signupVerificationRepo.findOne.mockResolvedValue({
+      id: 'signup-verification-3',
+      phoneNumber: '+15550000000',
+      code: '333333',
+      attempts: 3,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      createdAt: new Date(),
+    } as unknown as SignupVerification);
+
+    await expect(
+      service.verifySignupOtp('+15550000000', '333333'),
+    ).rejects.toThrow('Invalid or expired code');
+    expect(signupVerificationRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('increments attempts when signup OTP code mismatches', async () => {
+    process.env.MAILZEN_SIGNUP_OTP_MAX_ATTEMPTS = '5';
+    signupVerificationRepo.findOne.mockResolvedValue({
+      id: 'signup-verification-4',
+      phoneNumber: '+15550000000',
+      code: '444444',
+      attempts: 1,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      createdAt: new Date(),
+    } as unknown as SignupVerification);
+
+    await expect(
+      service.verifySignupOtp('+15550000000', '000000'),
+    ).rejects.toThrow('Invalid code');
+    expect(signupVerificationRepo.update).toHaveBeenCalledWith(
+      'signup-verification-4',
+      {
+        attempts: 2,
+      },
+    );
   });
 });

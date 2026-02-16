@@ -32,6 +32,7 @@ Web sessions are persisted with an HttpOnly `token` cookie.
   - `AUTH_OTP_RATE_LIMIT_MAX_REQUESTS` (default `6`)
   - `AUTH_PASSWORD_RESET_RATE_LIMIT_WINDOW_MS` (default `600000`)
   - `AUTH_PASSWORD_RESET_RATE_LIMIT_MAX_REQUESTS` (default `6`)
+  - `MAILZEN_SIGNUP_OTP_MAX_ATTEMPTS` (default `5`)
 - Google OAuth requires:
   - `GOOGLE_CLIENT_ID`
   - `GOOGLE_CLIENT_SECRET`
@@ -98,6 +99,7 @@ Web sessions are persisted with an HttpOnly `token` cookie.
   - `auth_signup_otp_delivery_failed`
   - `auth_signup_otp_verify_start`
   - `auth_signup_otp_verify_invalid_or_expired`
+  - `auth_signup_otp_verify_attempts_exceeded`
   - `auth_signup_otp_verify_code_mismatch`
   - `auth_signup_otp_verify_completed`
 - resolver context safety:
