@@ -57,6 +57,10 @@ This module follows NestJS best practices and consists of:
     - `totalProviders`, `connectedProviders`, `syncingProviders`, `errorProviders`
     - `recentlySyncedProviders`, `recentlyErroredProviders`
   - `windowHours` is clamped server-side for safe bounded telemetry queries
+- `myProviderSyncDataExport(workspaceId?: String, limit?: Int): ProviderSyncDataExportResponse!`
+  - exports provider sync operational state snapshot as JSON payload
+  - includes per-provider lifecycle fields (status, last sync/error timestamps, lease/watch metadata)
+  - includes aggregated status counts for compliance/support workflows
 
 ### Mutations
 
@@ -299,6 +303,9 @@ The module automatically handles OAuth token refresh for Gmail and Outlook provi
 5. **Escalation path**
    - If repeated `failedProviders > 0`, inspect provider OAuth token validity and
      upstream API availability (Google/Microsoft service health), then retry.
+6. **Export operational snapshot**
+   - Run `myProviderSyncDataExport(workspaceId, limit)` for support/compliance
+     handoff when deeper incident context is needed.
 
 ## Connection Pooling
 

@@ -42,6 +42,8 @@ export class EmailProviderService {
   private readonly logger = new Logger(EmailProviderService.name);
   private static readonly MIN_PROVIDER_SYNC_STATS_WINDOW_HOURS = 1;
   private static readonly MAX_PROVIDER_SYNC_STATS_WINDOW_HOURS = 24 * 30;
+  private static readonly MIN_PROVIDER_SYNC_EXPORT_LIMIT = 1;
+  private static readonly MAX_PROVIDER_SYNC_EXPORT_LIMIT = 500;
   private readonly googleOAuth2Client: OAuth2Client;
   private readonly providerSecretsKeyring: ProviderSecretsKeyring;
   private readonly smtpConnectionPool: SmtpConnectionPool = {};
@@ -642,6 +644,94 @@ export class EmailProviderService {
       recentlyErroredProviders,
       windowHours: normalizedWindowHours,
       executedAtIso: new Date().toISOString(),
+    };
+  }
+
+  private normalizeProviderSyncExportLimit(limit?: number | null): number {
+    if (typeof limit !== 'number' || !Number.isFinite(limit)) {
+      return 200;
+    }
+    const rounded = Math.trunc(limit);
+    if (rounded < EmailProviderService.MIN_PROVIDER_SYNC_EXPORT_LIMIT) {
+      return EmailProviderService.MIN_PROVIDER_SYNC_EXPORT_LIMIT;
+    }
+    if (rounded > EmailProviderService.MAX_PROVIDER_SYNC_EXPORT_LIMIT) {
+      return EmailProviderService.MAX_PROVIDER_SYNC_EXPORT_LIMIT;
+    }
+    return rounded;
+  }
+
+  async exportProviderSyncDataForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    limit?: number | null;
+  }): Promise<{ generatedAtIso: string; dataJson: string }> {
+    const normalizedWorkspaceId = String(input.workspaceId || '').trim();
+    const normalizedLimit = this.normalizeProviderSyncExportLimit(input.limit);
+
+    const providers = await this.providerRepository.find({
+      where: normalizedWorkspaceId
+        ? { userId: input.userId, workspaceId: normalizedWorkspaceId }
+        : { userId: input.userId },
+      order: { createdAt: 'DESC' },
+      take: normalizedLimit,
+    });
+
+    const statusCounts = providers.reduce<Record<string, number>>(
+      (accumulator, provider) => {
+        const key =
+          String(provider.status || '')
+            .trim()
+            .toLowerCase() || 'unknown';
+        accumulator[key] = (accumulator[key] || 0) + 1;
+        return accumulator;
+      },
+      {},
+    );
+
+    const generatedAtIso = new Date().toISOString();
+    const dataJson = JSON.stringify({
+      exportVersion: 'v1',
+      generatedAtIso,
+      scope: {
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId || null,
+      },
+      summary: {
+        totalProviders: providers.length,
+        statusCounts,
+      },
+      providers: providers.map((provider) => ({
+        id: provider.id,
+        type: provider.type,
+        email: provider.email,
+        displayName: provider.displayName || null,
+        status: provider.status,
+        isActive: provider.isActive,
+        workspaceId: provider.workspaceId || null,
+        createdAtIso: provider.createdAt.toISOString(),
+        updatedAtIso: provider.updatedAt.toISOString(),
+        lastSyncedAtIso: provider.lastSyncedAt?.toISOString() || null,
+        lastSyncErrorAtIso: provider.lastSyncErrorAt?.toISOString() || null,
+        lastSyncError: provider.lastSyncError || null,
+        syncLeaseExpiresAtIso:
+          provider.syncLeaseExpiresAt?.toISOString() || null,
+        gmailWatchExpirationAtIso:
+          provider.gmailWatchExpirationAt?.toISOString() || null,
+        gmailWatchLastRenewedAtIso:
+          provider.gmailWatchLastRenewedAt?.toISOString() || null,
+        outlookSyncCursor: provider.outlookSyncCursor || null,
+        outlookPushSubscriptionId: provider.outlookPushSubscriptionId || null,
+        outlookPushSubscriptionExpiresAtIso:
+          provider.outlookPushSubscriptionExpiresAt?.toISOString() || null,
+        outlookPushSubscriptionLastRenewedAtIso:
+          provider.outlookPushSubscriptionLastRenewedAt?.toISOString() || null,
+      })),
+    });
+
+    return {
+      generatedAtIso,
+      dataJson,
     };
   }
 

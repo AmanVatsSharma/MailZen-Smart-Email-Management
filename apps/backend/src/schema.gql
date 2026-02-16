@@ -152,6 +152,11 @@ type ProviderSyncStatsResponse {
   executedAtIso: String!
 }
 
+type ProviderSyncDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
 type InboxMessage {
   id: ID!
   providerId: String!
@@ -364,6 +369,7 @@ type Query {
   providers(workspaceId: String): [Provider!]!
   getEmailProviders(workspaceId: String): [Provider!]!
   myProviderSyncStats(workspaceId: String, windowHours: Int): ProviderSyncStatsResponse!
+  myProviderSyncDataExport(workspaceId: String, limit: Int! = 200): ProviderSyncDataExportResponse!
   getInboxMessages(inboxType: String!, inboxId: String!, limit: Int, offset: Int): [InboxMessage!]!
   myMailboxes(workspaceId: String): [String!]!
   myMailboxInboundEvents(mailboxId: String, workspaceId: String, status: String, limit: Int): [MailboxInboundEventObservabilityResponse!]!

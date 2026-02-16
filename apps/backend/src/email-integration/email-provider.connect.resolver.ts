@@ -5,6 +5,7 @@ import { EmailProviderService } from './email-provider.service';
 import { Provider } from './entities/provider.entity';
 import { ProviderActionResult } from './entities/provider-action-result.entity';
 import { SmtpSettingsInput } from './dto/smtp-settings.input';
+import { ProviderSyncDataExportResponse } from './entities/provider-sync-data-export.response';
 import { ProviderSyncRunResponse } from './entities/provider-sync-run-response.entity';
 import { ProviderSyncStatsResponse } from './entities/provider-sync-stats-response.entity';
 
@@ -129,6 +130,19 @@ export class EmailProviderConnectResolver {
       userId: ctx.req.user.id,
       workspaceId,
       windowHours,
+    });
+  }
+
+  @Query(() => ProviderSyncDataExportResponse)
+  async myProviderSyncDataExport(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Args('limit', { type: () => Int, defaultValue: 200 }) limit: number,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.emailProviderService.exportProviderSyncDataForUser({
+      userId: ctx.req.user.id,
+      workspaceId,
+      limit,
     });
   }
 

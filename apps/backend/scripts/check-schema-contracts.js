@@ -30,6 +30,7 @@ const requiredContracts = [
   'syncMyProviders',
   'syncMyInboxes',
   'myProviderSyncStats',
+  'myProviderSyncDataExport',
   'smartReplySettings',
   'mySmartReplyHistory',
   'mySmartReplyDataExport',

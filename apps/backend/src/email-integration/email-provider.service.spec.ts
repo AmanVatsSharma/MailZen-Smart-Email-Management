@@ -458,4 +458,57 @@ describe('EmailProviderService', () => {
 
     expect(result.windowHours).toBe(1);
   });
+
+  it('exports provider sync data snapshot with scoped metadata', async () => {
+    providerRepository.find.mockResolvedValue([
+      {
+        id: 'provider-1',
+        type: 'GMAIL',
+        email: 'founder@gmail.com',
+        status: 'connected',
+        isActive: true,
+        workspaceId: 'workspace-1',
+        createdAt: new Date('2026-02-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-02-16T00:00:00.000Z'),
+      } as EmailProvider,
+      {
+        id: 'provider-2',
+        type: 'OUTLOOK',
+        email: 'ops@outlook.com',
+        status: 'error',
+        isActive: false,
+        workspaceId: 'workspace-1',
+        lastSyncError: 'graph unavailable',
+        lastSyncErrorAt: new Date('2026-02-16T00:10:00.000Z'),
+        createdAt: new Date('2026-02-02T00:00:00.000Z'),
+        updatedAt: new Date('2026-02-16T00:10:00.000Z'),
+      } as EmailProvider,
+    ]);
+
+    const result = await service.exportProviderSyncDataForUser({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      limit: 9999,
+    });
+    const payload = JSON.parse(result.dataJson) as {
+      summary: { totalProviders: number; statusCounts: Record<string, number> };
+      providers: Array<{ id: string; status: string }>;
+    };
+
+    expect(providerRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1', workspaceId: 'workspace-1' },
+        take: 500,
+      }),
+    );
+    expect(payload.summary.totalProviders).toBe(2);
+    expect(payload.summary.statusCounts.connected).toBe(1);
+    expect(payload.summary.statusCounts.error).toBe(1);
+    expect(payload.providers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'provider-1', status: 'connected' }),
+        expect.objectContaining({ id: 'provider-2', status: 'error' }),
+      ]),
+    );
+  });
 });

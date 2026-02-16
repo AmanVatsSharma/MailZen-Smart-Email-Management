@@ -15,6 +15,7 @@ describe('EmailProviderConnectResolver', () => {
     syncProvider: jest.fn(),
     syncUserProviders: jest.fn(),
     getProviderSyncStatsForUser: jest.fn(),
+    exportProviderSyncDataForUser: jest.fn(),
     listProvidersUi: jest.fn(),
   };
 
@@ -129,6 +130,33 @@ describe('EmailProviderConnectResolver', () => {
       userId: 'user-1',
       workspaceId: 'workspace-1',
       windowHours: 24,
+    });
+  });
+
+  it('delegates provider sync data export query to service', async () => {
+    emailProviderServiceMock.exportProviderSyncDataForUser.mockResolvedValue({
+      generatedAtIso: '2026-02-16T00:00:00.000Z',
+      dataJson: '{"summary":{"totalProviders":1}}',
+    });
+    const context = { req: { user: { id: 'user-1' } } };
+
+    const result = await resolver.myProviderSyncDataExport(
+      'workspace-1',
+      150,
+      context,
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        generatedAtIso: '2026-02-16T00:00:00.000Z',
+      }),
+    );
+    expect(
+      emailProviderServiceMock.exportProviderSyncDataForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      limit: 150,
     });
   });
 });
