@@ -61,6 +61,16 @@ VERIFY_REQUIRE_OAUTH_CHECK=false
 DOMAIN_ARG=""
 ACME_EMAIL_ARG=""
 PORTS_CHECK_PORTS=""
+VERIFY_MAX_RETRIES_FLAG_SET=false
+VERIFY_MAX_RETRIES_FLAG_VALUE=""
+VERIFY_RETRY_SLEEP_FLAG_SET=false
+VERIFY_RETRY_SLEEP_FLAG_VALUE=""
+DOMAIN_FLAG_SET=false
+DOMAIN_FLAG_VALUE=""
+ACME_EMAIL_FLAG_SET=false
+ACME_EMAIL_FLAG_VALUE=""
+PORTS_CHECK_FLAG_SET=false
+PORTS_CHECK_FLAG_VALUE=""
 
 run_step() {
   local step_number="$1"
@@ -117,19 +127,31 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --verify-max-retries)
-    VERIFY_MAX_RETRIES="${2:-}"
-    if [[ -z "${VERIFY_MAX_RETRIES}" ]]; then
+    verify_max_retries_arg="${2:-}"
+    if [[ -z "${verify_max_retries_arg}" ]]; then
       log_error "--verify-max-retries requires a value."
       exit 1
     fi
+    if [[ "${VERIFY_MAX_RETRIES_FLAG_SET}" == true ]] && [[ "${verify_max_retries_arg}" != "${VERIFY_MAX_RETRIES_FLAG_VALUE}" ]]; then
+      log_warn "[LAUNCH] earlier --verify-max-retries '${VERIFY_MAX_RETRIES_FLAG_VALUE}' overridden by --verify-max-retries '${verify_max_retries_arg}'."
+    fi
+    VERIFY_MAX_RETRIES="${verify_max_retries_arg}"
+    VERIFY_MAX_RETRIES_FLAG_SET=true
+    VERIFY_MAX_RETRIES_FLAG_VALUE="${verify_max_retries_arg}"
     shift 2
     ;;
   --verify-retry-sleep)
-    VERIFY_RETRY_SLEEP="${2:-}"
-    if [[ -z "${VERIFY_RETRY_SLEEP}" ]]; then
+    verify_retry_sleep_arg="${2:-}"
+    if [[ -z "${verify_retry_sleep_arg}" ]]; then
       log_error "--verify-retry-sleep requires a value."
       exit 1
     fi
+    if [[ "${VERIFY_RETRY_SLEEP_FLAG_SET}" == true ]] && [[ "${verify_retry_sleep_arg}" != "${VERIFY_RETRY_SLEEP_FLAG_VALUE}" ]]; then
+      log_warn "[LAUNCH] earlier --verify-retry-sleep '${VERIFY_RETRY_SLEEP_FLAG_VALUE}' overridden by --verify-retry-sleep '${verify_retry_sleep_arg}'."
+    fi
+    VERIFY_RETRY_SLEEP="${verify_retry_sleep_arg}"
+    VERIFY_RETRY_SLEEP_FLAG_SET=true
+    VERIFY_RETRY_SLEEP_FLAG_VALUE="${verify_retry_sleep_arg}"
     shift 2
     ;;
   --verify-skip-ssl-check)
@@ -169,43 +191,73 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --ports-check-ports)
-    PORTS_CHECK_PORTS="${2:-}"
-    if [[ -z "${PORTS_CHECK_PORTS}" ]]; then
+    ports_check_ports_arg="${2:-}"
+    if [[ -z "${ports_check_ports_arg}" ]]; then
       log_error "--ports-check-ports requires a value."
       exit 1
     fi
+    if [[ "${PORTS_CHECK_FLAG_SET}" == true ]] && [[ "${ports_check_ports_arg}" != "${PORTS_CHECK_FLAG_VALUE}" ]]; then
+      log_warn "[LAUNCH] earlier --ports-check-ports '${PORTS_CHECK_FLAG_VALUE}' overridden by --ports-check-ports '${ports_check_ports_arg}'."
+    fi
+    PORTS_CHECK_PORTS="${ports_check_ports_arg}"
+    PORTS_CHECK_FLAG_SET=true
+    PORTS_CHECK_FLAG_VALUE="${ports_check_ports_arg}"
     shift 2
     ;;
   --domain)
-    DOMAIN_ARG="${2:-}"
-    if [[ -z "${DOMAIN_ARG}" ]]; then
+    domain_arg="${2:-}"
+    if [[ -z "${domain_arg}" ]]; then
       log_error "--domain requires a value."
       exit 1
     fi
+    if [[ "${DOMAIN_FLAG_SET}" == true ]] && [[ "${domain_arg}" != "${DOMAIN_FLAG_VALUE}" ]]; then
+      log_warn "[LAUNCH] earlier --domain '${DOMAIN_FLAG_VALUE}' overridden by --domain '${domain_arg}'."
+    fi
+    DOMAIN_ARG="${domain_arg}"
+    DOMAIN_FLAG_SET=true
+    DOMAIN_FLAG_VALUE="${domain_arg}"
     shift 2
     ;;
   --acme-email)
-    ACME_EMAIL_ARG="${2:-}"
-    if [[ -z "${ACME_EMAIL_ARG}" ]]; then
+    acme_email_arg="${2:-}"
+    if [[ -z "${acme_email_arg}" ]]; then
       log_error "--acme-email requires a value."
       exit 1
     fi
+    if [[ "${ACME_EMAIL_FLAG_SET}" == true ]] && [[ "${acme_email_arg}" != "${ACME_EMAIL_FLAG_VALUE}" ]]; then
+      log_warn "[LAUNCH] earlier --acme-email '${ACME_EMAIL_FLAG_VALUE}' overridden by --acme-email '${acme_email_arg}'."
+    fi
+    ACME_EMAIL_ARG="${acme_email_arg}"
+    ACME_EMAIL_FLAG_SET=true
+    ACME_EMAIL_FLAG_VALUE="${acme_email_arg}"
     shift 2
     ;;
   --domain=*)
-    DOMAIN_ARG="${1#*=}"
-    if [[ -z "${DOMAIN_ARG}" ]]; then
+    domain_arg="${1#*=}"
+    if [[ -z "${domain_arg}" ]]; then
       log_error "--domain requires a non-empty value."
       exit 1
     fi
+    if [[ "${DOMAIN_FLAG_SET}" == true ]] && [[ "${domain_arg}" != "${DOMAIN_FLAG_VALUE}" ]]; then
+      log_warn "[LAUNCH] earlier --domain '${DOMAIN_FLAG_VALUE}' overridden by --domain '${domain_arg}'."
+    fi
+    DOMAIN_ARG="${domain_arg}"
+    DOMAIN_FLAG_SET=true
+    DOMAIN_FLAG_VALUE="${domain_arg}"
     shift
     ;;
   --acme-email=*)
-    ACME_EMAIL_ARG="${1#*=}"
-    if [[ -z "${ACME_EMAIL_ARG}" ]]; then
+    acme_email_arg="${1#*=}"
+    if [[ -z "${acme_email_arg}" ]]; then
       log_error "--acme-email requires a non-empty value."
       exit 1
     fi
+    if [[ "${ACME_EMAIL_FLAG_SET}" == true ]] && [[ "${acme_email_arg}" != "${ACME_EMAIL_FLAG_VALUE}" ]]; then
+      log_warn "[LAUNCH] earlier --acme-email '${ACME_EMAIL_FLAG_VALUE}' overridden by --acme-email '${acme_email_arg}'."
+    fi
+    ACME_EMAIL_ARG="${acme_email_arg}"
+    ACME_EMAIL_FLAG_SET=true
+    ACME_EMAIL_FLAG_VALUE="${acme_email_arg}"
     shift
     ;;
   *)
