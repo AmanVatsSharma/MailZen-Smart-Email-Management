@@ -31,6 +31,7 @@ Additional deployment flowcharts:
   - `deploy.sh`
   - `update.sh`
   - `verify.sh` (post-deploy smoke checks)
+  - `dns-check.sh` (domain DNS readiness validation)
   - `self-check.sh` (validate deployment script integrity)
   - `backup-db.sh` (database backup)
   - `restore-db.sh` (database restore with confirmation)
@@ -103,6 +104,12 @@ The setup script:
 
 # Custom retries/sleep
 ./deploy/ec2/scripts/verify.sh 10 5
+
+# Validate deployment domain DNS (uses MAILZEN_DOMAIN from env)
+./deploy/ec2/scripts/dns-check.sh
+
+# Validate DNS points to a specific public IP
+./deploy/ec2/scripts/dns-check.sh --expected-ip 203.0.113.10
 
 # Validate deployment scripts syntax/executable state
 ./deploy/ec2/scripts/self-check.sh

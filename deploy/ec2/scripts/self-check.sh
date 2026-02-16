@@ -21,6 +21,7 @@ scripts=(
   "deploy.sh"
   "update.sh"
   "verify.sh"
+  "dns-check.sh"
   "self-check.sh"
   "status.sh"
   "logs.sh"
