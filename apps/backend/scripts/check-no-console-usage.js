@@ -9,7 +9,7 @@ const { spawnSync } = require('child_process');
 
 const command = [
   '--line-number',
-  'console\\.(log|warn|error|debug)\\(',
+  'console\\.(log|info|warn|error|debug|trace)\\(',
   'src',
   '--glob',
   '*.ts',

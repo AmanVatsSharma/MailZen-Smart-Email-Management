@@ -105,8 +105,9 @@ Behavior:
 - request start/finish logs are serialized via `serializeStructuredLog(...)`.
 - query/body/token-like keys are recursively redacted (`[REDACTED]`) before output.
 - long string values are truncated to keep log events bounded and safe for ingestion.
-- CI guard `npm run check:no-console-usage` fails when raw `console.*` calls are
-  introduced in runtime source files, preserving structured logging consistency.
+- CI guard `npm run check:no-console-usage` fails when raw runtime
+  `console.log/info/warn/error/debug/trace` calls are introduced in source
+  files, preserving structured logging consistency.
 - CI guard `npm run check:doc:flowcharts` verifies module-local README
   flowcharts are present for critical backend modules.
 
