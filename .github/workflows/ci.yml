@@ -125,6 +125,10 @@ jobs:
         working-directory: apps/backend
         run: npm run check:no-console-usage
 
+      - name: Backend structured logger guard
+        working-directory: apps/backend
+        run: npm run check:structured-logger-usage
+
       - name: Backend docs flowchart contract check
         working-directory: apps/backend
         run: npm run check:doc:flowcharts

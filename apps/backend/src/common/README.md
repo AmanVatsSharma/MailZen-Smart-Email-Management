@@ -108,6 +108,9 @@ Behavior:
 - CI guard `npm run check:no-console-usage` fails when raw runtime
   `console.log/info/warn/error/debug/trace` calls are introduced in source
   files, preserving structured logging consistency.
+- CI guard `npm run check:structured-logger-usage` fails when raw
+  `logger.log/warn/error/debug` string literals or `logger.*(JSON.stringify())`
+  payloads are introduced in runtime source files.
 - CI guard `npm run check:doc:flowcharts` verifies module-local README
   flowcharts are present for critical backend modules.
 
