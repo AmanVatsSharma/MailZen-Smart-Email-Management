@@ -101,5 +101,7 @@ if [[ -n "${MAX_COUNT}" ]]; then
   sorted_backups=("${sorted_backups[@]:0:${MAX_COUNT}}")
 fi
 
+display_count="${#sorted_backups[@]}"
 echo "[mailzen-deploy][BACKUP-LIST] Available backups:"
+echo "[mailzen-deploy][BACKUP-LIST] Showing ${display_count} backup(s)."
 ls -lh "${sorted_backups[@]}"
