@@ -24,6 +24,12 @@ import {
   serializeStructuredLog,
 } from '../common/logging/structured-log.util';
 
+type ProviderUiSummary = {
+  id: string;
+  type: string;
+  email: string;
+};
+
 /**
  * Google OAuth login (code flow).
  *
@@ -81,6 +87,27 @@ export class GoogleOAuthController {
     return String(error);
   }
 
+  private resolveErrorStack(error: unknown): string | undefined {
+    if (error instanceof Error) return error.stack;
+    return undefined;
+  }
+
+  private getFrontendUrl(): string {
+    return process.env.FRONTEND_URL || 'http://localhost:3000';
+  }
+
+  private resolveUserAgent(req: Request): string | undefined {
+    const userAgentHeader: unknown = req.headers['user-agent'];
+    if (typeof userAgentHeader === 'string') return userAgentHeader;
+    if (Array.isArray(userAgentHeader)) {
+      const firstUserAgent = userAgentHeader.find(
+        (value): value is string => typeof value === 'string',
+      );
+      return firstUserAgent;
+    }
+    return undefined;
+  }
+
   private async getAliasSetupState(userId: string): Promise<{
     hasMailzenAlias: boolean;
     requiresAliasSetup: boolean;
@@ -107,7 +134,8 @@ export class GoogleOAuthController {
     if (!accessToken) {
       this.logger.warn(
         serializeStructuredLog({
-          event: 'auth_google_oauth_provider_autoconnect_skipped_missing_access_token',
+          event:
+            'auth_google_oauth_provider_autoconnect_skipped_missing_access_token',
           userId,
         }),
       );
@@ -117,7 +145,7 @@ export class GoogleOAuthController {
     let providerId: string | null = null;
     try {
       const provider =
-        await this.emailProviderService.connectGmailFromOAuthTokens(
+        (await this.emailProviderService.connectGmailFromOAuthTokens(
           {
             email,
             accessToken,
@@ -125,24 +153,25 @@ export class GoogleOAuthController {
             expiryDate: expiryDate || undefined,
           },
           userId,
-        );
+        )) as ProviderUiSummary;
       providerId = provider.id;
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof ConflictException) {
         try {
-          const providers = await this.emailProviderService.listProvidersUi(
+          const providers = (await this.emailProviderService.listProvidersUi(
             userId,
-          );
+          )) as ProviderUiSummary[];
           const existing = providers.find(
             (provider) =>
               provider.type === 'gmail' &&
               provider.email.toLowerCase() === email.toLowerCase(),
           );
           providerId = existing?.id || null;
-        } catch (lookupError: any) {
+        } catch (lookupError: unknown) {
           this.logger.warn(
             serializeStructuredLog({
-              event: 'auth_google_oauth_provider_autoconnect_conflict_resolve_failed',
+              event:
+                'auth_google_oauth_provider_autoconnect_conflict_resolve_failed',
               userId,
               error: this.resolveErrorMessage(lookupError),
             }),
@@ -166,7 +195,7 @@ export class GoogleOAuthController {
 
     try {
       await this.emailProviderService.syncProvider(providerId, userId);
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.logger.warn(
         serializeStructuredLog({
           event: 'auth_google_oauth_provider_sync_trigger_failed',
@@ -179,7 +208,7 @@ export class GoogleOAuthController {
   }
 
   @Get('start')
-  async start(
+  start(
     @Res() res: Response,
     @Req() req: Request,
     @Query('redirect') redirect?: string,
@@ -230,7 +259,7 @@ export class GoogleOAuthController {
     @Query('mode') mode?: 'json' | 'redirect',
   ) {
     const requestId = this.resolveRequestId(req, res);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = this.getFrontendUrl();
     const outMode = mode || 'redirect';
 
     if (error) {
@@ -244,7 +273,9 @@ export class GoogleOAuthController {
       await this.auditLogRepo.save(
         this.auditLogRepo.create({
           action: 'OAUTH_GOOGLE_FAILED',
-          metadata: { error } as any,
+          metadata: { reason: 'provider_error', error, requestId },
+          ip: req.ip,
+          userAgent: this.resolveUserAgent(req),
         }),
       );
       if (outMode === 'json') return res.status(401).json({ ok: false, error });
@@ -265,7 +296,9 @@ export class GoogleOAuthController {
       await this.auditLogRepo.save(
         this.auditLogRepo.create({
           action: 'OAUTH_GOOGLE_FAILED',
-          metadata: { reason: 'missing_code_or_state' } as any,
+          metadata: { reason: 'missing_code_or_state', requestId },
+          ip: req.ip,
+          userAgent: this.resolveUserAgent(req),
         }),
       );
       if (outMode === 'json')
@@ -279,18 +312,20 @@ export class GoogleOAuthController {
     try {
       const payload = verifyOAuthState(state, 10 * 60 * 1000);
       redirectOverride = payload.redirect;
-    } catch (e: any) {
+    } catch (error: unknown) {
       this.logger.warn(
         serializeStructuredLog({
           event: 'auth_google_oauth_callback_invalid_state',
           requestId,
-          error: this.resolveErrorMessage(e),
+          error: this.resolveErrorMessage(error),
         }),
       );
       await this.auditLogRepo.save(
         this.auditLogRepo.create({
           action: 'OAUTH_GOOGLE_FAILED',
-          metadata: { reason: 'invalid_state' } as any,
+          metadata: { reason: 'invalid_state', requestId },
+          ip: req.ip,
+          userAgent: this.resolveUserAgent(req),
         }),
       );
       if (outMode === 'json')
@@ -329,12 +364,12 @@ export class GoogleOAuthController {
       // - Prefer matching by googleSub (stable)
       // - Fall back to email (common case for first-time linkage)
       const existingBySub = await this.userRepo.findOne({
-        where: { googleSub } as any,
+        where: { googleSub },
       });
       const existingByEmail = await this.userRepo.findOne({ where: { email } });
       const user = existingBySub || existingByEmail;
 
-      let dbUser;
+      let dbUser: User | null = null;
       if (!user) {
         dbUser = await this.userRepo.save(
           this.userRepo.create({
@@ -343,7 +378,7 @@ export class GoogleOAuthController {
             name: name || undefined,
             isEmailVerified: emailVerified,
             googleSub,
-          } as any),
+          }),
         );
         this.logger.log(
           serializeStructuredLog({
@@ -355,22 +390,30 @@ export class GoogleOAuthController {
         );
       } else {
         // Guard against accidental account takeover: if email matches but googleSub differs, reject.
-        if ((user as any).googleSub && (user as any).googleSub !== googleSub) {
+        if (user.googleSub && user.googleSub !== googleSub) {
           throw new Error(
             'This email is already linked to a different Google account',
           );
         }
-        await this.userRepo.update({ id: user.id }, {
-          name: user.name || name || undefined,
-          googleSub,
-          isEmailVerified: user.isEmailVerified || emailVerified,
-          lastLoginAt: new Date(),
-          failedLoginAttempts: 0,
-          lockoutUntil: null,
-        } as any);
-        dbUser = (await this.userRepo.findOne({
+        await this.userRepo.update(
+          { id: user.id },
+          {
+            name: user.name || name || undefined,
+            googleSub,
+            isEmailVerified: user.isEmailVerified || emailVerified,
+            lastLoginAt: new Date(),
+            failedLoginAttempts: 0,
+            lockoutUntil: undefined,
+          },
+        );
+        dbUser = await this.userRepo.findOne({
           where: { id: user.id },
-        })) as any;
+        });
+        if (!dbUser) {
+          throw new Error(
+            'Google OAuth user update completed but user reload failed',
+          );
+        }
         this.logger.log(
           serializeStructuredLog({
             event: 'auth_google_oauth_user_updated',
@@ -385,14 +428,16 @@ export class GoogleOAuthController {
         this.auditLogRepo.create({
           action: 'OAUTH_GOOGLE_SUCCESS',
           userId: dbUser.id,
-          metadata: { email } as any,
+          metadata: { emailFingerprint, requestId },
+          ip: req.ip,
+          userAgent: this.resolveUserAgent(req),
         }),
       );
 
       const { accessToken } = this.authService.login(dbUser);
       const refreshToken = await this.authService.generateRefreshToken(
         dbUser.id,
-        req.headers['user-agent'],
+        this.resolveUserAgent(req),
         req.ip,
       );
 
@@ -424,19 +469,24 @@ export class GoogleOAuthController {
       }
 
       return res.redirect(finalRedirect);
-    } catch (e: any) {
+    } catch (error: unknown) {
       this.logger.error(
         serializeStructuredLog({
           event: 'auth_google_oauth_callback_failed',
           requestId,
-          error: this.resolveErrorMessage(e),
+          error: this.resolveErrorMessage(error),
         }),
-        e?.stack,
+        this.resolveErrorStack(error),
       );
       await this.auditLogRepo.save(
         this.auditLogRepo.create({
           action: 'OAUTH_GOOGLE_FAILED',
-          metadata: { reason: e?.message || 'unknown' } as any,
+          metadata: {
+            reason: this.resolveErrorMessage(error) || 'unknown',
+            requestId,
+          },
+          ip: req.ip,
+          userAgent: this.resolveUserAgent(req),
         }),
       );
       if (outMode === 'json')
