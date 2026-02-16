@@ -52,6 +52,9 @@ if [[ ! "${KEEP_COUNT}" =~ ^[0-9]+$ ]] || [[ "${KEEP_COUNT}" -lt 1 ]]; then
   exit 1
 fi
 
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
+
 if [[ ! -d "${REPORT_DIR}" ]]; then
   log_warn "Reports directory does not exist: ${REPORT_DIR}"
   log_warn "Nothing to prune."

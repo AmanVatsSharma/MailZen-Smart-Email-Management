@@ -68,6 +68,9 @@ if [[ -n "${LABEL_FILTER}" ]]; then
   assert_safe_label "Label filter" "${LABEL_FILTER}" || exit 1
 fi
 
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
+
 if [[ ! -d "${BACKUP_DIR}" ]]; then
   log_warn "Backup directory does not exist yet: ${BACKUP_DIR}"
   exit 0
