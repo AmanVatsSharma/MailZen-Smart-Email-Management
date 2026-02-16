@@ -44,6 +44,11 @@ label metadata into `ExternalEmailLabel`, similar to Gmail sync.
   `outlook_sync_incremental_start`, `outlook_sync_incremental_fallback`,
   `outlook_sync_completed`, `outlook_sync_failed`) include correlation id and
   duration metadata for incident triage
+- structured scheduler logs (`outlook_sync_scheduler_start`,
+  `outlook_sync_scheduler_retry`, `outlook_sync_scheduler_provider_failed`,
+  `outlook_sync_subscription_refresh_start`,
+  `outlook_sync_subscription_refresh_failed`) provide run-level retry and lease
+  diagnostics
 
 ## Graph API flow
 

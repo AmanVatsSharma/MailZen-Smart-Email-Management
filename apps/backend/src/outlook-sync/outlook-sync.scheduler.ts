@@ -5,6 +5,10 @@ import { Repository } from 'typeorm';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 import { OutlookSyncService } from './outlook-sync.service';
 
 @Injectable()
@@ -68,6 +72,7 @@ export class OutlookSyncScheduler {
 
   private async syncProviderWithRetry(input: {
     provider: EmailProvider;
+    runCorrelationId: string;
   }): Promise<
     | { success: true; attempts: number }
     | { success: false; attempts: number; error: unknown }
@@ -89,7 +94,16 @@ export class OutlookSyncScheduler {
         }
         const message = error instanceof Error ? error.message : String(error);
         this.logger.warn(
-          `Cron Outlook sync retry provider=${input.provider.id} attempt=${attempt + 1} error=${message}`,
+          serializeStructuredLog({
+            event: 'outlook_sync_scheduler_retry',
+            providerId: input.provider.id,
+            userId: input.provider.userId,
+            workspaceId: input.provider.workspaceId || null,
+            runCorrelationId: input.runCorrelationId,
+            attempt: attempt + 1,
+            maxRetries,
+            error: message,
+          }),
         );
         await this.sleep(backoffBaseMs * (attempt + 1));
       }
@@ -121,13 +135,18 @@ export class OutlookSyncScheduler {
 
   @Cron(CronExpression.EVERY_10_MINUTES)
   async syncActiveOutlookProviders() {
+    const runCorrelationId = resolveCorrelationId(undefined);
     const providers: EmailProvider[] = await this.emailProviderRepo.find({
       where: { type: 'OUTLOOK', isActive: true },
     });
     if (!providers.length) return;
 
     this.logger.log(
-      `Cron: syncing ${providers.length} active Outlook providers`,
+      serializeStructuredLog({
+        event: 'outlook_sync_scheduler_start',
+        runCorrelationId,
+        activeProviders: providers.length,
+      }),
     );
 
     for (const provider of providers) {
@@ -136,7 +155,18 @@ export class OutlookSyncScheduler {
           providerId: provider.id,
           providerType: 'OUTLOOK',
         });
-      if (!leaseAcquired) continue;
+      if (!leaseAcquired) {
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'outlook_sync_scheduler_skip_active_lease',
+            providerId: provider.id,
+            userId: provider.userId,
+            workspaceId: provider.workspaceId || null,
+            runCorrelationId,
+          }),
+        );
+        continue;
+      }
 
       const maxJitterMs = this.getMaxJitterMs();
       if (maxJitterMs > 0) {
@@ -144,8 +174,21 @@ export class OutlookSyncScheduler {
         await this.sleep(jitterMs);
       }
 
-      const syncResult = await this.syncProviderWithRetry({ provider });
+      const syncResult = await this.syncProviderWithRetry({
+        provider,
+        runCorrelationId,
+      });
       if (syncResult.success) {
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'outlook_sync_scheduler_provider_success',
+            providerId: provider.id,
+            userId: provider.userId,
+            workspaceId: provider.workspaceId || null,
+            runCorrelationId,
+            attempts: syncResult.attempts,
+          }),
+        );
         if (String(provider.lastSyncError || '').trim()) {
           await this.notificationEventBus.publishSafely({
             userId: provider.userId,
@@ -174,7 +217,15 @@ export class OutlookSyncScheduler {
           provider.lastSyncError,
         );
         this.logger.warn(
-          `Cron Outlook sync failed provider=${provider.id}: ${message}`,
+          serializeStructuredLog({
+            event: 'outlook_sync_scheduler_provider_failed',
+            providerId: provider.id,
+            userId: provider.userId,
+            workspaceId: provider.workspaceId || null,
+            runCorrelationId,
+            attempts: syncResult.attempts,
+            error: normalizedErrorMessage,
+          }),
         );
         await this.emailProviderRepo.update(
           { id: provider.id },
@@ -208,7 +259,14 @@ export class OutlookSyncScheduler {
             ? notificationError.message
             : String(notificationError);
         this.logger.warn(
-          `Cron Outlook sync failure handling failed provider=${provider.id}: ${notificationMessage}`,
+          serializeStructuredLog({
+            event: 'outlook_sync_scheduler_notification_publish_failed',
+            providerId: provider.id,
+            userId: provider.userId,
+            workspaceId: provider.workspaceId || null,
+            runCorrelationId,
+            error: notificationMessage,
+          }),
         );
       }
     }
@@ -217,12 +275,17 @@ export class OutlookSyncScheduler {
   @Cron('20 */6 * * *')
   async refreshOutlookPushSubscriptions() {
     if (!this.isPushSubscriptionEnabled()) return;
+    const runCorrelationId = resolveCorrelationId(undefined);
     const providers: EmailProvider[] = await this.emailProviderRepo.find({
       where: { type: 'OUTLOOK', isActive: true },
     });
     if (!providers.length) return;
     this.logger.log(
-      `Cron: refreshing Outlook push subscriptions for ${providers.length} providers`,
+      serializeStructuredLog({
+        event: 'outlook_sync_subscription_refresh_start',
+        runCorrelationId,
+        activeProviders: providers.length,
+      }),
     );
 
     for (const provider of providers) {
@@ -231,7 +294,17 @@ export class OutlookSyncScheduler {
           providerId: provider.id,
           providerType: 'OUTLOOK',
         });
-      if (!leaseAcquired) continue;
+      if (!leaseAcquired) {
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'outlook_sync_subscription_refresh_skip_active_lease',
+            providerId: provider.id,
+            userId: provider.userId,
+            runCorrelationId,
+          }),
+        );
+        continue;
+      }
 
       try {
         await this.outlookSync.ensurePushSubscriptionForProvider(
@@ -241,7 +314,13 @@ export class OutlookSyncScheduler {
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         this.logger.warn(
-          `Cron Outlook subscription refresh failed provider=${provider.id}: ${message}`,
+          serializeStructuredLog({
+            event: 'outlook_sync_subscription_refresh_failed',
+            providerId: provider.id,
+            userId: provider.userId,
+            runCorrelationId,
+            error: message,
+          }),
         );
       }
     }
