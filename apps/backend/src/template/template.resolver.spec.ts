@@ -4,6 +4,8 @@ describe('TemplateResolver', () => {
   const templateService = {
     getAllTemplates: jest.fn(),
     getTemplateById: jest.fn(),
+    exportTemplateData: jest.fn(),
+    exportTemplateDataForAdmin: jest.fn(),
     createTemplate: jest.fn(),
     updateTemplate: jest.fn(),
     deleteTemplate: jest.fn(),
@@ -88,6 +90,39 @@ describe('TemplateResolver', () => {
         id: 'template-1',
       }),
     );
+  });
+
+  it('forwards actor to template data export queries', async () => {
+    templateService.exportTemplateData.mockResolvedValue({
+      generatedAtIso: '2026-02-16T00:00:00.000Z',
+      dataJson: '{"summary":{"totalTemplates":1}}',
+    });
+    templateService.exportTemplateDataForAdmin.mockResolvedValue({
+      generatedAtIso: '2026-02-16T01:00:00.000Z',
+      dataJson: '{"summary":{"totalTemplates":2}}',
+    });
+    const context = {
+      req: {
+        user: {
+          id: 'admin-3',
+        },
+      },
+    } as never;
+
+    const mine = await resolver.myTemplateDataExport(context, 80);
+    const admin = await resolver.userTemplateDataExport('user-9', context, 120);
+
+    expect(templateService.exportTemplateData).toHaveBeenCalledWith({
+      userId: 'admin-3',
+      limit: 80,
+    });
+    expect(templateService.exportTemplateDataForAdmin).toHaveBeenCalledWith({
+      targetUserId: 'user-9',
+      actorUserId: 'admin-3',
+      limit: 120,
+    });
+    expect(mine.generatedAtIso).toBe('2026-02-16T00:00:00.000Z');
+    expect(admin.generatedAtIso).toBe('2026-02-16T01:00:00.000Z');
   });
 
   it('forwards actor to update and delete template mutations', async () => {

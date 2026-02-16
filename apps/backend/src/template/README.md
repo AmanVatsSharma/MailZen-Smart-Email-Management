@@ -15,6 +15,8 @@ Provide reusable email templates with admin-managed CRUD operations.
 
 - `getAllTemplates`
 - `getTemplate(id)`
+- `myTemplateDataExport(limit?)`
+- `userTemplateDataExport(userId, limit?)` (admin-only)
 - `createTemplate(createTemplateInput)` (admin-only)
 - `updateTemplate(updateTemplateInput)` (admin-only)
 - `deleteTemplate(id)` (admin-only)
@@ -47,6 +49,8 @@ flowchart TD
   - `template_delete_start`
   - `template_delete_missing`
   - `template_delete_completed`
+  - `template_data_export_admin_start`
+  - `template_data_export_admin_completed`
   - `template_audit_log_write_failed`
 
 ## Compliance / Audit Trail
@@ -55,3 +59,5 @@ flowchart TD
   - `template_created`
   - `template_updated`
   - `template_deleted`
+  - `template_data_export_requested`
+  - `template_data_export_requested_by_admin`

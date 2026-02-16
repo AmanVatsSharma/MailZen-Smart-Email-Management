@@ -185,6 +185,87 @@ describe('TemplateService', () => {
     expect(created.name).toBe('Fallback');
   });
 
+  it('exports user-scoped template data snapshot', async () => {
+    templateRepo.find.mockResolvedValue([
+      {
+        id: 'template-31',
+        name: 'Onboarding',
+        subject: 'Welcome',
+        body: 'Hello team',
+        userId: 'user-1',
+        createdAt: new Date('2026-02-16T00:00:00.000Z'),
+        updatedAt: new Date('2026-02-16T01:00:00.000Z'),
+      } as Template,
+    ]);
+
+    const exported = await service.exportTemplateData({
+      userId: 'user-1',
+      limit: 999,
+    });
+    const payload = JSON.parse(exported.dataJson) as {
+      summary: { totalTemplates: number };
+      templates: Array<{ id: string }>;
+    };
+
+    expect(payload.summary.totalTemplates).toBe(1);
+    expect(payload.templates[0]?.id).toBe('template-31');
+    expect(templateRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1' },
+        take: 500,
+      }),
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'template_data_export_requested',
+      }),
+    );
+  });
+
+  it('exports target user template data for admin legal workflows', async () => {
+    templateRepo.find.mockResolvedValue([]);
+
+    const exported = await service.exportTemplateDataForAdmin({
+      targetUserId: 'user-9',
+      actorUserId: 'admin-9',
+      limit: 80,
+    });
+
+    expect(exported.generatedAtIso).toBeTruthy();
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-9',
+        action: 'template_data_export_requested',
+      }),
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-9',
+        action: 'template_data_export_requested_by_admin',
+        metadata: expect.objectContaining({
+          targetUserId: 'user-9',
+        }),
+      }),
+    );
+  });
+
+  it('does not fail admin template export when admin audit write fails', async () => {
+    templateRepo.find.mockResolvedValue([]);
+    auditLogRepo.save
+      .mockResolvedValueOnce({ id: 'audit-log-1' } as AuditLog)
+      .mockRejectedValueOnce(new Error('audit datastore unavailable'));
+
+    const exported = await service.exportTemplateDataForAdmin({
+      targetUserId: 'user-9',
+      actorUserId: 'admin-9',
+      limit: 20,
+    });
+
+    expect(exported.generatedAtIso).toBeTruthy();
+    expect(exported.dataJson).toContain('"templates"');
+  });
+
   it('rejects operations when actor user id is missing', async () => {
     await expect(
       service.createTemplate(
@@ -202,5 +283,11 @@ describe('TemplateService', () => {
     await expect(service.getTemplateById('template-1', '')).rejects.toBeInstanceOf(
       BadRequestException,
     );
+    await expect(
+      service.exportTemplateDataForAdmin({
+        targetUserId: 'user-9',
+        actorUserId: '',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

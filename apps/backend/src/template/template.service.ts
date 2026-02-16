@@ -15,6 +15,9 @@ import { serializeStructuredLog } from '../common/logging/structured-log.util';
 @Injectable()
 export class TemplateService {
   private readonly logger = new Logger(TemplateService.name);
+  private static readonly DEFAULT_TEMPLATE_EXPORT_LIMIT = 100;
+  private static readonly MIN_TEMPLATE_EXPORT_LIMIT = 1;
+  private static readonly MAX_TEMPLATE_EXPORT_LIMIT = 500;
 
   constructor(
     @InjectRepository(Template)
@@ -23,10 +26,27 @@ export class TemplateService {
     private readonly auditLogRepo: Repository<AuditLog>,
   ) {}
 
-  private normalizeActorUserId(actorUserId?: string): string {
-    const normalized = String(actorUserId || '').trim();
+  private normalizeRequiredUserId(input: {
+    userId?: string;
+    label: string;
+  }): string {
+    const normalized = String(input.userId || '').trim();
     if (!normalized) {
-      throw new BadRequestException('Actor user id is required');
+      throw new BadRequestException(`${input.label} is required`);
+    }
+    return normalized;
+  }
+
+  private normalizeTemplateExportLimit(limit?: number | null): number {
+    if (typeof limit !== 'number' || !Number.isFinite(limit)) {
+      return TemplateService.DEFAULT_TEMPLATE_EXPORT_LIMIT;
+    }
+    const normalized = Math.trunc(limit);
+    if (normalized < TemplateService.MIN_TEMPLATE_EXPORT_LIMIT) {
+      return TemplateService.MIN_TEMPLATE_EXPORT_LIMIT;
+    }
+    if (normalized > TemplateService.MAX_TEMPLATE_EXPORT_LIMIT) {
+      return TemplateService.MAX_TEMPLATE_EXPORT_LIMIT;
     }
     return normalized;
   }
@@ -59,7 +79,10 @@ export class TemplateService {
     input: CreateTemplateInput,
     actorUserId?: string,
   ): Promise<Template> {
-    const normalizedActorUserId = this.normalizeActorUserId(actorUserId);
+    const normalizedActorUserId = this.normalizeRequiredUserId({
+      userId: actorUserId,
+      label: 'Actor user id',
+    });
     this.logger.log(
       serializeStructuredLog({
         event: 'template_create_start',
@@ -93,7 +116,10 @@ export class TemplateService {
   }
 
   async getAllTemplates(actorUserId?: string): Promise<Template[]> {
-    const normalizedActorUserId = this.normalizeActorUserId(actorUserId);
+    const normalizedActorUserId = this.normalizeRequiredUserId({
+      userId: actorUserId,
+      label: 'Actor user id',
+    });
     const templates = await this.templateRepo.find({
       where: { userId: normalizedActorUserId },
       order: { updatedAt: 'DESC' },
@@ -109,7 +135,10 @@ export class TemplateService {
   }
 
   async getTemplateById(id: string, actorUserId?: string): Promise<Template> {
-    const normalizedActorUserId = this.normalizeActorUserId(actorUserId);
+    const normalizedActorUserId = this.normalizeRequiredUserId({
+      userId: actorUserId,
+      label: 'Actor user id',
+    });
     const template = await this.templateRepo.findOne({
       where: {
         id,
@@ -133,7 +162,10 @@ export class TemplateService {
     input: UpdateTemplateInput,
     actorUserId?: string,
   ): Promise<Template> {
-    const normalizedActorUserId = this.normalizeActorUserId(actorUserId);
+    const normalizedActorUserId = this.normalizeRequiredUserId({
+      userId: actorUserId,
+      label: 'Actor user id',
+    });
     this.logger.log(
       serializeStructuredLog({
         event: 'template_update_start',
@@ -176,7 +208,10 @@ export class TemplateService {
   }
 
   async deleteTemplate(id: string, actorUserId?: string): Promise<Template> {
-    const normalizedActorUserId = this.normalizeActorUserId(actorUserId);
+    const normalizedActorUserId = this.normalizeRequiredUserId({
+      userId: actorUserId,
+      label: 'Actor user id',
+    });
     this.logger.log(
       serializeStructuredLog({
         event: 'template_delete_start',
@@ -202,5 +237,95 @@ export class TemplateService {
       },
     });
     return deleted;
+  }
+
+  async exportTemplateData(input: {
+    userId: string;
+    limit?: number | null;
+  }): Promise<{ generatedAtIso: string; dataJson: string }> {
+    const normalizedUserId = this.normalizeRequiredUserId({
+      userId: input.userId,
+      label: 'User id',
+    });
+    const normalizedLimit = this.normalizeTemplateExportLimit(input.limit);
+    const templates = await this.templateRepo.find({
+      where: { userId: normalizedUserId },
+      order: { updatedAt: 'DESC' },
+      take: normalizedLimit,
+    });
+    const generatedAtIso = new Date().toISOString();
+    const dataJson = JSON.stringify({
+      exportVersion: 'v1',
+      generatedAtIso,
+      userId: normalizedUserId,
+      limit: normalizedLimit,
+      summary: {
+        totalTemplates: templates.length,
+      },
+      templates: templates.map((template) => ({
+        id: template.id,
+        name: template.name,
+        subject: template.subject,
+        body: template.body,
+        createdAtIso: template.createdAt.toISOString(),
+        updatedAtIso: template.updatedAt.toISOString(),
+      })),
+    });
+    await this.writeAuditLog({
+      userId: normalizedUserId,
+      action: 'template_data_export_requested',
+      metadata: {
+        limit: normalizedLimit,
+        exportedTemplateCount: templates.length,
+      },
+    });
+    return {
+      generatedAtIso,
+      dataJson,
+    };
+  }
+
+  async exportTemplateDataForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+    limit?: number | null;
+  }): Promise<{ generatedAtIso: string; dataJson: string }> {
+    const targetUserId = this.normalizeRequiredUserId({
+      userId: input.targetUserId,
+      label: 'Target user id',
+    });
+    const actorUserId = this.normalizeRequiredUserId({
+      userId: input.actorUserId,
+      label: 'Actor user id',
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'template_data_export_admin_start',
+        actorUserId,
+        targetUserId,
+      }),
+    );
+    const exportPayload = await this.exportTemplateData({
+      userId: targetUserId,
+      limit: input.limit ?? null,
+    });
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'template_data_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        generatedAtIso: exportPayload.generatedAtIso,
+        selfRequested: actorUserId === targetUserId,
+        limit: this.normalizeTemplateExportLimit(input.limit ?? null),
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'template_data_export_admin_completed',
+        actorUserId,
+        targetUserId,
+      }),
+    );
+    return exportPayload;
   }
 }
