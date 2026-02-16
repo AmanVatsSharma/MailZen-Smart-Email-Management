@@ -5,6 +5,12 @@ import { EmailProviderService } from './email-provider.service';
 import { Provider } from './entities/provider.entity';
 import { ProviderActionResult } from './entities/provider-action-result.entity';
 import { SmtpSettingsInput } from './dto/smtp-settings.input';
+import { ProviderSyncAlertDeliveryDataExportResponse } from './entities/provider-sync-alert-delivery-data-export.response';
+import {
+  ProviderSyncAlertDeliveryStatsResponse,
+  ProviderSyncAlertDeliveryTrendPointResponse,
+  ProviderSyncAlertResponse,
+} from './entities/provider-sync-alert-delivery.response.entity';
 import { ProviderSyncDataExportResponse } from './entities/provider-sync-data-export.response';
 import { ProviderSyncRunResponse } from './entities/provider-sync-run-response.entity';
 import { ProviderSyncStatsResponse } from './entities/provider-sync-stats-response.entity';
@@ -144,6 +150,74 @@ export class EmailProviderConnectResolver {
       workspaceId,
       limit,
     });
+  }
+
+  @Query(() => ProviderSyncAlertDeliveryStatsResponse)
+  async myProviderSyncAlertDeliveryStats(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours: number,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.emailProviderService.getProviderSyncAlertDeliveryStatsForUser({
+      userId: ctx.req.user.id,
+      workspaceId,
+      windowHours,
+    });
+  }
+
+  @Query(() => [ProviderSyncAlertDeliveryTrendPointResponse])
+  async myProviderSyncAlertDeliverySeries(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes: number,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.emailProviderService.getProviderSyncAlertDeliverySeriesForUser({
+      userId: ctx.req.user.id,
+      workspaceId,
+      windowHours,
+      bucketMinutes,
+    });
+  }
+
+  @Query(() => [ProviderSyncAlertResponse])
+  async myProviderSyncAlerts(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours: number,
+    @Args('limit', { type: () => Int, nullable: true }) limit: number,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.emailProviderService.getProviderSyncAlertsForUser({
+      userId: ctx.req.user.id,
+      workspaceId,
+      windowHours,
+      limit,
+    });
+  }
+
+  @Query(() => ProviderSyncAlertDeliveryDataExportResponse)
+  async myProviderSyncAlertDeliveryDataExport(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes: number,
+    @Args('limit', { type: () => Int, nullable: true }) limit: number,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.emailProviderService.exportProviderSyncAlertDeliveryDataForUser(
+      {
+        userId: ctx.req.user.id,
+        workspaceId,
+        windowHours,
+        bucketMinutes,
+        limit,
+      },
+    );
   }
 
   /**

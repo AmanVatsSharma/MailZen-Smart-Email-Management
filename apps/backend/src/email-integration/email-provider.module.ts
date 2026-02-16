@@ -9,6 +9,7 @@ import { BillingModule } from '../billing/billing.module';
 import { GmailSyncModule } from '../gmail-sync/gmail-sync.module';
 import { OutlookSyncModule } from '../outlook-sync/outlook-sync.module';
 import { WorkspaceModule } from '../workspace/workspace.module';
+import { UserNotification } from '../notification/entities/user-notification.entity';
 
 /**
  * EmailProviderModule - External email provider integration
@@ -16,7 +17,7 @@ import { WorkspaceModule } from '../workspace/workspace.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([EmailProvider]),
+    TypeOrmModule.forFeature([EmailProvider, UserNotification]),
     BillingModule,
     WorkspaceModule,
     GmailSyncModule,

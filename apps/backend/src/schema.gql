@@ -157,6 +157,40 @@ type ProviderSyncDataExportResponse {
   dataJson: String!
 }
 
+type ProviderSyncAlertDeliveryStatsResponse {
+  workspaceId: String
+  windowHours: Int!
+  totalAlerts: Int!
+  failedAlerts: Int!
+  recoveredAlerts: Int!
+  lastAlertAtIso: String
+}
+
+type ProviderSyncAlertDeliveryTrendPointResponse {
+  bucketStart: DateTime!
+  totalAlerts: Int!
+  failedAlerts: Int!
+  recoveredAlerts: Int!
+}
+
+type ProviderSyncAlertResponse {
+  notificationId: String!
+  workspaceId: String
+  status: String!
+  title: String!
+  message: String!
+  providerId: String
+  providerType: String
+  attempts: Int
+  error: String
+  createdAt: DateTime!
+}
+
+type ProviderSyncAlertDeliveryDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
 type InboxMessage {
   id: ID!
   providerId: String!
@@ -387,6 +421,10 @@ type Query {
   getEmailProviders(workspaceId: String): [Provider!]!
   myProviderSyncStats(workspaceId: String, windowHours: Int): ProviderSyncStatsResponse!
   myProviderSyncDataExport(workspaceId: String, limit: Int! = 200): ProviderSyncDataExportResponse!
+  myProviderSyncAlertDeliveryStats(workspaceId: String, windowHours: Int): ProviderSyncAlertDeliveryStatsResponse!
+  myProviderSyncAlertDeliverySeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [ProviderSyncAlertDeliveryTrendPointResponse!]!
+  myProviderSyncAlerts(workspaceId: String, windowHours: Int, limit: Int): [ProviderSyncAlertResponse!]!
+  myProviderSyncAlertDeliveryDataExport(workspaceId: String, windowHours: Int, bucketMinutes: Int, limit: Int): ProviderSyncAlertDeliveryDataExportResponse!
   getInboxMessages(inboxType: String!, inboxId: String!, limit: Int, offset: Int): [InboxMessage!]!
   myMailboxes(workspaceId: String): [String!]!
   myMailboxInboundEvents(mailboxId: String, workspaceId: String, status: String, limit: Int): [MailboxInboundEventObservabilityResponse!]!

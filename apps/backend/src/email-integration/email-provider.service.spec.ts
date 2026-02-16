@@ -12,6 +12,7 @@ import { createTransport } from 'nodemailer';
 import { Repository } from 'typeorm';
 import { BillingService } from '../billing/billing.service';
 import { GmailSyncService } from '../gmail-sync/gmail-sync.service';
+import { UserNotification } from '../notification/entities/user-notification.entity';
 import { OutlookSyncService } from '../outlook-sync/outlook-sync.service';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { EmailProviderInput } from './dto/email-provider.input';
@@ -40,6 +41,7 @@ jest.mock('google-auth-library', () => ({
 describe('EmailProviderService', () => {
   let service: EmailProviderService;
   let providerRepository: jest.Mocked<Repository<EmailProvider>>;
+  let notificationRepository: jest.Mocked<Repository<UserNotification>>;
   const gmailSyncServiceMock = {
     syncGmailProvider: jest.fn(),
   };
@@ -79,11 +81,18 @@ describe('EmailProviderService', () => {
       delete: jest.fn(),
       update: jest.fn(),
     } as unknown as jest.Mocked<Repository<EmailProvider>>;
+    const notificationRepoMock = {
+      find: jest.fn(),
+    } as unknown as jest.Mocked<Repository<UserNotification>>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EmailProviderService,
         { provide: getRepositoryToken(EmailProvider), useValue: repoMock },
+        {
+          provide: getRepositoryToken(UserNotification),
+          useValue: notificationRepoMock,
+        },
         { provide: BillingService, useValue: billingServiceMock },
         { provide: WorkspaceService, useValue: workspaceServiceMock },
         { provide: GmailSyncService, useValue: gmailSyncServiceMock },
@@ -93,6 +102,7 @@ describe('EmailProviderService', () => {
 
     service = module.get<EmailProviderService>(EmailProviderService);
     providerRepository = module.get(getRepositoryToken(EmailProvider));
+    notificationRepository = module.get(getRepositoryToken(UserNotification));
     providerRepository.count.mockResolvedValue(0);
   });
 
@@ -512,5 +522,156 @@ describe('EmailProviderService', () => {
         expect.objectContaining({ id: 'provider-2', status: 'error' }),
       ]),
     );
+  });
+
+  it('returns provider sync alert delivery stats for scoped workspace', async () => {
+    notificationRepository.find.mockResolvedValue([
+      {
+        id: 'notif-failed',
+        type: 'SYNC_FAILED',
+        workspaceId: 'workspace-1',
+        createdAt: new Date('2026-02-16T00:00:00.000Z'),
+      } as unknown as UserNotification,
+      {
+        id: 'notif-recovered',
+        type: 'SYNC_RECOVERED',
+        workspaceId: 'workspace-1',
+        createdAt: new Date('2026-02-16T01:00:00.000Z'),
+      } as unknown as UserNotification,
+    ]);
+
+    const result = await service.getProviderSyncAlertDeliveryStatsForUser({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+    });
+
+    expect(notificationRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order: { createdAt: 'ASC' },
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        workspaceId: 'workspace-1',
+        totalAlerts: 2,
+        failedAlerts: 1,
+        recoveredAlerts: 1,
+      }),
+    );
+  });
+
+  it('returns provider sync alert delivery trend series buckets', async () => {
+    const nowMs = Date.now();
+    notificationRepository.find.mockResolvedValue([
+      {
+        id: 'notif-failed',
+        type: 'SYNC_FAILED',
+        createdAt: new Date(nowMs - 70 * 60 * 1000),
+      } as unknown as UserNotification,
+      {
+        id: 'notif-recovered',
+        type: 'SYNC_RECOVERED',
+        createdAt: new Date(nowMs - 10 * 60 * 1000),
+      } as unknown as UserNotification,
+    ]);
+
+    const result = await service.getProviderSyncAlertDeliverySeriesForUser({
+      userId: 'user-1',
+      windowHours: 2,
+      bucketMinutes: 60,
+    });
+
+    expect(result.length).toBeGreaterThanOrEqual(2);
+    expect(result.some((point) => point.failedAlerts > 0)).toBe(true);
+    expect(result.some((point) => point.recoveredAlerts > 0)).toBe(true);
+  });
+
+  it('returns provider sync alert notification history rows', async () => {
+    notificationRepository.find.mockResolvedValue([
+      {
+        id: 'notif-failed',
+        type: 'SYNC_FAILED',
+        title: 'Gmail sync failed',
+        message: 'failed',
+        metadata: {
+          providerId: 'provider-1',
+          providerType: 'GMAIL',
+          attempts: 2,
+          error: 'rate limited',
+        },
+        createdAt: new Date('2026-02-16T00:00:00.000Z'),
+      } as unknown as UserNotification,
+    ]);
+
+    const rows = await service.getProviderSyncAlertsForUser({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      limit: 10,
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        notificationId: 'notif-failed',
+        status: 'FAILED',
+        providerId: 'provider-1',
+        attempts: 2,
+      }),
+    ]);
+  });
+
+  it('exports provider sync alert delivery analytics payload', async () => {
+    const statsSpy = jest
+      .spyOn(service, 'getProviderSyncAlertDeliveryStatsForUser')
+      .mockResolvedValue({
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        totalAlerts: 2,
+        failedAlerts: 1,
+        recoveredAlerts: 1,
+        lastAlertAtIso: '2026-02-16T01:00:00.000Z',
+      });
+    const seriesSpy = jest
+      .spyOn(service, 'getProviderSyncAlertDeliverySeriesForUser')
+      .mockResolvedValue([
+        {
+          bucketStart: new Date('2026-02-16T00:00:00.000Z'),
+          totalAlerts: 2,
+          failedAlerts: 1,
+          recoveredAlerts: 1,
+        },
+      ]);
+    const alertsSpy = jest
+      .spyOn(service, 'getProviderSyncAlertsForUser')
+      .mockResolvedValue([
+        {
+          notificationId: 'notif-failed',
+          status: 'FAILED',
+          title: 'Gmail sync failed',
+          message: 'failed',
+          createdAt: new Date('2026-02-16T00:00:00.000Z'),
+        },
+      ]);
+
+    const exported = await service.exportProviderSyncAlertDeliveryDataForUser({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+      limit: 10,
+    });
+    const payload = JSON.parse(exported.dataJson) as {
+      stats: { totalAlerts: number };
+      series: Array<{ totalAlerts: number }>;
+      alertCount: number;
+    };
+
+    expect(statsSpy).toHaveBeenCalledTimes(1);
+    expect(seriesSpy).toHaveBeenCalledTimes(1);
+    expect(alertsSpy).toHaveBeenCalledTimes(1);
+    expect(payload.stats.totalAlerts).toBe(2);
+    expect(payload.series[0]?.totalAlerts).toBe(2);
+    expect(payload.alertCount).toBe(1);
   });
 });

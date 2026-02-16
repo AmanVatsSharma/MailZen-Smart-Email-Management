@@ -61,6 +61,15 @@ This module follows NestJS best practices and consists of:
   - exports provider sync operational state snapshot as JSON payload
   - includes per-provider lifecycle fields (status, last sync/error timestamps, lease/watch metadata)
   - includes aggregated status counts for compliance/support workflows
+- `myProviderSyncAlertDeliveryStats(workspaceId?: String, windowHours?: Int): ProviderSyncAlertDeliveryStatsResponse!`
+  - returns aggregate counts for emitted provider sync alert notifications
+  - covers `SYNC_FAILED` and `SYNC_RECOVERED` notification types
+- `myProviderSyncAlertDeliverySeries(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [ProviderSyncAlertDeliveryTrendPointResponse!]!`
+  - returns bucketed trend points for emitted provider sync alerts
+- `myProviderSyncAlerts(workspaceId?: String, windowHours?: Int, limit?: Int): [ProviderSyncAlertResponse!]!`
+  - returns recent provider sync alert notifications with metadata context
+- `myProviderSyncAlertDeliveryDataExport(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int, limit?: Int): ProviderSyncAlertDeliveryDataExportResponse!`
+  - exports provider sync alert delivery stats/series/history as JSON payload
 
 ### Mutations
 

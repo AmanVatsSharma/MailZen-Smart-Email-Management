@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
 import { EmailProvider } from './entities/email-provider.entity';
 import { EmailProviderInput } from './dto/email-provider.input';
 import { SmtpSettingsInput } from './dto/smtp-settings.input';
@@ -25,6 +25,7 @@ import {
   resolveProviderSecretsKeyring,
   ProviderSecretsKeyring,
 } from '../common/provider-secrets.util';
+import { UserNotification } from '../notification/entities/user-notification.entity';
 
 interface SmtpConnectionPool {
   [key: string]: {
@@ -44,6 +45,12 @@ export class EmailProviderService {
   private static readonly MAX_PROVIDER_SYNC_STATS_WINDOW_HOURS = 24 * 30;
   private static readonly MIN_PROVIDER_SYNC_EXPORT_LIMIT = 1;
   private static readonly MAX_PROVIDER_SYNC_EXPORT_LIMIT = 500;
+  private static readonly DEFAULT_PROVIDER_SYNC_ALERT_BUCKET_MINUTES = 60;
+  private static readonly MIN_PROVIDER_SYNC_ALERT_BUCKET_MINUTES = 5;
+  private static readonly MAX_PROVIDER_SYNC_ALERT_BUCKET_MINUTES = 24 * 60;
+  private static readonly DEFAULT_PROVIDER_SYNC_ALERT_HISTORY_LIMIT = 100;
+  private static readonly MIN_PROVIDER_SYNC_ALERT_HISTORY_LIMIT = 1;
+  private static readonly MAX_PROVIDER_SYNC_ALERT_HISTORY_LIMIT = 500;
   private readonly googleOAuth2Client: OAuth2Client;
   private readonly providerSecretsKeyring: ProviderSecretsKeyring;
   private readonly smtpConnectionPool: SmtpConnectionPool = {};
@@ -55,6 +62,8 @@ export class EmailProviderService {
   constructor(
     @InjectRepository(EmailProvider)
     private readonly providerRepository: Repository<EmailProvider>,
+    @InjectRepository(UserNotification)
+    private readonly notificationRepository: Repository<UserNotification>,
     private readonly billingService: BillingService,
     private readonly workspaceService: WorkspaceService,
     private readonly gmailSyncService: GmailSyncService,
@@ -732,6 +741,335 @@ export class EmailProviderService {
     return {
       generatedAtIso,
       dataJson,
+    };
+  }
+
+  private normalizeProviderSyncAlertBucketMinutes(
+    bucketMinutes?: number | null,
+  ): number {
+    if (typeof bucketMinutes !== 'number' || !Number.isFinite(bucketMinutes)) {
+      return EmailProviderService.DEFAULT_PROVIDER_SYNC_ALERT_BUCKET_MINUTES;
+    }
+    const rounded = Math.trunc(bucketMinutes);
+    if (rounded < EmailProviderService.MIN_PROVIDER_SYNC_ALERT_BUCKET_MINUTES) {
+      return EmailProviderService.MIN_PROVIDER_SYNC_ALERT_BUCKET_MINUTES;
+    }
+    if (rounded > EmailProviderService.MAX_PROVIDER_SYNC_ALERT_BUCKET_MINUTES) {
+      return EmailProviderService.MAX_PROVIDER_SYNC_ALERT_BUCKET_MINUTES;
+    }
+    return rounded;
+  }
+
+  private normalizeProviderSyncAlertHistoryLimit(
+    limit?: number | null,
+  ): number {
+    if (typeof limit !== 'number' || !Number.isFinite(limit)) {
+      return EmailProviderService.DEFAULT_PROVIDER_SYNC_ALERT_HISTORY_LIMIT;
+    }
+    const rounded = Math.trunc(limit);
+    if (rounded < EmailProviderService.MIN_PROVIDER_SYNC_ALERT_HISTORY_LIMIT) {
+      return EmailProviderService.MIN_PROVIDER_SYNC_ALERT_HISTORY_LIMIT;
+    }
+    if (rounded > EmailProviderService.MAX_PROVIDER_SYNC_ALERT_HISTORY_LIMIT) {
+      return EmailProviderService.MAX_PROVIDER_SYNC_ALERT_HISTORY_LIMIT;
+    }
+    return rounded;
+  }
+
+  private resolveProviderSyncAlertStatus(
+    notification: UserNotification,
+  ): 'FAILED' | 'RECOVERED' | 'UNKNOWN' {
+    const normalizedType = String(notification.type || '')
+      .trim()
+      .toUpperCase();
+    if (normalizedType === 'SYNC_FAILED') return 'FAILED';
+    if (normalizedType === 'SYNC_RECOVERED') return 'RECOVERED';
+    return 'UNKNOWN';
+  }
+
+  private resolveProviderSyncAlertNumberMetadata(
+    notification: UserNotification,
+    key: string,
+  ): number | null {
+    const rawValue = notification.metadata?.[key];
+    if (rawValue === null || rawValue === undefined) return null;
+    const numericValue = Number(rawValue);
+    if (!Number.isFinite(numericValue)) return null;
+    return Math.trunc(numericValue);
+  }
+
+  private resolveProviderSyncAlertStringMetadata(
+    notification: UserNotification,
+    key: string,
+  ): string | null {
+    const rawValue = notification.metadata?.[key];
+    if (typeof rawValue !== 'string') return null;
+    const normalized = rawValue.trim();
+    return normalized || null;
+  }
+
+  private async listProviderSyncAlertNotifications(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    order?: 'ASC' | 'DESC';
+    limit?: number | null;
+  }): Promise<UserNotification[]> {
+    const normalizedWorkspaceId = String(input.workspaceId || '').trim();
+    const normalizedWindowHours = this.normalizeSyncStatsWindowHours(
+      input.windowHours,
+    );
+    const windowStart = new Date(
+      Date.now() - normalizedWindowHours * 60 * 60 * 1000,
+    );
+    const baseWhere = {
+      userId: input.userId,
+      type: In(['SYNC_FAILED', 'SYNC_RECOVERED']),
+      createdAt: MoreThanOrEqual(windowStart),
+    };
+    const whereClause = normalizedWorkspaceId
+      ? [
+          { ...baseWhere, workspaceId: normalizedWorkspaceId },
+          { ...baseWhere, workspaceId: IsNull() },
+        ]
+      : baseWhere;
+    const normalizedOrder = input.order === 'ASC' ? 'ASC' : 'DESC';
+    const normalizedLimit =
+      typeof input.limit === 'number' && Number.isFinite(input.limit)
+        ? this.normalizeProviderSyncAlertHistoryLimit(input.limit)
+        : null;
+    return this.notificationRepository.find({
+      where: whereClause,
+      order: { createdAt: normalizedOrder },
+      take: normalizedLimit || undefined,
+    });
+  }
+
+  async getProviderSyncAlertDeliveryStatsForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+  }): Promise<{
+    workspaceId?: string | null;
+    windowHours: number;
+    totalAlerts: number;
+    failedAlerts: number;
+    recoveredAlerts: number;
+    lastAlertAtIso?: string | null;
+  }> {
+    const normalizedWorkspaceId = String(input.workspaceId || '').trim();
+    const normalizedWindowHours = this.normalizeSyncStatsWindowHours(
+      input.windowHours,
+    );
+    const notifications = await this.listProviderSyncAlertNotifications({
+      userId: input.userId,
+      workspaceId: normalizedWorkspaceId || null,
+      windowHours: normalizedWindowHours,
+      order: 'ASC',
+    });
+    let failedAlerts = 0;
+    let recoveredAlerts = 0;
+    for (const notification of notifications) {
+      const status = this.resolveProviderSyncAlertStatus(notification);
+      if (status === 'FAILED') failedAlerts += 1;
+      if (status === 'RECOVERED') recoveredAlerts += 1;
+    }
+    const lastNotification = notifications[notifications.length - 1];
+    return {
+      workspaceId: normalizedWorkspaceId || null,
+      windowHours: normalizedWindowHours,
+      totalAlerts: notifications.length,
+      failedAlerts,
+      recoveredAlerts,
+      lastAlertAtIso: lastNotification
+        ? lastNotification.createdAt.toISOString()
+        : null,
+    };
+  }
+
+  async getProviderSyncAlertDeliverySeriesForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<
+    Array<{
+      bucketStart: Date;
+      totalAlerts: number;
+      failedAlerts: number;
+      recoveredAlerts: number;
+    }>
+  > {
+    const normalizedWindowHours = this.normalizeSyncStatsWindowHours(
+      input.windowHours,
+    );
+    const normalizedBucketMinutes =
+      this.normalizeProviderSyncAlertBucketMinutes(input.bucketMinutes);
+    const notifications = await this.listProviderSyncAlertNotifications({
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+      windowHours: normalizedWindowHours,
+      order: 'ASC',
+    });
+    const bucketSizeMs = normalizedBucketMinutes * 60 * 1000;
+    const nowMs = Date.now();
+    const windowStartDate = new Date(
+      nowMs - normalizedWindowHours * 60 * 60 * 1000,
+    );
+    const windowStartMs =
+      Math.floor(windowStartDate.getTime() / bucketSizeMs) * bucketSizeMs;
+    const accumulator = new Map<
+      number,
+      { totalAlerts: number; failedAlerts: number; recoveredAlerts: number }
+    >();
+    for (const notification of notifications) {
+      const bucketStartMs =
+        Math.floor(notification.createdAt.getTime() / bucketSizeMs) *
+        bucketSizeMs;
+      const bucket = accumulator.get(bucketStartMs) || {
+        totalAlerts: 0,
+        failedAlerts: 0,
+        recoveredAlerts: 0,
+      };
+      bucket.totalAlerts += 1;
+      const status = this.resolveProviderSyncAlertStatus(notification);
+      if (status === 'FAILED') bucket.failedAlerts += 1;
+      if (status === 'RECOVERED') bucket.recoveredAlerts += 1;
+      accumulator.set(bucketStartMs, bucket);
+    }
+
+    const series: Array<{
+      bucketStart: Date;
+      totalAlerts: number;
+      failedAlerts: number;
+      recoveredAlerts: number;
+    }> = [];
+    for (let cursor = windowStartMs; cursor <= nowMs; cursor += bucketSizeMs) {
+      const bucket = accumulator.get(cursor) || {
+        totalAlerts: 0,
+        failedAlerts: 0,
+        recoveredAlerts: 0,
+      };
+      series.push({
+        bucketStart: new Date(cursor),
+        totalAlerts: bucket.totalAlerts,
+        failedAlerts: bucket.failedAlerts,
+        recoveredAlerts: bucket.recoveredAlerts,
+      });
+    }
+    return series;
+  }
+
+  async getProviderSyncAlertsForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    limit?: number | null;
+  }): Promise<
+    Array<{
+      notificationId: string;
+      workspaceId?: string | null;
+      status: string;
+      title: string;
+      message: string;
+      providerId?: string | null;
+      providerType?: string | null;
+      attempts?: number | null;
+      error?: string | null;
+      createdAt: Date;
+    }>
+  > {
+    const normalizedLimit = this.normalizeProviderSyncAlertHistoryLimit(
+      input.limit,
+    );
+    const notifications = await this.listProviderSyncAlertNotifications({
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+      windowHours: input.windowHours,
+      order: 'DESC',
+      limit: normalizedLimit,
+    });
+    return notifications.map((notification) => ({
+      notificationId: notification.id,
+      workspaceId: notification.workspaceId || null,
+      status: this.resolveProviderSyncAlertStatus(notification),
+      title: notification.title,
+      message: notification.message,
+      providerId: this.resolveProviderSyncAlertStringMetadata(
+        notification,
+        'providerId',
+      ),
+      providerType: this.resolveProviderSyncAlertStringMetadata(
+        notification,
+        'providerType',
+      ),
+      attempts: this.resolveProviderSyncAlertNumberMetadata(
+        notification,
+        'attempts',
+      ),
+      error: this.resolveProviderSyncAlertStringMetadata(notification, 'error'),
+      createdAt: notification.createdAt,
+    }));
+  }
+
+  async exportProviderSyncAlertDeliveryDataForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+    limit?: number | null;
+  }): Promise<{ generatedAtIso: string; dataJson: string }> {
+    const normalizedWorkspaceId =
+      String(input.workspaceId || '').trim() || null;
+    const normalizedWindowHours = this.normalizeSyncStatsWindowHours(
+      input.windowHours,
+    );
+    const normalizedBucketMinutes =
+      this.normalizeProviderSyncAlertBucketMinutes(input.bucketMinutes);
+    const normalizedLimit = this.normalizeProviderSyncAlertHistoryLimit(
+      input.limit,
+    );
+    const [stats, series, alerts] = await Promise.all([
+      this.getProviderSyncAlertDeliveryStatsForUser({
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId,
+        windowHours: normalizedWindowHours,
+      }),
+      this.getProviderSyncAlertDeliverySeriesForUser({
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId,
+        windowHours: normalizedWindowHours,
+        bucketMinutes: normalizedBucketMinutes,
+      }),
+      this.getProviderSyncAlertsForUser({
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId,
+        windowHours: normalizedWindowHours,
+        limit: normalizedLimit,
+      }),
+    ]);
+    const generatedAtIso = new Date().toISOString();
+    return {
+      generatedAtIso,
+      dataJson: JSON.stringify({
+        generatedAtIso,
+        workspaceId: normalizedWorkspaceId,
+        windowHours: normalizedWindowHours,
+        bucketMinutes: normalizedBucketMinutes,
+        limit: normalizedLimit,
+        stats,
+        series: series.map((point) => ({
+          bucketStartIso: point.bucketStart.toISOString(),
+          totalAlerts: point.totalAlerts,
+          failedAlerts: point.failedAlerts,
+          recoveredAlerts: point.recoveredAlerts,
+        })),
+        alertCount: alerts.length,
+        alerts: alerts.map((alert) => ({
+          ...alert,
+          createdAtIso: alert.createdAt.toISOString(),
+        })),
+      }),
     };
   }
 

@@ -16,6 +16,10 @@ describe('EmailProviderConnectResolver', () => {
     syncUserProviders: jest.fn(),
     getProviderSyncStatsForUser: jest.fn(),
     exportProviderSyncDataForUser: jest.fn(),
+    getProviderSyncAlertDeliveryStatsForUser: jest.fn(),
+    getProviderSyncAlertDeliverySeriesForUser: jest.fn(),
+    getProviderSyncAlertsForUser: jest.fn(),
+    exportProviderSyncAlertDeliveryDataForUser: jest.fn(),
     listProvidersUi: jest.fn(),
   };
 
@@ -157,6 +161,107 @@ describe('EmailProviderConnectResolver', () => {
       userId: 'user-1',
       workspaceId: 'workspace-1',
       limit: 150,
+    });
+  });
+
+  it('delegates provider sync alert delivery stats query to service', async () => {
+    emailProviderServiceMock.getProviderSyncAlertDeliveryStatsForUser.mockResolvedValue(
+      {
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        totalAlerts: 5,
+        failedAlerts: 3,
+        recoveredAlerts: 2,
+        lastAlertAtIso: '2026-02-16T00:00:00.000Z',
+      },
+    );
+    const context = { req: { user: { id: 'user-1' } } };
+
+    const result = await resolver.myProviderSyncAlertDeliveryStats(
+      'workspace-1',
+      24,
+      context,
+    );
+
+    expect(result).toEqual(expect.objectContaining({ totalAlerts: 5 }));
+    expect(
+      emailProviderServiceMock.getProviderSyncAlertDeliveryStatsForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+    });
+  });
+
+  it('delegates provider sync alert delivery series query to service', async () => {
+    emailProviderServiceMock.getProviderSyncAlertDeliverySeriesForUser.mockResolvedValue(
+      [],
+    );
+    const context = { req: { user: { id: 'user-1' } } };
+
+    await resolver.myProviderSyncAlertDeliverySeries(
+      'workspace-1',
+      24,
+      60,
+      context,
+    );
+
+    expect(
+      emailProviderServiceMock.getProviderSyncAlertDeliverySeriesForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+  });
+
+  it('delegates provider sync alerts query to service', async () => {
+    emailProviderServiceMock.getProviderSyncAlertsForUser.mockResolvedValue([]);
+    const context = { req: { user: { id: 'user-1' } } };
+
+    await resolver.myProviderSyncAlerts('workspace-1', 24, 50, context);
+
+    expect(
+      emailProviderServiceMock.getProviderSyncAlertsForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      limit: 50,
+    });
+  });
+
+  it('delegates provider sync alert delivery export query to service', async () => {
+    emailProviderServiceMock.exportProviderSyncAlertDeliveryDataForUser.mockResolvedValue(
+      {
+        generatedAtIso: '2026-02-16T00:00:00.000Z',
+        dataJson: '{"stats":{"totalAlerts":5}}',
+      },
+    );
+    const context = { req: { user: { id: 'user-1' } } };
+
+    const result = await resolver.myProviderSyncAlertDeliveryDataExport(
+      'workspace-1',
+      24,
+      60,
+      100,
+      context,
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        generatedAtIso: '2026-02-16T00:00:00.000Z',
+      }),
+    );
+    expect(
+      emailProviderServiceMock.exportProviderSyncAlertDeliveryDataForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+      limit: 100,
     });
   });
 });
