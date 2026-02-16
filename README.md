@@ -284,6 +284,7 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: prune old diagnostics report artifacts
 ./deploy/ec2/scripts/reports-prune.sh
+./deploy/ec2/scripts/reports-prune.sh --keep-count 50 --dry-run
 
 # Optional: rotate app secrets (JWT/OAuth/platform key)
 ./deploy/ec2/scripts/rotate-app-secrets.sh --yes

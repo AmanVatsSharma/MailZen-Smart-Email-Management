@@ -257,6 +257,9 @@ Example:
 
 # Note: also removes old extracted support-bundle directories
 
+# Preview report pruning without deleting anything
+./deploy/ec2/scripts/reports-prune.sh --keep-count 50 --dry-run
+
 # Rotate app secrets (interactive confirmation)
 ./deploy/ec2/scripts/rotate-app-secrets.sh
 
