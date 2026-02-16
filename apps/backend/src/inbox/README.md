@@ -68,3 +68,9 @@ The unified inbox UI uses this module to determine the active provider inbox (or
   - `inbox_active_source_set`
   - `inbox_sync_mailbox_failed`
   - `inbox_sync_provider_failed`
+  - `inbox_audit_log_write_failed`
+
+## Compliance / Audit Trail
+
+- `inbox_active_source_updated`
+- `inbox_sync_requested`

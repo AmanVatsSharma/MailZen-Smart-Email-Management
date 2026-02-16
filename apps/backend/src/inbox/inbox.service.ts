@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { User } from '../user/entities/user.entity';
 import { Mailbox } from '../mailbox/entities/mailbox.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
@@ -28,10 +29,37 @@ export class InboxService {
     private readonly mailboxRepository: Repository<Mailbox>,
     @InjectRepository(EmailProvider)
     private readonly providerRepository: Repository<EmailProvider>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly mailboxSyncService: MailboxSyncService,
     private readonly emailProviderService: EmailProviderService,
   ) {
     // intentionally quiet in constructor to reduce startup log noise
+  }
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.auditLogRepo.save(
+        this.auditLogRepo.create({
+          userId: input.userId,
+          action: input.action,
+          metadata: input.metadata || {},
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'inbox_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
   }
 
   private resolveMailboxSyncStatus(mailbox: Mailbox): string {
@@ -196,6 +224,16 @@ export class InboxService {
           accountFingerprint: fingerprintIdentifier(mailbox.email),
         }),
       );
+      await this.writeAuditLog({
+        userId,
+        action: 'inbox_active_source_updated',
+        metadata: {
+          sourceType: 'MAILBOX',
+          sourceId: mailbox.id,
+          workspaceId: mailbox.workspaceId || activeWorkspaceId || null,
+          accountFingerprint: fingerprintIdentifier(mailbox.email),
+        },
+      });
       return this.listUserInboxes(userId);
     }
 
@@ -225,6 +263,20 @@ export class InboxService {
         accountFingerprint: fingerprintIdentifier(provider.email),
       }),
     );
+    await this.writeAuditLog({
+      userId,
+      action: 'inbox_active_source_updated',
+      metadata: {
+        sourceType: 'PROVIDER',
+        sourceId: provider.id,
+        workspaceId: provider.workspaceId || activeWorkspaceId || null,
+        providerType:
+          String(provider.type || '')
+            .trim()
+            .toUpperCase() || null,
+        accountFingerprint: fingerprintIdentifier(provider.email),
+      },
+    });
     return this.listUserInboxes(userId);
   }
 
@@ -299,7 +351,7 @@ export class InboxService {
       );
     }
 
-    return {
+    const summary = {
       mailboxPolledMailboxes: mailboxResult.polledMailboxes,
       mailboxSkippedMailboxes: mailboxResult.skippedMailboxes,
       mailboxFailedMailboxes: mailboxResult.failedMailboxes,
@@ -312,6 +364,19 @@ export class InboxService {
       providerSyncError,
       executedAtIso: new Date().toISOString(),
     };
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'inbox_sync_requested',
+      metadata: {
+        workspaceId: normalizedWorkspaceId,
+        mailboxPolledMailboxes: summary.mailboxPolledMailboxes,
+        mailboxFailedMailboxes: summary.mailboxFailedMailboxes,
+        providerRequestedProviders: summary.providerRequestedProviders,
+        providerFailedProviders: summary.providerFailedProviders,
+        success: summary.success,
+      },
+    });
+    return summary;
   }
 
   async getInboxSourceHealthStats(input: {

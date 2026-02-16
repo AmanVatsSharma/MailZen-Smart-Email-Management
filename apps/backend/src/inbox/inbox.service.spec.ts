@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { EmailProviderService } from '../email-integration/email-provider.service';
 import { Mailbox } from '../mailbox/entities/mailbox.entity';
@@ -13,6 +14,7 @@ describe('InboxService', () => {
   let userRepo: jest.Mocked<Repository<User>>;
   let mailboxRepo: jest.Mocked<Repository<Mailbox>>;
   let providerRepo: jest.Mocked<Repository<EmailProvider>>;
+  let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
   let mailboxSyncService: jest.Mocked<
     Pick<MailboxSyncService, 'pollUserMailboxes'>
   >;
@@ -34,6 +36,10 @@ describe('InboxService', () => {
       find: jest.fn(),
       update: jest.fn(),
     } as unknown as jest.Mocked<Repository<EmailProvider>>;
+    auditLogRepo = {
+      create: jest.fn(),
+      save: jest.fn(),
+    } as unknown as jest.Mocked<Repository<AuditLog>>;
     mailboxSyncService = {
       pollUserMailboxes: jest.fn(),
     };
@@ -45,9 +51,14 @@ describe('InboxService', () => {
       userRepo,
       mailboxRepo,
       providerRepo,
+      auditLogRepo,
       mailboxSyncService as unknown as MailboxSyncService,
       emailProviderService as unknown as EmailProviderService,
     );
+    auditLogRepo.create.mockImplementation(
+      (value: Partial<AuditLog>) => value as AuditLog,
+    );
+    auditLogRepo.save.mockResolvedValue({ id: 'audit-log-1' } as AuditLog);
   });
 
   afterEach(() => {
@@ -171,6 +182,12 @@ describe('InboxService', () => {
       { userId: 'user-1', workspaceId: 'workspace-1' },
       { isActive: false },
     );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'inbox_active_source_updated',
+      }),
+    );
   });
 
   it('throws when mailbox is not in active workspace', async () => {
@@ -224,6 +241,12 @@ describe('InboxService', () => {
         success: true,
       }),
     );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'inbox_sync_requested',
+      }),
+    );
   });
 
   it('returns partial result when provider sync fails', async () => {
@@ -248,6 +271,40 @@ describe('InboxService', () => {
     expect(result.success).toBe(false);
     expect(result.providerSyncError).toContain('provider backend unavailable');
     expect(result.mailboxPolledMailboxes).toBe(1);
+  });
+
+  it('continues inbox sync response when audit log persistence fails', async () => {
+    mailboxSyncService.pollUserMailboxes.mockResolvedValue({
+      polledMailboxes: 1,
+      skippedMailboxes: 0,
+      failedMailboxes: 0,
+      fetchedMessages: 1,
+      acceptedMessages: 1,
+      deduplicatedMessages: 0,
+      rejectedMessages: 0,
+    });
+    emailProviderService.syncUserProviders.mockResolvedValue({
+      requestedProviders: 1,
+      syncedProviders: 1,
+      failedProviders: 0,
+      skippedProviders: 0,
+      results: [],
+      executedAtIso: '2026-02-16T00:00:00.000Z',
+    });
+    auditLogRepo.save.mockRejectedValue(
+      new Error('audit datastore unavailable'),
+    );
+
+    await expect(
+      service.syncUserInboxes({
+        userId: 'user-1',
+        workspaceId: null,
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        success: true,
+      }),
+    );
   });
 
   it('returns workspace health stats with status buckets', async () => {

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { User } from '../user/entities/user.entity';
 import { Mailbox } from '../mailbox/entities/mailbox.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
@@ -14,7 +15,7 @@ import { EmailProviderModule } from '../email-integration/email-provider.module'
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Mailbox, EmailProvider]),
+    TypeOrmModule.forFeature([User, Mailbox, EmailProvider, AuditLog]),
     MailboxModule,
     EmailProviderModule,
   ],
