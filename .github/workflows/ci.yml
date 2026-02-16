@@ -95,6 +95,9 @@ jobs:
           auth/session-cookie.service.spec.ts
           user/user.service.spec.ts
           user/user.resolver.spec.ts
+          email-analytics/email-analytics.service.spec.ts
+          scheduled-email/scheduled-email.service.spec.ts
+          template/template.service.spec.ts
           workspace/workspace.service.spec.ts
           workspace/workspace.resolver.spec.ts
           inbox/inbox.service.spec.ts

@@ -31,3 +31,8 @@ flowchart TD
 
 - Current module stores scheduling intent; delivery orchestration is handled elsewhere.
 - `status` defaults to `PENDING` when omitted.
+- Structured observability events:
+  - `scheduled_email_create_start`
+  - `scheduled_email_create_completed`
+  - `scheduled_email_list_start`
+  - `scheduled_email_list_completed`

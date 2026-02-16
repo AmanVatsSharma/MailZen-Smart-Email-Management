@@ -36,3 +36,13 @@ flowchart TD
 
 - Template persistence is currently in-memory; data resets on backend restart.
 - Module is structured so storage can be migrated to TypeORM with minimal API changes.
+- Structured observability events:
+  - `template_create_start`
+  - `template_create_completed`
+  - `template_list_completed`
+  - `template_get_missing`
+  - `template_update_start`
+  - `template_update_completed`
+  - `template_delete_start`
+  - `template_delete_missing`
+  - `template_delete_completed`

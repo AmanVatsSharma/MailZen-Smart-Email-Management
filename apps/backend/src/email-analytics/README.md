@@ -32,3 +32,9 @@ flowchart TD
 
 - Write path uses `upsert` on `emailId` to keep one analytics record per email.
 - Missing/foreign email IDs are rejected with `NotFoundException`.
+- Structured observability events:
+  - `email_analytics_create_start`
+  - `email_analytics_create_email_missing`
+  - `email_analytics_create_completed`
+  - `email_analytics_list_start`
+  - `email_analytics_list_completed`
