@@ -15,6 +15,7 @@ import { SessionCookieService } from './session-cookie.service';
 import { EmailProviderModule } from '../email-integration/email-provider.module';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AdminGuard } from './guards/admin.guard';
+import { AuthAbuseProtectionService } from './auth-abuse-protection.service';
 
 const authModuleLogger = new Logger('AuthModule');
 
@@ -69,9 +70,10 @@ function getJwtExpiresInSeconds(): number {
     AuthService,
     AuthResolver,
     SessionCookieService,
+    AuthAbuseProtectionService,
     JwtAuthGuard,
     AdminGuard,
   ],
-  exports: [AuthService, JwtAuthGuard, AdminGuard],
+  exports: [AuthService, AuthAbuseProtectionService, JwtAuthGuard, AdminGuard],
 })
 export class AuthModule {}

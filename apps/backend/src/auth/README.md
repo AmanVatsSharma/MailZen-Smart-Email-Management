@@ -19,6 +19,16 @@ Web sessions are persisted with an HttpOnly `token` cookie.
   - `MAILZEN_SESSION_COOKIE_SECURE` (optional override; defaults to `true` in prod)
   - `MAILZEN_SESSION_COOKIE_DOMAIN` (optional; useful for shared parent domains)
   - `MAILZEN_SESSION_COOKIE_PATH` (default `/`)
+- Auth abuse protection (operation-scoped rate limits):
+  - `AUTH_ABUSE_PROTECTION_ENABLED` (default `true`)
+  - `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS` (default `60000`)
+  - `AUTH_LOGIN_RATE_LIMIT_MAX_REQUESTS` (default `10`)
+  - `AUTH_REGISTER_RATE_LIMIT_WINDOW_MS` (default `300000`)
+  - `AUTH_REGISTER_RATE_LIMIT_MAX_REQUESTS` (default `5`)
+  - `AUTH_OTP_RATE_LIMIT_WINDOW_MS` (default `300000`)
+  - `AUTH_OTP_RATE_LIMIT_MAX_REQUESTS` (default `6`)
+  - `AUTH_PASSWORD_RESET_RATE_LIMIT_WINDOW_MS` (default `600000`)
+  - `AUTH_PASSWORD_RESET_RATE_LIMIT_MAX_REQUESTS` (default `6`)
 - Google OAuth requires:
   - `GOOGLE_CLIENT_ID`
   - `GOOGLE_CLIENT_SECRET`
@@ -91,6 +101,8 @@ Web sessions are persisted with an HttpOnly `token` cookie.
   - `auth_resolver_missing_response_context`
 - guard diagnostics:
   - `jwt_auth_guard_token_validation_failed`
+- abuse protection diagnostics:
+  - `auth_abuse_limit_exceeded`
 
 PII-sensitive identifiers such as phone numbers are logged as irreversible
 fingerprints, not raw values.
@@ -111,6 +123,17 @@ fingerprints, not raw values.
 - New users and existing users without a mailbox receive `requiresAliasSetup=true`.
 - Frontend must route these users to alias selection before dashboard.
 
+## Auth abuse-protection flow
+
+```mermaid
+flowchart TD
+  Client[GraphQL auth mutation] --> Resolver[AuthResolver]
+  Resolver --> Guard[AuthAbuseProtectionService.enforceLimit]
+  Guard -->|within limits| AuthLogic[AuthService/UserService logic]
+  Guard -->|exceeded| Throttle[HTTP 429 TooManyRequestsException]
+  AuthLogic --> Session[Session cookie + token response]
+```
+
 ## Changelog
 
 - Added `authMe` query for authenticated onboarding readiness checks.
@@ -123,3 +146,4 @@ fingerprints, not raw values.
   state-changing requests.
 - Hardened session cookie management with env-configurable SameSite/secure/domain/path options.
 - Added structured auth lifecycle logs with phone-number fingerprinting for OTP flow.
+- Added operation-scoped auth abuse protection with 429 throttling.

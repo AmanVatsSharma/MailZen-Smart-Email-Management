@@ -26,9 +26,14 @@ import * as bcrypt from 'bcryptjs';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthMeResponse } from './dto/auth-me.response';
 import { serializeStructuredLog } from '../common/logging/structured-log.util';
+import { AuthAbuseProtectionService } from './auth-abuse-protection.service';
 
 interface RequestContext {
-  req: { user?: { id: string } };
+  req: {
+    user?: { id: string };
+    headers?: Record<string, string | string[] | undefined>;
+    ip?: string;
+  };
   res?: Response;
 }
 
@@ -41,6 +46,7 @@ export class AuthResolver {
     private readonly userService: UserService,
     private readonly mailboxService: MailboxService,
     private readonly sessionCookie: SessionCookieService,
+    private readonly authAbuseProtection: AuthAbuseProtectionService,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
   ) {}
@@ -92,6 +98,11 @@ export class AuthResolver {
     @Args('loginInput') loginInput: LoginInput,
     @Context() ctx: RequestContext,
   ): Promise<AuthResponse> {
+    this.authAbuseProtection.enforceLimit({
+      operation: 'login',
+      request: ctx?.req,
+      identifier: loginInput.email,
+    });
     const user = await this.userService.validateUser(
       loginInput.email,
       loginInput.password,
@@ -124,6 +135,11 @@ export class AuthResolver {
     @Args('registerInput') registerInput: CreateUserInput,
     @Context() ctx: RequestContext,
   ): Promise<AuthResponse> {
+    this.authAbuseProtection.enforceLimit({
+      operation: 'register',
+      request: ctx?.req,
+      identifier: registerInput.email,
+    });
     if (!registerInput.email || !registerInput.password) {
       throw new BadRequestException('Email and password are required');
     }
@@ -178,7 +194,13 @@ export class AuthResolver {
   @Mutation(() => Boolean)
   async forgotPassword(
     @Args('input') input: ForgotPasswordInput,
+    @Context() ctx: RequestContext,
   ): Promise<boolean> {
+    this.authAbuseProtection.enforceLimit({
+      operation: 'forgot_password',
+      request: ctx?.req,
+      identifier: input.email,
+    });
     const normalized = input.email.trim().toLowerCase();
     // If user not found, do not reveal
     const user = await this.userRepo.findOne({ where: { email: normalized } });
@@ -191,7 +213,13 @@ export class AuthResolver {
   @Mutation(() => Boolean)
   async resetPassword(
     @Args('input') input: ResetPasswordInput,
+    @Context() ctx: RequestContext,
   ): Promise<boolean> {
+    this.authAbuseProtection.enforceLimit({
+      operation: 'reset_password',
+      request: ctx?.req,
+      identifier: input.token,
+    });
     const userId = await this.authService.consumeVerificationToken(
       input.token,
       'PASSWORD_RESET',
@@ -220,7 +248,13 @@ export class AuthResolver {
   @Mutation(() => Boolean)
   async signupSendOtp(
     @Args('input') input: SignupPhoneInput,
+    @Context() ctx: RequestContext,
   ): Promise<boolean> {
+    this.authAbuseProtection.enforceLimit({
+      operation: 'signup_send_otp',
+      request: ctx?.req,
+      identifier: input.phoneNumber,
+    });
     return this.authService.createSignupOtp(input.phoneNumber);
   }
 
@@ -229,6 +263,11 @@ export class AuthResolver {
     @Args('input') input: VerifySignupInput,
     @Context() ctx: RequestContext,
   ): Promise<AuthResponse> {
+    this.authAbuseProtection.enforceLimit({
+      operation: 'signup_verify',
+      request: ctx?.req,
+      identifier: input.phoneNumber,
+    });
     await this.authService.verifySignupOtp(input.phoneNumber, input.code);
     // Create user account
     const user = await this.userService.createUser({
