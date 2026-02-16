@@ -287,11 +287,20 @@ Example:
 # List available backups
 ./deploy/ec2/scripts/backup-list.sh
 
+# Show only latest backup
+./deploy/ec2/scripts/backup-list.sh --latest
+
+# Show latest 5 backups
+./deploy/ec2/scripts/backup-list.sh --count 5
+
 # Keep only latest 10 backups (default)
 ./deploy/ec2/scripts/backup-prune.sh
 
 # Keep only latest 20 backups
 ./deploy/ec2/scripts/backup-prune.sh 20
+
+# Preview backup prune without deleting files
+./deploy/ec2/scripts/backup-prune.sh --keep-count 20 --dry-run
 
 # Restore DB backup (destructive: drops and recreates DB)
 ./deploy/ec2/scripts/restore-db.sh deploy/ec2/backups/your-backup.sql.gz

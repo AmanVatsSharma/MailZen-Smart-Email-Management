@@ -337,6 +337,7 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # 9) Optional backup retention cleanup (keep latest 10)
 ./deploy/ec2/scripts/backup-prune.sh
+./deploy/ec2/scripts/backup-prune.sh --keep-count 20 --dry-run
 
 # 10) Optional emergency rollback using newest backup
 ./deploy/ec2/scripts/rollback-latest.sh
@@ -344,6 +345,7 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # 11) Optional list available backups
 ./deploy/ec2/scripts/backup-list.sh
+./deploy/ec2/scripts/backup-list.sh --count 5
 ```
 
 This stack includes by default:

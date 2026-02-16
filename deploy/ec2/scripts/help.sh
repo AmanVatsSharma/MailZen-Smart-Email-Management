@@ -55,7 +55,8 @@ Operations:
 Backup and recovery:
   ./deploy/ec2/scripts/backup-db.sh --label before-release
   ./deploy/ec2/scripts/backup-db.sh --label smoke --dry-run
-  ./deploy/ec2/scripts/backup-list.sh
+  ./deploy/ec2/scripts/backup-list.sh --count 5
+  ./deploy/ec2/scripts/backup-prune.sh --keep-count 20 --dry-run
   ./deploy/ec2/scripts/backup-prune.sh 20
   ./deploy/ec2/scripts/restore-db.sh --yes deploy/ec2/backups/your-backup.sql.gz
   ./deploy/ec2/scripts/rollback-latest.sh --yes
