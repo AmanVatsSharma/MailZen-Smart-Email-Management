@@ -560,12 +560,19 @@ describe('NotificationService', () => {
     const result = await service.purgeNotificationRetentionData({
       notificationRetentionDays: 200,
       disabledPushRetentionDays: 120,
+      actorUserId: 'user-1',
     });
 
     expect(result.notificationsDeleted).toBe(5);
     expect(result.pushSubscriptionsDeleted).toBe(2);
     expect(result.notificationRetentionDays).toBe(200);
     expect(result.disabledPushRetentionDays).toBe(120);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'notification_retention_purged',
+      }),
+    );
   });
 
   it('normalizes inbound SLA thresholds when preferences are updated', async () => {

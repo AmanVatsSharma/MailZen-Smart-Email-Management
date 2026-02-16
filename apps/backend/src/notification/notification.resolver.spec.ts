@@ -308,13 +308,14 @@ describe('NotificationResolver', () => {
       executedAtIso: '2026-02-16T00:00:00.000Z',
     });
 
-    await resolver.purgeNotificationRetentionData(180, 120);
+    await resolver.purgeNotificationRetentionData(180, 120, context as never);
 
     expect(
       notificationService.purgeNotificationRetentionData,
     ).toHaveBeenCalledWith({
       notificationRetentionDays: 180,
       disabledPushRetentionDays: 120,
+      actorUserId: 'user-1',
     });
   });
 });

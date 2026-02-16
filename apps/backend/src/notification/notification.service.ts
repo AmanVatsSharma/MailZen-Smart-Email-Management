@@ -900,6 +900,7 @@ export class NotificationService {
     input: {
       notificationRetentionDays?: number;
       disabledPushRetentionDays?: number;
+      actorUserId?: string | null;
     } = {},
   ): Promise<NotificationRetentionPurgeResponse> {
     const policy = this.resolveNotificationRetentionPolicy();
@@ -949,6 +950,20 @@ export class NotificationService {
       pushSubscriptionsDelete.affected || 0,
     );
     const executedAtIso = now.toISOString();
+    const normalizedActorUserId = String(input.actorUserId || '').trim();
+    if (normalizedActorUserId) {
+      await this.writeAuditLog({
+        userId: normalizedActorUserId,
+        action: 'notification_retention_purged',
+        metadata: {
+          notificationsDeleted,
+          pushSubscriptionsDeleted,
+          notificationRetentionDays,
+          disabledPushRetentionDays,
+          executedAtIso,
+        },
+      });
+    }
 
     return {
       notificationsDeleted,

@@ -171,6 +171,7 @@ Compliance/audit actions persisted in `audit_logs`:
 - `notification_data_export_requested`
 - `notification_mailbox_inbound_sla_state_updated`
 - `notification_mailbox_inbound_sla_export_requested`
+- `notification_retention_purged`
 
 ## Initial event producers
 

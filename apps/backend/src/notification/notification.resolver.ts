@@ -263,10 +263,12 @@ export class NotificationResolver {
     notificationRetentionDays?: number,
     @Args('disabledPushRetentionDays', { type: () => Int, nullable: true })
     disabledPushRetentionDays?: number,
+    @Context() ctx?: RequestContext,
   ) {
     return this.notificationService.purgeNotificationRetentionData({
       notificationRetentionDays,
       disabledPushRetentionDays,
+      actorUserId: ctx?.req?.user?.id || null,
     });
   }
 }
