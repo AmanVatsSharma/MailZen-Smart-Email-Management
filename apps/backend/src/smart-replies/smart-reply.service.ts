@@ -15,6 +15,8 @@ export class SmartReplyService {
   private static readonly MAX_HISTORY_LIMIT = 100;
   private static readonly MIN_EXPORT_HISTORY_LIMIT = 1;
   private static readonly MAX_EXPORT_HISTORY_LIMIT = 500;
+  private static readonly MIN_RETENTION_DAYS = 1;
+  private static readonly MAX_RETENTION_DAYS = 3650;
   private readonly safeFallbackReply =
     'Thank you for your message. I will review this and follow up shortly.';
   private readonly disabledReply =
@@ -282,6 +284,42 @@ export class SmartReplyService {
     const result = await this.historyRepo.delete({ userId });
     return {
       purgedRows: Number(result.affected || 0),
+    };
+  }
+
+  private resolveAutoPurgeRetentionDays(overrideDays?: number | null): number {
+    const candidate =
+      typeof overrideDays === 'number' && Number.isFinite(overrideDays)
+        ? Math.trunc(overrideDays)
+        : Number(
+            process.env.MAILZEN_SMART_REPLY_HISTORY_RETENTION_DAYS || '365',
+          );
+    if (!Number.isFinite(candidate)) return 365;
+    if (candidate < SmartReplyService.MIN_RETENTION_DAYS) {
+      return SmartReplyService.MIN_RETENTION_DAYS;
+    }
+    if (candidate > SmartReplyService.MAX_RETENTION_DAYS) {
+      return SmartReplyService.MAX_RETENTION_DAYS;
+    }
+    return candidate;
+  }
+
+  async purgeHistoryByRetentionPolicy(input?: {
+    retentionDays?: number | null;
+  }): Promise<{
+    deletedRows: number;
+    retentionDays: number;
+  }> {
+    const retentionDays = this.resolveAutoPurgeRetentionDays(
+      input?.retentionDays,
+    );
+    const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+    const result = await this.historyRepo.delete({
+      createdAt: LessThan(cutoff),
+    });
+    return {
+      deletedRows: Number(result.affected || 0),
+      retentionDays,
     };
   }
 

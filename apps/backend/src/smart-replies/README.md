@@ -42,6 +42,7 @@ flowchart TD
   ModelProvider --> DeterministicCandidates[Deterministic candidate generation]
   DeterministicCandidates --> History[Persist smart_reply_history when keepHistory=true]
   History --> Retention[Prune history older than historyLength days]
+  Retention --> Scheduler[Daily fallback auto-purge scheduler]
   DeterministicCandidates --> Service
   Service --> Client
 ```
@@ -50,6 +51,8 @@ flowchart TD
 
 - `SMART_REPLY_USE_AGENT_PLATFORM` (`true/false`, default `false`)
 - `SMART_REPLY_EXTERNAL_TIMEOUT_MS` (default `3000`)
+- `MAILZEN_SMART_REPLY_HISTORY_AUTOPURGE_ENABLED` (`true/false`, default `true`)
+- `MAILZEN_SMART_REPLY_HISTORY_RETENTION_DAYS` (default `365`, clamped `1..3650`)
 - Reuses `AI_AGENT_PLATFORM_URL` and optional `AI_AGENT_PLATFORM_KEY`.
 
 ## API
@@ -137,6 +140,10 @@ Returns a JSON snapshot containing settings, retention policy, and recent histor
 4. If records exceed retention policy:
    - verify history pruning by creating test rows older than retention cutoff
    - or run `purgeMySmartReplyHistory` for user-requested data deletion.
+5. Verify scheduler fallback:
+   - ensure `MAILZEN_SMART_REPLY_HISTORY_AUTOPURGE_ENABLED=true`
+   - check logs for `smart-reply-history: purged ...` entries
+   - tune `MAILZEN_SMART_REPLY_HISTORY_RETENTION_DAYS` for global retention policy.
 
 ## Usage
 

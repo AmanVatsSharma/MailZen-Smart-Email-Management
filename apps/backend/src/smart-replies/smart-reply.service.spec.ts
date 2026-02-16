@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DeleteResult, Repository } from 'typeorm';
@@ -296,6 +297,34 @@ describe('SmartReplyService', () => {
     expect(result).toEqual({ purgedRows: 7 });
   });
 
+  it('purges smart reply history by retention policy', async () => {
+    historyRepo.delete.mockResolvedValue({ affected: 9 } as DeleteResult);
+
+    const result = await service.purgeHistoryByRetentionPolicy({
+      retentionDays: 45,
+    });
+
+    expect(historyRepo.delete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        createdAt: expect.anything(),
+      }),
+    );
+    expect(result).toEqual({
+      deletedRows: 9,
+      retentionDays: 45,
+    });
+  });
+
+  it('clamps retention purge days when configured below minimum', async () => {
+    historyRepo.delete.mockResolvedValue({ affected: 1 } as DeleteResult);
+
+    const result = await service.purgeHistoryByRetentionPolicy({
+      retentionDays: 0,
+    });
+
+    expect(result.retentionDays).toBe(1);
+  });
+
   it('exports smart reply settings and history payload', async () => {
     settingsRepo.findOne.mockResolvedValue({
       id: 'settings-1',
@@ -326,7 +355,8 @@ describe('SmartReplyService', () => {
     ]);
 
     const result = await service.exportSmartReplyData('user-1', 9999);
-    const payload = JSON.parse(result.dataJson) as {
+    const parsedPayload: unknown = JSON.parse(result.dataJson);
+    const payload = parsedPayload as {
       history: Array<{ id: string }>;
       settings: { keepHistory: boolean };
       retentionPolicy: { historyLengthDays: number };

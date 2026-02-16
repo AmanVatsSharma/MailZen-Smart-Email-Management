@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches:
-      - '**'
+      - "**"
   pull_request:
 
 jobs:
@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
           cache: npm
 
       - name: Install dependencies
@@ -43,6 +43,10 @@ jobs:
           feature/feature.service.spec.ts
           feature/feature.resolver.spec.ts
           smart-replies/smart-reply.service.spec.ts
+          smart-replies/smart-reply.resolver.spec.ts
+          smart-replies/smart-reply-model.provider.spec.ts
+          smart-replies/smart-reply-external-model.adapter.spec.ts
+          smart-replies/smart-reply-retention.scheduler.spec.ts
           ai-agent-gateway/ai-agent-gateway.service.spec.ts
           ai-agent-gateway/ai-agent-gateway.resolver.spec.ts
           common/provider-secrets.util.spec.ts
@@ -75,6 +79,7 @@ jobs:
           workspace/workspace.service.spec.ts
           workspace/workspace.resolver.spec.ts
           inbox/inbox.service.spec.ts
+          inbox/inbox.resolver.spec.ts
           unified-inbox/unified-inbox.service.spec.ts
 
       - name: Backend build
@@ -92,4 +97,3 @@ jobs:
       - name: Frontend build
         working-directory: apps/frontend
         run: npm run build
-

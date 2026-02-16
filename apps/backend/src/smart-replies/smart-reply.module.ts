@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { SmartReplyService } from './smart-reply.service';
 import { SmartReplyExternalModelAdapter } from './smart-reply-external-model.adapter';
 import { SmartReplyResolver } from './smart-reply.resolver';
+import { SmartReplyRetentionScheduler } from './smart-reply-retention.scheduler';
 import { SmartReplyHistory } from './entities/smart-reply-history.entity';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
 import { SmartReplyModelProvider } from './smart-reply-model.provider';
@@ -12,6 +13,7 @@ import { SmartReplyModelProvider } from './smart-reply-model.provider';
   providers: [
     SmartReplyService,
     SmartReplyResolver,
+    SmartReplyRetentionScheduler,
     SmartReplyModelProvider,
     SmartReplyExternalModelAdapter,
   ],
