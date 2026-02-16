@@ -648,6 +648,78 @@ describe('AiAgentGatewayService', () => {
     );
   });
 
+  it('returns incident stats based on warn and critical samples only', async () => {
+    const service = createService();
+    findHealthSamplesMock.mockResolvedValueOnce([
+      {
+        alertingState: 'healthy',
+        checkedAt: new Date('2026-02-16T03:00:00.000Z'),
+      },
+      {
+        alertingState: 'warn',
+        checkedAt: new Date('2026-02-16T02:00:00.000Z'),
+      },
+      {
+        alertingState: 'critical',
+        checkedAt: new Date('2026-02-16T01:00:00.000Z'),
+      },
+    ]);
+
+    const stats = await service.getPlatformHealthIncidentStats({
+      windowHours: 24,
+    });
+
+    expect(stats).toEqual(
+      expect.objectContaining({
+        windowHours: 24,
+        totalCount: 2,
+        warnCount: 1,
+        criticalCount: 1,
+        lastIncidentAtIso: '2026-02-16T02:00:00.000Z',
+      }),
+    );
+  });
+
+  it('returns incident series with warn and critical bucket counts', async () => {
+    const service = createService();
+    findHealthSamplesMock.mockResolvedValueOnce([
+      {
+        alertingState: 'warn',
+        checkedAt: new Date('2026-02-16T00:05:00.000Z'),
+      },
+      {
+        alertingState: 'critical',
+        checkedAt: new Date('2026-02-16T00:08:00.000Z'),
+      },
+      {
+        alertingState: 'healthy',
+        checkedAt: new Date('2026-02-16T00:12:00.000Z'),
+      },
+      {
+        alertingState: 'warn',
+        checkedAt: new Date('2026-02-16T00:37:00.000Z'),
+      },
+    ]);
+
+    const series = await service.getPlatformHealthIncidentSeries({
+      windowHours: 24,
+      bucketMinutes: 30,
+    });
+
+    expect(series.length).toBeGreaterThan(0);
+    expect(
+      series.some((point) => point.warnCount > 0 || point.criticalCount > 0),
+    ).toBe(true);
+    const firstIncidentBucket = series.find((point) => point.totalCount > 0);
+    expect(firstIncidentBucket).toEqual(
+      expect.objectContaining({
+        totalCount: expect.any(Number),
+        warnCount: expect.any(Number),
+        criticalCount: expect.any(Number),
+      }),
+    );
+  });
+
   it('hydrates persisted runtime stats from database on module init', async () => {
     process.env.AI_AGENT_GATEWAY_USE_REDIS = 'false';
     findEndpointRuntimeStatsMock.mockResolvedValueOnce([

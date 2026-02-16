@@ -879,6 +879,134 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     return series;
   }
 
+  async getPlatformHealthIncidentStats(input?: {
+    windowHours?: number | null;
+  }): Promise<{
+    windowHours: number;
+    totalCount: number;
+    warnCount: number;
+    criticalCount: number;
+    lastIncidentAtIso?: string;
+  }> {
+    const windowHours = this.normalizeHealthHistoryWindowHours(
+      input?.windowHours,
+    );
+    const windowStart = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const samples = await this.healthSampleRepo.find({
+      where: {
+        checkedAt: MoreThanOrEqual(windowStart),
+      },
+      order: {
+        checkedAt: 'DESC',
+      },
+      take: AiAgentGatewayService.MAX_HEALTH_TREND_SAMPLE_SCAN,
+    });
+    const incidents = samples.filter((sample) =>
+      ['warn', 'critical'].includes(
+        String(sample.alertingState || '')
+          .trim()
+          .toLowerCase(),
+      ),
+    );
+    const warnCount = incidents.filter(
+      (sample) =>
+        String(sample.alertingState || '')
+          .trim()
+          .toLowerCase() === 'warn',
+    ).length;
+    const criticalCount = incidents.filter(
+      (sample) =>
+        String(sample.alertingState || '')
+          .trim()
+          .toLowerCase() === 'critical',
+    ).length;
+    return {
+      windowHours,
+      totalCount: incidents.length,
+      warnCount,
+      criticalCount,
+      lastIncidentAtIso: incidents[0]?.checkedAt?.toISOString(),
+    };
+  }
+
+  async getPlatformHealthIncidentSeries(input?: {
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<
+    Array<{
+      bucketStartIso: string;
+      totalCount: number;
+      warnCount: number;
+      criticalCount: number;
+    }>
+  > {
+    const windowHours = this.normalizeHealthHistoryWindowHours(
+      input?.windowHours,
+    );
+    const bucketMinutes = this.normalizeHealthTrendBucketMinutes(
+      input?.bucketMinutes,
+    );
+    const bucketMs = bucketMinutes * 60 * 1000;
+    const nowMs = Date.now();
+    const windowStartMs = nowMs - windowHours * 60 * 60 * 1000;
+    const windowStart = new Date(windowStartMs);
+    const samples = await this.healthSampleRepo.find({
+      where: {
+        checkedAt: MoreThanOrEqual(windowStart),
+      },
+      order: {
+        checkedAt: 'ASC',
+      },
+      take: AiAgentGatewayService.MAX_HEALTH_TREND_SAMPLE_SCAN,
+    });
+    const buckets = new Map<
+      number,
+      { totalCount: number; warnCount: number; criticalCount: number }
+    >();
+    for (const sample of samples) {
+      const state = String(sample.alertingState || '')
+        .trim()
+        .toLowerCase();
+      if (state !== 'warn' && state !== 'critical') continue;
+      const bucketStartMs =
+        Math.floor(sample.checkedAt.getTime() / bucketMs) * bucketMs;
+      const existing = buckets.get(bucketStartMs) || {
+        totalCount: 0,
+        warnCount: 0,
+        criticalCount: 0,
+      };
+      existing.totalCount += 1;
+      if (state === 'critical') {
+        existing.criticalCount += 1;
+      } else {
+        existing.warnCount += 1;
+      }
+      buckets.set(bucketStartMs, existing);
+    }
+    const normalizedWindowStartMs =
+      Math.floor(windowStartMs / bucketMs) * bucketMs;
+    const series: Array<{
+      bucketStartIso: string;
+      totalCount: number;
+      warnCount: number;
+      criticalCount: number;
+    }> = [];
+    for (
+      let cursor = normalizedWindowStartMs;
+      cursor <= nowMs;
+      cursor += bucketMs
+    ) {
+      const bucket = buckets.get(cursor);
+      series.push({
+        bucketStartIso: new Date(cursor).toISOString(),
+        totalCount: bucket?.totalCount || 0,
+        warnCount: bucket?.warnCount || 0,
+        criticalCount: bucket?.criticalCount || 0,
+      });
+    }
+    return series;
+  }
+
   private normalizeHealthHistoryLimit(limit?: number | null): number {
     if (typeof limit !== 'number' || !Number.isFinite(limit)) {
       return AiAgentGatewayService.DEFAULT_HEALTH_HISTORY_LIMIT;

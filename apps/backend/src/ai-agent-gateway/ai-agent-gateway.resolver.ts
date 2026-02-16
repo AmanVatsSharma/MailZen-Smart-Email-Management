@@ -22,6 +22,10 @@ import { AgentPlatformHealthResponse } from './dto/agent-platform-health.respons
 import { AgentPlatformHealthSampleDataExportResponse } from './dto/agent-platform-health-sample-data-export.response';
 import { AgentPlatformHealthSampleResponse } from './dto/agent-platform-health-sample.response';
 import { AgentPlatformHealthSampleRetentionPurgeResponse } from './dto/agent-platform-health-sample-retention-purge.response';
+import {
+  AgentPlatformHealthIncidentStatsResponse,
+  AgentPlatformHealthIncidentTrendPointResponse,
+} from './dto/agent-platform-health-incident-stats.response';
 import { AgentPlatformHealthTrendPointResponse } from './dto/agent-platform-health-trend-point.response';
 import { AgentPlatformHealthTrendSummaryResponse } from './dto/agent-platform-health-trend-summary.response';
 import { AgentPlatformRuntimeResetResponse } from './dto/agent-platform-runtime-reset.response';
@@ -122,6 +126,37 @@ export class AiAgentGatewayResolver {
     bucketMinutes?: number,
   ): Promise<AgentPlatformHealthTrendPointResponse[]> {
     return this.gatewayService.getPlatformHealthTrendSeries({
+      windowHours,
+      bucketMinutes,
+    });
+  }
+
+  @Query(() => AgentPlatformHealthIncidentStatsResponse, {
+    description:
+      'Get aggregated warn/critical AI platform health incident counts for a rolling window',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async agentPlatformHealthIncidentStats(
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+  ): Promise<AgentPlatformHealthIncidentStatsResponse> {
+    return this.gatewayService.getPlatformHealthIncidentStats({
+      windowHours,
+    });
+  }
+
+  @Query(() => [AgentPlatformHealthIncidentTrendPointResponse], {
+    description:
+      'Get warn/critical AI platform health incident trend buckets over a rolling window',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async agentPlatformHealthIncidentSeries(
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<AgentPlatformHealthIncidentTrendPointResponse[]> {
+    return this.gatewayService.getPlatformHealthIncidentSeries({
       windowHours,
       bucketMinutes,
     });

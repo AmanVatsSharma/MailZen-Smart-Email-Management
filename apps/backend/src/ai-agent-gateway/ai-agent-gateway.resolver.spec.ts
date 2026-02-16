@@ -8,6 +8,8 @@ describe('AiAgentGatewayResolver', () => {
     exportPlatformHealthSampleData: jest.fn(),
     getPlatformHealthTrendSummary: jest.fn(),
     getPlatformHealthTrendSeries: jest.fn(),
+    getPlatformHealthIncidentStats: jest.fn(),
+    getPlatformHealthIncidentSeries: jest.fn(),
     resetPlatformRuntimeStats: jest.fn(),
     resetSkillRuntimeStats: jest.fn(),
     purgePlatformHealthSampleRetentionData: jest.fn(),
@@ -206,6 +208,54 @@ describe('AiAgentGatewayResolver', () => {
       expect.objectContaining({
         sampleCount: 4,
         warnCount: 1,
+      }),
+    ]);
+  });
+
+  it('delegates agentPlatformHealthIncidentStats to gateway service', async () => {
+    gatewayService.getPlatformHealthIncidentStats.mockResolvedValue({
+      windowHours: 24,
+      totalCount: 6,
+      warnCount: 4,
+      criticalCount: 2,
+      lastIncidentAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    const result = await resolver.agentPlatformHealthIncidentStats(24);
+
+    expect(gatewayService.getPlatformHealthIncidentStats).toHaveBeenCalledWith({
+      windowHours: 24,
+    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        totalCount: 6,
+        criticalCount: 2,
+      }),
+    );
+  });
+
+  it('delegates agentPlatformHealthIncidentSeries to gateway service', async () => {
+    gatewayService.getPlatformHealthIncidentSeries.mockResolvedValue([
+      {
+        bucketStartIso: '2026-02-16T00:00:00.000Z',
+        totalCount: 2,
+        warnCount: 1,
+        criticalCount: 1,
+      },
+    ]);
+
+    const result = await resolver.agentPlatformHealthIncidentSeries(24, 30);
+
+    expect(gatewayService.getPlatformHealthIncidentSeries).toHaveBeenCalledWith(
+      {
+        windowHours: 24,
+        bucketMinutes: 30,
+      },
+    );
+    expect(result).toEqual([
+      expect.objectContaining({
+        totalCount: 2,
+        criticalCount: 1,
       }),
     ]);
   });

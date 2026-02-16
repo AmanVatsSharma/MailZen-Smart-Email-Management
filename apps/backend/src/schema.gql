@@ -598,6 +598,21 @@ type AgentPlatformHealthTrendPointResponse {
   avgLatencyMs: Float!
 }
 
+type AgentPlatformHealthIncidentStatsResponse {
+  windowHours: Int!
+  totalCount: Int!
+  warnCount: Int!
+  criticalCount: Int!
+  lastIncidentAtIso: String
+}
+
+type AgentPlatformHealthIncidentTrendPointResponse {
+  bucketStartIso: String!
+  totalCount: Int!
+  warnCount: Int!
+  criticalCount: Int!
+}
+
 type AgentPlatformEndpointStatResponse {
   endpointUrl: String!
   successCount: Int!
@@ -1075,6 +1090,13 @@ extend type Query {
     windowHours: Int
     bucketMinutes: Int
   ): [AgentPlatformHealthTrendPointResponse!]!
+  agentPlatformHealthIncidentStats(
+    windowHours: Int
+  ): AgentPlatformHealthIncidentStatsResponse!
+  agentPlatformHealthIncidentSeries(
+    windowHours: Int
+    bucketMinutes: Int
+  ): [AgentPlatformHealthIncidentTrendPointResponse!]!
   myWorkspaces: [Workspace!]!
   myActiveWorkspace: Workspace
   myWorkspaceDataExport(workspaceId: String!): WorkspaceDataExportResponse!
