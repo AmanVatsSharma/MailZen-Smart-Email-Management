@@ -79,8 +79,21 @@ if [[ -n "${KEYS_RAW}" ]]; then
   fi
 fi
 
+deduped_keys=()
+declare -A seen_keys=()
+for key in "${TARGET_KEYS[@]}"; do
+  if [[ -n "${seen_keys[${key}]:-}" ]]; then
+    continue
+  fi
+  seen_keys["${key}"]=1
+  deduped_keys+=("${key}")
+done
+TARGET_KEYS=("${deduped_keys[@]}")
+
 ensure_required_files_exist
 validate_core_env
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
 
 if [[ "${DRY_RUN}" == false ]] && [[ "${AUTO_CONFIRM}" == false ]]; then
   if [[ ! -t 0 ]]; then
