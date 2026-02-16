@@ -45,6 +45,7 @@ done
 log_info "Starting MailZen EC2 deployment..."
 require_cmd docker
 ensure_required_files_exist
+validate_core_env
 
 if ! docker info >/dev/null 2>&1; then
   log_error "Docker daemon is not reachable. Start Docker and retry."

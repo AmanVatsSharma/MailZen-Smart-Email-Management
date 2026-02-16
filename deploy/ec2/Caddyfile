@@ -5,6 +5,10 @@
 # - Routes all remaining paths to frontend.
 # -----------------------------------------------------------------------------
 
+{
+	email {$ACME_EMAIL}
+}
+
 {$MAILZEN_DOMAIN} {
 	encode gzip zstd
 

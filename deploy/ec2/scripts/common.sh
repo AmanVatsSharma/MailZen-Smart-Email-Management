@@ -111,3 +111,118 @@ print_service_urls() {
   log_info "Frontend URL: https://${domain}"
   log_info "GraphQL URL:  https://${domain}/graphql"
 }
+
+is_placeholder_value() {
+  local value="$1"
+  local normalized
+  normalized="$(printf '%s' "${value}" | tr '[:upper:]' '[:lower:]')"
+  [[ -z "${normalized}" ]] && return 0
+  [[ "${normalized}" == *"replace_with"* ]] && return 0
+  [[ "${normalized}" == *"please_replace"* ]] && return 0
+  [[ "${normalized}" == *"change_me"* ]] && return 0
+  [[ "${normalized}" == *"example.com"* ]] && return 0
+  return 1
+}
+
+assert_env_key_present() {
+  local key="$1"
+  local value
+  value="$(read_env_value "${key}")"
+  if [[ -z "${value}" ]]; then
+    log_error "Missing required env key '${key}' in ${ENV_FILE}"
+    return 1
+  fi
+  return 0
+}
+
+assert_env_key_min_length() {
+  local key="$1"
+  local minimum_length="$2"
+  local value
+  value="$(read_env_value "${key}")"
+  if [[ "${#value}" -lt "${minimum_length}" ]]; then
+    log_error "Env key '${key}' must be at least ${minimum_length} characters."
+    return 1
+  fi
+  return 0
+}
+
+assert_env_key_not_placeholder() {
+  local key="$1"
+  local value
+  value="$(read_env_value "${key}")"
+  if is_placeholder_value "${value}"; then
+    log_error "Env key '${key}' still has a placeholder-style value."
+    return 1
+  fi
+  return 0
+}
+
+assert_domain_value() {
+  local value="$1"
+  if [[ -z "${value}" ]]; then
+    log_error "MAILZEN_DOMAIN is empty."
+    return 1
+  fi
+  if [[ "${value}" =~ ^https?:// ]]; then
+    log_error "MAILZEN_DOMAIN must not include protocol."
+    return 1
+  fi
+  if [[ ! "${value}" =~ ^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
+    log_error "MAILZEN_DOMAIN format is invalid: ${value}"
+    return 1
+  fi
+  return 0
+}
+
+assert_https_url_value() {
+  local key="$1"
+  local value
+  value="$(read_env_value "${key}")"
+  if [[ ! "${value}" =~ ^https:// ]]; then
+    log_error "Env key '${key}' must start with https:// (current: ${value})"
+    return 1
+  fi
+  return 0
+}
+
+validate_core_env() {
+  local failure_count=0
+  local domain
+  domain="$(read_env_value "MAILZEN_DOMAIN")"
+
+  assert_env_key_present "MAILZEN_DOMAIN" || failure_count=$((failure_count + 1))
+  assert_env_key_present "ACME_EMAIL" || failure_count=$((failure_count + 1))
+  assert_env_key_present "FRONTEND_URL" || failure_count=$((failure_count + 1))
+  assert_env_key_present "NEXT_PUBLIC_GRAPHQL_ENDPOINT" || failure_count=$((failure_count + 1))
+  assert_env_key_present "JWT_SECRET" || failure_count=$((failure_count + 1))
+  assert_env_key_present "OAUTH_STATE_SECRET" || failure_count=$((failure_count + 1))
+  assert_env_key_present "SECRETS_KEY" || failure_count=$((failure_count + 1))
+  assert_env_key_present "POSTGRES_PASSWORD" || failure_count=$((failure_count + 1))
+
+  assert_domain_value "${domain}" || failure_count=$((failure_count + 1))
+  assert_https_url_value "FRONTEND_URL" || failure_count=$((failure_count + 1))
+  assert_https_url_value "NEXT_PUBLIC_GRAPHQL_ENDPOINT" || failure_count=$((failure_count + 1))
+
+  assert_env_key_min_length "JWT_SECRET" 32 || failure_count=$((failure_count + 1))
+  assert_env_key_min_length "OAUTH_STATE_SECRET" 32 || failure_count=$((failure_count + 1))
+  assert_env_key_min_length "SECRETS_KEY" 32 || failure_count=$((failure_count + 1))
+  assert_env_key_min_length "POSTGRES_PASSWORD" 16 || failure_count=$((failure_count + 1))
+
+  assert_env_key_not_placeholder "MAILZEN_DOMAIN" || failure_count=$((failure_count + 1))
+  assert_env_key_not_placeholder "ACME_EMAIL" || failure_count=$((failure_count + 1))
+  assert_env_key_not_placeholder "FRONTEND_URL" || failure_count=$((failure_count + 1))
+  assert_env_key_not_placeholder "NEXT_PUBLIC_GRAPHQL_ENDPOINT" || failure_count=$((failure_count + 1))
+  assert_env_key_not_placeholder "JWT_SECRET" || failure_count=$((failure_count + 1))
+  assert_env_key_not_placeholder "OAUTH_STATE_SECRET" || failure_count=$((failure_count + 1))
+  assert_env_key_not_placeholder "SECRETS_KEY" || failure_count=$((failure_count + 1))
+  assert_env_key_not_placeholder "POSTGRES_PASSWORD" || failure_count=$((failure_count + 1))
+
+  if [[ "${failure_count}" -gt 0 ]]; then
+    log_error "Env validation failed with ${failure_count} issue(s)."
+    return 1
+  fi
+
+  log_info "Core env validation passed."
+  return 0
+}

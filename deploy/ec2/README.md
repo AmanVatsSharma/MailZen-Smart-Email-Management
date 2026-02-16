@@ -20,6 +20,7 @@ on an EC2 instance using Docker Compose, a public domain, and HTTPS.
 - `scripts/`  
   Non-technical-friendly operational scripts:
   - `setup.sh`
+  - `preflight.sh`
   - `deploy.sh`
   - `status.sh`
   - `logs.sh`
@@ -31,11 +32,12 @@ on an EC2 instance using Docker Compose, a public domain, and HTTPS.
 ```mermaid
 flowchart TD
   A[Run setup.sh] --> B[Generate/validate .env.ec2]
-  B --> C[Run deploy.sh]
-  C --> D[docker compose build + up]
-  D --> E[caddy enables HTTPS for domain]
-  E --> F[Access MailZen URL]
-  F --> G[Use status/logs/restart/stop scripts for ops]
+  B --> C[Run preflight.sh]
+  C --> D[Run deploy.sh]
+  D --> E[docker compose build + up]
+  E --> F[caddy enables HTTPS for domain]
+  F --> G[Access MailZen URL]
+  G --> H[Use status/logs/restart/stop scripts for ops]
 ```
 
 ## First-time setup
@@ -44,6 +46,7 @@ From repository root:
 
 ```bash
 ./deploy/ec2/scripts/setup.sh
+./deploy/ec2/scripts/preflight.sh
 ./deploy/ec2/scripts/deploy.sh
 ```
 
@@ -63,6 +66,9 @@ The setup script:
 ```bash
 # Health/status
 ./deploy/ec2/scripts/status.sh
+
+# Validate env + compose config before deploy
+./deploy/ec2/scripts/preflight.sh
 
 # Logs (all services)
 ./deploy/ec2/scripts/logs.sh

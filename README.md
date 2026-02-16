@@ -209,10 +209,13 @@ For production-style EC2 deployment, use the deployment module:
 # 1) Prepare production env safely
 ./deploy/ec2/scripts/setup.sh
 
-# 2) Build and run the stack
+# 2) Validate env + compose config
+./deploy/ec2/scripts/preflight.sh
+
+# 3) Build and run the stack
 ./deploy/ec2/scripts/deploy.sh
 
-# 3) Check status
+# 4) Check status
 ./deploy/ec2/scripts/status.sh
 ```
 
