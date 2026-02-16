@@ -255,3 +255,4 @@ This stack includes by default:
 For full steps, flowchart, and troubleshooting, see:
 
 - `deploy/ec2/README.md`
+- `deploy/ec2/FLOW.md`

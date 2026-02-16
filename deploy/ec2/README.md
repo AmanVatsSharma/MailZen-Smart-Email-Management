@@ -3,6 +3,10 @@
 This module contains production-oriented deployment assets for running MailZen
 on an EC2 instance using Docker Compose, a public domain, and HTTPS.
 
+Additional deployment flowcharts:
+
+- `deploy/ec2/FLOW.md`
+
 ## What this module includes
 
 - `docker-compose.yml`  
