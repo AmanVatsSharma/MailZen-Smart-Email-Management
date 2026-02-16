@@ -401,4 +401,61 @@ describe('EmailProviderService', () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it('returns provider sync stats for scoped workspace', async () => {
+    providerRepository.find.mockResolvedValue([
+      {
+        id: 'provider-1',
+        status: 'connected',
+        lastSyncedAt: new Date(),
+        lastSyncErrorAt: null,
+      } as EmailProvider,
+      {
+        id: 'provider-2',
+        status: 'error',
+        lastSyncedAt: null,
+        lastSyncErrorAt: new Date(),
+      } as unknown as EmailProvider,
+      {
+        id: 'provider-3',
+        status: 'syncing',
+        lastSyncedAt: null,
+        lastSyncErrorAt: null,
+      } as unknown as EmailProvider,
+    ]);
+
+    const result = await service.getProviderSyncStatsForUser({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+    });
+
+    expect(providerRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1', workspaceId: 'workspace-1' },
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        totalProviders: 3,
+        connectedProviders: 1,
+        syncingProviders: 1,
+        errorProviders: 1,
+        recentlySyncedProviders: 1,
+        recentlyErroredProviders: 1,
+        windowHours: 24,
+      }),
+    );
+  });
+
+  it('clamps provider sync stats window to minimum bound', async () => {
+    providerRepository.find.mockResolvedValue([]);
+
+    const result = await service.getProviderSyncStatsForUser({
+      userId: 'user-1',
+      windowHours: 0,
+    });
+
+    expect(result.windowHours).toBe(1);
+  });
 });

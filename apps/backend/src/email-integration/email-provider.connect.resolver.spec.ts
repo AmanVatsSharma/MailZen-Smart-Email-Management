@@ -14,6 +14,7 @@ describe('EmailProviderConnectResolver', () => {
     setActiveProvider: jest.fn(),
     syncProvider: jest.fn(),
     syncUserProviders: jest.fn(),
+    getProviderSyncStatsForUser: jest.fn(),
     listProvidersUi: jest.fn(),
   };
 
@@ -94,6 +95,40 @@ describe('EmailProviderConnectResolver', () => {
       userId: 'user-1',
       workspaceId: 'workspace-1',
       providerId: 'provider-1',
+    });
+  });
+
+  it('delegates provider sync stats query to service', async () => {
+    emailProviderServiceMock.getProviderSyncStatsForUser.mockResolvedValue({
+      totalProviders: 3,
+      connectedProviders: 2,
+      syncingProviders: 0,
+      errorProviders: 1,
+      recentlySyncedProviders: 2,
+      recentlyErroredProviders: 1,
+      windowHours: 24,
+      executedAtIso: '2026-02-16T00:00:00.000Z',
+    });
+    const context = { req: { user: { id: 'user-1' } } };
+
+    const result = await resolver.myProviderSyncStats(
+      'workspace-1',
+      24,
+      context,
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        totalProviders: 3,
+        errorProviders: 1,
+      }),
+    );
+    expect(
+      emailProviderServiceMock.getProviderSyncStatsForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
     });
   });
 });

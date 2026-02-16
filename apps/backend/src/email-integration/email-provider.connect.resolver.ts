@@ -1,4 +1,4 @@
-import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { EmailProviderService } from './email-provider.service';
@@ -6,6 +6,7 @@ import { Provider } from './entities/provider.entity';
 import { ProviderActionResult } from './entities/provider-action-result.entity';
 import { SmtpSettingsInput } from './dto/smtp-settings.input';
 import { ProviderSyncRunResponse } from './entities/provider-sync-run-response.entity';
+import { ProviderSyncStatsResponse } from './entities/provider-sync-stats-response.entity';
 
 interface RequestContext {
   req: {
@@ -115,6 +116,20 @@ export class EmailProviderConnectResolver {
       ctx.req.user.id,
       workspaceId,
     );
+  }
+
+  @Query(() => ProviderSyncStatsResponse)
+  async myProviderSyncStats(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours: number,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.emailProviderService.getProviderSyncStatsForUser({
+      userId: ctx.req.user.id,
+      workspaceId,
+      windowHours,
+    });
   }
 
   /**

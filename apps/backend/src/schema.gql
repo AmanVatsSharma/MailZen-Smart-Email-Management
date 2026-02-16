@@ -141,6 +141,17 @@ type ProviderSyncRunResponse {
   executedAtIso: String!
 }
 
+type ProviderSyncStatsResponse {
+  totalProviders: Int!
+  connectedProviders: Int!
+  syncingProviders: Int!
+  errorProviders: Int!
+  recentlySyncedProviders: Int!
+  recentlyErroredProviders: Int!
+  windowHours: Int!
+  executedAtIso: String!
+}
+
 type InboxMessage {
   id: ID!
   providerId: String!
@@ -338,6 +349,7 @@ type Query {
   validateProvider(id: String!): Boolean!
   providers(workspaceId: String): [Provider!]!
   getEmailProviders(workspaceId: String): [Provider!]!
+  myProviderSyncStats(workspaceId: String, windowHours: Int): ProviderSyncStatsResponse!
   getInboxMessages(inboxType: String!, inboxId: String!, limit: Int, offset: Int): [InboxMessage!]!
   myMailboxes(workspaceId: String): [String!]!
   myMailboxInboundEvents(mailboxId: String, workspaceId: String, status: String, limit: Int): [MailboxInboundEventObservabilityResponse!]!

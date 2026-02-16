@@ -40,6 +40,8 @@ interface SmtpConnectionPool {
 @Injectable()
 export class EmailProviderService {
   private readonly logger = new Logger(EmailProviderService.name);
+  private static readonly MIN_PROVIDER_SYNC_STATS_WINDOW_HOURS = 1;
+  private static readonly MAX_PROVIDER_SYNC_STATS_WINDOW_HOURS = 24 * 30;
   private readonly googleOAuth2Client: OAuth2Client;
   private readonly providerSecretsKeyring: ProviderSecretsKeyring;
   private readonly smtpConnectionPool: SmtpConnectionPool = {};
@@ -568,6 +570,77 @@ export class EmailProviderService {
       failedProviders,
       skippedProviders,
       results,
+      executedAtIso: new Date().toISOString(),
+    };
+  }
+
+  private normalizeSyncStatsWindowHours(windowHours?: number | null): number {
+    if (typeof windowHours !== 'number' || !Number.isFinite(windowHours)) {
+      return 24;
+    }
+    const rounded = Math.trunc(windowHours);
+    if (rounded < EmailProviderService.MIN_PROVIDER_SYNC_STATS_WINDOW_HOURS) {
+      return EmailProviderService.MIN_PROVIDER_SYNC_STATS_WINDOW_HOURS;
+    }
+    if (rounded > EmailProviderService.MAX_PROVIDER_SYNC_STATS_WINDOW_HOURS) {
+      return EmailProviderService.MAX_PROVIDER_SYNC_STATS_WINDOW_HOURS;
+    }
+    return rounded;
+  }
+
+  async getProviderSyncStatsForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+  }) {
+    const normalizedWorkspaceId = String(input.workspaceId || '').trim();
+    const normalizedWindowHours = this.normalizeSyncStatsWindowHours(
+      input.windowHours,
+    );
+    const cutoff = new Date(
+      Date.now() - normalizedWindowHours * 60 * 60 * 1000,
+    );
+
+    const providers = await this.providerRepository.find({
+      where: normalizedWorkspaceId
+        ? { userId: input.userId, workspaceId: normalizedWorkspaceId }
+        : { userId: input.userId },
+    });
+
+    let connectedProviders = 0;
+    let syncingProviders = 0;
+    let errorProviders = 0;
+    let recentlySyncedProviders = 0;
+    let recentlyErroredProviders = 0;
+
+    for (const provider of providers) {
+      const normalizedStatus = String(provider.status || '')
+        .trim()
+        .toLowerCase();
+      if (normalizedStatus === 'syncing') {
+        syncingProviders += 1;
+      } else if (normalizedStatus === 'error') {
+        errorProviders += 1;
+      } else {
+        connectedProviders += 1;
+      }
+
+      if (provider.lastSyncedAt && provider.lastSyncedAt >= cutoff) {
+        recentlySyncedProviders += 1;
+      }
+      if (provider.lastSyncErrorAt && provider.lastSyncErrorAt >= cutoff) {
+        recentlyErroredProviders += 1;
+      }
+    }
+
+    return {
+      totalProviders: providers.length,
+      connectedProviders,
+      syncingProviders,
+      errorProviders,
+      recentlySyncedProviders,
+      recentlyErroredProviders,
+      windowHours: normalizedWindowHours,
       executedAtIso: new Date().toISOString(),
     };
   }

@@ -51,6 +51,12 @@ This module follows NestJS best practices and consists of:
 - `providers`: Frontend-facing provider list (UI shape)
 - `getEmailProviders`: Backwards-compatible alias for `providers`
   - both now accept optional `workspaceId` for scoped listing
+- `myProviderSyncStats(workspaceId?: String, windowHours?: Int): ProviderSyncStatsResponse!`
+  - returns provider sync lifecycle/health counters in a rolling time window
+  - reports:
+    - `totalProviders`, `connectedProviders`, `syncingProviders`, `errorProviders`
+    - `recentlySyncedProviders`, `recentlyErroredProviders`
+  - `windowHours` is clamped server-side for safe bounded telemetry queries
 
 ### Mutations
 
