@@ -99,9 +99,11 @@ describe('AiAgentGatewayService', () => {
       agentActionAuditRepo as Repository<AgentActionAudit>,
       notificationEventBus as NotificationEventBusService,
     );
+  const originalPlatformUrls = process.env.AI_AGENT_PLATFORM_URLS;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.AI_AGENT_PLATFORM_URLS;
     createAgentActionAuditMock.mockImplementation(
       (value: Record<string, unknown>) => value,
     );
@@ -119,6 +121,14 @@ describe('AiAgentGatewayService', () => {
       requestedCredits: 1,
       lastConsumedAtIso: null,
     });
+  });
+
+  afterAll(() => {
+    if (typeof originalPlatformUrls === 'string') {
+      process.env.AI_AGENT_PLATFORM_URLS = originalPlatformUrls;
+      return;
+    }
+    delete process.env.AI_AGENT_PLATFORM_URLS;
   });
 
   it('redacts sensitive fields before platform call', async () => {
@@ -318,6 +328,59 @@ describe('AiAgentGatewayService', () => {
     const health = await service.getPlatformHealth();
     expect(health.reachable).toBe(false);
     expect(health.status).toBe('down');
+  });
+
+  it('falls back to secondary platform endpoint when primary call fails', async () => {
+    process.env.AI_AGENT_PLATFORM_URLS =
+      'http://primary-agent.local,http://secondary-agent.local';
+    const service = createService();
+    mockedAxios.post.mockRejectedValueOnce(new Error('primary down'));
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'auth',
+        assistantText: 'Use forgot password.',
+        intent: 'forgot_password',
+        confidence: 0.9,
+        suggestedActions: [],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+
+    const response = await service.assist({
+      skill: 'auth',
+      messages: [{ role: 'user', content: 'help me login' }],
+      context: { surface: 'auth-login', locale: 'en-IN' },
+      allowedActions: ['auth.open_login'],
+      executeRequestedAction: false,
+    });
+
+    expect(response.assistantText).toBe('Use forgot password.');
+    expect(mockedAxios.post.mock.calls[0]?.[0]).toContain(
+      'http://primary-agent.local',
+    );
+    expect(mockedAxios.post.mock.calls[1]?.[0]).toContain(
+      'http://secondary-agent.local',
+    );
+  });
+
+  it('falls back to secondary health probe endpoint when primary is down', async () => {
+    process.env.AI_AGENT_PLATFORM_URLS =
+      'http://primary-agent.local,http://secondary-agent.local';
+    const service = createService();
+    mockedAxios.get.mockRejectedValueOnce(new Error('health check failed'));
+    mockedAxios.get.mockResolvedValueOnce({
+      data: {
+        status: 'ok',
+      },
+    } as any);
+
+    const health = await service.getPlatformHealth();
+
+    expect(health.reachable).toBe(true);
+    expect(health.status).toBe('ok');
+    expect(health.serviceUrl).toBe('http://secondary-agent.local');
   });
 
   it('executes inbox summary action when suggested and requested', async () => {

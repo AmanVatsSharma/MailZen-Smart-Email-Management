@@ -38,6 +38,7 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 ## Env Variables
 
 - `AI_AGENT_PLATFORM_URL` (default `http://localhost:8100`)
+- `AI_AGENT_PLATFORM_URLS` (optional comma-separated failover endpoints; if set, gateway probes/calls in order)
 - `AI_AGENT_PLATFORM_KEY` (optional shared secret)
 - `AI_AGENT_PLATFORM_TIMEOUT_MS` (default `4000`)
 - `AI_AGENT_PLATFORM_RETRIES` (default `1`)
@@ -87,3 +88,4 @@ flowchart TD
 - 2026-02-16: Added runtime memory-context retrieval for inbox agent payloads.
 - 2026-02-16: Added executable inbox classify/prioritize actions.
 - 2026-02-16: Added executable inbox open-thread action for contextual preview.
+- 2026-02-16: Added multi-endpoint AI platform failover support (`AI_AGENT_PLATFORM_URLS`) for assist and health probes.

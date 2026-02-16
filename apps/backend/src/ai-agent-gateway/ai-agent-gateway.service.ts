@@ -389,7 +389,8 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
 
   async getPlatformHealth(): Promise<AgentPlatformHealthResponse> {
     const checkedAtIso = new Date().toISOString();
-    const serviceUrl = this.getPlatformBaseUrl();
+    const platformBaseUrls = this.getPlatformBaseUrls();
+    let serviceUrl = platformBaseUrls[0] || this.getPlatformBaseUrl();
     const thresholdLatencyMs = this.getLatencyWarnThresholdMs();
     const thresholdErrorRate = this.getErrorRateWarnPercent();
     const requestCount = this.metrics.totalRequests;
@@ -404,27 +405,41 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     let status = 'down';
     let latencyMs = 0;
 
-    const startedAtMs = Date.now();
-    try {
-      const response = await axios.get<{ status?: string }>(
-        `${serviceUrl}/health`,
-        {
-          timeout: this.getPlatformTimeoutMs(),
-          headers: {
-            'x-request-id': `health-${randomUUID()}`,
-            ...(process.env.AI_AGENT_PLATFORM_KEY
-              ? { 'x-agent-platform-key': process.env.AI_AGENT_PLATFORM_KEY }
-              : {}),
+    for (let index = 0; index < platformBaseUrls.length; index += 1) {
+      const candidateBaseUrl = platformBaseUrls[index];
+      if (!candidateBaseUrl) continue;
+      const startedAtMs = Date.now();
+      try {
+        const response = await axios.get<{ status?: string }>(
+          `${candidateBaseUrl}/health`,
+          {
+            timeout: this.getPlatformTimeoutMs(),
+            headers: {
+              'x-request-id': `health-${randomUUID()}`,
+              ...(process.env.AI_AGENT_PLATFORM_KEY
+                ? { 'x-agent-platform-key': process.env.AI_AGENT_PLATFORM_KEY }
+                : {}),
+            },
           },
-        },
-      );
-      latencyMs = Date.now() - startedAtMs;
-      reachable = true;
-      status = response.data?.status || 'ok';
-    } catch {
-      latencyMs = Date.now() - startedAtMs;
-      reachable = false;
-      status = 'down';
+        );
+        latencyMs = Date.now() - startedAtMs;
+        reachable = true;
+        status = response.data?.status || 'ok';
+        serviceUrl = candidateBaseUrl;
+        break;
+      } catch (error: unknown) {
+        latencyMs = Date.now() - startedAtMs;
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          JSON.stringify({
+            event: 'agent_platform_health_probe_failed',
+            probe: index + 1,
+            serviceUrl: candidateBaseUrl,
+            message: errorMessage.slice(0, 200),
+          }),
+        );
+      }
     }
 
     const alertingState = this.resolveAlertingState(
@@ -1088,6 +1103,17 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     return process.env.AI_AGENT_PLATFORM_URL || 'http://localhost:8100';
   }
 
+  private getPlatformBaseUrls(): string[] {
+    const urlsFromEnv = String(process.env.AI_AGENT_PLATFORM_URLS || '')
+      .split(',')
+      .map((url) => url.trim())
+      .filter(Boolean);
+    if (urlsFromEnv.length > 0) {
+      return Array.from(new Set(urlsFromEnv));
+    }
+    return [this.getPlatformBaseUrl()];
+  }
+
   private getPlatformTimeoutMs(): number {
     const parsed = Number(process.env.AI_AGENT_PLATFORM_TIMEOUT_MS || 4000);
     if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
@@ -1099,7 +1125,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     requestId: string,
     ip?: string,
   ): Promise<AgentPlatformResponse> {
-    const url = `${this.getPlatformBaseUrl()}/v1/agent/respond`;
+    const baseUrls = this.getPlatformBaseUrls();
     const headers: Record<string, string> = {
       'x-request-id': requestId,
     };
@@ -1114,29 +1140,44 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     let timeoutFailure = false;
 
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
-      try {
-        const response = await axios.post<AgentPlatformResponse>(url, payload, {
-          timeout: this.getPlatformTimeoutMs(),
-          headers,
-        });
-        return response.data;
-      } catch (error) {
-        lastError = error;
-        timeoutFailure =
-          timeoutFailure ||
-          (axios.isAxiosError(error) && error.code === 'ECONNABORTED');
-        const statusCode = axios.isAxiosError(error)
-          ? (error.response?.status ?? 'unknown')
-          : 'unknown';
-        this.logger.warn(
-          JSON.stringify({
-            event: 'agent_platform_call_failed',
-            attempt: attempt + 1,
-            requestId,
-            statusCode,
-            timeoutFailure,
-          }),
-        );
+      for (
+        let endpointIndex = 0;
+        endpointIndex < baseUrls.length;
+        endpointIndex += 1
+      ) {
+        const baseUrl = baseUrls[endpointIndex];
+        if (!baseUrl) continue;
+        const url = `${baseUrl}/v1/agent/respond`;
+        try {
+          const response = await axios.post<AgentPlatformResponse>(
+            url,
+            payload,
+            {
+              timeout: this.getPlatformTimeoutMs(),
+              headers,
+            },
+          );
+          return response.data;
+        } catch (error) {
+          lastError = error;
+          timeoutFailure =
+            timeoutFailure ||
+            (axios.isAxiosError(error) && error.code === 'ECONNABORTED');
+          const statusCode = axios.isAxiosError(error)
+            ? (error.response?.status ?? 'unknown')
+            : 'unknown';
+          this.logger.warn(
+            JSON.stringify({
+              event: 'agent_platform_call_failed',
+              attempt: attempt + 1,
+              endpointIndex: endpointIndex + 1,
+              endpointUrl: baseUrl,
+              requestId,
+              statusCode,
+              timeoutFailure,
+            }),
+          );
+        }
       }
     }
 
@@ -1149,6 +1190,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         requestId,
         finalStatus,
         timeoutFailure,
+        attemptedEndpoints: baseUrls.length * (maxRetries + 1),
       }),
     );
     throw new ServiceUnavailableException({
