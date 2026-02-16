@@ -6,6 +6,9 @@ export class ProviderSyncIncidentAlertCheckResponse {
   alertsEnabled: boolean;
 
   @Field()
+  syncFailureEnabled: boolean;
+
+  @Field()
   evaluatedAtIso: string;
 
   @Field(() => Int)

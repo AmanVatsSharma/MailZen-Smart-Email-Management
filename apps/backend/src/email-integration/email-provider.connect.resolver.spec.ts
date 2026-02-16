@@ -444,6 +444,7 @@ describe('EmailProviderConnectResolver', () => {
   it('delegates provider sync incident alert check mutation to scheduler', async () => {
     providerSyncIncidentSchedulerMock.runIncidentAlertCheck.mockResolvedValue({
       alertsEnabled: true,
+      syncFailureEnabled: true,
       evaluatedAtIso: '2026-02-16T00:00:00.000Z',
       windowHours: 24,
       warningErrorProviderPercent: 20,

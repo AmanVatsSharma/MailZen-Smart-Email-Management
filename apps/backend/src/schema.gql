@@ -204,6 +204,7 @@ type ProviderSyncIncidentAlertConfigResponse {
 
 type ProviderSyncIncidentAlertCheckResponse {
   alertsEnabled: Boolean!
+  syncFailureEnabled: Boolean!
   evaluatedAtIso: String!
   windowHours: Int!
   warningErrorProviderPercent: Float!

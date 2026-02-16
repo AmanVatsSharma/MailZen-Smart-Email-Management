@@ -210,8 +210,10 @@ export class ProviderSyncIncidentScheduler {
     warningErrorProviderPercent?: number | null;
     criticalErrorProviderPercent?: number | null;
     minErrorProviders?: number | null;
+    syncFailureEnabledOverride?: boolean | null;
   }): Promise<{
     alertsEnabled: boolean;
+    syncFailureEnabled: boolean;
     evaluatedAtIso: string;
     windowHours: number;
     warningErrorProviderPercent: number;
@@ -267,9 +269,15 @@ export class ProviderSyncIncidentScheduler {
       maximumValue: 5000,
     });
     const evaluatedAtIso = new Date().toISOString();
+    const syncFailureEnabled =
+      typeof input.syncFailureEnabledOverride === 'boolean'
+        ? input.syncFailureEnabledOverride
+        : (await this.notificationService.getOrCreatePreferences(input.userId))
+            .syncFailureEnabled;
     if (!baseConfig.alertsEnabled) {
       return {
         alertsEnabled: false,
+        syncFailureEnabled,
         evaluatedAtIso,
         windowHours,
         warningErrorProviderPercent,
@@ -303,24 +311,32 @@ export class ProviderSyncIncidentScheduler {
       criticalErrorProviderPercent,
       minErrorProviders,
     });
+    const statusReason =
+      !syncFailureEnabled &&
+      ProviderSyncIncidentScheduler.ALERTABLE_STATUSES.has(status)
+        ? 'sync-failure-alerts-disabled-by-preference'
+        : this.resolveIncidentStatusReason({
+            status,
+            totalProviders: stats.totalProviders,
+            errorProviders: stats.errorProviders,
+            errorProviderPercent,
+            warningErrorProviderPercent,
+            criticalErrorProviderPercent,
+            minErrorProviders,
+          });
     return {
       alertsEnabled: true,
+      syncFailureEnabled,
       evaluatedAtIso,
       windowHours,
       warningErrorProviderPercent,
       criticalErrorProviderPercent,
       minErrorProviders,
       status,
-      statusReason: this.resolveIncidentStatusReason({
-        status,
-        totalProviders: stats.totalProviders,
-        errorProviders: stats.errorProviders,
-        errorProviderPercent,
-        warningErrorProviderPercent,
-        criticalErrorProviderPercent,
-        minErrorProviders,
-      }),
-      shouldAlert: ProviderSyncIncidentScheduler.ALERTABLE_STATUSES.has(status),
+      statusReason,
+      shouldAlert:
+        syncFailureEnabled &&
+        ProviderSyncIncidentScheduler.ALERTABLE_STATUSES.has(status),
       totalProviders: stats.totalProviders,
       connectedProviders: stats.connectedProviders,
       syncingProviders: stats.syncingProviders,
@@ -414,6 +430,7 @@ export class ProviderSyncIncidentScheduler {
         warningErrorProviderPercent: input.warningErrorProviderPercent,
         criticalErrorProviderPercent: input.criticalErrorProviderPercent,
         minErrorProviders: input.minErrorProviders,
+        syncFailureEnabledOverride: preferences.syncFailureEnabled,
       });
       if (!check.shouldAlert) return;
 

@@ -150,9 +150,35 @@ describe('ProviderSyncIncidentScheduler', () => {
       minErrorProviders: 1,
     });
 
+    expect(result.syncFailureEnabled).toBe(true);
     expect(result.status).toBe('WARNING');
     expect(result.shouldAlert).toBe(true);
     expect(result.errorProviderPercent).toBeCloseTo(33.33, 2);
+  });
+
+  it('returns non-alertable incident check when sync failure preference is disabled', async () => {
+    notificationService.getOrCreatePreferences.mockResolvedValue({
+      userId: 'user-1',
+      syncFailureEnabled: false,
+    } as UserNotificationPreference);
+    emailProviderService.getProviderSyncStatsForUser.mockResolvedValue(
+      warningStats,
+    );
+
+    const result = await scheduler.runIncidentAlertCheck({
+      userId: 'user-1',
+      windowHours: 24,
+      warningErrorProviderPercent: 20,
+      criticalErrorProviderPercent: 50,
+      minErrorProviders: 1,
+    });
+
+    expect(result.syncFailureEnabled).toBe(false);
+    expect(result.status).toBe('WARNING');
+    expect(result.shouldAlert).toBe(false);
+    expect(result.statusReason).toBe(
+      'sync-failure-alerts-disabled-by-preference',
+    );
   });
 
   it('returns disabled status reason when incident alerts are disabled by env', async () => {
@@ -163,6 +189,7 @@ describe('ProviderSyncIncidentScheduler', () => {
     });
 
     expect(result.alertsEnabled).toBe(false);
+    expect(result.syncFailureEnabled).toBe(true);
     expect(result.statusReason).toBe('alerts-disabled-by-env');
     expect(result.shouldAlert).toBe(false);
   });

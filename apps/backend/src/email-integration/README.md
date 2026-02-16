@@ -113,6 +113,7 @@ Frontend-facing (matches `apps/frontend/lib/providers/provider-utils.ts`):
 - `runMyProviderSyncIncidentAlertCheck(windowHours?: Int, warningErrorProviderPercent?: Float, criticalErrorProviderPercent?: Float, minErrorProviders?: Int): ProviderSyncIncidentAlertCheckResponse!`
   - runs on-demand provider incident alert evaluation for current user with optional threshold overrides
   - returns status reason and whether warning/critical alert criteria are currently met
+  - includes `syncFailureEnabled` so diagnostics reflect per-user notification preference gating
 
 ### Batch sync flow (`syncMyProviders`)
 
