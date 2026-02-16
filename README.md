@@ -253,6 +253,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # 10) Optional emergency rollback using newest backup
 ./deploy/ec2/scripts/rollback-latest.sh
+
+# 11) Optional list available backups
+./deploy/ec2/scripts/backup-list.sh
 ```
 
 This stack includes by default:
