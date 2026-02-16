@@ -258,6 +258,12 @@ Example:
 # Logs (specific service)
 ./deploy/ec2/scripts/logs.sh backend
 
+# Logs snapshot (no follow) for a service
+./deploy/ec2/scripts/logs.sh --service backend --tail 500 --no-follow
+
+# Logs for last 30 minutes
+./deploy/ec2/scripts/logs.sh --since 30m
+
 # Restart full stack
 ./deploy/ec2/scripts/restart.sh
 
