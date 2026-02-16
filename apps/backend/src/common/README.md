@@ -20,6 +20,8 @@ Provide shared cross-cutting backend utilities used by multiple modules
   that returns HTTP `429` with `retry-after` semantics.
 - `security/http-csrf-origin.middleware.ts` — cookie-session CSRF origin
   validation middleware for state-changing HTTP requests.
+- `security/http-security-headers.middleware.ts` — global HTTP security-header
+  middleware (HSTS, frame/referrer/policy headers).
 
 ## Global HTTP rate limiting
 
@@ -54,6 +56,30 @@ Behavior:
 - blocks untrusted/missing origins with `403` and emits structured warning
   event `http_csrf_origin_blocked`
 
+## Global HTTP security headers
+
+Configured in `main.ts` and applied to every request:
+
+- `GLOBAL_SECURITY_HEADERS_ENABLED` (default `true`)
+- `GLOBAL_SECURITY_HEADERS_CONTENT_TYPE_NOSNIFF_ENABLED` (default `true`)
+- `GLOBAL_SECURITY_HEADERS_FRAME_OPTIONS` (`DENY|SAMEORIGIN`, default `DENY`)
+- `GLOBAL_SECURITY_HEADERS_REFERRER_POLICY`
+  (default `strict-origin-when-cross-origin`)
+- `GLOBAL_SECURITY_HEADERS_PERMISSIONS_POLICY`
+  (default `camera=(), microphone=(), geolocation=()`)
+- `GLOBAL_SECURITY_HEADERS_COOP`
+  (`same-origin|same-origin-allow-popups|unsafe-none`, default `same-origin`)
+- `GLOBAL_SECURITY_HEADERS_HSTS_ENABLED`
+  (default `true` in production, otherwise `false`)
+- `GLOBAL_SECURITY_HEADERS_HSTS_MAX_AGE_SECONDS` (default `31536000`)
+- `GLOBAL_SECURITY_HEADERS_HSTS_INCLUDE_SUBDOMAINS` (default `true`)
+- `GLOBAL_SECURITY_HEADERS_HSTS_PRELOAD` (default `false`)
+
+Behavior:
+- sets hardening headers before route execution
+- allows strict transport security tuning without code changes
+- keeps defaults safe for production while preserving local-dev usability
+
 ## Structured request logging + PII redaction
 
 - `main.ts` uses request-correlation middleware to always attach/return `x-request-id`.
@@ -70,7 +96,8 @@ Behavior:
 ```mermaid
 flowchart TD
   Request[Incoming HTTP request] --> Correlation[Request ID middleware]
-  Correlation --> StructLog[Structured request log with redaction]
+  Correlation --> SecurityHeaders[Global HTTP security headers]
+  SecurityHeaders --> StructLog[Structured request log with redaction]
   StructLog --> CsrfOrigin[CSRF origin protection]
   CsrfOrigin -->|Allowed| RateLimit[Global HTTP rate limiter]
   CsrfOrigin -->|Blocked| CsrfReject[HTTP 403 origin validation failed]

@@ -10,6 +10,7 @@ import {
 } from './common/logging/structured-log.util';
 import { createHttpRateLimitMiddleware } from './common/rate-limit/http-rate-limit.middleware';
 import { createHttpCsrfOriginProtectionMiddleware } from './common/security/http-csrf-origin.middleware';
+import { createHttpSecurityHeadersMiddleware } from './common/security/http-security-headers.middleware';
 
 const bootstrapLogger = new Logger('Bootstrap');
 
@@ -43,6 +44,19 @@ function parseCsvEnv(value: string | undefined, fallback: string[]): string[] {
     .split(',')
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
+}
+
+function parseSecurityHeaderEnum<T extends string>(
+  value: string | undefined,
+  allowedValues: readonly T[],
+  fallback: T,
+): T {
+  if (value === undefined) return fallback;
+  const normalized = value.trim().toLowerCase();
+  for (const allowedValue of allowedValues) {
+    if (allowedValue.toLowerCase() === normalized) return allowedValue;
+  }
+  return fallback;
 }
 
 async function assertAgentPlatformReadiness(): Promise<void> {
@@ -95,6 +109,67 @@ async function bootstrap() {
   await assertAgentPlatformReadiness();
 
   const app = await NestFactory.create(AppModule);
+
+  const securityHeadersEnabled = parseBooleanEnv(
+    process.env.GLOBAL_SECURITY_HEADERS_ENABLED,
+    true,
+  );
+  const securityHeadersContentTypeNosniffEnabled = parseBooleanEnv(
+    process.env.GLOBAL_SECURITY_HEADERS_CONTENT_TYPE_NOSNIFF_ENABLED,
+    true,
+  );
+  const securityHeadersFrameOptions = parseSecurityHeaderEnum(
+    process.env.GLOBAL_SECURITY_HEADERS_FRAME_OPTIONS,
+    ['DENY', 'SAMEORIGIN'] as const,
+    'DENY',
+  );
+  const securityHeadersReferrerPolicy = String(
+    process.env.GLOBAL_SECURITY_HEADERS_REFERRER_POLICY ||
+      'strict-origin-when-cross-origin',
+  )
+    .trim()
+    .toLowerCase();
+  const securityHeadersPermissionsPolicy = String(
+    process.env.GLOBAL_SECURITY_HEADERS_PERMISSIONS_POLICY ||
+      'camera=(), microphone=(), geolocation=()',
+  ).trim();
+  const securityHeadersCrossOriginOpenerPolicy = parseSecurityHeaderEnum(
+    process.env.GLOBAL_SECURITY_HEADERS_COOP,
+    ['same-origin', 'same-origin-allow-popups', 'unsafe-none'] as const,
+    'same-origin',
+  );
+  const securityHeadersHstsEnabled = parseBooleanEnv(
+    process.env.GLOBAL_SECURITY_HEADERS_HSTS_ENABLED,
+    (process.env.NODE_ENV || 'development') === 'production',
+  );
+  const securityHeadersHstsMaxAgeSeconds = parsePositiveIntegerEnv(
+    process.env.GLOBAL_SECURITY_HEADERS_HSTS_MAX_AGE_SECONDS,
+    31536000,
+    60,
+    63072000,
+  );
+  const securityHeadersHstsIncludeSubdomains = parseBooleanEnv(
+    process.env.GLOBAL_SECURITY_HEADERS_HSTS_INCLUDE_SUBDOMAINS,
+    true,
+  );
+  const securityHeadersHstsPreload = parseBooleanEnv(
+    process.env.GLOBAL_SECURITY_HEADERS_HSTS_PRELOAD,
+    false,
+  );
+  app.use(
+    createHttpSecurityHeadersMiddleware({
+      enabled: securityHeadersEnabled,
+      contentTypeNosniffEnabled: securityHeadersContentTypeNosniffEnabled,
+      frameOptions: securityHeadersFrameOptions,
+      referrerPolicy: securityHeadersReferrerPolicy,
+      permissionsPolicy: securityHeadersPermissionsPolicy,
+      crossOriginOpenerPolicy: securityHeadersCrossOriginOpenerPolicy,
+      hstsEnabled: securityHeadersHstsEnabled,
+      hstsMaxAgeSeconds: securityHeadersHstsMaxAgeSeconds,
+      hstsIncludeSubdomains: securityHeadersHstsIncludeSubdomains,
+      hstsPreload: securityHeadersHstsPreload,
+    }),
+  );
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     const incomingRequestIdHeader = req.headers['x-request-id'];
