@@ -8,11 +8,13 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { OAuth2Client } from 'google-auth-library';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { Email } from '../email/entities/email.entity';
+import { EmailLabel as PersistedEmailLabel } from '../email/entities/email-label.entity';
+import { EmailLabelAssignment } from '../email/entities/email-label-assignment.entity';
 import { Mailbox } from '../mailbox/entities/mailbox.entity';
 import { User } from '../user/entities/user.entity';
 import { EmailFilterInput } from './dto/email-filter.input';
@@ -70,6 +72,10 @@ export class UnifiedInboxService {
     private readonly externalEmailLabelRepo: Repository<ExternalEmailLabel>,
     @InjectRepository(Email)
     private readonly emailRepo: Repository<Email>,
+    @InjectRepository(EmailLabelAssignment)
+    private readonly emailLabelAssignmentRepo: Repository<EmailLabelAssignment>,
+    @InjectRepository(PersistedEmailLabel)
+    private readonly emailLabelRepo: Repository<PersistedEmailLabel>,
     @InjectRepository(Mailbox)
     private readonly mailboxRepo: Repository<Mailbox>,
     @InjectRepository(User)
@@ -149,7 +155,10 @@ export class UnifiedInboxService {
       .toLowerCase();
   }
 
-  private isMailboxEmailParticipant(email: Email, mailboxAddress: string): boolean {
+  private isMailboxEmailParticipant(
+    email: Email,
+    mailboxAddress: string,
+  ): boolean {
     const normalizedMailbox = this.normalizeEmailAddress(mailboxAddress);
     if (!normalizedMailbox) return false;
 
@@ -199,6 +208,17 @@ export class UnifiedInboxService {
     return textOnly.slice(0, 180);
   }
 
+  private resolveMailboxCustomLabelIds(email: Email): string[] {
+    const assignments = (
+      email as unknown as { labels?: Array<{ labelId?: string }> }
+    ).labels;
+    if (!Array.isArray(assignments)) return [];
+    const ids = assignments
+      .map((assignment) => String(assignment.labelId || '').trim())
+      .filter(Boolean);
+    return Array.from(new Set(ids));
+  }
+
   private async listMailboxEmailsForUser(input: {
     userId: string;
     mailboxId: string;
@@ -207,6 +227,7 @@ export class UnifiedInboxService {
     const emails = await this.emailRepo.find({
       where: { userId: input.userId },
       order: { createdAt: 'DESC' },
+      relations: ['labels'],
     });
     return emails.filter((email) => {
       if (email.mailboxId) {
@@ -317,7 +338,9 @@ export class UnifiedInboxService {
   }
 
   private resolveMailboxThreadKey(email: Email): string {
-    const inboundThreadKey = String((email as any).inboundThreadKey || '').trim();
+    const inboundThreadKey = String(
+      (email as any).inboundThreadKey || '',
+    ).trim();
     if (inboundThreadKey) return inboundThreadKey;
     return email.id;
   }
@@ -336,13 +359,17 @@ export class UnifiedInboxService {
       .filter(Boolean) as Array<{ name: string; email: string }>;
 
     const subject = email.subject || '(no subject)';
-    const date = (email.createdAt || email.updatedAt || new Date()).toISOString();
+    const date = (
+      email.createdAt ||
+      email.updatedAt ||
+      new Date()
+    ).toISOString();
     const folder = this.mailboxEmailToFolder(email, source.address);
     const isUnread = this.mailboxEmailIsUnread(email);
     const isStarred = !!email.isImportant;
     const content = email.body || '';
     const contentPreview = this.sanitizeContentPreview(email.body || '');
-    const labelIds = email.folderId ? [email.folderId] : [];
+    const labelIds = this.resolveMailboxCustomLabelIds(email);
 
     return {
       id: email.id,
@@ -409,12 +436,19 @@ export class UnifiedInboxService {
     const labelIds = Array.from(
       new Set(messages.flatMap((message) => message.labelIds || [])),
     );
-    const isUnread = sortedEmails.some((email) => this.mailboxEmailIsUnread(email));
+    const isUnread = sortedEmails.some((email) =>
+      this.mailboxEmailIsUnread(email),
+    );
     const folder = this.mailboxEmailToFolder(latestEmail, source.address);
-    const subject = latestMessage?.subject || latestEmail.subject || '(no subject)';
+    const subject =
+      latestMessage?.subject || latestEmail.subject || '(no subject)';
     const lastMessageDate =
       latestMessage?.date ||
-      (latestEmail.createdAt || latestEmail.updatedAt || new Date()).toISOString();
+      (
+        latestEmail.createdAt ||
+        latestEmail.updatedAt ||
+        new Date()
+      ).toISOString();
 
     return {
       id: threadId,
@@ -431,6 +465,28 @@ export class UnifiedInboxService {
       providerId: source.id,
       messages,
     };
+  }
+
+  private async assertMailboxLabelOwnership(
+    userId: string,
+    labelIds: string[],
+  ): Promise<void> {
+    const normalizedLabelIds = Array.from(
+      new Set(
+        labelIds.map((labelId) => String(labelId || '').trim()).filter(Boolean),
+      ),
+    );
+    if (!normalizedLabelIds.length) return;
+    const labels = await this.emailLabelRepo.find({
+      where: {
+        userId,
+        id: In(normalizedLabelIds),
+      },
+      select: { id: true } as any,
+    });
+    if (labels.length !== normalizedLabelIds.length) {
+      throw new BadRequestException('One or more labels are invalid');
+    }
   }
 
   private mapMailboxEmailToThreadSummary(
@@ -1178,7 +1234,8 @@ export class UnifiedInboxService {
       const targetMailboxEmails = mailboxEmails.filter(
         (email) => this.resolveMailboxThreadKey(email) === anchorThreadKey,
       );
-      if (!targetMailboxEmails.length) throw new NotFoundException('Email not found');
+      if (!targetMailboxEmails.length)
+        throw new NotFoundException('Email not found');
 
       const updates: Partial<Email> = {};
       if (typeof input.read === 'boolean') {
@@ -1199,26 +1256,38 @@ export class UnifiedInboxService {
 
       const addLabels = input.addLabelIds || [];
       const removeLabels = input.removeLabelIds || [];
-      if (addLabels.length > 0) {
-        updates.folderId = addLabels[0];
-      }
+      await this.assertMailboxLabelOwnership(userId, [
+        ...addLabels,
+        ...removeLabels,
+      ]);
 
       if (Object.keys(updates).length > 0) {
         for (const mailboxEmail of targetMailboxEmails) {
-          const scopedUpdates = { ...updates } as Partial<Email>;
-          if (addLabels.length === 0 && mailboxEmail.folderId) {
-            if (removeLabels.includes(mailboxEmail.folderId)) {
-              scopedUpdates.folderId = null as any;
-            } else if (Object.prototype.hasOwnProperty.call(scopedUpdates, 'folderId')) {
-              delete scopedUpdates.folderId;
-            }
-          }
-          if (Object.keys(scopedUpdates).length === 0) continue;
-          await this.emailRepo.update(
-            { id: mailboxEmail.id, userId },
-            scopedUpdates,
-          );
+          if (Object.keys(updates).length === 0) continue;
+          await this.emailRepo.update({ id: mailboxEmail.id, userId }, updates);
         }
+      }
+
+      const targetMailboxEmailIds = targetMailboxEmails.map(
+        (mailboxEmail) => mailboxEmail.id,
+      );
+      if (addLabels.length && targetMailboxEmailIds.length) {
+        const assignmentRows = targetMailboxEmailIds.flatMap((emailId) =>
+          addLabels.map((labelId) => ({
+            emailId,
+            labelId,
+          })),
+        );
+        await this.emailLabelAssignmentRepo.upsert(assignmentRows, [
+          'emailId',
+          'labelId',
+        ]);
+      }
+      if (removeLabels.length && targetMailboxEmailIds.length) {
+        await this.emailLabelAssignmentRepo.delete({
+          emailId: In(targetMailboxEmailIds),
+          labelId: In(removeLabels),
+        } as any);
       }
 
       const refreshedMailboxEmails = await this.listMailboxEmailsForUser({
@@ -1444,22 +1513,42 @@ export class UnifiedInboxService {
         mailboxId: source.id,
         mailboxAddress: source.address,
       });
-      const counts = new Map<string, number>();
-      for (const mailboxEmail of mailboxEmails) {
-        if (!mailboxEmail.folderId) continue;
-        counts.set(
-          mailboxEmail.folderId,
-          (counts.get(mailboxEmail.folderId) || 0) + 1,
-        );
+      const mailboxEmailIds = mailboxEmails.map(
+        (mailboxEmail) => mailboxEmail.id,
+      );
+      if (!mailboxEmailIds.length) return [];
+      const assignments = await this.emailLabelAssignmentRepo.find({
+        where: { emailId: In(mailboxEmailIds) } as any,
+        select: {
+          emailId: true,
+          labelId: true,
+        } as any,
+      });
+      const labelCounts = new Map<string, number>();
+      for (const assignment of assignments) {
+        const labelId = String(assignment.labelId || '').trim();
+        if (!labelId) continue;
+        labelCounts.set(labelId, (labelCounts.get(labelId) || 0) + 1);
       }
-
+      const labelIds = Array.from(labelCounts.keys());
+      if (!labelIds.length) return [];
+      const labelRows = await this.emailLabelRepo.find({
+        where: {
+          userId,
+          id: In(labelIds),
+        },
+      });
+      const labelById = new Map(labelRows.map((label) => [label.id, label]));
       const palette = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-      return Array.from(counts.entries()).map(([labelId, count], index) => ({
-        id: labelId,
-        name: `Label ${labelId.slice(0, 8)}`,
-        color: palette[index % palette.length],
-        count,
-      }));
+      return labelIds.map((labelId, index) => {
+        const label = labelById.get(labelId);
+        return {
+          id: labelId,
+          name: label?.name || `Label ${labelId.slice(0, 8)}`,
+          color: label?.color || palette[index % palette.length],
+          count: labelCounts.get(labelId) || 0,
+        };
+      });
     }
 
     const providerId = source.id;

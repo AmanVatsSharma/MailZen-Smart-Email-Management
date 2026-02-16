@@ -3,6 +3,8 @@ import { EmailProvider } from '../email-integration/entities/email-provider.enti
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { Email } from '../email/entities/email.entity';
+import { EmailLabel } from '../email/entities/email-label.entity';
+import { EmailLabelAssignment } from '../email/entities/email-label-assignment.entity';
 import { Mailbox } from '../mailbox/entities/mailbox.entity';
 import { User } from '../user/entities/user.entity';
 import { UnifiedInboxService } from './unified-inbox.service';
@@ -14,6 +16,8 @@ describe('UnifiedInboxService', () => {
   let providerRepo: jest.Mocked<Repository<EmailProvider>>;
   let messageRepo: jest.Mocked<Repository<ExternalEmailMessage>>;
   let labelRepo: jest.Mocked<Repository<ExternalEmailLabel>>;
+  let emailLabelRepo: jest.Mocked<Repository<EmailLabel>>;
+  let emailLabelAssignmentRepo: jest.Mocked<Repository<EmailLabelAssignment>>;
   let emailRepo: jest.Mocked<Repository<Email>>;
   let mailboxRepo: jest.Mocked<Repository<Mailbox>>;
   let userRepo: jest.Mocked<Repository<User>>;
@@ -31,6 +35,14 @@ describe('UnifiedInboxService', () => {
     labelRepo = {
       find: jest.fn(),
     } as unknown as jest.Mocked<Repository<ExternalEmailLabel>>;
+    emailLabelRepo = {
+      find: jest.fn(),
+    } as unknown as jest.Mocked<Repository<EmailLabel>>;
+    emailLabelAssignmentRepo = {
+      find: jest.fn(),
+      upsert: jest.fn(),
+      delete: jest.fn(),
+    } as unknown as jest.Mocked<Repository<EmailLabelAssignment>>;
     emailRepo = {
       find: jest.fn(),
       findOne: jest.fn(),
@@ -48,6 +60,8 @@ describe('UnifiedInboxService', () => {
       messageRepo,
       labelRepo,
       emailRepo,
+      emailLabelAssignmentRepo,
+      emailLabelRepo,
       mailboxRepo,
       userRepo,
     );
@@ -362,14 +376,12 @@ describe('UnifiedInboxService', () => {
       id: userId,
       activeWorkspaceId: 'workspace-1',
     } as any);
-    providerRepo.findOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: providerId,
-        userId,
-        workspaceId: null,
-        type: 'GMAIL',
-      } as any);
+    providerRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: providerId,
+      userId,
+      workspaceId: null,
+      type: 'GMAIL',
+    } as any);
     const queryBuilderMock = {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -477,6 +489,7 @@ describe('UnifiedInboxService', () => {
       providerId: 'mailbox-1',
     } as any);
     emailRepo.update.mockResolvedValue({} as any);
+    emailLabelRepo.find.mockResolvedValue([]);
 
     const updated = await service.updateThread(userId, 'mail-1', {
       read: true,
@@ -500,5 +513,136 @@ describe('UnifiedInboxService', () => {
       }),
     );
     expect(updated.messages[0].isStarred).toBe(true);
+  });
+
+  it('updates mailbox thread custom label assignments', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: userId,
+      activeInboxType: 'MAILBOX',
+      activeInboxId: 'mailbox-1',
+    } as any);
+    mailboxRepo.findOne.mockResolvedValue({
+      id: 'mailbox-1',
+      userId,
+      email: 'sales@mailzen.com',
+    } as any);
+    emailRepo.find.mockResolvedValue([
+      {
+        id: 'mail-1',
+        userId,
+        inboundThreadKey: 'thread-msg-1',
+        subject: 'Warm welcome',
+        body: '<p>Welcome to MailZen</p>',
+        from: 'client@example.com',
+        to: ['sales@mailzen.com'],
+        status: 'UNREAD',
+        isImportant: false,
+        createdAt: new Date('2026-02-15T10:00:00.000Z'),
+        updatedAt: new Date('2026-02-15T10:00:00.000Z'),
+      } as any,
+      {
+        id: 'mail-2',
+        userId,
+        inboundThreadKey: 'thread-msg-1',
+        subject: 'Re: Warm welcome',
+        body: '<p>Follow-up note</p>',
+        from: 'sales@mailzen.com',
+        to: ['client@example.com'],
+        status: 'READ',
+        isImportant: false,
+        createdAt: new Date('2026-02-15T10:02:00.000Z'),
+        updatedAt: new Date('2026-02-15T10:02:00.000Z'),
+      } as any,
+    ]);
+    emailLabelRepo.find.mockResolvedValue([
+      { id: 'label-1', userId, name: 'VIP', color: '#22c55e' } as any,
+      { id: 'label-2', userId, name: 'Follow-up', color: '#3b82f6' } as any,
+    ]);
+    emailRepo.update.mockResolvedValue({} as any);
+    emailLabelAssignmentRepo.upsert.mockResolvedValue({} as any);
+    emailLabelAssignmentRepo.delete.mockResolvedValue({} as any);
+    jest.spyOn(service, 'getThread').mockResolvedValue({
+      id: 'thread-msg-1',
+      subject: 'Warm welcome',
+      participants: [],
+      lastMessageDate: new Date().toISOString(),
+      isUnread: true,
+      messages: [],
+      folder: 'inbox',
+      labelIds: ['label-1'],
+      providerId: 'mailbox-1',
+    } as any);
+
+    await service.updateThread(userId, 'thread-msg-1', {
+      addLabelIds: ['label-1'],
+      removeLabelIds: ['label-2'],
+    } as any);
+
+    expect(emailLabelAssignmentRepo.upsert).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ emailId: 'mail-1', labelId: 'label-1' }),
+        expect.objectContaining({ emailId: 'mail-2', labelId: 'label-1' }),
+      ]),
+      ['emailId', 'labelId'],
+    );
+    expect(emailLabelAssignmentRepo.delete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailId: expect.any(Object),
+        labelId: expect.any(Object),
+      }),
+    );
+  });
+
+  it('returns mailbox labels from persisted label assignments', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: userId,
+      activeInboxType: 'MAILBOX',
+      activeInboxId: 'mailbox-1',
+    } as any);
+    mailboxRepo.findOne.mockResolvedValue({
+      id: 'mailbox-1',
+      userId,
+      email: 'sales@mailzen.com',
+    } as any);
+    emailRepo.find.mockResolvedValue([
+      {
+        id: 'mail-1',
+        userId,
+        mailboxId: 'mailbox-1',
+      } as any,
+      {
+        id: 'mail-2',
+        userId,
+        mailboxId: 'mailbox-1',
+      } as any,
+    ]);
+    emailLabelAssignmentRepo.find.mockResolvedValue([
+      { emailId: 'mail-1', labelId: 'label-1' } as any,
+      { emailId: 'mail-2', labelId: 'label-1' } as any,
+      { emailId: 'mail-2', labelId: 'label-2' } as any,
+    ]);
+    emailLabelRepo.find.mockResolvedValue([
+      { id: 'label-1', userId, name: 'VIP', color: '#22c55e' } as any,
+      { id: 'label-2', userId, name: 'Finance', color: '#0ea5e9' } as any,
+    ]);
+
+    const labels = await service.listLabels(userId);
+
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'label-1',
+          name: 'VIP',
+          color: '#22c55e',
+          count: 2,
+        }),
+        expect.objectContaining({
+          id: 'label-2',
+          name: 'Finance',
+          color: '#0ea5e9',
+          count: 1,
+        }),
+      ]),
+    );
   });
 });

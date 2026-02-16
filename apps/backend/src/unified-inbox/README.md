@@ -39,18 +39,22 @@ These names intentionally match the frontend inbox UI (`apps/frontend/lib/apollo
 
 - **`labels: [EmailLabel!]!`**
   - Provider mode: non-system provider labels with counts, metadata from `ExternalEmailLabel`.
-  - Mailbox mode: lightweight label list derived from `Email.folderId` counts.
+  - Mailbox mode: label list derived from persisted `EmailLabelAssignment` joins with
+    metadata from `EmailLabel`.
 
 ### Mutations
 
 - **`updateEmail(id: ID!, input: EmailUpdateInput!): EmailThread!`**
   - Gmail providers: calls Gmail `threads.modify` / `messages.modify` with retry/backoff.
   - Non-Gmail providers: updates local labels only (best-effort / MVP).
-  - Mailbox mode: updates internal `Email.status`, `Email.isImportant`, and lightweight `folderId` label mapping.
+  - Mailbox mode:
+    - updates internal `Email.status` / `Email.isImportant` for folder/read/star transitions.
+    - applies mailbox custom labels through `EmailLabelAssignment` add/remove deltas with ownership validation.
 
 ## Folder & label mapping (Gmail)
 
 Folders are derived from Gmail system labels:
+
 - `INBOX` → `inbox`
 - `SENT` → `sent`
 - `TRASH` → `trash`
@@ -58,6 +62,7 @@ Folders are derived from Gmail system labels:
 - (none of the above) → `archive`
 
 Read/star state:
+
 - unread = label `UNREAD`
 - starred = label `STARRED`
 
@@ -71,8 +76,15 @@ Read/star state:
 - default -> `inbox`
 
 Read/star state:
+
 - unread = `status in [UNREAD, NEW]`
 - starred = `isImportant=true`
+
+Mailbox custom labels:
+
+- stored in `email_label_assignments`
+- surfaced in thread `labelIds` and `labels` query counts
+- updated via `updateEmail` add/remove label deltas
 
 ## Mailbox threading model
 
@@ -85,11 +97,12 @@ Read/star state:
   - thread key
   - email row id
   - inbound message id
-  and resolve to the grouped mailbox thread payload.
+    and resolve to the grouped mailbox thread payload.
 
 ## Security / authz
 
 Every operation is **user-scoped**:
+
 - active provider/mailbox must belong to the authenticated user
 - when `User.activeWorkspaceId` is set, provider/mailbox source resolution is scoped to that workspace (with legacy null fallback during rollout)
 - provider message queries are filtered by `userId` + `providerId`
@@ -180,4 +193,3 @@ sequenceDiagram
   - Added mailbox-source support in `UnifiedInboxService` so active `MAILBOX` inboxes return real thread data from internal `Email` rows.
   - Added mailbox-mode folder/label/read/star mapping while preserving existing provider behavior.
   - Added unit tests for mailbox thread listing and mailbox action updates.
-
