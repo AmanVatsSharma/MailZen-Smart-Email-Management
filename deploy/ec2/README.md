@@ -145,8 +145,14 @@ Example:
 # Config-only validation (useful when docker daemon is unavailable)
 ./deploy/ec2/scripts/preflight.sh --config-only
 
-# Pull updates and recreate all services
+# Pull updates, recreate, and run verify checks
 ./deploy/ec2/scripts/update.sh
+
+# Update with custom verify retries
+./deploy/ec2/scripts/update.sh --verify-max-retries 10 --verify-retry-sleep 5
+
+# Config-only preflight + deploy dry-run update simulation
+./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify
 
 # Deploy command dry-run (prints command only)
 ./deploy/ec2/scripts/deploy.sh --dry-run

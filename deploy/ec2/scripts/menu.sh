@@ -32,7 +32,7 @@ show_menu() {
 6) Verify deployment (smoke checks)
 7) Show status
 8) Show logs (all services)
-9) Update stack (pull + recreate)
+9) Update stack (pull + recreate + verify)
 10) Backup database
 11) List backups
 12) Prune old backups (keep latest 10)

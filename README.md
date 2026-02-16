@@ -283,8 +283,11 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # 5) Check status
 ./deploy/ec2/scripts/status.sh
 
-# 6) Future updates
+# 6) Future updates (includes verify checks)
 ./deploy/ec2/scripts/update.sh
+
+# Optional: update dry-run simulation
+./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify
 
 # 7) Optional DB backup
 ./deploy/ec2/scripts/backup-db.sh
