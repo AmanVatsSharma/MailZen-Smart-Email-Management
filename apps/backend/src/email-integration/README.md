@@ -78,6 +78,22 @@ Frontend-facing (matches `apps/frontend/lib/providers/provider-utils.ts`):
   - returns aggregate counters (`requested/synced/failed/skipped`) and per-provider results
   - skips providers with active lease/status indicating in-flight sync
 
+### Batch sync flow (`syncMyProviders`)
+
+```mermaid
+flowchart TD
+  FE[Frontend settings or admin action] -->|syncMyProviders| RES[EmailProviderConnectResolver]
+  RES --> SVC[EmailProviderService.syncUserProviders]
+  SVC --> OWN[Ownership and workspace scope validation]
+  OWN --> LIST[List matching providers]
+  LIST --> LOOP{For each provider}
+  LOOP -->|sync already running| SKIP[Mark skippedProviders plus result row]
+  LOOP -->|eligible| SINGLE[syncProvider providerId userId]
+  SINGLE --> STATE[Persist provider state connected/error telemetry]
+  STATE --> RESULT[Aggregate counters and per-provider result rows]
+  RESULT --> FE
+```
+
 ## OAuth Redirect URI notes (important)
 
 OAuth `code` exchange requires that the **redirect URI used during authorization** matches the one used during token exchange.
@@ -260,6 +276,23 @@ The module automatically handles OAuth token refresh for Gmail and Outlook provi
   - `lastSyncError` (trimmed failure reason)
 - Sync services clear these fields when starting and when completing successfully.
 - Scheduler fallback failures also write these fields when retries are exhausted.
+
+## Operational runbook: provider sync triage
+
+1. **Check provider state in GraphQL**
+   - Query `providers(workspaceId)` for `status`, `lastSyncError`, `lastSyncErrorAt`, `lastSynced`.
+2. **Trigger targeted manual sync**
+   - Run `syncMyProviders(providerId: "...", workspaceId: "...")`.
+   - Verify response row for that provider (`success/error`) and aggregate counters.
+3. **Trigger workspace-wide recovery**
+   - Run `syncMyProviders(workspaceId: "...")` to recover all providers in scope.
+4. **Interpret batch counters**
+   - `syncedProviders`: recovered/healthy syncs
+   - `failedProviders`: sync attempts that ended in error
+   - `skippedProviders`: already-running providers (active lease)
+5. **Escalation path**
+   - If repeated `failedProviders > 0`, inspect provider OAuth token validity and
+     upstream API availability (Google/Microsoft service health), then retry.
 
 ## Connection Pooling
 
