@@ -67,6 +67,8 @@ fi
 log_info "Restarting MailZen services..."
 require_cmd docker
 ensure_required_files_exist
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
 
 if [[ "${DRY_RUN}" == false ]]; then
   if ! docker info >/dev/null 2>&1; then
