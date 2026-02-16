@@ -29,6 +29,7 @@ scripts=(
   "doctor.sh"
   "support-bundle.sh"
   "pipeline-check.sh"
+  "reports-prune.sh"
   "self-check.sh"
   "status.sh"
   "logs.sh"

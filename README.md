@@ -261,6 +261,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: generate support bundle archive for troubleshooting
 ./deploy/ec2/scripts/support-bundle.sh
 
+# Optional: prune old diagnostics report artifacts
+./deploy/ec2/scripts/reports-prune.sh
+
 # Optional: rotate app secrets (JWT/OAuth/platform key)
 ./deploy/ec2/scripts/rotate-app-secrets.sh --yes
 

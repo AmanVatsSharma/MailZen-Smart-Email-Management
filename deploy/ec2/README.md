@@ -40,6 +40,7 @@ Additional deployment flowcharts:
   - `support-bundle.sh` (collect support-ready diagnostics archive)
   - `rotate-app-secrets.sh` (rotate JWT/OAuth/platform secrets)
   - `pipeline-check.sh` (CI/config-only deployment validation sequence)
+  - `reports-prune.sh` (report/support bundle retention cleanup)
   - `self-check.sh` (validate deployment script integrity)
   - `status.sh`
   - `logs.sh`
@@ -198,6 +199,12 @@ Example:
 
 # Generate compressed support bundle archive
 ./deploy/ec2/scripts/support-bundle.sh
+
+# Keep only latest 20 report artifacts (default)
+./deploy/ec2/scripts/reports-prune.sh
+
+# Keep only latest 50 report artifacts
+./deploy/ec2/scripts/reports-prune.sh 50
 
 # Rotate app secrets (interactive confirmation)
 ./deploy/ec2/scripts/rotate-app-secrets.sh
