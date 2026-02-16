@@ -20,6 +20,23 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 DOMAIN=""
 EXPECTED_IP=""
 
+is_valid_ipv4() {
+  local ip="$1"
+  IFS='.' read -r -a octets <<<"${ip}"
+  if [[ "${#octets[@]}" -ne 4 ]]; then
+    return 1
+  fi
+  for octet in "${octets[@]}"; do
+    if [[ ! "${octet}" =~ ^[0-9]+$ ]]; then
+      return 1
+    fi
+    if ((octet < 0 || octet > 255)); then
+      return 1
+    fi
+  done
+  return 0
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --domain)
@@ -57,9 +74,11 @@ if [[ ! "${DOMAIN}" =~ ^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
   exit 1
 fi
 
-if [[ -n "${EXPECTED_IP}" ]] && [[ ! "${EXPECTED_IP}" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-  log_error "Invalid IPv4 format for --expected-ip: ${EXPECTED_IP}"
-  exit 1
+if [[ -n "${EXPECTED_IP}" ]]; then
+  if ! is_valid_ipv4 "${EXPECTED_IP}"; then
+    log_error "Invalid IPv4 format for --expected-ip: ${EXPECTED_IP}"
+    exit 1
+  fi
 fi
 
 require_cmd getent
