@@ -944,6 +944,76 @@ describe('EmailProviderService', () => {
     );
   });
 
+  it('exports provider sync data snapshot for admin legal request', async () => {
+    providerRepository.find.mockResolvedValue([
+      {
+        id: 'provider-9',
+        type: 'GMAIL',
+        email: 'founder@gmail.com',
+        status: 'connected',
+        isActive: true,
+        workspaceId: 'workspace-1',
+        createdAt: new Date('2026-02-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-02-16T00:00:00.000Z'),
+      } as EmailProvider,
+    ]);
+
+    const result = await service.exportProviderSyncDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      workspaceId: 'workspace-1',
+      limit: 80,
+    });
+    const payload = JSON.parse(result.dataJson) as {
+      scope: { userId: string };
+      summary: { totalProviders: number };
+    };
+
+    expect(payload.scope.userId).toBe('user-2');
+    expect(payload.summary.totalProviders).toBe(1);
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+        action: 'provider_sync_data_export_requested',
+      }),
+    );
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'provider_sync_data_export_requested_by_admin',
+        metadata: expect.objectContaining({
+          targetUserId: 'user-2',
+        }),
+      }),
+    );
+  });
+
+  it('does not fail admin provider sync export when admin audit write fails', async () => {
+    providerRepository.find.mockResolvedValue([]);
+    auditLogRepository.save
+      .mockResolvedValueOnce({ id: 'audit-log-1' } as AuditLog)
+      .mockRejectedValueOnce(new Error('audit datastore unavailable'));
+
+    const result = await service.exportProviderSyncDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      workspaceId: 'workspace-1',
+      limit: 10,
+    });
+
+    expect(result.generatedAtIso).toBeTruthy();
+    expect(result.dataJson).toContain('"summary"');
+  });
+
+  it('rejects admin provider sync export when actor user id is missing', async () => {
+    await expect(
+      service.exportProviderSyncDataForAdmin({
+        targetUserId: 'user-2',
+        actorUserId: '',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('returns provider sync alert delivery stats for scoped workspace', async () => {
     notificationRepository.find.mockResolvedValue([
       {

@@ -17,6 +17,7 @@ describe('EmailProviderConnectResolver', () => {
     syncUserProviders: jest.fn(),
     getProviderSyncStatsForUser: jest.fn(),
     exportProviderSyncDataForUser: jest.fn(),
+    exportProviderSyncDataForAdmin: jest.fn(),
     getProviderSyncAlertDeliveryStatsForUser: jest.fn(),
     getProviderSyncAlertDeliverySeriesForUser: jest.fn(),
     getProviderSyncAlertsForUser: jest.fn(),
@@ -175,6 +176,35 @@ describe('EmailProviderConnectResolver', () => {
       userId: 'user-1',
       workspaceId: 'workspace-1',
       limit: 150,
+    });
+  });
+
+  it('delegates admin provider sync data export query to service', async () => {
+    emailProviderServiceMock.exportProviderSyncDataForAdmin.mockResolvedValue({
+      generatedAtIso: '2026-02-16T01:00:00.000Z',
+      dataJson: '{"summary":{"totalProviders":2}}',
+    });
+    const context = { req: { user: { id: 'admin-1' } } };
+
+    const result = await resolver.userProviderSyncDataExport(
+      'user-2',
+      'workspace-1',
+      220,
+      context,
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        generatedAtIso: '2026-02-16T01:00:00.000Z',
+      }),
+    );
+    expect(
+      emailProviderServiceMock.exportProviderSyncDataForAdmin,
+    ).toHaveBeenCalledWith({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      workspaceId: 'workspace-1',
+      limit: 220,
     });
   });
 

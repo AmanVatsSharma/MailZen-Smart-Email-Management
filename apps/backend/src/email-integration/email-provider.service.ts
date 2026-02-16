@@ -1112,6 +1112,54 @@ export class EmailProviderService {
     };
   }
 
+  async exportProviderSyncDataForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+    workspaceId?: string | null;
+    limit?: number | null;
+  }): Promise<{ generatedAtIso: string; dataJson: string }> {
+    const targetUserId = String(input.targetUserId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!targetUserId) {
+      throw new BadRequestException('Target user id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'provider_sync_data_export_admin_start',
+        actorUserId,
+        targetUserId,
+        workspaceId: input.workspaceId || null,
+      }),
+    );
+    const exportPayload = await this.exportProviderSyncDataForUser({
+      userId: targetUserId,
+      workspaceId: input.workspaceId,
+      limit: input.limit,
+    });
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'provider_sync_data_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        workspaceId: input.workspaceId || null,
+        generatedAtIso: exportPayload.generatedAtIso,
+        selfRequested: actorUserId === targetUserId,
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'provider_sync_data_export_admin_completed',
+        actorUserId,
+        targetUserId,
+        workspaceId: input.workspaceId || null,
+      }),
+    );
+    return exportPayload;
+  }
+
   private normalizeProviderSyncAlertBucketMinutes(
     bucketMinutes?: number | null,
   ): number {

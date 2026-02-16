@@ -8,6 +8,7 @@ import {
   Resolver,
 } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
+import { AdminGuard } from '../common/guards/admin.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { EmailProviderService } from './email-provider.service';
 import { ProviderSyncIncidentScheduler } from './provider-sync-incident.scheduler';
@@ -168,6 +169,22 @@ export class EmailProviderConnectResolver {
   ) {
     return this.emailProviderService.exportProviderSyncDataForUser({
       userId: ctx.req.user.id,
+      workspaceId,
+      limit,
+    });
+  }
+
+  @Query(() => ProviderSyncDataExportResponse)
+  @UseGuards(AdminGuard)
+  async userProviderSyncDataExport(
+    @Args('userId') userId: string,
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Args('limit', { type: () => Int, defaultValue: 200 }) limit: number,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.emailProviderService.exportProviderSyncDataForAdmin({
+      targetUserId: userId,
+      actorUserId: ctx.req.user.id,
       workspaceId,
       limit,
     });

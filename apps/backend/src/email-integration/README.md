@@ -61,6 +61,9 @@ This module follows NestJS best practices and consists of:
   - exports provider sync operational state snapshot as JSON payload
   - includes per-provider lifecycle fields (status, last sync/error timestamps, lease/watch metadata)
   - includes aggregated status counts for compliance/support workflows
+- `userProviderSyncDataExport(userId: String!, workspaceId?: String, limit?: Int): ProviderSyncDataExportResponse!` (admin)
+  - exports target-user provider sync state snapshot for legal/compliance workflows
+  - includes the same operational metadata shape as `myProviderSyncDataExport`
 - `myProviderSyncAlertDeliveryStats(workspaceId?: String, windowHours?: Int): ProviderSyncAlertDeliveryStatsResponse!`
   - returns aggregate counts for emitted provider sync alert notifications
   - covers `SYNC_FAILED` and `SYNC_RECOVERED` notification types
@@ -187,6 +190,9 @@ Login OAuth (backend redirect) uses:
   - `provider_delete_failed`
   - `provider_credentials_update_failed`
   - `provider_validation_failed`
+- Admin export lifecycle:
+  - `provider_sync_data_export_admin_start`
+  - `provider_sync_data_export_admin_completed`
 - OAuth token refresh failures:
   - `provider_oauth_token_refresh_failed`
 - Compliance/audit persistence:
@@ -200,6 +206,7 @@ Login OAuth (backend redirect) uses:
     - `provider_sync_requested`
     - `provider_sync_batch_requested`
     - `provider_sync_data_export_requested`
+    - `provider_sync_data_export_requested_by_admin`
     - `provider_sync_alert_delivery_export_requested`
     - `provider_sync_incident_alert_history_export_requested`
     - `provider_sync_incident_alert_delivery_export_requested`
