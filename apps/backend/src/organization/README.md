@@ -153,3 +153,13 @@ The unified inbox UI label list comes from `UnifiedInboxModule.labels`, which us
 - NestJS framework
 - GraphQL
 - JWT Authentication 
+
+## Observability (structured events)
+
+- `LabelService` emits resilient audit warning event:
+  - `label_audit_log_write_failed`
+
+## Compliance / Audit Trail
+
+- Persisted audit actions:
+  - `label_created`
