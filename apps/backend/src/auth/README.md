@@ -89,6 +89,8 @@ Web sessions are persisted with an HttpOnly `token` cookie.
   - `auth_signup_otp_verify_completed`
 - resolver context safety:
   - `auth_resolver_missing_response_context`
+- guard diagnostics:
+  - `jwt_auth_guard_token_validation_failed`
 
 PII-sensitive identifiers such as phone numbers are logged as irreversible
 fingerprints, not raw values.

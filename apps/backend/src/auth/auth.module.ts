@@ -1,4 +1,4 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Logger, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../user/entities/user.entity';
@@ -16,6 +16,8 @@ import { EmailProviderModule } from '../email-integration/email-provider.module'
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AdminGuard } from './guards/admin.guard';
 
+const authModuleLogger = new Logger('AuthModule');
+
 /**
  * Resolve JWT expiration from env in a type-safe way.
  *
@@ -32,8 +34,8 @@ function getJwtExpiresInSeconds(): number {
   const asNumber = Number(raw);
   if (Number.isFinite(asNumber) && asNumber > 0) return Math.floor(asNumber);
 
-  console.warn(
-    `[AuthModule] Invalid JWT_EXPIRATION='${raw}'. Expected a positive number (seconds). Falling back to 86400.`,
+  authModuleLogger.warn(
+    `Invalid JWT_EXPIRATION='${raw}'. Expected a positive number (seconds). Falling back to 86400.`,
   );
   return 60 * 60 * 24;
 }

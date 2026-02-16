@@ -86,6 +86,7 @@ jobs:
           mailbox/mailbox-inbound.controller.spec.ts
           phone/phone.service.spec.ts
           auth/auth.service.spec.ts
+          auth/guards/jwt-auth.guard.spec.ts
           auth/session-cookie.service.spec.ts
           user/user.service.spec.ts
           user/user.resolver.spec.ts
