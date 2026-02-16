@@ -43,6 +43,10 @@ ensure_required_files_exist
 log_info "Active env file: $(get_env_file)"
 log_info "Active compose file: $(get_compose_file)"
 
+if [[ "${ASSUME_YES}" == true ]] && [[ "${PURGE_DATA}" == false ]]; then
+  log_warn "--yes has no effect unless --purge-data is enabled."
+fi
+
 if [[ "${PURGE_DATA}" == true ]]; then
   if [[ "${ASSUME_YES}" == false ]]; then
     if [[ -t 0 ]]; then

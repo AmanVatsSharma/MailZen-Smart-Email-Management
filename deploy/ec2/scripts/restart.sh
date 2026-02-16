@@ -63,6 +63,9 @@ fi
 if [[ -n "${SERVICE_NAME}" ]]; then
   assert_known_service_name "${SERVICE_NAME}"
 fi
+if [[ "${DRY_RUN}" == true ]] && [[ "${WAIT_SECONDS}" -gt 0 ]]; then
+  log_warn "--wait-seconds has no effect in --dry-run mode."
+fi
 
 log_info "Restarting MailZen services..."
 require_cmd docker
