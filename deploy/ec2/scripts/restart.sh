@@ -16,23 +16,31 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 SERVICE_NAME="${1:-}"
 DRY_RUN=false
 WAIT_SECONDS=0
+POSITIONAL_SERVICE=""
+POSITIONAL_SERVICE_SET=false
 
 if [[ -n "${SERVICE_NAME}" ]] && [[ "${SERVICE_NAME}" =~ ^-- ]]; then
   SERVICE_NAME=""
 fi
 
 if [[ -n "${SERVICE_NAME}" ]]; then
+  POSITIONAL_SERVICE="${SERVICE_NAME}"
+  POSITIONAL_SERVICE_SET=true
   shift
 fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --service)
-    SERVICE_NAME="${2:-}"
-    if [[ -z "${SERVICE_NAME}" ]]; then
+    service_arg="${2:-}"
+    if [[ -z "${service_arg}" ]]; then
       log_error "--service requires a value."
       exit 1
     fi
+    if [[ "${POSITIONAL_SERVICE_SET}" == true ]] && [[ "${service_arg}" != "${POSITIONAL_SERVICE}" ]]; then
+      log_warn "Positional service '${POSITIONAL_SERVICE}' overridden by --service '${service_arg}'."
+    fi
+    SERVICE_NAME="${service_arg}"
     shift 2
     ;;
   --dry-run)
