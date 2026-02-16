@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { BillingService } from './billing.service';
 import { AiCreditBalanceResponse } from './dto/ai-credit-balance.response';
 import { BillingDataExportResponse } from './dto/billing-data-export.response';
+import { EntitlementUsageResponse } from './dto/entitlement-usage.response';
 import { BillingRetentionPurgeResponse } from './dto/billing-retention-purge.response';
 import { BillingUpgradeIntentResponse } from './dto/billing-upgrade-intent.response';
 import { BillingInvoice } from './entities/billing-invoice.entity';
@@ -62,6 +63,19 @@ export class BillingResolver {
   })
   async myBillingDataExport(@Context() context: RequestContext) {
     return this.billingService.exportMyBillingData(context.req.user.id);
+  }
+
+  @Query(() => EntitlementUsageResponse, {
+    description: 'Get current entitlement usage and remaining limits',
+  })
+  async myEntitlementUsage(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Context() context: RequestContext,
+  ) {
+    return this.billingService.getEntitlementUsageSummary({
+      userId: context.req.user.id,
+      workspaceId,
+    });
   }
 
   @Mutation(() => UserSubscription, {

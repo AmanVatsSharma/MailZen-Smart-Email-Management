@@ -8,6 +8,7 @@ const requiredContracts = [
   'billingPlans',
   'mySubscription',
   'myAiCreditBalance',
+  'myEntitlementUsage',
   'myBillingInvoices',
   'myBillingDataExport',
   'selectMyPlan',

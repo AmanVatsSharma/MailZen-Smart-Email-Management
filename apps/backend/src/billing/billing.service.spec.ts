@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Repository } from 'typeorm';
+import { EmailProvider } from '../email-integration/entities/email-provider.entity';
+import { Mailbox } from '../mailbox/entities/mailbox.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
+import { WorkspaceMember } from '../workspace/entities/workspace-member.entity';
+import { Workspace } from '../workspace/entities/workspace.entity';
 import { BillingInvoice } from './entities/billing-invoice.entity';
 import { BillingPlan } from './entities/billing-plan.entity';
 import { BillingWebhookEvent } from './entities/billing-webhook-event.entity';
@@ -15,6 +19,10 @@ describe('BillingService', () => {
   let usageRepo: jest.Mocked<Repository<UserAiCreditUsage>>;
   let invoiceRepo: jest.Mocked<Repository<BillingInvoice>>;
   let webhookRepo: jest.Mocked<Repository<BillingWebhookEvent>>;
+  let emailProviderRepo: jest.Mocked<Repository<EmailProvider>>;
+  let mailboxRepo: jest.Mocked<Repository<Mailbox>>;
+  let workspaceRepo: jest.Mocked<Repository<Workspace>>;
+  let workspaceMemberRepo: jest.Mocked<Repository<WorkspaceMember>>;
   let notificationEventBus: jest.Mocked<
     Pick<NotificationEventBusService, 'publishSafely'>
   >;
@@ -71,9 +79,32 @@ describe('BillingService', () => {
         execute: jest.fn().mockResolvedValue({ affected: 1 }),
       }),
     } as unknown as jest.Mocked<Repository<BillingWebhookEvent>>;
+    emailProviderRepo = {
+      count: jest.fn(),
+    } as unknown as jest.Mocked<Repository<EmailProvider>>;
+    mailboxRepo = {
+      count: jest.fn(),
+      find: jest.fn(),
+    } as unknown as jest.Mocked<Repository<Mailbox>>;
+    workspaceRepo = {
+      count: jest.fn(),
+      find: jest.fn(),
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<Workspace>>;
+    workspaceMemberRepo = {
+      count: jest.fn(),
+    } as unknown as jest.Mocked<Repository<WorkspaceMember>>;
     notificationEventBus = {
       publishSafely: jest.fn(),
     };
+
+    emailProviderRepo.count.mockResolvedValue(0);
+    mailboxRepo.count.mockResolvedValue(0);
+    mailboxRepo.find.mockResolvedValue([]);
+    workspaceRepo.count.mockResolvedValue(1);
+    workspaceRepo.find.mockResolvedValue([]);
+    workspaceRepo.findOne.mockResolvedValue(null);
+    workspaceMemberRepo.count.mockResolvedValue(1);
 
     service = new BillingService(
       planRepo,
@@ -81,6 +112,10 @@ describe('BillingService', () => {
       usageRepo,
       invoiceRepo,
       webhookRepo,
+      emailProviderRepo,
+      mailboxRepo,
+      workspaceRepo,
+      workspaceMemberRepo,
       notificationEventBus as unknown as NotificationEventBusService,
     );
   });
@@ -266,6 +301,116 @@ describe('BillingService', () => {
         mailboxStorageLimitMb: 10240,
       }),
     );
+  });
+
+  it('returns entitlement usage summary for requested workspace scope', async () => {
+    planRepo.count.mockResolvedValue(1);
+    subscriptionRepo.findOne.mockResolvedValue({
+      id: 'sub-1',
+      userId: 'user-1',
+      planCode: 'PRO',
+      status: 'active',
+    } as UserSubscription);
+    planRepo.findOne.mockResolvedValue({
+      id: 'plan-pro',
+      code: 'PRO',
+      isActive: true,
+      providerLimit: 5,
+      mailboxLimit: 5,
+      workspaceLimit: 5,
+      workspaceMemberLimit: 25,
+      aiCreditsPerMonth: 500,
+      mailboxStorageLimitMb: 1,
+    } as BillingPlan);
+    usageRepo.upsert.mockResolvedValue({} as never);
+    usageRepo.findOne.mockResolvedValue({
+      id: 'usage-1',
+      userId: 'user-1',
+      periodStart: '2026-02-01',
+      usedCredits: 120,
+      lastConsumedAt: new Date('2026-02-15T00:00:00.000Z'),
+    } as UserAiCreditUsage);
+    emailProviderRepo.count.mockResolvedValue(2);
+    mailboxRepo.find.mockResolvedValue([
+      {
+        id: 'mailbox-1',
+        usedBytes: (2n * 1024n * 1024n).toString(),
+      } as Mailbox,
+      { id: 'mailbox-2', usedBytes: '1024' } as Mailbox,
+    ]);
+    workspaceRepo.count.mockResolvedValue(3);
+    workspaceRepo.findOne.mockResolvedValue({
+      id: 'workspace-1',
+      ownerUserId: 'user-1',
+      name: 'Workspace One',
+      slug: 'workspace-one',
+      isPersonal: false,
+    } as Workspace);
+    workspaceMemberRepo.count.mockResolvedValue(7);
+
+    const result = await service.getEntitlementUsageSummary({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        planCode: 'PRO',
+        providerUsed: 2,
+        providerRemaining: 3,
+        mailboxUsed: 2,
+        mailboxRemaining: 3,
+        workspaceUsed: 3,
+        workspaceRemaining: 2,
+        workspaceMemberUsed: 7,
+        workspaceMemberRemaining: 18,
+        workspaceMemberWorkspaceId: 'workspace-1',
+        mailboxesOverEntitledStorageLimit: 1,
+        aiCreditsUsed: 120,
+        aiCreditsRemaining: 380,
+      }),
+    );
+  });
+
+  it('returns peak workspace-member usage when workspaceId is omitted', async () => {
+    planRepo.count.mockResolvedValue(1);
+    subscriptionRepo.findOne.mockResolvedValue({
+      id: 'sub-1',
+      userId: 'user-1',
+      planCode: 'PRO',
+      status: 'active',
+    } as UserSubscription);
+    planRepo.findOne.mockResolvedValue({
+      id: 'plan-pro',
+      code: 'PRO',
+      isActive: true,
+      providerLimit: 5,
+      mailboxLimit: 5,
+      workspaceLimit: 5,
+      workspaceMemberLimit: 25,
+      aiCreditsPerMonth: 500,
+      mailboxStorageLimitMb: 10240,
+    } as BillingPlan);
+    usageRepo.upsert.mockResolvedValue({} as never);
+    usageRepo.findOne.mockResolvedValue({
+      id: 'usage-1',
+      userId: 'user-1',
+      periodStart: '2026-02-01',
+      usedCredits: 10,
+      lastConsumedAt: new Date('2026-02-15T00:00:00.000Z'),
+    } as UserAiCreditUsage);
+    workspaceRepo.find.mockResolvedValue([
+      { id: 'workspace-1' } as Workspace,
+      { id: 'workspace-2' } as Workspace,
+    ]);
+    workspaceMemberRepo.count.mockResolvedValueOnce(3).mockResolvedValueOnce(9);
+
+    const result = await service.getEntitlementUsageSummary({
+      userId: 'user-1',
+    });
+
+    expect(result.workspaceMemberUsed).toBe(9);
+    expect(result.workspaceMemberWorkspaceId).toBe('workspace-2');
   });
 
   it('denies AI credit consumption when monthly limit exhausted', async () => {

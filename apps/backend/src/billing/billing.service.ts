@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EmailProvider } from '../email-integration/entities/email-provider.entity';
+import { Mailbox } from '../mailbox/entities/mailbox.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
+import { WorkspaceMember } from '../workspace/entities/workspace-member.entity';
+import { Workspace } from '../workspace/entities/workspace.entity';
 import { AiCreditBalanceResponse } from './dto/ai-credit-balance.response';
 import { BillingDataExportResponse } from './dto/billing-data-export.response';
 import { BillingRetentionPurgeResponse } from './dto/billing-retention-purge.response';
@@ -42,6 +46,14 @@ export class BillingService {
     private readonly billingInvoiceRepo: Repository<BillingInvoice>,
     @InjectRepository(BillingWebhookEvent)
     private readonly billingWebhookEventRepo: Repository<BillingWebhookEvent>,
+    @InjectRepository(EmailProvider)
+    private readonly emailProviderRepo: Repository<EmailProvider>,
+    @InjectRepository(Mailbox)
+    private readonly mailboxRepo: Repository<Mailbox>,
+    @InjectRepository(Workspace)
+    private readonly workspaceRepo: Repository<Workspace>,
+    @InjectRepository(WorkspaceMember)
+    private readonly workspaceMemberRepo: Repository<WorkspaceMember>,
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
 
@@ -116,6 +128,16 @@ export class BillingService {
   }): number {
     const parsed = this.toSafeNumber(input.value, input.fallback);
     return Math.min(Math.max(parsed, input.min), input.max);
+  }
+
+  private resolveBigIntString(
+    value: string | number | null | undefined,
+  ): bigint {
+    try {
+      return BigInt(String(value || '0'));
+    } catch {
+      return 0n;
+    }
   }
 
   private getDefaultPlans(): Array<Partial<BillingPlan>> {
@@ -325,6 +347,160 @@ export class BillingService {
       lastConsumedAtIso: usage.lastConsumedAt
         ? usage.lastConsumedAt.toISOString()
         : null,
+    };
+  }
+
+  private async resolveWorkspaceSeatUsage(input: {
+    userId: string;
+    workspaceId?: string | null;
+  }): Promise<{ workspaceId: string | null; activeMembers: number }> {
+    const requestedWorkspaceId = String(input.workspaceId || '').trim();
+    if (requestedWorkspaceId) {
+      const workspace = await this.workspaceRepo.findOne({
+        where: { id: requestedWorkspaceId, ownerUserId: input.userId },
+      });
+      if (!workspace) {
+        throw new NotFoundException(
+          `Workspace '${requestedWorkspaceId}' not found for entitlement usage`,
+        );
+      }
+      const activeMembers = await this.workspaceMemberRepo.count({
+        where: { workspaceId: workspace.id, status: 'active' },
+      });
+      return {
+        workspaceId: workspace.id,
+        activeMembers,
+      };
+    }
+
+    const ownedWorkspaces = await this.workspaceRepo.find({
+      where: { ownerUserId: input.userId },
+      select: ['id'],
+      order: { createdAt: 'ASC' },
+    });
+    if (!ownedWorkspaces.length) {
+      return {
+        workspaceId: null,
+        activeMembers: 0,
+      };
+    }
+
+    const memberCounts = await Promise.all(
+      ownedWorkspaces.map(async (workspace) => ({
+        workspaceId: workspace.id,
+        activeMembers: await this.workspaceMemberRepo.count({
+          where: { workspaceId: workspace.id, status: 'active' },
+        }),
+      })),
+    );
+    const peakUsage = memberCounts.reduce<{
+      workspaceId: string | null;
+      activeMembers: number;
+    }>(
+      (maxUsage, current) =>
+        current.activeMembers > maxUsage.activeMembers ? current : maxUsage,
+      {
+        workspaceId: ownedWorkspaces[0]?.id || null,
+        activeMembers: 0,
+      },
+    );
+    return peakUsage;
+  }
+
+  async getEntitlementUsageSummary(input: {
+    userId: string;
+    workspaceId?: string | null;
+  }): Promise<{
+    planCode: string;
+    providerLimit: number;
+    providerUsed: number;
+    providerRemaining: number;
+    mailboxLimit: number;
+    mailboxUsed: number;
+    mailboxRemaining: number;
+    workspaceLimit: number;
+    workspaceUsed: number;
+    workspaceRemaining: number;
+    workspaceMemberLimit: number;
+    workspaceMemberUsed: number;
+    workspaceMemberRemaining: number;
+    workspaceMemberWorkspaceId: string | null;
+    mailboxStorageLimitMb: number;
+    mailboxesOverEntitledStorageLimit: number;
+    aiCreditsPerMonth: number;
+    aiCreditsUsed: number;
+    aiCreditsRemaining: number;
+    periodStart: string;
+    evaluatedAtIso: string;
+  }> {
+    const userId = String(input.userId || '').trim();
+    if (!userId) {
+      throw new BadRequestException('Authenticated user id is required');
+    }
+    const entitlements = await this.getEntitlements(userId);
+    const [
+      providerUsed,
+      workspaceUsed,
+      aiCreditBalance,
+      mailboxRows,
+      seatUsage,
+    ] = await Promise.all([
+      this.emailProviderRepo.count({
+        where: { userId },
+      }),
+      this.workspaceRepo.count({
+        where: { ownerUserId: userId },
+      }),
+      this.getAiCreditBalance(userId),
+      this.mailboxRepo.find({
+        where: { userId },
+        select: ['id', 'usedBytes'],
+      }),
+      this.resolveWorkspaceSeatUsage({
+        userId,
+        workspaceId: input.workspaceId,
+      }),
+    ]);
+    const mailboxUsed = mailboxRows.length;
+    const mailboxStorageLimitBytes =
+      BigInt(Math.max(Math.trunc(entitlements.mailboxStorageLimitMb), 0)) *
+      1024n *
+      1024n;
+    const mailboxesOverEntitledStorageLimit = mailboxRows.filter((mailbox) => {
+      if (mailboxStorageLimitBytes <= 0n) return false;
+      return (
+        this.resolveBigIntString(mailbox.usedBytes) > mailboxStorageLimitBytes
+      );
+    }).length;
+
+    return {
+      planCode: entitlements.planCode,
+      providerLimit: entitlements.providerLimit,
+      providerUsed,
+      providerRemaining: Math.max(entitlements.providerLimit - providerUsed, 0),
+      mailboxLimit: entitlements.mailboxLimit,
+      mailboxUsed,
+      mailboxRemaining: Math.max(entitlements.mailboxLimit - mailboxUsed, 0),
+      workspaceLimit: entitlements.workspaceLimit,
+      workspaceUsed,
+      workspaceRemaining: Math.max(
+        entitlements.workspaceLimit - workspaceUsed,
+        0,
+      ),
+      workspaceMemberLimit: entitlements.workspaceMemberLimit,
+      workspaceMemberUsed: seatUsage.activeMembers,
+      workspaceMemberRemaining: Math.max(
+        entitlements.workspaceMemberLimit - seatUsage.activeMembers,
+        0,
+      ),
+      workspaceMemberWorkspaceId: seatUsage.workspaceId,
+      mailboxStorageLimitMb: entitlements.mailboxStorageLimitMb,
+      mailboxesOverEntitledStorageLimit,
+      aiCreditsPerMonth: entitlements.aiCreditsPerMonth,
+      aiCreditsUsed: aiCreditBalance.usedCredits,
+      aiCreditsRemaining: aiCreditBalance.remainingCredits,
+      periodStart: aiCreditBalance.periodStart,
+      evaluatedAtIso: new Date().toISOString(),
     };
   }
 

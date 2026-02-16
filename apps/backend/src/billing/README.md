@@ -32,6 +32,8 @@ state, enabling entitlement-aware product rollouts.
 - `billingPlans`: list active plans
 - `mySubscription`: get current user subscription (auto-provisions FREE plan)
 - `myAiCreditBalance`: get current month AI credit usage + remaining credits
+- `myEntitlementUsage(workspaceId?)`: get entitlement usage/remaining snapshot
+  across providers, mailboxes, workspaces, workspace seats, storage, and AI credits
 - `myBillingInvoices(limit?)`: list authenticated user invoices (newest first)
 - `myBillingDataExport`: returns legal/compliance-ready billing JSON export snapshot
 - `selectMyPlan(planCode)`: switch current user subscription to active plan

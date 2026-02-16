@@ -9,6 +9,7 @@ describe('BillingResolver', () => {
     Pick<
       BillingService,
       | 'getAiCreditBalance'
+      | 'getEntitlementUsageSummary'
       | 'exportMyBillingData'
       | 'listMyInvoices'
       | 'purgeExpiredBillingData'
@@ -17,6 +18,7 @@ describe('BillingResolver', () => {
     >
   > = {
     getAiCreditBalance: jest.fn(),
+    getEntitlementUsageSummary: jest.fn(),
     exportMyBillingData: jest.fn(),
     listMyInvoices: jest.fn(),
     purgeExpiredBillingData: jest.fn(),
@@ -100,6 +102,42 @@ describe('BillingResolver', () => {
     expect(billingServiceMock.exportMyBillingData).toHaveBeenCalledWith(
       'user-1',
     );
+  });
+
+  it('delegates myEntitlementUsage to billing service', async () => {
+    billingServiceMock.getEntitlementUsageSummary.mockResolvedValue({
+      planCode: 'PRO',
+      providerLimit: 5,
+      providerUsed: 2,
+      providerRemaining: 3,
+      mailboxLimit: 5,
+      mailboxUsed: 1,
+      mailboxRemaining: 4,
+      workspaceLimit: 5,
+      workspaceUsed: 2,
+      workspaceRemaining: 3,
+      workspaceMemberLimit: 25,
+      workspaceMemberUsed: 7,
+      workspaceMemberRemaining: 18,
+      workspaceMemberWorkspaceId: 'workspace-1',
+      mailboxStorageLimitMb: 10240,
+      mailboxesOverEntitledStorageLimit: 0,
+      aiCreditsPerMonth: 500,
+      aiCreditsUsed: 80,
+      aiCreditsRemaining: 420,
+      periodStart: '2026-02-01',
+      evaluatedAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    const result = await resolver.myEntitlementUsage('workspace-1', {
+      req: { user: { id: 'user-1' } },
+    });
+
+    expect(result.planCode).toBe('PRO');
+    expect(billingServiceMock.getEntitlementUsageSummary).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+    });
   });
 
   it('delegates startMyPlanTrial to billing service', async () => {

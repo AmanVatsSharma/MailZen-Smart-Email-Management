@@ -933,6 +933,7 @@ extend type Query {
   billingPlans: [BillingPlan!]!
   mySubscription: UserSubscription!
   myAiCreditBalance: AiCreditBalanceResponse!
+  myEntitlementUsage(workspaceId: String): EntitlementUsageResponse!
   myBillingInvoices(limit: Int): [BillingInvoice!]!
   myBillingDataExport: BillingDataExportResponse!
   myNotifications(limit: Int, unreadOnly: Boolean, workspaceId: String, sinceHours: Int, types: [String!]): [UserNotification!]!
@@ -1111,6 +1112,30 @@ type AccountDataExportResponse {
 type BillingDataExportResponse {
   generatedAtIso: String!
   dataJson: String!
+}
+
+type EntitlementUsageResponse {
+  planCode: String!
+  providerLimit: Int!
+  providerUsed: Int!
+  providerRemaining: Int!
+  mailboxLimit: Int!
+  mailboxUsed: Int!
+  mailboxRemaining: Int!
+  workspaceLimit: Int!
+  workspaceUsed: Int!
+  workspaceRemaining: Int!
+  workspaceMemberLimit: Int!
+  workspaceMemberUsed: Int!
+  workspaceMemberRemaining: Int!
+  workspaceMemberWorkspaceId: String
+  mailboxStorageLimitMb: Int!
+  mailboxesOverEntitledStorageLimit: Int!
+  aiCreditsPerMonth: Int!
+  aiCreditsUsed: Int!
+  aiCreditsRemaining: Int!
+  periodStart: String!
+  evaluatedAtIso: String!
 }
 
 type BillingRetentionPurgeResponse {
