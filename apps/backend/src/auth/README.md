@@ -35,6 +35,11 @@ Web sessions are persisted with an HttpOnly `token` cookie.
     - `MAILZEN_SMS_TWILIO_API_BASE_URL`
     - `MAILZEN_SMS_TWILIO_TIMEOUT_MS`
     - `MAILZEN_SMS_TWILIO_STATUS_CALLBACK_URL`
+  - CSRF origin protection for cookie-authenticated requests:
+    - `GLOBAL_CSRF_PROTECTION_ENABLED` (default `true`)
+    - `GLOBAL_CSRF_TRUSTED_ORIGINS` (default `FRONTEND_URL`)
+    - `GLOBAL_CSRF_EXCLUDED_PATHS` (default empty)
+    - `GLOBAL_CSRF_ENFORCED_METHODS` (default `POST,PUT,PATCH,DELETE`)
 
 ## Auth response contract
 
@@ -70,3 +75,5 @@ Web sessions are persisted with an HttpOnly `token` cookie.
 - Hardened Google OAuth callback to cookie-based session delivery.
 - Added Google OAuth auto-connect for Gmail provider plus initial sync trigger.
 - Added backend tests for OAuth state validation, admin guard role checks, and mailbox alias validation.
+- Added global CSRF origin protection middleware for cookie-authenticated
+  state-changing requests.

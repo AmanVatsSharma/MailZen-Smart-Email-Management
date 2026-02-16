@@ -18,6 +18,8 @@ Provide shared cross-cutting backend utilities used by multiple modules
   bounded key-compaction.
 - `rate-limit/http-rate-limit.middleware.ts` — global HTTP rate-limit middleware
   that returns HTTP `429` with `retry-after` semantics.
+- `security/http-csrf-origin.middleware.ts` — cookie-session CSRF origin
+  validation middleware for state-changing HTTP requests.
 
 ## Global HTTP rate limiting
 
@@ -35,6 +37,22 @@ Behavior:
   `clientFingerprint` instead of raw user/IP identifier
 - includes `x-rate-limit-limit`, `x-rate-limit-remaining`, and `retry-after` headers
 
+## Global CSRF origin protection (cookie sessions)
+
+Configured in `main.ts` and applied before global rate limiting:
+
+- `GLOBAL_CSRF_PROTECTION_ENABLED` (default `true`)
+- `GLOBAL_CSRF_TRUSTED_ORIGINS` (default `FRONTEND_URL`)
+- `GLOBAL_CSRF_EXCLUDED_PATHS` (default empty)
+- `GLOBAL_CSRF_ENFORCED_METHODS` (default `POST,PUT,PATCH,DELETE`)
+
+Behavior:
+- protects only requests that carry authenticated session cookie (`token`)
+- skips protection for bearer-token requests (non-browser/service clients)
+- accepts trusted `Origin`/`Referer` entries and same-host origins
+- blocks untrusted/missing origins with `403` and emits structured warning
+  event `http_csrf_origin_blocked`
+
 ## Structured request logging + PII redaction
 
 - `main.ts` uses request-correlation middleware to always attach/return `x-request-id`.
@@ -48,7 +66,9 @@ Behavior:
 flowchart TD
   Request[Incoming HTTP request] --> Correlation[Request ID middleware]
   Correlation --> StructLog[Structured request log with redaction]
-  StructLog --> RateLimit[Global HTTP rate limiter]
+  StructLog --> CsrfOrigin[CSRF origin protection]
+  CsrfOrigin -->|Allowed| RateLimit[Global HTTP rate limiter]
+  CsrfOrigin -->|Blocked| CsrfReject[HTTP 403 origin validation failed]
   RateLimit -->|Allowed| Route[GraphQL/REST route handler]
   RateLimit -->|Exceeded| Reject[HTTP 429 + retry-after]
   Route --> Guards[Auth/Admin guards]

@@ -9,6 +9,7 @@ import {
   serializeStructuredLog,
 } from './common/logging/structured-log.util';
 import { createHttpRateLimitMiddleware } from './common/rate-limit/http-rate-limit.middleware';
+import { createHttpCsrfOriginProtectionMiddleware } from './common/security/http-csrf-origin.middleware';
 
 const bootstrapLogger = new Logger('Bootstrap');
 
@@ -133,6 +134,34 @@ async function bootstrap() {
     process.env.GLOBAL_RATE_LIMIT_ENABLED,
     true,
   );
+  const csrfProtectionEnabled = parseBooleanEnv(
+    process.env.GLOBAL_CSRF_PROTECTION_ENABLED,
+    true,
+  );
+  const csrfTrustedOrigins = parseCsvEnv(
+    process.env.GLOBAL_CSRF_TRUSTED_ORIGINS,
+    [process.env.FRONTEND_URL || 'http://localhost:3000'],
+  );
+  const csrfExcludedPaths = parseCsvEnv(
+    process.env.GLOBAL_CSRF_EXCLUDED_PATHS,
+    [],
+  );
+  const csrfEnforcedMethods = parseCsvEnv(
+    process.env.GLOBAL_CSRF_ENFORCED_METHODS,
+    ['POST', 'PUT', 'PATCH', 'DELETE'],
+  );
+  app.use(
+    createHttpCsrfOriginProtectionMiddleware(
+      {
+        enabled: csrfProtectionEnabled,
+        trustedOrigins: csrfTrustedOrigins,
+        excludedPaths: csrfExcludedPaths,
+        enforceMethods: csrfEnforcedMethods,
+      },
+      bootstrapLogger,
+    ),
+  );
+
   const rateLimitWindowMs = parsePositiveIntegerEnv(
     process.env.GLOBAL_RATE_LIMIT_WINDOW_MS,
     60_000,
