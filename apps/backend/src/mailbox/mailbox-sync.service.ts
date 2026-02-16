@@ -198,6 +198,17 @@ export class MailboxSyncService {
     return 'UNKNOWN';
   }
 
+  private resolveMetadataNumber(input: {
+    metadata?: Record<string, unknown> | null;
+    key: string;
+    fallbackValue?: number;
+  }): number {
+    const rawValue = input.metadata?.[input.key];
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed)) return input.fallbackValue ?? 0;
+    return parsed;
+  }
+
   private normalizeWorkspaceId(workspaceId?: string | null): string | null {
     return String(workspaceId || '').trim() || null;
   }
@@ -1608,6 +1619,88 @@ export class MailboxSyncService {
       criticalCount,
       lastAlertAtIso: notifications[0]?.createdAt?.toISOString(),
     };
+  }
+
+  async getMailboxSyncIncidentAlertsForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    limit?: number | null;
+  }): Promise<
+    Array<{
+      notificationId: string;
+      workspaceId?: string | null;
+      status: string;
+      title: string;
+      message: string;
+      incidentRatePercent: number;
+      incidentRuns: number;
+      totalRuns: number;
+      warningRatePercent: number;
+      criticalRatePercent: number;
+      createdAt: Date;
+    }>
+  > {
+    const windowHours = this.normalizeSyncObservabilityWindowHours(
+      input.windowHours,
+    );
+    const workspaceId = this.normalizeWorkspaceId(input.workspaceId);
+    const limit = Math.min(
+      this.normalizeSyncRunHistoryLimit(input.limit),
+      this.resolveSyncRunScanLimit(),
+    );
+    const windowStartDate = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const notifications = await this.notificationRepo.find({
+      where: workspaceId
+        ? {
+            userId: input.userId,
+            workspaceId,
+            type: 'MAILBOX_SYNC_INCIDENT_ALERT',
+            createdAt: MoreThanOrEqual(windowStartDate),
+          }
+        : {
+            userId: input.userId,
+            type: 'MAILBOX_SYNC_INCIDENT_ALERT',
+            createdAt: MoreThanOrEqual(windowStartDate),
+          },
+      order: {
+        createdAt: 'DESC',
+      },
+      take: limit,
+    });
+    return notifications.map((notification) => ({
+      notificationId: notification.id,
+      workspaceId: notification.workspaceId || null,
+      status: this.normalizeSyncIncidentMetadataStatus(notification.metadata),
+      title: notification.title,
+      message: notification.message,
+      incidentRatePercent: this.resolveMetadataNumber({
+        metadata: notification.metadata,
+        key: 'incidentRatePercent',
+        fallbackValue: 0,
+      }),
+      incidentRuns: this.resolveMetadataNumber({
+        metadata: notification.metadata,
+        key: 'incidentRuns',
+        fallbackValue: 0,
+      }),
+      totalRuns: this.resolveMetadataNumber({
+        metadata: notification.metadata,
+        key: 'totalRuns',
+        fallbackValue: 0,
+      }),
+      warningRatePercent: this.resolveMetadataNumber({
+        metadata: notification.metadata,
+        key: 'warningRatePercent',
+        fallbackValue: 0,
+      }),
+      criticalRatePercent: this.resolveMetadataNumber({
+        metadata: notification.metadata,
+        key: 'criticalRatePercent',
+        fallbackValue: 0,
+      }),
+      createdAt: notification.createdAt,
+    }));
   }
 
   async getMailboxSyncIncidentAlertDeliverySeriesForUser(input: {

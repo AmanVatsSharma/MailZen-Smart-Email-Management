@@ -27,6 +27,7 @@ import {
   MailboxSyncIncidentAlertDeliveryStatsResponse,
   MailboxSyncIncidentAlertDeliveryTrendPointResponse,
 } from './dto/mailbox-sync-incident-alert-delivery.response';
+import { MailboxSyncIncidentAlertResponse } from './dto/mailbox-sync-incident-alert.response';
 import { MailboxSyncIncidentDataExportResponse } from './dto/mailbox-sync-incident-data-export.response';
 import {
   MailboxSyncIncidentStatsResponse,
@@ -349,6 +350,22 @@ export class MailboxResolver {
         windowHours: windowHours ?? null,
       },
     );
+  }
+
+  @Query(() => [MailboxSyncIncidentAlertResponse])
+  async myMailboxSyncIncidentAlerts(
+    @Context() ctx: RequestContext,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+  ): Promise<MailboxSyncIncidentAlertResponse[]> {
+    return this.mailboxSyncService.getMailboxSyncIncidentAlertsForUser({
+      userId: ctx.req.user.id,
+      workspaceId: workspaceId || null,
+      windowHours: windowHours ?? null,
+      limit: limit ?? null,
+    });
   }
 
   @Query(() => [MailboxSyncIncidentAlertDeliveryTrendPointResponse])

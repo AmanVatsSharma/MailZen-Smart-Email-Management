@@ -28,6 +28,7 @@ describe('MailboxResolver', () => {
     getMailboxSyncIncidentSeriesForUser: jest.fn(),
     exportMailboxSyncIncidentDataForUser: jest.fn(),
     getMailboxSyncIncidentAlertDeliveryStatsForUser: jest.fn(),
+    getMailboxSyncIncidentAlertsForUser: jest.fn(),
     getMailboxSyncIncidentAlertDeliverySeriesForUser: jest.fn(),
     exportMailboxSyncIncidentAlertDeliveryDataForUser: jest.fn(),
     purgeMailboxSyncRunRetentionData: jest.fn(),
@@ -630,6 +631,44 @@ describe('MailboxResolver', () => {
       windowHours: 24,
     });
     expect(result.totalCount).toBe(4);
+  });
+
+  it('returns mailbox sync incident alerts for current user', async () => {
+    mailboxSyncServiceMock.getMailboxSyncIncidentAlertsForUser.mockResolvedValue(
+      [
+        {
+          notificationId: 'notif-1',
+          workspaceId: 'workspace-1',
+          status: 'WARNING',
+          title: 'Mailbox sync incidents warning',
+          message: 'incident detected',
+          incidentRatePercent: 12,
+          incidentRuns: 2,
+          totalRuns: 10,
+          warningRatePercent: 10,
+          criticalRatePercent: 25,
+          createdAt: new Date('2026-02-16T00:00:00.000Z'),
+        },
+      ],
+    );
+
+    const result = await resolver.myMailboxSyncIncidentAlerts(
+      ctx as any,
+      'workspace-1',
+      24,
+      20,
+    );
+
+    expect(
+      mailboxSyncServiceMock.getMailboxSyncIncidentAlertsForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      limit: 20,
+    });
+    expect(result[0]?.notificationId).toBe('notif-1');
+    expect(result[0]?.status).toBe('WARNING');
   });
 
   it('returns mailbox sync incident alert delivery series for current user', async () => {

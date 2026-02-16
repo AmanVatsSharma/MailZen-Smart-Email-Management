@@ -884,6 +884,44 @@ describe('MailboxSyncService', () => {
     expect(stats.lastAlertAtIso).toBe('2026-02-16T00:10:00.000Z');
   });
 
+  it('returns mailbox sync incident alert history rows', async () => {
+    notificationRepo.find.mockResolvedValue([
+      {
+        id: 'notif-1',
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        type: 'MAILBOX_SYNC_INCIDENT_ALERT',
+        title: 'Mailbox sync incidents warning',
+        message: 'incident warning',
+        metadata: {
+          incidentStatus: 'WARNING',
+          incidentRatePercent: 12,
+          incidentRuns: 2,
+          totalRuns: 10,
+          warningRatePercent: 10,
+          criticalRatePercent: 25,
+        },
+        createdAt: new Date('2026-02-16T00:15:00.000Z'),
+      } as unknown as UserNotification,
+    ]);
+
+    const rows = await service.getMailboxSyncIncidentAlertsForUser({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      limit: 50,
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        notificationId: 'notif-1',
+        status: 'WARNING',
+        incidentRuns: 2,
+        totalRuns: 10,
+      }),
+    ]);
+  });
+
   it('returns mailbox sync incident alert delivery series', async () => {
     notificationRepo.find.mockResolvedValue([
       {

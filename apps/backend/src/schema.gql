@@ -1223,6 +1223,11 @@ extend type Query {
     workspaceId: String
     windowHours: Int
   ): MailboxSyncIncidentAlertDeliveryStatsResponse!
+  myMailboxSyncIncidentAlerts(
+    workspaceId: String
+    windowHours: Int
+    limit: Int
+  ): [MailboxSyncIncidentAlertResponse!]!
   myMailboxSyncIncidentAlertDeliverySeries(
     workspaceId: String
     windowHours: Int
@@ -1683,6 +1688,20 @@ type MailboxSyncIncidentAlertDeliveryStatsResponse {
   warningCount: Int!
   criticalCount: Int!
   lastAlertAtIso: String
+}
+
+type MailboxSyncIncidentAlertResponse {
+  notificationId: String!
+  workspaceId: String
+  status: String!
+  title: String!
+  message: String!
+  incidentRatePercent: Float!
+  incidentRuns: Int!
+  totalRuns: Int!
+  warningRatePercent: Float!
+  criticalRatePercent: Float!
+  createdAt: DateTime!
 }
 
 type MailboxSyncIncidentAlertDeliveryTrendPointResponse {
