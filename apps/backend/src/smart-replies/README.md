@@ -110,6 +110,7 @@ flowchart TD
   - `smart_reply_history_persisted`
   - `smart_reply_history_persist_failed`
   - `smart_reply_audit_log_write_failed`
+  - `smart_reply_retention_scheduler_audit_log_write_failed`
 - Provider router events:
   - `smart_reply_provider_mode_invalid_fallback`
   - `smart_reply_provider_selected`
@@ -136,6 +137,10 @@ flowchart TD
   - `smart_reply_settings_updated`
   - `smart_reply_history_purged`
   - `smart_reply_data_export_requested`
+  - `smart_reply_retention_autopurge_started`
+  - `smart_reply_retention_autopurge_completed`
+  - `smart_reply_retention_autopurge_failed`
+  - `smart_reply_retention_autopurge_skipped`
 
 ## API
 
