@@ -288,6 +288,7 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: rotate app secrets (JWT/OAuth/platform key)
 ./deploy/ec2/scripts/rotate-app-secrets.sh --yes
+./deploy/ec2/scripts/rotate-app-secrets.sh --keys JWT_SECRET --dry-run
 
 # Optional: run config-only deployment pipeline checks
 ./deploy/ec2/scripts/pipeline-check.sh

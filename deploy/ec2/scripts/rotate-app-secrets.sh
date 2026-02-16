@@ -15,6 +15,7 @@
 # Usage:
 #   ./deploy/ec2/scripts/rotate-app-secrets.sh
 #   ./deploy/ec2/scripts/rotate-app-secrets.sh --yes
+#   ./deploy/ec2/scripts/rotate-app-secrets.sh --keys JWT_SECRET,OAUTH_STATE_SECRET --dry-run
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -22,23 +23,66 @@ set -Eeuo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 AUTO_CONFIRM=false
-for arg in "$@"; do
-  case "${arg}" in
+DRY_RUN=false
+KEYS_RAW=""
+SUPPORTED_KEYS=(
+  JWT_SECRET
+  OAUTH_STATE_SECRET
+  AI_AGENT_PLATFORM_KEY
+)
+TARGET_KEYS=("${SUPPORTED_KEYS[@]}")
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
   --yes)
     AUTO_CONFIRM=true
+    shift
+    ;;
+  --dry-run)
+    DRY_RUN=true
+    shift
+    ;;
+  --keys)
+    KEYS_RAW="${2:-}"
+    if [[ -z "${KEYS_RAW}" ]]; then
+      log_error "--keys requires a comma-separated value."
+      exit 1
+    fi
+    shift 2
     ;;
   *)
-    log_error "Unknown argument: ${arg}"
-    log_error "Supported flag: --yes"
+    log_error "Unknown argument: $1"
+    log_error "Supported flags: --yes --dry-run --keys <k1,k2>"
     exit 1
     ;;
   esac
 done
 
+if [[ -n "${KEYS_RAW}" ]]; then
+  TARGET_KEYS=()
+  IFS=',' read -r -a parsed_keys <<<"${KEYS_RAW}"
+  for raw_key in "${parsed_keys[@]}"; do
+    key="$(printf '%s' "${raw_key}" | tr -d '[:space:]')"
+    if [[ -z "${key}" ]]; then
+      continue
+    fi
+    if [[ " ${SUPPORTED_KEYS[*]} " != *" ${key} "* ]]; then
+      log_error "Unsupported key in --keys: ${key}"
+      log_error "Allowed keys: ${SUPPORTED_KEYS[*]}"
+      exit 1
+    fi
+    TARGET_KEYS+=("${key}")
+  done
+  if [[ "${#TARGET_KEYS[@]}" -eq 0 ]]; then
+    log_error "No valid keys provided in --keys."
+    exit 1
+  fi
+fi
+
 ensure_required_files_exist
 validate_core_env
 
-if [[ "${AUTO_CONFIRM}" == false ]]; then
+if [[ "${DRY_RUN}" == false ]] && [[ "${AUTO_CONFIRM}" == false ]]; then
   if [[ ! -t 0 ]]; then
     log_error "Interactive terminal required unless --yes flag is used."
     exit 1
@@ -52,14 +96,22 @@ if [[ "${AUTO_CONFIRM}" == false ]]; then
   fi
 fi
 
-new_jwt_secret="$(generate_random_secret 48)"
-new_oauth_state_secret="$(generate_random_secret 48)"
-new_agent_platform_key="$(generate_random_secret 48)"
+log_info "Secret rotation target keys: ${TARGET_KEYS[*]}"
 
-upsert_env_value "JWT_SECRET" "${new_jwt_secret}"
-upsert_env_value "OAUTH_STATE_SECRET" "${new_oauth_state_secret}"
-upsert_env_value "AI_AGENT_PLATFORM_KEY" "${new_agent_platform_key}"
+if [[ "${DRY_RUN}" == true ]]; then
+  for key in "${TARGET_KEYS[@]}"; do
+    generated_preview="$(generate_random_secret 8)"
+    log_info "Dry-run: would rotate ${key} (preview-prefix=${generated_preview:0:12}..., len=96)"
+  done
+  log_warn "Dry-run only. No secrets were changed."
+  exit 0
+fi
+
+for key in "${TARGET_KEYS[@]}"; do
+  new_value="$(generate_random_secret 48)"
+  upsert_env_value "${key}" "${new_value}"
+done
 
 log_info "App secrets rotated successfully."
-log_info "Rotated keys: JWT_SECRET, OAUTH_STATE_SECRET, AI_AGENT_PLATFORM_KEY"
+log_info "Rotated keys: ${TARGET_KEYS[*]}"
 log_warn "Next step: run ./deploy/ec2/scripts/update.sh"

@@ -36,6 +36,7 @@ Setup and env:
   ./deploy/ec2/scripts/setup.sh --non-interactive --skip-daemon
   ./deploy/ec2/scripts/env-audit.sh
   ./deploy/ec2/scripts/rotate-app-secrets.sh --yes
+  ./deploy/ec2/scripts/rotate-app-secrets.sh --keys JWT_SECRET --dry-run
 
 Readiness checks:
   ./deploy/ec2/scripts/host-readiness.sh

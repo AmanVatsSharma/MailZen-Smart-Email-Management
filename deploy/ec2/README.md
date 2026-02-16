@@ -266,6 +266,12 @@ Example:
 # Rotate app secrets non-interactively
 ./deploy/ec2/scripts/rotate-app-secrets.sh --yes
 
+# Rotate selected keys only
+./deploy/ec2/scripts/rotate-app-secrets.sh --keys JWT_SECRET,OAUTH_STATE_SECRET --yes
+
+# Preview secret rotation without changing env file
+./deploy/ec2/scripts/rotate-app-secrets.sh --keys JWT_SECRET --dry-run
+
 # Run config-only deployment pipeline checks
 ./deploy/ec2/scripts/pipeline-check.sh
 
