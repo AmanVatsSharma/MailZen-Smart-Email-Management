@@ -160,6 +160,7 @@ Push channel observability events:
 Notification service observability events:
 
 - `notification_audit_log_write_failed`
+- `notification_retention_scheduler_audit_log_write_failed`
 
 Compliance/audit actions persisted in `audit_logs`:
 
@@ -172,6 +173,10 @@ Compliance/audit actions persisted in `audit_logs`:
 - `notification_mailbox_inbound_sla_state_updated`
 - `notification_mailbox_inbound_sla_export_requested`
 - `notification_retention_purged`
+- `notification_retention_autopurge_started`
+- `notification_retention_autopurge_completed`
+- `notification_retention_autopurge_failed`
+- `notification_retention_autopurge_skipped`
 
 ## Initial event producers
 
