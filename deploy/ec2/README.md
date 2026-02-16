@@ -234,7 +234,7 @@ Example:
 
 # Generate diagnostics report bundle
 ./deploy/ec2/scripts/doctor.sh
-# (report includes strict/seed flags and active env/compose metadata)
+# (report includes strict/seed flags, active env/compose, and git metadata)
 
 # Fail diagnostics when optional checks fail
 ./deploy/ec2/scripts/doctor.sh --strict
