@@ -1,16 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
-
-type ExternalSuggestionRequest = {
-  conversation: string;
-  count: number;
-  tone: string;
-  length: string;
-};
+import {
+  SmartReplyProviderRequest,
+  SmartReplySuggestionProvider,
+} from './smart-reply-provider.interface';
 
 @Injectable()
-export class SmartReplyExternalModelAdapter {
+export class SmartReplyExternalModelAdapter implements SmartReplySuggestionProvider {
   private readonly logger = new Logger(SmartReplyExternalModelAdapter.name);
+  readonly providerId = 'agent-platform';
 
   private isExternalProviderEnabled(): boolean {
     return (
@@ -19,7 +17,7 @@ export class SmartReplyExternalModelAdapter {
   }
 
   async generateSuggestions(
-    input: ExternalSuggestionRequest,
+    input: SmartReplyProviderRequest,
   ): Promise<string[]> {
     if (!this.isExternalProviderEnabled()) {
       return [];

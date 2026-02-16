@@ -1,20 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
+import {
+  SmartReplyProviderRequest,
+  SmartReplySuggestionProvider,
+} from './smart-reply-provider.interface';
 
 export type SmartReplyTone = 'professional' | 'friendly' | 'concise' | 'formal';
 export type SmartReplyLength = 'short' | 'medium' | 'long';
 
-export type SmartReplyModelRequest = {
-  conversation: string;
-  tone: string;
-  length: string;
-  count: number;
-  includeSignature: boolean;
-  customInstructions?: string | null;
-};
-
 @Injectable()
-export class SmartReplyModelProvider {
+export class SmartReplyModelProvider implements SmartReplySuggestionProvider {
   private readonly logger = new Logger(SmartReplyModelProvider.name);
+  readonly providerId = 'template';
 
   private readonly intentTemplates: Record<string, string[]> = {
     scheduling: [
@@ -44,7 +40,7 @@ export class SmartReplyModelProvider {
     ],
   };
 
-  generateSuggestions(input: SmartReplyModelRequest): string[] {
+  generateSuggestions(input: SmartReplyProviderRequest): string[] {
     const normalizedConversation = input.conversation.trim();
     if (!normalizedConversation) return [];
 

@@ -44,6 +44,7 @@ jobs:
           feature/feature.resolver.spec.ts
           smart-replies/smart-reply.service.spec.ts
           smart-replies/smart-reply.resolver.spec.ts
+          smart-replies/smart-reply-provider.router.spec.ts
           smart-replies/smart-reply-model.provider.spec.ts
           smart-replies/smart-reply-external-model.adapter.spec.ts
           smart-replies/smart-reply-retention.scheduler.spec.ts

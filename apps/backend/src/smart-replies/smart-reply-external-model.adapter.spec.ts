@@ -33,6 +33,7 @@ describe('SmartReplyExternalModelAdapter', () => {
       count: 2,
       tone: 'professional',
       length: 'medium',
+      includeSignature: false,
     });
 
     expect(suggestions).toEqual([
@@ -49,6 +50,7 @@ describe('SmartReplyExternalModelAdapter', () => {
       count: 2,
       tone: 'professional',
       length: 'short',
+      includeSignature: false,
     });
 
     expect(suggestions).toEqual([]);

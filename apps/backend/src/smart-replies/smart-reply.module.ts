@@ -7,6 +7,7 @@ import { SmartReplyRetentionScheduler } from './smart-reply-retention.scheduler'
 import { SmartReplyHistory } from './entities/smart-reply-history.entity';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
 import { SmartReplyModelProvider } from './smart-reply-model.provider';
+import { SmartReplyProviderRouter } from './smart-reply-provider.router';
 
 @Module({
   imports: [TypeOrmModule.forFeature([SmartReplySettings, SmartReplyHistory])],
@@ -16,6 +17,7 @@ import { SmartReplyModelProvider } from './smart-reply-model.provider';
     SmartReplyRetentionScheduler,
     SmartReplyModelProvider,
     SmartReplyExternalModelAdapter,
+    SmartReplyProviderRouter,
   ],
   exports: [SmartReplyService],
 })

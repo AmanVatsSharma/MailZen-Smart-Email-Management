@@ -3,9 +3,8 @@
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DeleteResult, Repository } from 'typeorm';
-import { SmartReplyExternalModelAdapter } from './smart-reply-external-model.adapter';
 import { SmartReplyHistory } from './entities/smart-reply-history.entity';
-import { SmartReplyModelProvider } from './smart-reply-model.provider';
+import { SmartReplyProviderRouter } from './smart-reply-provider.router';
 import { SmartReplyService } from './smart-reply.service';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
 
@@ -13,8 +12,7 @@ describe('SmartReplyService', () => {
   let service: SmartReplyService;
   let settingsRepo: jest.Mocked<Repository<SmartReplySettings>>;
   let historyRepo: jest.Mocked<Repository<SmartReplyHistory>>;
-  let modelProvider: jest.Mocked<SmartReplyModelProvider>;
-  let externalModelAdapter: jest.Mocked<SmartReplyExternalModelAdapter>;
+  let providerRouter: jest.Mocked<SmartReplyProviderRouter>;
 
   beforeEach(async () => {
     const repoMock = {
@@ -29,12 +27,9 @@ describe('SmartReplyService', () => {
       save: jest.fn(),
       delete: jest.fn(),
     } as unknown as jest.Mocked<Repository<SmartReplyHistory>>;
-    const modelProviderMock = {
+    const providerRouterMock = {
       generateSuggestions: jest.fn(),
-    } as unknown as jest.Mocked<SmartReplyModelProvider>;
-    const externalModelAdapterMock = {
-      generateSuggestions: jest.fn(),
-    } as unknown as jest.Mocked<SmartReplyExternalModelAdapter>;
+    } as unknown as jest.Mocked<SmartReplyProviderRouter>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -44,19 +39,14 @@ describe('SmartReplyService', () => {
           provide: getRepositoryToken(SmartReplyHistory),
           useValue: historyRepoMock,
         },
-        { provide: SmartReplyModelProvider, useValue: modelProviderMock },
-        {
-          provide: SmartReplyExternalModelAdapter,
-          useValue: externalModelAdapterMock,
-        },
+        { provide: SmartReplyProviderRouter, useValue: providerRouterMock },
       ],
     }).compile();
 
     service = module.get<SmartReplyService>(SmartReplyService);
     settingsRepo = module.get(getRepositoryToken(SmartReplySettings));
     historyRepo = module.get(getRepositoryToken(SmartReplyHistory));
-    modelProvider = module.get(SmartReplyModelProvider);
-    externalModelAdapter = module.get(SmartReplyExternalModelAdapter);
+    providerRouter = module.get(SmartReplyProviderRouter);
     historyRepo.create.mockImplementation(
       (value) => value as SmartReplyHistory,
     );
@@ -81,11 +71,11 @@ describe('SmartReplyService', () => {
       includeSignature: false,
       maxSuggestions: 3,
     } as SmartReplySettings);
-    modelProvider.generateSuggestions.mockReturnValue([
-      'Deterministic suggestion',
-      'Alternative',
-    ]);
-    externalModelAdapter.generateSuggestions.mockResolvedValue([]);
+    providerRouter.generateSuggestions.mockResolvedValue({
+      suggestions: ['Deterministic suggestion', 'Alternative'],
+      source: 'internal',
+      fallbackUsed: false,
+    });
 
     const result = await service.generateReply(
       {
@@ -94,7 +84,7 @@ describe('SmartReplyService', () => {
       'user-1',
     );
 
-    expect(modelProvider.generateSuggestions).toHaveBeenCalled();
+    expect(providerRouter.generateSuggestions).toHaveBeenCalled();
     expect(result).toBe('Deterministic suggestion');
     expect(historyRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -122,7 +112,7 @@ describe('SmartReplyService', () => {
       'user-1',
     );
 
-    expect(modelProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(providerRouter.generateSuggestions).not.toHaveBeenCalled();
     expect(result).toContain('security reasons');
     expect(historyRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -200,8 +190,11 @@ describe('SmartReplyService', () => {
       includeSignature: false,
       maxSuggestions: 2,
     } as SmartReplySettings);
-    modelProvider.generateSuggestions.mockReturnValue(['One', 'Two']);
-    externalModelAdapter.generateSuggestions.mockResolvedValue([]);
+    providerRouter.generateSuggestions.mockResolvedValue({
+      suggestions: ['One', 'Two'],
+      source: 'internal',
+      fallbackUsed: false,
+    });
 
     const result = await service.getSuggestedReplies(
       'Can we schedule a meeting?',
@@ -209,8 +202,10 @@ describe('SmartReplyService', () => {
       'user-1',
     );
 
-    expect(modelProvider.generateSuggestions).toHaveBeenCalledWith(
-      expect.objectContaining({ count: 2 }),
+    expect(providerRouter.generateSuggestions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({ count: 2 }),
+      }),
     );
     expect(result).toEqual(['One', 'Two']);
   });
@@ -226,17 +221,22 @@ describe('SmartReplyService', () => {
       maxSuggestions: 3,
       aiModel: 'advanced',
     } as SmartReplySettings);
-    externalModelAdapter.generateSuggestions.mockResolvedValue([
-      'External model suggestion',
-    ]);
+    providerRouter.generateSuggestions.mockResolvedValue({
+      suggestions: ['External model suggestion'],
+      source: 'external',
+      fallbackUsed: false,
+    });
 
     const result = await service.generateReply(
       { conversation: 'Need update on proposal status.' },
       'user-1',
     );
 
-    expect(externalModelAdapter.generateSuggestions).toHaveBeenCalled();
-    expect(modelProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(providerRouter.generateSuggestions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        aiModel: 'advanced',
+      }),
+    );
     expect(result).toBe('External model suggestion');
     expect(historyRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -256,8 +256,11 @@ describe('SmartReplyService', () => {
       maxSuggestions: 3,
       keepHistory: false,
     } as SmartReplySettings);
-    modelProvider.generateSuggestions.mockReturnValue(['Reply one']);
-    externalModelAdapter.generateSuggestions.mockResolvedValue([]);
+    providerRouter.generateSuggestions.mockResolvedValue({
+      suggestions: ['Reply one'],
+      source: 'internal',
+      fallbackUsed: false,
+    });
 
     await service.generateReply(
       {

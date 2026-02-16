@@ -20,6 +20,8 @@ The Smart Replies module follows a clean architecture pattern with the following
 - **SmartReplyService**: Core business logic for generating replies
 - **SmartReplyModelProvider**: Deterministic model-provider abstraction used by service
 - **SmartReplyExternalModelAdapter**: Optional external LLM adapter with safe fallback
+- **SmartReplyProviderRouter**: Configurable provider interface/router selecting
+  template vs external generation strategy
 - **SmartReplyResolver**: GraphQL API for exposing functionality
 - **DTOs**: Data Transfer Objects for input validation
 - **TypeORM Integration**: Database-backed settings and conversation-related persistence
@@ -35,21 +37,23 @@ flowchart TD
   Service --> Settings[(smart_reply_settings)]
   Service --> Safety{Sensitive context?}
   Safety -->|yes| SafeReply[Return safe security response]
-  Safety -->|no| ModelRouter{aiModel prefers external?}
-  ModelRouter -->|yes| ExternalAdapter[SmartReplyExternalModelAdapter]
-  ModelRouter -->|no| ModelProvider[SmartReplyModelProvider]
+  Safety -->|no| ProviderRouter[SmartReplyProviderRouter]
+  ProviderRouter -->|external path| ExternalAdapter[SmartReplyExternalModelAdapter]
+  ProviderRouter -->|template path| ModelProvider[SmartReplyModelProvider]
   ExternalAdapter -->|fallback| ModelProvider
-  ModelProvider --> DeterministicCandidates[Deterministic candidate generation]
-  DeterministicCandidates --> History[Persist smart_reply_history when keepHistory=true]
+  ExternalAdapter --> Suggestions[Normalized suggestion list]
+  ModelProvider --> Suggestions
+  Suggestions --> History[Persist smart_reply_history when keepHistory=true]
   History --> Retention[Prune history older than historyLength days]
   Retention --> Scheduler[Daily fallback auto-purge scheduler]
-  DeterministicCandidates --> Service
+  Suggestions --> Service
   Service --> Client
 ```
 
 ## External adapter flags
 
 - `SMART_REPLY_USE_AGENT_PLATFORM` (`true/false`, default `false`)
+- `SMART_REPLY_PROVIDER_MODE` (`hybrid|template|agent_platform`, default `hybrid`)
 - `SMART_REPLY_EXTERNAL_TIMEOUT_MS` (default `3000`)
 - `MAILZEN_SMART_REPLY_HISTORY_AUTOPURGE_ENABLED` (`true/false`, default `true`)
 - `MAILZEN_SMART_REPLY_HISTORY_RETENTION_DAYS` (default `365`, clamped `1..3650`)
@@ -182,7 +186,7 @@ export class EmailService {
 
 ## Future Enhancements
 
-- External LLM provider adapter (OpenAI/Anthropic/Azure OpenAI) behind provider interface
+- Additional LLM adapters (OpenAI/Anthropic/Azure OpenAI) behind provider interface
 - User feedback mechanism to improve reply quality
 - Personalization based on user communication style
 - Multi-language support

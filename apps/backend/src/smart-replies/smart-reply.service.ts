@@ -2,11 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { SmartReplyInput } from './dto/smart-reply.input';
-import { SmartReplyExternalModelAdapter } from './smart-reply-external-model.adapter';
 import { SmartReplyHistory } from './entities/smart-reply-history.entity';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
 import { UpdateSmartReplySettingsInput } from './dto/update-smart-reply-settings.input';
-import { SmartReplyModelProvider } from './smart-reply-model.provider';
+import { SmartReplyProviderRouter } from './smart-reply-provider.router';
 
 @Injectable()
 export class SmartReplyService {
@@ -27,8 +26,7 @@ export class SmartReplyService {
     private readonly settingsRepo: Repository<SmartReplySettings>,
     @InjectRepository(SmartReplyHistory)
     private readonly historyRepo: Repository<SmartReplyHistory>,
-    private readonly modelProvider: SmartReplyModelProvider,
-    private readonly externalModelAdapter: SmartReplyExternalModelAdapter,
+    private readonly providerRouter: SmartReplyProviderRouter,
   ) {}
 
   async generateReply(input: SmartReplyInput, userId: string): Promise<string> {
@@ -175,39 +173,17 @@ export class SmartReplyService {
     source: 'external' | 'internal';
     fallbackUsed: boolean;
   }> {
-    const externalPreferred = ['accurate', 'advanced'].includes(
-      String(settings.aiModel || '').toLowerCase(),
-    );
-
-    if (externalPreferred) {
-      const externalSuggestions =
-        await this.externalModelAdapter.generateSuggestions({
-          conversation,
-          count,
-          tone: settings.defaultTone,
-          length: settings.defaultLength,
-        });
-      if (externalSuggestions.length) {
-        return {
-          suggestions: externalSuggestions,
-          source: 'external',
-          fallbackUsed: false,
-        };
-      }
-    }
-
-    return {
-      suggestions: this.modelProvider.generateSuggestions({
+    return this.providerRouter.generateSuggestions({
+      aiModel: settings.aiModel,
+      request: {
         conversation,
         tone: settings.defaultTone,
         length: settings.defaultLength,
         count,
         includeSignature: settings.includeSignature,
         customInstructions: settings.customInstructions || undefined,
-      }),
-      source: 'internal',
-      fallbackUsed: externalPreferred,
-    };
+      },
+    });
   }
 
   private resolveHistoryRetentionDays(settings: SmartReplySettings): number {
