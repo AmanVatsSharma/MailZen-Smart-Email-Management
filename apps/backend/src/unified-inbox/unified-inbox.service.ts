@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { OAuth2Client } from 'google-auth-library';
 import { In, IsNull, Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
@@ -81,6 +82,8 @@ export class UnifiedInboxService {
     private readonly mailboxRepo: Repository<Mailbox>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
   ) {
     this.googleOAuth2Client = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID,
@@ -88,6 +91,30 @@ export class UnifiedInboxService {
       process.env.GOOGLE_PROVIDER_REDIRECT_URI ||
         process.env.GOOGLE_REDIRECT_URI,
     );
+  }
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'unified_inbox_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
   }
 
   private parseMailboxAddress(
@@ -1251,6 +1278,27 @@ export class UnifiedInboxService {
     threadId: string,
     input: EmailUpdateInput,
   ): Promise<EmailThread> {
+    const requestedFolder = input.folder
+      ? String(input.folder).trim().toLowerCase()
+      : null;
+    const requestedAddLabelIds = Array.from(
+      new Set(
+        (input.addLabelIds || []).map((labelId) => String(labelId).trim()),
+      ),
+    ).filter(Boolean);
+    const requestedRemoveLabelIds = Array.from(
+      new Set(
+        (input.removeLabelIds || []).map((labelId) => String(labelId).trim()),
+      ),
+    ).filter(Boolean);
+    const auditBaseMetadata = {
+      requestedThreadId: threadId,
+      read: typeof input.read === 'boolean' ? input.read : null,
+      starred: typeof input.starred === 'boolean' ? input.starred : null,
+      folder: requestedFolder,
+      addLabelIds: requestedAddLabelIds,
+      removeLabelIds: requestedRemoveLabelIds,
+    };
     const source = await this.resolveActiveInboxSource(userId);
     if (!source) throw new NotFoundException('No inbox sources connected');
 
@@ -1300,8 +1348,8 @@ export class UnifiedInboxService {
         else if (folder === 'inbox') updates.status = 'READ';
       }
 
-      const addLabels = input.addLabelIds || [];
-      const removeLabels = input.removeLabelIds || [];
+      const addLabels = requestedAddLabelIds;
+      const removeLabels = requestedRemoveLabelIds;
       await this.assertMailboxLabelOwnership(userId, [
         ...addLabels,
         ...removeLabels,
@@ -1351,6 +1399,18 @@ export class UnifiedInboxService {
         refreshedThreadEmails[refreshedThreadEmails.length - 1],
       );
       const fallbackId = anchorThreadKey || anchorEmail.id;
+      await this.writeAuditLog({
+        userId,
+        action: 'unified_inbox_thread_updated',
+        metadata: {
+          ...auditBaseMetadata,
+          sourceType: 'MAILBOX',
+          mailboxId: source.id,
+          mailboxAddress: source.address,
+          resolvedThreadId: resolvedThreadId || fallbackId,
+          updatedMessages: targetMailboxEmailIds.length,
+        },
+      });
       return this.getThread(userId, resolvedThreadId || fallbackId);
     }
 
@@ -1371,8 +1431,8 @@ export class UnifiedInboxService {
     const key = existing.threadId || existing.externalMessageId;
 
     // Compute label changes
-    const add = new Set<string>(input.addLabelIds || []);
-    const remove = new Set<string>(input.removeLabelIds || []);
+    const add = new Set<string>(requestedAddLabelIds);
+    const remove = new Set<string>(requestedRemoveLabelIds);
 
     if (typeof input.read === 'boolean') {
       if (input.read) remove.add('UNREAD');
@@ -1382,8 +1442,8 @@ export class UnifiedInboxService {
       if (input.starred) add.add('STARRED');
       else remove.add('STARRED');
     }
-    if (input.folder) {
-      const f = input.folder.toLowerCase();
+    if (requestedFolder) {
+      const f = requestedFolder;
       if (f === 'inbox') {
         add.add('INBOX');
         remove.add('TRASH');
@@ -1439,6 +1499,19 @@ export class UnifiedInboxService {
             updatedMessages: apiMsgs.length,
           }),
         );
+        await this.writeAuditLog({
+          userId,
+          action: 'unified_inbox_thread_updated',
+          metadata: {
+            ...auditBaseMetadata,
+            sourceType: 'PROVIDER',
+            providerType: provider.type,
+            providerId,
+            mode: 'gmail_thread_modify',
+            resolvedThreadId: key,
+            updatedMessages: apiMsgs.length,
+          },
+        });
       } else {
         const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(existing.externalMessageId)}/modify`;
         const res = await this.gmailRequest<any>(
@@ -1467,6 +1540,20 @@ export class UnifiedInboxService {
             updatedLabelCount: labelIds.length,
           }),
         );
+        await this.writeAuditLog({
+          userId,
+          action: 'unified_inbox_thread_updated',
+          metadata: {
+            ...auditBaseMetadata,
+            sourceType: 'PROVIDER',
+            providerType: provider.type,
+            providerId,
+            mode: 'gmail_message_modify',
+            resolvedThreadId: key,
+            updatedMessages: 1,
+            updatedLabelCount: labelIds.length,
+          },
+        });
       }
       return this.getThread(userId, key);
     }
@@ -1500,6 +1587,19 @@ export class UnifiedInboxService {
         updatedMessages: msgs.length,
       }),
     );
+    await this.writeAuditLog({
+      userId,
+      action: 'unified_inbox_thread_updated',
+      metadata: {
+        ...auditBaseMetadata,
+        sourceType: 'PROVIDER',
+        providerType: provider?.type || null,
+        providerId,
+        mode: 'local_labels_update',
+        resolvedThreadId: key,
+        updatedMessages: msgs.length,
+      },
+    });
 
     return this.getThread(userId, key);
   }

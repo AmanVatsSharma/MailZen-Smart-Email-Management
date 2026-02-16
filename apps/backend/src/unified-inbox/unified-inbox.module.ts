@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { UnifiedInboxResolver } from './unified-inbox.resolver';
 import { UnifiedInboxService } from './unified-inbox.service';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
@@ -22,6 +23,7 @@ import { User } from '../user/entities/user.entity';
       EmailLabelAssignment,
       Mailbox,
       User,
+      AuditLog,
     ]),
   ],
   providers: [UnifiedInboxResolver, UnifiedInboxService],

@@ -1,4 +1,5 @@
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
@@ -21,6 +22,7 @@ describe('UnifiedInboxService', () => {
   let emailRepo: jest.Mocked<Repository<Email>>;
   let mailboxRepo: jest.Mocked<Repository<Mailbox>>;
   let userRepo: jest.Mocked<Repository<User>>;
+  let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
   let service: UnifiedInboxService;
 
   beforeEach(() => {
@@ -54,6 +56,10 @@ describe('UnifiedInboxService', () => {
     userRepo = {
       findOne: jest.fn(),
     } as unknown as jest.Mocked<Repository<User>>;
+    auditLogRepo = {
+      create: jest.fn().mockImplementation((value) => value),
+      save: jest.fn().mockResolvedValue({} as AuditLog),
+    } as unknown as jest.Mocked<Repository<AuditLog>>;
 
     service = new UnifiedInboxService(
       providerRepo,
@@ -64,6 +70,7 @@ describe('UnifiedInboxService', () => {
       emailLabelRepo,
       mailboxRepo,
       userRepo,
+      auditLogRepo,
     );
   });
 
@@ -185,6 +192,12 @@ describe('UnifiedInboxService', () => {
     expect(messageRepo.update).toHaveBeenCalledWith(
       { id: 'm1' },
       { labels: expect.any(Array) },
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId,
+        action: 'unified_inbox_thread_updated',
+      }),
     );
   });
 
@@ -582,6 +595,12 @@ describe('UnifiedInboxService', () => {
       }),
     );
     expect(updated.messages[0].isStarred).toBe(true);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId,
+        action: 'unified_inbox_thread_updated',
+      }),
+    );
   });
 
   it('updates mailbox thread custom label assignments', async () => {
@@ -658,6 +677,12 @@ describe('UnifiedInboxService', () => {
       expect.objectContaining({
         emailId: expect.any(Object),
         labelId: expect.any(Object),
+      }),
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId,
+        action: 'unified_inbox_thread_updated',
       }),
     );
   });

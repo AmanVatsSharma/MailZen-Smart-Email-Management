@@ -194,6 +194,13 @@ sequenceDiagram
   - `unified_inbox_update_email_gmail_thread_modify_completed`
   - `unified_inbox_update_email_gmail_message_modify_completed`
   - `unified_inbox_update_email_local_completed`
+  - `unified_inbox_audit_log_write_failed`
+
+## Compliance / Audit Trail
+
+- Uses shared `AuditLog` persistence for user-triggered state mutations.
+- Audit actions:
+  - `unified_inbox_thread_updated`
 
 ## Changelog
 
