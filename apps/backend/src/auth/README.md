@@ -115,6 +115,8 @@ Web sessions are persisted with an HttpOnly `token` cookie.
   - `auth_abuse_limit_exceeded`
 - module bootstrap config diagnostics:
   - `auth_module_jwt_expiration_invalid`
+- audit persistence diagnostics:
+  - `auth_audit_log_write_failed`
 
 PII-sensitive identifiers such as phone numbers are logged as irreversible
 fingerprints, not raw values.
@@ -135,6 +137,19 @@ Google OAuth controller (`oauth.controller.ts`) structured events:
   - `auth_google_oauth_provider_autoconnect_conflict_resolve_failed`
   - `auth_google_oauth_provider_autoconnect_failed`
   - `auth_google_oauth_provider_sync_trigger_failed`
+
+## Compliance / Audit Trail
+
+- Uses shared `AuditLog` persistence for high-risk auth token and signup OTP
+  lifecycle actions.
+- Persisted audit actions:
+  - `auth_refresh_token_issued`
+  - `auth_refresh_token_rotated`
+  - `auth_logout_completed`
+  - `auth_verification_token_issued`
+  - `auth_verification_token_consumed`
+  - `auth_signup_otp_requested`
+  - `auth_signup_otp_verified`
 
 ## Google OAuth flow (hardened)
 

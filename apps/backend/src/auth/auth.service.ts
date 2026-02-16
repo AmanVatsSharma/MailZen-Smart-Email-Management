@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { UserSession } from './entities/user-session.entity';
+import { AuditLog } from './entities/audit-log.entity';
 import { VerificationToken } from './entities/verification-token.entity';
 import { SignupVerification } from '../phone/entities/signup-verification.entity';
 import { dispatchSmsOtp } from '../common/sms/sms-dispatcher.util';
@@ -28,11 +29,37 @@ export class AuthService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserSession)
     private readonly sessionRepository: Repository<UserSession>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepository: Repository<AuditLog>,
     @InjectRepository(VerificationToken)
     private readonly verificationTokenRepository: Repository<VerificationToken>,
     @InjectRepository(SignupVerification)
     private readonly signupVerificationRepository: Repository<SignupVerification>,
   ) {}
+
+  private async writeAuditLog(input: {
+    action: string;
+    userId?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepository.create({
+        action: input.action,
+        userId: input.userId,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepository.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'auth_audit_log_write_failed',
+          action: input.action,
+          userId: input.userId || null,
+          error: String(error),
+        }),
+      );
+    }
+  }
 
   /**
    * Resolve JWT expiration from env in a type-safe way.
@@ -142,6 +169,14 @@ export class AuthService {
     });
 
     await this.sessionRepository.save(session);
+    await this.writeAuditLog({
+      action: 'auth_refresh_token_issued',
+      userId,
+      metadata: {
+        sessionId: session.id,
+        expiresAtIso: session.expiresAt.toISOString(),
+      },
+    });
     this.logger.log(
       serializeStructuredLog({
         event: 'auth_refresh_token_generate_completed',
@@ -230,6 +265,13 @@ export class AuthService {
         userId: user.id,
       }),
     );
+    await this.writeAuditLog({
+      action: 'auth_refresh_token_rotated',
+      userId: user.id,
+      metadata: {
+        revokedSessionId: session.id,
+      },
+    });
     return { token, refreshToken: newRefresh, userId: user.id };
   }
 
@@ -263,6 +305,13 @@ export class AuthService {
       { refreshTokenHash: hash },
       { revokedAt: new Date(), revokedReason: 'logout' },
     );
+    await this.writeAuditLog({
+      action: 'auth_logout_completed',
+      userId: session.userId,
+      metadata: {
+        sessionId: session.id,
+      },
+    });
 
     this.logger.log(
       serializeStructuredLog({
@@ -303,6 +352,15 @@ export class AuthService {
     });
 
     await this.verificationTokenRepository.save(verificationToken);
+    await this.writeAuditLog({
+      action: 'auth_verification_token_issued',
+      userId,
+      metadata: {
+        verificationType: type,
+        verificationTokenId: verificationToken.id,
+        expiresAtIso: verificationToken.expiresAt.toISOString(),
+      },
+    });
     this.logger.log(
       serializeStructuredLog({
         event: 'auth_verification_token_create_completed',
@@ -355,6 +413,14 @@ export class AuthService {
       { token },
       { consumedAt: new Date() },
     );
+    await this.writeAuditLog({
+      action: 'auth_verification_token_consumed',
+      userId: record.userId,
+      metadata: {
+        verificationType: type,
+        verificationTokenId: record.id,
+      },
+    });
 
     this.logger.log(
       serializeStructuredLog({
@@ -391,6 +457,14 @@ export class AuthService {
 
     const savedRecord =
       await this.signupVerificationRepository.save(verification);
+    await this.writeAuditLog({
+      action: 'auth_signup_otp_requested',
+      metadata: {
+        signupVerificationId: savedRecord.id,
+        phoneFingerprint,
+        expiresAtIso: savedRecord.expiresAt.toISOString(),
+      },
+    });
     this.logger.log(
       serializeStructuredLog({
         event: 'auth_signup_otp_persisted',
@@ -491,6 +565,13 @@ export class AuthService {
 
     await this.signupVerificationRepository.update(record.id, {
       consumedAt: new Date(),
+    });
+    await this.writeAuditLog({
+      action: 'auth_signup_otp_verified',
+      metadata: {
+        signupVerificationId: record.id,
+        phoneFingerprint,
+      },
     });
 
     this.logger.log(
