@@ -60,6 +60,7 @@ const requiredContracts = [
   'isFeatureEnabled',
   'agentAssist',
   'agentPlatformHealth',
+  'resetAgentPlatformRuntimeStats',
   'myAgentActionAudits',
   'myAgentActionDataExport',
 ];

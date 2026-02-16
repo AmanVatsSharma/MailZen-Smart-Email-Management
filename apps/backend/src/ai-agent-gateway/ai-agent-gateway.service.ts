@@ -496,6 +496,40 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  resetPlatformRuntimeStats(input?: { endpointUrl?: string | null }): {
+    clearedEndpoints: number;
+    scopedEndpointUrl: string | null;
+    resetAtIso: string;
+  } {
+    const scopedEndpointUrl = this.normalizePlatformBaseUrl(
+      String(input?.endpointUrl || ''),
+    );
+    let clearedEndpoints = 0;
+
+    if (scopedEndpointUrl) {
+      if (this.endpointRuntimeStats.delete(scopedEndpointUrl)) {
+        clearedEndpoints = 1;
+      }
+    } else {
+      clearedEndpoints = this.endpointRuntimeStats.size;
+      this.endpointRuntimeStats.clear();
+    }
+    const resetAtIso = new Date().toISOString();
+    this.logger.warn(
+      JSON.stringify({
+        event: 'agent_platform_runtime_stats_reset',
+        scopedEndpointUrl: scopedEndpointUrl || null,
+        clearedEndpoints,
+        resetAtIso,
+      }),
+    );
+    return {
+      clearedEndpoints,
+      scopedEndpointUrl: scopedEndpointUrl || null,
+      resetAtIso,
+    };
+  }
+
   async listAgentActionAuditsForUser(input: {
     userId: string;
     limit?: number;

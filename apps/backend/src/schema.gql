@@ -558,6 +558,12 @@ type AgentPlatformEndpointStatResponse {
   lastFailureAtIso: String
 }
 
+type AgentPlatformRuntimeResetResponse {
+  clearedEndpoints: Int!
+  scopedEndpointUrl: String
+  resetAtIso: String!
+}
+
 type AgentActionAudit {
   id: ID!
   userId: String
@@ -1000,6 +1006,9 @@ extend type Mutation {
     retentionDays: Int
     userId: String
   ): AgentActionAuditRetentionPurgeResponse!
+  resetAgentPlatformRuntimeStats(
+    endpointUrl: String
+  ): AgentPlatformRuntimeResetResponse!
   requestMyPlanUpgrade(
     targetPlanCode: String!
     note: String

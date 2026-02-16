@@ -19,6 +19,7 @@ import { AgentAssistInput } from './dto/agent-assist.input';
 import { AgentAssistResponse } from './dto/agent-assist.response';
 import { AgentActionDataExportResponse } from './dto/agent-action-data-export.response';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
+import { AgentPlatformRuntimeResetResponse } from './dto/agent-platform-runtime-reset.response';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
 
 interface RequestContext {
@@ -98,6 +99,19 @@ export class AiAgentGatewayResolver {
     return this.gatewayService.purgeAgentActionAuditRetentionData({
       retentionDays,
       userId,
+    });
+  }
+
+  @Mutation(() => AgentPlatformRuntimeResetResponse, {
+    description:
+      'Reset in-memory AI platform endpoint runtime statistics (all or one endpoint)',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  resetAgentPlatformRuntimeStats(
+    @Args('endpointUrl', { nullable: true }) endpointUrl?: string,
+  ): AgentPlatformRuntimeResetResponse {
+    return this.gatewayService.resetPlatformRuntimeStats({
+      endpointUrl,
     });
   }
 }

@@ -448,6 +448,134 @@ describe('AiAgentGatewayService', () => {
     );
   });
 
+  it('resets all endpoint runtime stats when no endpointUrl is provided', async () => {
+    process.env.AI_AGENT_PLATFORM_URLS =
+      'http://primary-agent.local,http://secondary-agent.local';
+    const service = createService();
+    mockedAxios.post
+      .mockRejectedValueOnce(new Error('primary down'))
+      .mockResolvedValueOnce({
+        data: {
+          version: 'v1',
+          skill: 'auth',
+          assistantText: 'Use forgot password.',
+          intent: 'forgot_password',
+          confidence: 0.9,
+          suggestedActions: [],
+          uiHints: {},
+          safetyFlags: [],
+        },
+      } as any);
+    mockedAxios.get.mockResolvedValue({
+      data: {
+        status: 'ok',
+      },
+    } as any);
+
+    await service.assist({
+      skill: 'auth',
+      messages: [{ role: 'user', content: 'help me login' }],
+      context: { surface: 'auth-login', locale: 'en-IN' },
+      allowedActions: ['auth.open_login'],
+      executeRequestedAction: false,
+    });
+    const beforeReset = await service.getPlatformHealth();
+    const primaryBefore = beforeReset.endpointStats.find(
+      (entry: { endpointUrl: string }) =>
+        entry.endpointUrl === 'http://primary-agent.local',
+    );
+    expect(primaryBefore).toEqual(
+      expect.objectContaining({
+        failureCount: 1,
+      }),
+    );
+
+    const resetResult = service.resetPlatformRuntimeStats();
+    const afterReset = await service.getPlatformHealth();
+    const primaryAfter = afterReset.endpointStats.find(
+      (entry: { endpointUrl: string }) =>
+        entry.endpointUrl === 'http://primary-agent.local',
+    );
+
+    expect(resetResult).toEqual(
+      expect.objectContaining({
+        clearedEndpoints: 2,
+        scopedEndpointUrl: null,
+      }),
+    );
+    expect(primaryAfter).toEqual(
+      expect.objectContaining({
+        successCount: 0,
+        failureCount: 0,
+      }),
+    );
+  });
+
+  it('resets one endpoint runtime stat when endpointUrl is provided', async () => {
+    process.env.AI_AGENT_PLATFORM_URLS =
+      'http://primary-agent.local,http://secondary-agent.local';
+    const service = createService();
+    mockedAxios.post
+      .mockRejectedValueOnce(new Error('primary down'))
+      .mockResolvedValueOnce({
+        data: {
+          version: 'v1',
+          skill: 'auth',
+          assistantText: 'Use forgot password.',
+          intent: 'forgot_password',
+          confidence: 0.9,
+          suggestedActions: [],
+          uiHints: {},
+          safetyFlags: [],
+        },
+      } as any);
+    mockedAxios.get.mockResolvedValue({
+      data: {
+        status: 'ok',
+      },
+    } as any);
+
+    await service.assist({
+      skill: 'auth',
+      messages: [{ role: 'user', content: 'help me login' }],
+      context: { surface: 'auth-login', locale: 'en-IN' },
+      allowedActions: ['auth.open_login'],
+      executeRequestedAction: false,
+    });
+
+    const resetResult = service.resetPlatformRuntimeStats({
+      endpointUrl: 'http://primary-agent.local',
+    });
+    const health = await service.getPlatformHealth();
+    const primaryStats = health.endpointStats.find(
+      (entry: { endpointUrl: string }) =>
+        entry.endpointUrl === 'http://primary-agent.local',
+    );
+    const secondaryStats = health.endpointStats.find(
+      (entry: { endpointUrl: string }) =>
+        entry.endpointUrl === 'http://secondary-agent.local',
+    );
+
+    expect(resetResult).toEqual(
+      expect.objectContaining({
+        clearedEndpoints: 1,
+        scopedEndpointUrl: 'http://primary-agent.local',
+      }),
+    );
+    expect(primaryStats).toEqual(
+      expect.objectContaining({
+        successCount: 0,
+        failureCount: 0,
+      }),
+    );
+    expect(secondaryStats).toEqual(
+      expect.objectContaining({
+        successCount: 1,
+        failureCount: 0,
+      }),
+    );
+  });
+
   it('rotates platform endpoint order when load balancing is enabled', async () => {
     process.env.AI_AGENT_PLATFORM_URLS =
       'http://primary-agent.local,http://secondary-agent.local,http://tertiary-agent.local';

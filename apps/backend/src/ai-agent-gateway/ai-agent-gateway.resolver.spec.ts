@@ -4,6 +4,7 @@ describe('AiAgentGatewayResolver', () => {
   const gatewayService = {
     assist: jest.fn(),
     getPlatformHealth: jest.fn(),
+    resetPlatformRuntimeStats: jest.fn(),
     listAgentActionAuditsForUser: jest.fn(),
     exportAgentActionDataForUser: jest.fn(),
     purgeAgentActionAuditRetentionData: jest.fn(),
@@ -125,6 +126,27 @@ describe('AiAgentGatewayResolver', () => {
     ).toHaveBeenCalledWith({
       retentionDays: 365,
       userId: 'user-1',
+    });
+  });
+
+  it('forwards endpointUrl to resetAgentPlatformRuntimeStats', () => {
+    gatewayService.resetPlatformRuntimeStats.mockReturnValue({
+      clearedEndpoints: 2,
+      scopedEndpointUrl: null,
+      resetAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    const result = resolver.resetAgentPlatformRuntimeStats(
+      'http://localhost:8100',
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        clearedEndpoints: 2,
+      }),
+    );
+    expect(gatewayService.resetPlatformRuntimeStats).toHaveBeenCalledWith({
+      endpointUrl: 'http://localhost:8100',
     });
   });
 });

@@ -34,6 +34,7 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   agent action audit history.
 - Expose admin retention control:
   - `purgeAgentActionRetentionData(retentionDays?, userId?)`
+  - `resetAgentPlatformRuntimeStats(endpointUrl?)`
 - Run daily retention scheduler for stale audit rows.
 - Include current-period AI credit balance (`aiCreditsMonthlyLimit`,
   `aiCreditsUsed`, `aiCreditsRemaining`) in authenticated `agentAssist` responses.
@@ -98,3 +99,4 @@ flowchart TD
 - 2026-02-16: Added multi-endpoint AI platform failover support (`AI_AGENT_PLATFORM_URLS`) for assist and health probes.
 - 2026-02-16: Added executable inbox action-item extraction action.
 - 2026-02-16: Added optional request-id-based endpoint rotation for platform calls (`AI_AGENT_PLATFORM_LOAD_BALANCE_ENABLED`).
+- 2026-02-16: Added admin runtime reset mutation for endpoint health counters.
