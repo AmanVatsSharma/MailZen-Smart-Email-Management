@@ -240,11 +240,11 @@ Example:
 # Run diagnostics with a temporary seeded env (CI-friendly)
 ./deploy/ec2/scripts/doctor.sh --seed-env
 
-# Strict diagnostics mode (treat optional warnings as failures)
-./deploy/ec2/scripts/doctor.sh --strict
-
 # Generate compressed support bundle archive
 ./deploy/ec2/scripts/support-bundle.sh
+
+# Generate support bundle with seeded temporary env (CI-friendly)
+./deploy/ec2/scripts/support-bundle.sh --seed-env
 
 # Keep only latest 20 report artifacts (default)
 ./deploy/ec2/scripts/reports-prune.sh

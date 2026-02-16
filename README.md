@@ -276,6 +276,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: generate support bundle archive for troubleshooting
 ./deploy/ec2/scripts/support-bundle.sh
 
+# Optional: support bundle with seeded temporary env
+./deploy/ec2/scripts/support-bundle.sh --seed-env
+
 # Optional: prune old diagnostics report artifacts
 ./deploy/ec2/scripts/reports-prune.sh
 

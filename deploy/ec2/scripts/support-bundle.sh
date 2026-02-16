@@ -19,21 +19,80 @@
 #
 # Usage:
 #   ./deploy/ec2/scripts/support-bundle.sh
+#   ./deploy/ec2/scripts/support-bundle.sh --seed-env
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
 
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPORT_DIR="${DEPLOY_DIR}/reports"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 WORK_DIR="${REPORT_DIR}/support-bundle-${TIMESTAMP}"
 BUNDLE_FILE="${REPORT_DIR}/support-bundle-${TIMESTAMP}.tar.gz"
+SEED_ENV=false
+KEEP_SEEDED_ENV=false
+SEEDED_ENV_FILE=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --seed-env)
+    SEED_ENV=true
+    shift
+    ;;
+  --keep-seeded-env)
+    KEEP_SEEDED_ENV=true
+    shift
+    ;;
+  *)
+    echo "[mailzen-deploy][SUPPORT-BUNDLE][ERROR] Unknown argument: $1"
+    echo "[mailzen-deploy][SUPPORT-BUNDLE][INFO] Supported flags: --seed-env --keep-seeded-env"
+    exit 1
+    ;;
+  esac
+done
+
+if [[ "${SEED_ENV}" == false ]] && [[ "${KEEP_SEEDED_ENV}" == true ]]; then
+  echo "[mailzen-deploy][SUPPORT-BUNDLE][ERROR] --keep-seeded-env requires --seed-env"
+  exit 1
+fi
 
 mkdir -p "${WORK_DIR}"
 
 log_bundle() {
   echo "[mailzen-deploy][SUPPORT-BUNDLE] $*"
+}
+
+cleanup() {
+  if [[ -n "${SEEDED_ENV_FILE}" ]] && [[ "${KEEP_SEEDED_ENV}" == false ]] && [[ -f "${SEEDED_ENV_FILE}" ]]; then
+    rm -f "${SEEDED_ENV_FILE}"
+    log_bundle "Removed seeded env file: ${SEEDED_ENV_FILE}"
+  fi
+}
+trap cleanup EXIT
+
+seed_env_file() {
+  SEEDED_ENV_FILE="$(mktemp "${DEPLOY_DIR}/.env.support-bundle.XXXXXX")"
+  cp "${ENV_TEMPLATE_FILE}" "${SEEDED_ENV_FILE}"
+
+  sed -i 's/^MAILZEN_DOMAIN=.*/MAILZEN_DOMAIN=mailzen.pipeline.local/' "${SEEDED_ENV_FILE}"
+  sed -i 's/^ACME_EMAIL=.*/ACME_EMAIL=ops@mailzen-pipeline.dev/' "${SEEDED_ENV_FILE}"
+  sed -i 's|^FRONTEND_URL=.*|FRONTEND_URL=https://mailzen.pipeline.local|' "${SEEDED_ENV_FILE}"
+  sed -i 's|^NEXT_PUBLIC_GRAPHQL_ENDPOINT=.*|NEXT_PUBLIC_GRAPHQL_ENDPOINT=https://mailzen.pipeline.local/graphql|' "${SEEDED_ENV_FILE}"
+  sed -i 's/^JWT_SECRET=.*/JWT_SECRET=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcd/' "${SEEDED_ENV_FILE}"
+  sed -i 's/^OAUTH_STATE_SECRET=.*/OAUTH_STATE_SECRET=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789abcd/' "${SEEDED_ENV_FILE}"
+  sed -i 's/^SECRETS_KEY=.*/SECRETS_KEY=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789abcd/' "${SEEDED_ENV_FILE}"
+  sed -i 's/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=mailzenpipelinepostgrespassword123/' "${SEEDED_ENV_FILE}"
+  sed -i 's/^AI_AGENT_PLATFORM_KEY=.*/AI_AGENT_PLATFORM_KEY=mailzenpipelineagentplatformkey1234567890abcd/' "${SEEDED_ENV_FILE}"
+  sed -i 's|^GOOGLE_REDIRECT_URI=.*|GOOGLE_REDIRECT_URI=https://mailzen.pipeline.local/auth/google/callback|' "${SEEDED_ENV_FILE}"
+  sed -i 's|^GOOGLE_PROVIDER_REDIRECT_URI=.*|GOOGLE_PROVIDER_REDIRECT_URI=https://mailzen.pipeline.local/email-integration/google/callback|' "${SEEDED_ENV_FILE}"
+  sed -i 's|^OUTLOOK_REDIRECT_URI=.*|OUTLOOK_REDIRECT_URI=https://mailzen.pipeline.local/auth/microsoft/callback|' "${SEEDED_ENV_FILE}"
+  sed -i 's|^OUTLOOK_PROVIDER_REDIRECT_URI=.*|OUTLOOK_PROVIDER_REDIRECT_URI=https://mailzen.pipeline.local/email-integration/microsoft/callback|' "${SEEDED_ENV_FILE}"
+  sed -i 's|^PROVIDER_SECRETS_KEYRING=.*|PROVIDER_SECRETS_KEYRING=default:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789abcd|' "${SEEDED_ENV_FILE}"
+
+  export MAILZEN_DEPLOY_ENV_FILE="${SEEDED_ENV_FILE}"
+  log_bundle "Seeded env file: ${SEEDED_ENV_FILE}"
 }
 
 run_capture() {
@@ -48,6 +107,10 @@ run_capture() {
   fi
 }
 
+if [[ "${SEED_ENV}" == true ]]; then
+  seed_env_file
+fi
+
 run_capture "self-check" "\"${SCRIPT_DIR}/self-check.sh\""
 run_capture "env-audit" "\"${SCRIPT_DIR}/env-audit.sh\""
 run_capture "preflight-config-only" "\"${SCRIPT_DIR}/preflight.sh\" --config-only"
@@ -55,19 +118,33 @@ run_capture "dns-check" "\"${SCRIPT_DIR}/dns-check.sh\""
 run_capture "ssl-check" "\"${SCRIPT_DIR}/ssl-check.sh\""
 run_capture "host-readiness" "\"${SCRIPT_DIR}/host-readiness.sh\""
 run_capture "ports-check" "\"${SCRIPT_DIR}/ports-check.sh\""
-run_capture "doctor" "\"${SCRIPT_DIR}/doctor.sh\""
-run_capture "pipeline-check" "\"${SCRIPT_DIR}/pipeline-check.sh\""
+
+doctor_args=()
+pipeline_args=()
+if [[ "${SEED_ENV}" == true ]]; then
+  doctor_args+=(--seed-env)
+  if [[ "${KEEP_SEEDED_ENV}" == true ]]; then
+    doctor_args+=(--keep-seeded-env)
+  fi
+  pipeline_args+=(--seed-env)
+  if [[ "${KEEP_SEEDED_ENV}" == true ]]; then
+    pipeline_args+=(--keep-seeded-env)
+  fi
+fi
+run_capture "doctor" "\"${SCRIPT_DIR}/doctor.sh\" ${doctor_args[*]}"
+run_capture "pipeline-check" "\"${SCRIPT_DIR}/pipeline-check.sh\" ${pipeline_args[*]}"
+run_capture "status" "\"${SCRIPT_DIR}/status.sh\""
 
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   run_capture "docker-info" "docker info"
-  run_capture "compose-ps" "docker compose --env-file \"${DEPLOY_DIR}/.env.ec2\" -f \"${DEPLOY_DIR}/docker-compose.yml\" ps"
-  run_capture "compose-config" "docker compose --env-file \"${DEPLOY_DIR}/.env.ec2\" -f \"${DEPLOY_DIR}/docker-compose.yml\" config"
-  run_capture "logs-caddy" "docker compose --env-file \"${DEPLOY_DIR}/.env.ec2\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 caddy"
-  run_capture "logs-frontend" "docker compose --env-file \"${DEPLOY_DIR}/.env.ec2\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 frontend"
-  run_capture "logs-backend" "docker compose --env-file \"${DEPLOY_DIR}/.env.ec2\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 backend"
-  run_capture "logs-ai-agent-platform" "docker compose --env-file \"${DEPLOY_DIR}/.env.ec2\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 ai-agent-platform"
-  run_capture "logs-postgres" "docker compose --env-file \"${DEPLOY_DIR}/.env.ec2\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 postgres"
-  run_capture "logs-redis" "docker compose --env-file \"${DEPLOY_DIR}/.env.ec2\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 redis"
+  run_capture "compose-ps" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" ps"
+  run_capture "compose-config" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" config"
+  run_capture "logs-caddy" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 caddy"
+  run_capture "logs-frontend" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 frontend"
+  run_capture "logs-backend" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 backend"
+  run_capture "logs-ai-agent-platform" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 ai-agent-platform"
+  run_capture "logs-postgres" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 postgres"
+  run_capture "logs-redis" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 redis"
 else
   log_bundle "Docker daemon unavailable; skipping compose-specific captures."
 fi
