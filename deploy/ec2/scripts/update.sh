@@ -120,6 +120,9 @@ if [[ "${RUN_VERIFY}" == false ]] &&
   { [[ "${VERIFY_SKIP_SSL_CHECK}" == true ]] || [[ "${VERIFY_SKIP_OAUTH_CHECK}" == true ]] || [[ -n "${VERIFY_MAX_RETRIES}" ]] || [[ -n "${VERIFY_RETRY_SLEEP}" ]]; }; then
   log_warn "Verify-related flags were provided while --skip-verify is enabled; verify flags will be ignored."
 fi
+if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${STATUS_RUNTIME_CHECKS}" == false ]]; then
+  log_warn "--ports-check-ports has no effect unless --status-runtime-checks is enabled."
+fi
 
 log_info "Starting MailZen update workflow..."
 log_info "Active env file: $(get_env_file)"
@@ -128,9 +131,6 @@ log_info "Active compose file: $(get_compose_file)"
 preflight_args=()
 if [[ "${PREFLIGHT_CONFIG_ONLY}" == true ]]; then
   preflight_args+=(--config-only)
-fi
-if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
-  preflight_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
 fi
 "${SCRIPT_DIR}/preflight.sh" "${preflight_args[@]}"
 

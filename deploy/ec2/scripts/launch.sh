@@ -200,6 +200,9 @@ fi
 if [[ "${RUN_VERIFY}" == false ]]; then
   log_info "[LAUNCH] verify step skipped by --skip-verify"
 fi
+if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${RUN_PORTS_CHECK}" == false ]] && [[ "${STATUS_RUNTIME_CHECKS}" == false ]]; then
+  log_warn "[LAUNCH] --ports-check-ports has no effect when both direct ports check and status runtime checks are disabled."
+fi
 
 log_info "[LAUNCH] active env file: $(get_env_file)"
 log_info "[LAUNCH] active compose file: $(get_compose_file)"
@@ -267,9 +270,6 @@ fi
 preflight_args=()
 if [[ "${PREFLIGHT_CONFIG_ONLY}" == true ]]; then
   preflight_args+=(--config-only)
-fi
-if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
-  preflight_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
 fi
 run_step "${step}" "${total_steps}" "preflight validation" "${SCRIPT_DIR}/preflight.sh" "${preflight_args[@]}"
 step=$((step + 1))
