@@ -6,6 +6,7 @@ import { User } from '../user/entities/user.entity';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
 import { AgentPlatformHealthAlertRun } from './entities/agent-platform-health-alert-run.entity';
 import { AiAgentPlatformHealthAlertScheduler } from './ai-agent-platform-health-alert.scheduler';
+import { DeleteResult } from 'typeorm';
 
 describe('AiAgentPlatformHealthAlertScheduler', () => {
   let scheduler: AiAgentPlatformHealthAlertScheduler;
@@ -52,6 +53,7 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     alertRunRepo = {
       save: jest.fn(),
       find: jest.fn(),
+      delete: jest.fn(),
       create: jest.fn(
         (payload: unknown) => payload as AgentPlatformHealthAlertRun,
       ),
@@ -72,6 +74,7 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     notificationRepo.find.mockResolvedValue([]);
     alertRunRepo.save.mockResolvedValue({} as AgentPlatformHealthAlertRun);
     alertRunRepo.find.mockResolvedValue([]);
+    alertRunRepo.delete.mockResolvedValue({ affected: 0 } as DeleteResult);
     aiAgentGatewayService.getPlatformHealthTrendSummary
       .mockResolvedValueOnce({
         windowHours: 6,
@@ -492,5 +495,28 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
         publishedCount: 2,
       }),
     ]);
+  });
+
+  it('purges persisted alert run history by retention policy', async () => {
+    alertRunRepo.delete.mockResolvedValue({
+      affected: 7,
+    } as DeleteResult);
+
+    const result = await scheduler.purgeAlertRunRetentionData({
+      retentionDays: 90,
+    });
+
+    expect(alertRunRepo.delete).toHaveBeenCalledTimes(1);
+    const deleteCriteria = alertRunRepo.delete.mock.calls[0]?.[0] as
+      | { evaluatedAt?: unknown }
+      | undefined;
+    expect(deleteCriteria).toBeDefined();
+    expect(deleteCriteria).toHaveProperty('evaluatedAt');
+    expect(result).toEqual(
+      expect.objectContaining({
+        deletedRuns: 7,
+        retentionDays: 90,
+      }),
+    );
   });
 });

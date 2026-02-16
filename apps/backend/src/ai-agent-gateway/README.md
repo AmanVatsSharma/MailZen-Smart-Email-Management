@@ -60,6 +60,8 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - returns persisted scheduler-run snapshots for alert audit and troubleshooting.
   - `runAgentPlatformHealthAlertCheck(windowHours?, baselineWindowHours?, cooldownMinutes?, minSampleCount?)`
   - runs anomaly detection on-demand and returns publish diagnostics.
+  - `purgeAgentPlatformHealthAlertRunRetentionData(retentionDays?)`
+  - purges persisted alert-run snapshots by retention policy.
 - Expose `myAgentActionDataExport(limit?)` for authenticated JSON export of
   agent action audit history.
 - Expose admin retention control:
@@ -113,6 +115,8 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - `AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_LATENCY_DELTA_MS` (default `150`, clamp `0..60000`)
 - `AI_AGENT_HEALTH_ALERT_SCAN_ADMIN_USERS` (default `true`)
 - `AI_AGENT_HEALTH_ALERT_RECIPIENT_USER_IDS` (optional CSV user IDs)
+- `AI_AGENT_HEALTH_ALERT_RUN_AUTOPURGE_ENABLED` (default `true`)
+- `AI_AGENT_HEALTH_ALERT_RUN_RETENTION_DAYS` (default `120`, clamp `1..3650`)
 
 ## Retention flow
 
@@ -180,3 +184,4 @@ flowchart TD
 - 2026-02-16: Added delivered AI health alert data export query.
 - 2026-02-16: Added AI health alert config snapshot query for operational diagnostics.
 - 2026-02-16: Added persisted health alert scheduler run history query for auditability.
+- 2026-02-16: Added alert-run retention purge API + daily auto-purge scheduler.

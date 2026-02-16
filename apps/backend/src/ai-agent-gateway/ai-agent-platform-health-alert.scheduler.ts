@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThanOrEqual, Repository } from 'typeorm';
+import { LessThan, MoreThanOrEqual, Repository } from 'typeorm';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { UserNotification } from '../notification/entities/user-notification.entity';
 import { User } from '../user/entities/user.entity';
@@ -41,6 +41,7 @@ export class AiAgentPlatformHealthAlertScheduler {
   private static readonly MAX_ALERT_DELIVERY_BUCKET_MINUTES = 24 * 60;
   private static readonly DEFAULT_ALERT_RUN_HISTORY_LIMIT = 100;
   private static readonly MAX_ALERT_RUN_HISTORY_LIMIT = 2000;
+  private static readonly DEFAULT_ALERT_RUN_RETENTION_DAYS = 120;
   private readonly logger = new Logger(
     AiAgentPlatformHealthAlertScheduler.name,
   );
@@ -436,6 +437,34 @@ export class AiAgentPlatformHealthAlertScheduler {
     }));
   }
 
+  async purgeAlertRunRetentionData(input?: {
+    retentionDays?: number | null;
+  }): Promise<{
+    deletedRuns: number;
+    retentionDays: number;
+    executedAtIso: string;
+  }> {
+    const retentionDays = this.normalizeAlertRunRetentionDays(
+      input?.retentionDays,
+    );
+    const cutoffDate = new Date(
+      Date.now() - retentionDays * 24 * 60 * 60 * 1000,
+    );
+    const deleteResult = await this.alertRunRepo.delete({
+      evaluatedAt: LessThan(cutoffDate),
+    });
+    const deletedRuns = Number(deleteResult.affected || 0);
+    const executedAtIso = new Date().toISOString();
+    this.logger.log(
+      `agent-platform-alerts: run retention purge deleted=${deletedRuns} retentionDays=${retentionDays}`,
+    );
+    return {
+      deletedRuns,
+      retentionDays,
+      executedAtIso,
+    };
+  }
+
   async getAlertDeliveryStats(input?: {
     windowHours?: number | null;
   }): Promise<{
@@ -815,6 +844,19 @@ export class AiAgentPlatformHealthAlertScheduler {
       minimumValue: 1,
       maximumValue:
         AiAgentPlatformHealthAlertScheduler.MAX_ALERT_RUN_HISTORY_LIMIT,
+    });
+  }
+
+  private normalizeAlertRunRetentionDays(
+    retentionDays?: number | null,
+  ): number {
+    return this.resolvePositiveInteger({
+      rawValue:
+        retentionDays ?? process.env.AI_AGENT_HEALTH_ALERT_RUN_RETENTION_DAYS,
+      fallbackValue:
+        AiAgentPlatformHealthAlertScheduler.DEFAULT_ALERT_RUN_RETENTION_DAYS,
+      minimumValue: 1,
+      maximumValue: 3650,
     });
   }
 

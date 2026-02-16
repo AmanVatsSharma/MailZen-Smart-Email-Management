@@ -22,6 +22,7 @@ describe('AiAgentGatewayResolver', () => {
     runHealthAlertCheck: jest.fn(),
     getAlertConfigSnapshot: jest.fn(),
     getAlertRunHistory: jest.fn(),
+    purgeAlertRunRetentionData: jest.fn(),
     getAlertDeliveryStats: jest.fn(),
     getAlertDeliverySeries: jest.fn(),
     exportAlertDeliveryData: jest.fn(),
@@ -324,6 +325,29 @@ describe('AiAgentGatewayResolver', () => {
       expect.objectContaining({
         alertsEnabled: true,
         publishedCount: 1,
+      }),
+    );
+  });
+
+  it('delegates purgeAgentPlatformHealthAlertRunRetentionData to health alert scheduler', async () => {
+    healthAlertScheduler.purgeAlertRunRetentionData.mockResolvedValue({
+      deletedRuns: 12,
+      retentionDays: 120,
+      executedAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    const result =
+      await resolver.purgeAgentPlatformHealthAlertRunRetentionData(120);
+
+    expect(
+      healthAlertScheduler.purgeAlertRunRetentionData,
+    ).toHaveBeenCalledWith({
+      retentionDays: 120,
+    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        deletedRuns: 12,
+        retentionDays: 120,
       }),
     );
   });

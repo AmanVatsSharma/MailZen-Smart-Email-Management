@@ -22,6 +22,7 @@ import { AgentActionDataExportResponse } from './dto/agent-action-data-export.re
 import { AgentPlatformHealthAlertCheckResponse } from './dto/agent-platform-health-alert-check.response';
 import { AgentPlatformHealthAlertConfigResponse } from './dto/agent-platform-health-alert-config.response';
 import { AgentPlatformHealthAlertDeliveryDataExportResponse } from './dto/agent-platform-health-alert-delivery-data-export.response';
+import { AgentPlatformHealthAlertRunRetentionPurgeResponse } from './dto/agent-platform-health-alert-run-retention-purge.response';
 import {
   AgentPlatformHealthAlertDeliveryStatsResponse,
   AgentPlatformHealthAlertDeliveryTrendPointResponse,
@@ -368,6 +369,20 @@ export class AiAgentGatewayResolver {
       baselineWindowHours,
       cooldownMinutes,
       minSampleCount,
+    });
+  }
+
+  @Mutation(() => AgentPlatformHealthAlertRunRetentionPurgeResponse, {
+    description:
+      'Purge persisted AI platform health alert run snapshots by retention policy',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async purgeAgentPlatformHealthAlertRunRetentionData(
+    @Args('retentionDays', { type: () => Int, nullable: true })
+    retentionDays?: number,
+  ): Promise<AgentPlatformHealthAlertRunRetentionPurgeResponse> {
+    return this.healthAlertScheduler.purgeAlertRunRetentionData({
+      retentionDays,
     });
   }
 }

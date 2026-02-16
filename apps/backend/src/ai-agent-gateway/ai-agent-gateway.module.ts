@@ -20,6 +20,7 @@ import { AiAgentActionAuditRetentionScheduler } from './ai-agent-action-audit-re
 import { AiAgentGatewayResolver } from './ai-agent-gateway.resolver';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
 import { AiAgentPlatformHealthAlertScheduler } from './ai-agent-platform-health-alert.scheduler';
+import { AiAgentPlatformHealthAlertRunRetentionScheduler } from './ai-agent-platform-health-alert-run-retention.scheduler';
 import { AiAgentPlatformHealthSampleRetentionScheduler } from './ai-agent-platform-health-sample-retention.scheduler';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
 import { AgentPlatformEndpointRuntimeStat } from './entities/agent-platform-endpoint-runtime-stat.entity';
@@ -48,6 +49,7 @@ import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-r
     AiAgentGatewayService,
     AiAgentActionAuditRetentionScheduler,
     AiAgentPlatformHealthAlertScheduler,
+    AiAgentPlatformHealthAlertRunRetentionScheduler,
     AiAgentPlatformHealthSampleRetentionScheduler,
   ],
   exports: [AiAgentGatewayService],
