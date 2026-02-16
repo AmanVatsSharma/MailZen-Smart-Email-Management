@@ -119,6 +119,15 @@ active_compose_file="${MAILZEN_DEPLOY_COMPOSE_FILE:-${DEPLOY_DIR}/docker-compose
   echo "active_compose_file=${active_compose_file}"
   echo "workspace_deploy_dir=${DEPLOY_DIR}"
 } >"${WORK_DIR}/bundle-manifest.txt"
+if command -v git >/dev/null 2>&1; then
+  if git -C "${DEPLOY_DIR}/.." rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    {
+      echo "git_branch=$(git -C "${DEPLOY_DIR}/.." rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+      echo "git_head=$(git -C "${DEPLOY_DIR}/.." rev-parse HEAD 2>/dev/null || echo unknown)"
+      echo "git_status_short=$(git -C "${DEPLOY_DIR}/.." status --short | wc -l | tr -d ' ')"
+    } >>"${WORK_DIR}/bundle-manifest.txt"
+  fi
+fi
 log_bundle "Captured bundle manifest: ${WORK_DIR}/bundle-manifest.txt"
 
 run_capture "self-check" "\"${SCRIPT_DIR}/self-check.sh\""

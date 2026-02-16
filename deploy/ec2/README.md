@@ -250,7 +250,7 @@ Example:
 
 # Keep support bundle temp work directory for deep debugging
 ./deploy/ec2/scripts/support-bundle.sh --seed-env --keep-work-dir
-# (bundle includes bundle-manifest.txt with active env/compose metadata)
+# (bundle includes bundle-manifest.txt with active env/compose + git metadata)
 
 # Keep only latest 20 report artifacts (default)
 ./deploy/ec2/scripts/reports-prune.sh
