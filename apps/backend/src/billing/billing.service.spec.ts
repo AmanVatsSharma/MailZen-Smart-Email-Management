@@ -561,6 +561,12 @@ describe('BillingService', () => {
     expect(result.generatedAtIso).toBeTruthy();
     expect(result.dataJson).toContain('"subscription"');
     expect(result.dataJson).toContain('"retentionPolicy"');
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'billing_data_export_requested',
+      }),
+    );
   });
 
   it('purges expired billing webhook and ai-usage retention data', async () => {

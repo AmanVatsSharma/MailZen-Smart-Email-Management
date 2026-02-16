@@ -92,6 +92,7 @@ flowchart TD
   - `billing_trial_started`
   - `billing_upgrade_intent_requested`
   - `billing_webhook_subscription_updated`
+  - `billing_data_export_requested`
 - `BillingWebhookController` structured observability events:
   - `billing_webhook_secret_missing`
   - `billing_webhook_secret_mismatch`

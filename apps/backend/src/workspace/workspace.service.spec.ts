@@ -399,6 +399,12 @@ describe('WorkspaceService', () => {
     });
     expect(parsedPayload.members).toHaveLength(1);
     expect(parsedPayload.members[0]?.role).toBe('OWNER');
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'workspace_data_export_requested',
+        userId: 'user-1',
+      }),
+    );
   });
 
   it('rejects invitation response when email does not match user', async () => {

@@ -53,6 +53,7 @@ Workspace mutation flows now persist `audit_logs` entries for:
 - `workspace_member_role_updated`
 - `workspace_member_removed`
 - `workspace_active_set`
+- `workspace_data_export_requested`
 
 ## Flow
 

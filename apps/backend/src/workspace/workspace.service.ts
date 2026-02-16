@@ -332,6 +332,15 @@ export class WorkspaceService {
         };
       }),
     };
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'workspace_data_export_requested',
+      metadata: {
+        workspaceId: workspace.id,
+        memberCount: members.length,
+        generatedAtIso: generatedAt.toISOString(),
+      },
+    });
 
     return {
       generatedAtIso: generatedAt.toISOString(),

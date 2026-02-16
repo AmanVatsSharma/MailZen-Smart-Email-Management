@@ -733,6 +733,16 @@ export class BillingService {
       })),
       retentionPolicy,
     };
+    await this.writeAuditLog({
+      userId,
+      action: 'billing_data_export_requested',
+      metadata: {
+        planCode: subscription.planCode,
+        invoiceCount: invoices.length,
+        usageHistoryCount: aiUsageHistory.length,
+        generatedAtIso: generatedAt.toISOString(),
+      },
+    });
 
     return {
       generatedAtIso: generatedAt.toISOString(),
