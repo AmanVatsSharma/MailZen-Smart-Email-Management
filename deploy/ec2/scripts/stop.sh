@@ -65,6 +65,10 @@ if [[ "${PURGE_DATA}" == true ]]; then
   log_warn "Purging volumes (database/cache data will be deleted)."
 fi
 
+if [[ "${PURGE_DATA}" == true ]] && [[ "${DRY_RUN}" == true ]]; then
+  log_info "Dry-run enabled; no volumes or data will be deleted."
+fi
+
 if [[ "${DRY_RUN}" == false ]]; then
   if ! docker info >/dev/null 2>&1; then
     log_error "Docker daemon is not reachable. Start Docker and retry."
