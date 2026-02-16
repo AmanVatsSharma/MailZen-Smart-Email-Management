@@ -352,4 +352,76 @@ describe('GoogleOAuthController', () => {
       'http://localhost:3000/auth/oauth-success',
     );
   });
+
+  it('falls back to frontend success path for malformed redirect overrides', async () => {
+    const {
+      controller,
+      userRepo,
+      authService,
+      emailProviderService,
+      mailboxService,
+      sessionCookie,
+      auditLogRepo,
+    } = createController();
+    const response = createResponse();
+    const state = buildOAuthState('http://[invalid-host');
+    const oauthClient = {
+      getToken: jest.fn().mockResolvedValue({
+        tokens: {
+          id_token: 'id-token',
+          access_token: 'access-token',
+          refresh_token: 'refresh-token',
+          expiry_date: 1700000000000,
+        },
+      }),
+      verifyIdToken: jest.fn().mockResolvedValue({
+        getPayload: () => ({
+          email: 'founder@mailzen.com',
+          sub: 'google-sub-1',
+          name: 'Founder',
+          email_verified: true,
+        }),
+      }),
+    };
+    (
+      controller as unknown as {
+        oauthClient: typeof oauthClient;
+      }
+    ).oauthClient = oauthClient;
+
+    userRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    userRepo.create.mockImplementation((payload: unknown) => payload);
+    userRepo.save.mockResolvedValue({
+      id: 'user-1',
+      email: 'founder@mailzen.com',
+      name: 'Founder',
+      role: 'USER',
+      isEmailVerified: true,
+    });
+    authService.login.mockReturnValue({ accessToken: 'jwt-access-token' });
+    authService.generateRefreshToken.mockResolvedValue('jwt-refresh-token');
+    emailProviderService.connectGmailFromOAuthTokens.mockResolvedValue({
+      id: 'provider-1',
+    });
+    emailProviderService.syncProvider.mockResolvedValue(undefined);
+    mailboxService.getUserMailboxes.mockResolvedValue([{ id: 'mailbox-1' }]);
+    auditLogRepo.save.mockResolvedValue(undefined);
+
+    await controller.callback(
+      createRequest({ userAgent: 'jest', ip: '127.0.0.1' }),
+      response as unknown as Response,
+      'google-code',
+      state,
+      undefined,
+      undefined,
+    );
+
+    expect(sessionCookie.setTokenCookie).toHaveBeenCalledWith(
+      response as unknown as Response,
+      'jwt-access-token',
+    );
+    expect(response.redirectUrl).toBe(
+      'http://localhost:3000/auth/oauth-success',
+    );
+  });
 });
