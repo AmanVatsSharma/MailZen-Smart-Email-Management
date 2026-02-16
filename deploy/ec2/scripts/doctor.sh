@@ -61,23 +61,7 @@ if [[ "${SEED_ENV}" == false ]] && [[ "${KEEP_SEEDED_ENV}" == true ]]; then
 fi
 
 seed_env_file() {
-  SEEDED_ENV_FILE="$(mktemp "${DEPLOY_DIR}/.env.doctor.XXXXXX")"
-  cp "${ENV_TEMPLATE_FILE}" "${SEEDED_ENV_FILE}"
-
-  sed -i 's/^MAILZEN_DOMAIN=.*/MAILZEN_DOMAIN=mailzen.pipeline.local/' "${SEEDED_ENV_FILE}"
-  sed -i 's/^ACME_EMAIL=.*/ACME_EMAIL=ops@mailzen-pipeline.dev/' "${SEEDED_ENV_FILE}"
-  sed -i 's|^FRONTEND_URL=.*|FRONTEND_URL=https://mailzen.pipeline.local|' "${SEEDED_ENV_FILE}"
-  sed -i 's|^NEXT_PUBLIC_GRAPHQL_ENDPOINT=.*|NEXT_PUBLIC_GRAPHQL_ENDPOINT=https://mailzen.pipeline.local/graphql|' "${SEEDED_ENV_FILE}"
-  sed -i 's/^JWT_SECRET=.*/JWT_SECRET=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcd/' "${SEEDED_ENV_FILE}"
-  sed -i 's/^OAUTH_STATE_SECRET=.*/OAUTH_STATE_SECRET=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789abcd/' "${SEEDED_ENV_FILE}"
-  sed -i 's/^SECRETS_KEY=.*/SECRETS_KEY=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789abcd/' "${SEEDED_ENV_FILE}"
-  sed -i 's/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=mailzenpipelinepostgrespassword123/' "${SEEDED_ENV_FILE}"
-  sed -i 's/^AI_AGENT_PLATFORM_KEY=.*/AI_AGENT_PLATFORM_KEY=mailzenpipelineagentplatformkey1234567890abcd/' "${SEEDED_ENV_FILE}"
-  sed -i 's|^GOOGLE_REDIRECT_URI=.*|GOOGLE_REDIRECT_URI=https://mailzen.pipeline.local/auth/google/callback|' "${SEEDED_ENV_FILE}"
-  sed -i 's|^GOOGLE_PROVIDER_REDIRECT_URI=.*|GOOGLE_PROVIDER_REDIRECT_URI=https://mailzen.pipeline.local/email-integration/google/callback|' "${SEEDED_ENV_FILE}"
-  sed -i 's|^OUTLOOK_REDIRECT_URI=.*|OUTLOOK_REDIRECT_URI=https://mailzen.pipeline.local/auth/microsoft/callback|' "${SEEDED_ENV_FILE}"
-  sed -i 's|^OUTLOOK_PROVIDER_REDIRECT_URI=.*|OUTLOOK_PROVIDER_REDIRECT_URI=https://mailzen.pipeline.local/email-integration/microsoft/callback|' "${SEEDED_ENV_FILE}"
-  sed -i 's|^PROVIDER_SECRETS_KEYRING=.*|PROVIDER_SECRETS_KEYRING=default:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789abcd|' "${SEEDED_ENV_FILE}"
+  SEEDED_ENV_FILE="$(create_seeded_env_file "doctor" "${DEPLOY_DIR}")"
 
   export MAILZEN_DEPLOY_ENV_FILE="${SEEDED_ENV_FILE}"
   echo "[mailzen-deploy][DOCTOR] Seeded env file: ${SEEDED_ENV_FILE}" | tee -a "${REPORT_FILE}" >/dev/null

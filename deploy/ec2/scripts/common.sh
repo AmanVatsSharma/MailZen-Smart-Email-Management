@@ -108,6 +108,38 @@ generate_random_secret() {
   exit 1
 }
 
+create_seeded_env_file() {
+  local run_label="${1:-seeded}"
+  local target_dir="${2:-${DEPLOY_DIR}}"
+
+  if [[ ! -f "${ENV_TEMPLATE_FILE}" ]]; then
+    log_error "Env template missing: ${ENV_TEMPLATE_FILE}"
+    return 1
+  fi
+
+  local seeded_file
+  seeded_file="$(mktemp "${target_dir}/.env.${run_label}.XXXXXX")"
+  cp "${ENV_TEMPLATE_FILE}" "${seeded_file}"
+
+  sed -i 's/^MAILZEN_DOMAIN=.*/MAILZEN_DOMAIN=mailzen.pipeline.local/' "${seeded_file}"
+  sed -i 's/^ACME_EMAIL=.*/ACME_EMAIL=ops@mailzen-pipeline.dev/' "${seeded_file}"
+  sed -i 's|^FRONTEND_URL=.*|FRONTEND_URL=https://mailzen.pipeline.local|' "${seeded_file}"
+  sed -i 's|^NEXT_PUBLIC_GRAPHQL_ENDPOINT=.*|NEXT_PUBLIC_GRAPHQL_ENDPOINT=https://mailzen.pipeline.local/graphql|' "${seeded_file}"
+  sed -i 's/^JWT_SECRET=.*/JWT_SECRET=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcd/' "${seeded_file}"
+  sed -i 's/^OAUTH_STATE_SECRET=.*/OAUTH_STATE_SECRET=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789abcd/' "${seeded_file}"
+  sed -i 's/^SECRETS_KEY=.*/SECRETS_KEY=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789abcd/' "${seeded_file}"
+  sed -i 's/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=mailzenpipelinepostgrespassword123/' "${seeded_file}"
+  sed -i 's/^AI_AGENT_PLATFORM_KEY=.*/AI_AGENT_PLATFORM_KEY=mailzenpipelineagentplatformkey1234567890abcd/' "${seeded_file}"
+  sed -i 's|^GOOGLE_REDIRECT_URI=.*|GOOGLE_REDIRECT_URI=https://mailzen.pipeline.local/auth/google/callback|' "${seeded_file}"
+  sed -i 's|^GOOGLE_PROVIDER_REDIRECT_URI=.*|GOOGLE_PROVIDER_REDIRECT_URI=https://mailzen.pipeline.local/email-integration/google/callback|' "${seeded_file}"
+  sed -i 's|^OUTLOOK_REDIRECT_URI=.*|OUTLOOK_REDIRECT_URI=https://mailzen.pipeline.local/auth/microsoft/callback|' "${seeded_file}"
+  sed -i 's|^OUTLOOK_PROVIDER_REDIRECT_URI=.*|OUTLOOK_PROVIDER_REDIRECT_URI=https://mailzen.pipeline.local/email-integration/microsoft/callback|' "${seeded_file}"
+  sed -i 's|^PROVIDER_SECRETS_KEYRING=.*|PROVIDER_SECRETS_KEYRING=default:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789abcd|' "${seeded_file}"
+
+  echo "${seeded_file}"
+  return 0
+}
+
 compose() {
   docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" "$@"
 }
