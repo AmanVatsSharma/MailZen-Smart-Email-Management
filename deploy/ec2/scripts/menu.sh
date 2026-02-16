@@ -60,10 +60,10 @@ show_menu() {
 1) One-command launch (setup + preflight + deploy + verify + status)
 2) Bootstrap Docker on Ubuntu (run with sudo)
 3) Setup environment (.env.ec2)
-4) Preflight checks
+4) Preflight checks (prompt runtime options)
 5) Deploy stack
 6) Verify deployment (smoke checks)
-7) Show status
+7) Show status (prompt runtime/strict options)
 8) Show logs (all services)
 9) Update stack (pull + recreate + verify)
 10) Backup database
@@ -113,7 +113,13 @@ while true; do
     run_step "setup.sh"
     ;;
   4)
-    run_step "preflight.sh"
+    preflight_args=()
+    if prompt_yes_no "Enable runtime checks during preflight" "no"; then
+      preflight_args+=(--with-runtime-checks)
+      preflight_ports="$(prompt_with_default "Ports for runtime ports-check (comma-separated)" "80,443")"
+      preflight_args+=(--ports-check-ports "${preflight_ports}")
+    fi
+    run_step "preflight.sh" "${preflight_args[@]}"
     ;;
   5)
     run_step "deploy.sh"
@@ -122,7 +128,16 @@ while true; do
     run_step "verify.sh"
     ;;
   7)
-    run_step "status.sh"
+    status_args=()
+    if prompt_yes_no "Enable runtime checks in status" "no"; then
+      status_args+=(--with-runtime-checks)
+      status_ports="$(prompt_with_default "Ports for runtime ports-check (comma-separated)" "80,443")"
+      status_args+=(--ports-check-ports "${status_ports}")
+    fi
+    if prompt_yes_no "Enable strict mode (fail when daemon unavailable)" "no"; then
+      status_args+=(--strict)
+    fi
+    run_step "status.sh" "${status_args[@]}"
     ;;
   8)
     run_step "logs.sh"
