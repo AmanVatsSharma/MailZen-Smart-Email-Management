@@ -26,6 +26,7 @@ import {
   AgentPlatformHealthAlertDeliveryStatsResponse,
   AgentPlatformHealthAlertDeliveryTrendPointResponse,
 } from './dto/agent-platform-health-alert-delivery-stats.response';
+import { AgentPlatformHealthAlertRunResponse } from './dto/agent-platform-health-alert-run.response';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
 import { AgentPlatformHealthIncidentDataExportResponse } from './dto/agent-platform-health-incident-data-export.response';
 import { AgentPlatformHealthSampleDataExportResponse } from './dto/agent-platform-health-sample-data-export.response';
@@ -246,6 +247,22 @@ export class AiAgentGatewayResolver {
   @UseGuards(JwtAuthGuard, AdminGuard)
   agentPlatformHealthAlertConfig(): AgentPlatformHealthAlertConfigResponse {
     return this.healthAlertScheduler.getAlertConfigSnapshot();
+  }
+
+  @Query(() => [AgentPlatformHealthAlertRunResponse], {
+    description:
+      'List persisted AI platform health alert scheduler run snapshots for audit and troubleshooting',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async agentPlatformHealthAlertRunHistory(
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+  ): Promise<AgentPlatformHealthAlertRunResponse[]> {
+    return this.healthAlertScheduler.getAlertRunHistory({
+      limit,
+      windowHours,
+    });
   }
 
   @Query(() => [AgentActionAudit], {

@@ -23,6 +23,7 @@ import { AiAgentPlatformHealthAlertScheduler } from './ai-agent-platform-health-
 import { AiAgentPlatformHealthSampleRetentionScheduler } from './ai-agent-platform-health-sample-retention.scheduler';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
 import { AgentPlatformEndpointRuntimeStat } from './entities/agent-platform-endpoint-runtime-stat.entity';
+import { AgentPlatformHealthAlertRun } from './entities/agent-platform-health-alert-run.entity';
 import { AgentPlatformHealthSample } from './entities/agent-platform-health-sample.entity';
 import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-runtime-stat.entity';
 
@@ -35,6 +36,7 @@ import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-r
       WorkspaceMember,
       AgentActionAudit,
       AgentPlatformEndpointRuntimeStat,
+      AgentPlatformHealthAlertRun,
       AgentPlatformHealthSample,
       AgentPlatformSkillRuntimeStat,
     ]),

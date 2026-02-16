@@ -670,6 +670,24 @@ type AgentPlatformHealthAlertConfigResponse {
   evaluatedAtIso: String!
 }
 
+type AgentPlatformHealthAlertRunResponse {
+  alertsEnabled: Boolean!
+  severity: String
+  reasons: [String!]!
+  windowHours: Int!
+  baselineWindowHours: Int!
+  cooldownMinutes: Int!
+  minSampleCount: Int!
+  anomalyMultiplier: Float!
+  anomalyMinErrorDeltaPercent: Float!
+  anomalyMinLatencyDeltaMs: Float!
+  errorRateWarnPercent: Float!
+  latencyWarnMs: Float!
+  recipientCount: Int!
+  publishedCount: Int!
+  evaluatedAtIso: String!
+}
+
 type AgentPlatformEndpointStatResponse {
   endpointUrl: String!
   successCount: Int!
@@ -1170,6 +1188,10 @@ extend type Query {
     bucketMinutes: Int
   ): AgentPlatformHealthAlertDeliveryDataExportResponse!
   agentPlatformHealthAlertConfig: AgentPlatformHealthAlertConfigResponse!
+  agentPlatformHealthAlertRunHistory(
+    limit: Int
+    windowHours: Int
+  ): [AgentPlatformHealthAlertRunResponse!]!
   myWorkspaces: [Workspace!]!
   myActiveWorkspace: Workspace
   myWorkspaceDataExport(workspaceId: String!): WorkspaceDataExportResponse!

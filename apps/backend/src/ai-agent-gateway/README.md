@@ -56,6 +56,8 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - returns JSON export payload for alert-delivery analytics pipelines.
   - `agentPlatformHealthAlertConfig`
   - returns resolved scheduler/env configuration snapshot for alert operations diagnostics.
+  - `agentPlatformHealthAlertRunHistory(limit?, windowHours?)`
+  - returns persisted scheduler-run snapshots for alert audit and troubleshooting.
   - `runAgentPlatformHealthAlertCheck(windowHours?, baselineWindowHours?, cooldownMinutes?, minSampleCount?)`
   - runs anomaly detection on-demand and returns publish diagnostics.
 - Expose `myAgentActionDataExport(limit?)` for authenticated JSON export of
@@ -177,3 +179,4 @@ flowchart TD
 - 2026-02-16: Added delivered AI health alert stats/series queries for alert-ops observability.
 - 2026-02-16: Added delivered AI health alert data export query.
 - 2026-02-16: Added AI health alert config snapshot query for operational diagnostics.
+- 2026-02-16: Added persisted health alert scheduler run history query for auditability.

@@ -6,6 +6,7 @@ import { NotificationEventBusService } from '../notification/notification-event-
 import { UserNotification } from '../notification/entities/user-notification.entity';
 import { User } from '../user/entities/user.entity';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
+import { AgentPlatformHealthAlertRun } from './entities/agent-platform-health-alert-run.entity';
 
 type AlertSeverity = 'WARNING' | 'CRITICAL';
 export type AgentPlatformHealthAlertCheckResult = {
@@ -38,6 +39,8 @@ export class AiAgentPlatformHealthAlertScheduler {
   private static readonly DEFAULT_ALERT_DELIVERY_BUCKET_MINUTES = 60;
   private static readonly MIN_ALERT_DELIVERY_BUCKET_MINUTES = 5;
   private static readonly MAX_ALERT_DELIVERY_BUCKET_MINUTES = 24 * 60;
+  private static readonly DEFAULT_ALERT_RUN_HISTORY_LIMIT = 100;
+  private static readonly MAX_ALERT_RUN_HISTORY_LIMIT = 2000;
   private readonly logger = new Logger(
     AiAgentPlatformHealthAlertScheduler.name,
   );
@@ -47,6 +50,8 @@ export class AiAgentPlatformHealthAlertScheduler {
     private readonly userRepo: Repository<User>,
     @InjectRepository(UserNotification)
     private readonly notificationRepo: Repository<UserNotification>,
+    @InjectRepository(AgentPlatformHealthAlertRun)
+    private readonly alertRunRepo: Repository<AgentPlatformHealthAlertRun>,
     private readonly aiAgentGatewayService: AiAgentGatewayService,
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
@@ -183,21 +188,6 @@ export class AiAgentPlatformHealthAlertScheduler {
       minimumValue: 1,
       maximumValue: 1000,
     });
-    if (!alertsEnabled) {
-      this.logger.log('agent-platform-alerts: disabled by env');
-      return {
-        alertsEnabled: false,
-        evaluatedAtIso,
-        windowHours,
-        baselineWindowHours,
-        cooldownMinutes,
-        minSampleCount,
-        severity: null,
-        reasons: ['alerts-disabled'],
-        recipientCount: 0,
-        publishedCount: 0,
-      };
-    }
     const anomalyMultiplier = this.resolvePositiveFloat({
       rawValue:
         input.anomalyMultiplier ??
@@ -225,6 +215,36 @@ export class AiAgentPlatformHealthAlertScheduler {
       minimumValue: 0,
       maximumValue: 60_000,
     });
+    const errorRateWarnPercent = this.resolveAlertErrorRateWarnPercent();
+    const latencyWarnMs = this.resolveAlertLatencyWarnMs();
+    const finalizeResult = async (
+      result: AgentPlatformHealthAlertCheckResult,
+    ): Promise<AgentPlatformHealthAlertCheckResult> => {
+      await this.persistAlertRun(result, {
+        anomalyMultiplier,
+        anomalyMinErrorDeltaPercent,
+        anomalyMinLatencyDeltaMs,
+        errorRateWarnPercent,
+        latencyWarnMs,
+      });
+      return result;
+    };
+
+    if (!alertsEnabled) {
+      this.logger.log('agent-platform-alerts: disabled by env');
+      return finalizeResult({
+        alertsEnabled: false,
+        evaluatedAtIso,
+        windowHours,
+        baselineWindowHours,
+        cooldownMinutes,
+        minSampleCount,
+        severity: null,
+        reasons: ['alerts-disabled'],
+        recipientCount: 0,
+        publishedCount: 0,
+      });
+    }
 
     const [currentSummary, baselineSummary] = await Promise.all([
       this.aiAgentGatewayService.getPlatformHealthTrendSummary({
@@ -239,7 +259,7 @@ export class AiAgentPlatformHealthAlertScheduler {
       this.logger.log(
         `agent-platform-alerts: skipped due to insufficient samples sampleCount=${currentSummary.sampleCount} min=${minSampleCount}`,
       );
-      return {
+      return finalizeResult({
         alertsEnabled: true,
         evaluatedAtIso,
         windowHours,
@@ -250,7 +270,7 @@ export class AiAgentPlatformHealthAlertScheduler {
         reasons: ['insufficient-samples'],
         recipientCount: 0,
         publishedCount: 0,
-      };
+      });
     }
 
     const alertAssessment = this.assessAlertState({
@@ -265,7 +285,7 @@ export class AiAgentPlatformHealthAlertScheduler {
       this.logger.log(
         `agent-platform-alerts: no alert currentState healthy sampleCount=${currentSummary.sampleCount}`,
       );
-      return {
+      return finalizeResult({
         alertsEnabled: true,
         evaluatedAtIso,
         windowHours,
@@ -276,7 +296,7 @@ export class AiAgentPlatformHealthAlertScheduler {
         reasons: alertAssessment.reasons,
         recipientCount: 0,
         publishedCount: 0,
-      };
+      });
     }
 
     const recipientUserIds = await this.resolveRecipientUserIds();
@@ -284,7 +304,7 @@ export class AiAgentPlatformHealthAlertScheduler {
       this.logger.warn(
         `agent-platform-alerts: no recipients configured severity=${alertAssessment.severity}`,
       );
-      return {
+      return finalizeResult({
         alertsEnabled: true,
         evaluatedAtIso,
         windowHours,
@@ -295,7 +315,7 @@ export class AiAgentPlatformHealthAlertScheduler {
         reasons: alertAssessment.reasons,
         recipientCount: 0,
         publishedCount: 0,
-      };
+      });
     }
 
     const fingerprint = [
@@ -347,7 +367,7 @@ export class AiAgentPlatformHealthAlertScheduler {
     this.logger.warn(
       `agent-platform-alerts: evaluated severity=${alertAssessment.severity} recipients=${recipientUserIds.length} published=${publishedCount}`,
     );
-    return {
+    return finalizeResult({
       alertsEnabled: true,
       evaluatedAtIso,
       windowHours,
@@ -358,7 +378,62 @@ export class AiAgentPlatformHealthAlertScheduler {
       reasons: alertAssessment.reasons,
       recipientCount: recipientUserIds.length,
       publishedCount,
-    };
+    });
+  }
+
+  async getAlertRunHistory(input?: {
+    limit?: number | null;
+    windowHours?: number | null;
+  }): Promise<
+    Array<{
+      alertsEnabled: boolean;
+      severity?: string | null;
+      reasons: string[];
+      windowHours: number;
+      baselineWindowHours: number;
+      cooldownMinutes: number;
+      minSampleCount: number;
+      anomalyMultiplier: number;
+      anomalyMinErrorDeltaPercent: number;
+      anomalyMinLatencyDeltaMs: number;
+      errorRateWarnPercent: number;
+      latencyWarnMs: number;
+      recipientCount: number;
+      publishedCount: number;
+      evaluatedAtIso: string;
+    }>
+  > {
+    const limit = this.normalizeAlertRunHistoryLimit(input?.limit);
+    const windowHours = this.normalizeAlertDeliveryWindowHours(
+      input?.windowHours,
+    );
+    const windowStartDate = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const rows = await this.alertRunRepo.find({
+      where: {
+        evaluatedAt: MoreThanOrEqual(windowStartDate),
+      },
+      order: {
+        evaluatedAt: 'DESC',
+      },
+      take: limit,
+    });
+    return rows.map((row) => ({
+      alertsEnabled: row.alertsEnabled,
+      severity: row.severity || null,
+      reasons: this.normalizeAlertRunReasons(row.reasons),
+      windowHours: row.windowHours,
+      baselineWindowHours: row.baselineWindowHours,
+      cooldownMinutes: row.cooldownMinutes,
+      minSampleCount: row.minSampleCount,
+      anomalyMultiplier: row.anomalyMultiplier,
+      anomalyMinErrorDeltaPercent: row.anomalyMinErrorDeltaPercent,
+      anomalyMinLatencyDeltaMs: row.anomalyMinLatencyDeltaMs,
+      errorRateWarnPercent: row.errorRateWarnPercent,
+      latencyWarnMs: row.latencyWarnMs,
+      recipientCount: row.recipientCount,
+      publishedCount: row.publishedCount,
+      evaluatedAtIso: row.evaluatedAt.toISOString(),
+    }));
   }
 
   async getAlertDeliveryStats(input?: {
@@ -730,6 +805,69 @@ export class AiAgentPlatformHealthAlertScheduler {
       return String(rawValue);
     }
     return '';
+  }
+
+  private normalizeAlertRunHistoryLimit(limit?: number | null): number {
+    return this.resolvePositiveInteger({
+      rawValue: limit,
+      fallbackValue:
+        AiAgentPlatformHealthAlertScheduler.DEFAULT_ALERT_RUN_HISTORY_LIMIT,
+      minimumValue: 1,
+      maximumValue:
+        AiAgentPlatformHealthAlertScheduler.MAX_ALERT_RUN_HISTORY_LIMIT,
+    });
+  }
+
+  private normalizeAlertRunReasons(rawValue: unknown): string[] {
+    if (!Array.isArray(rawValue)) return [];
+    const normalizedReasons: string[] = [];
+    for (const value of rawValue) {
+      if (typeof value === 'string') {
+        const normalized = value.trim();
+        if (normalized) normalizedReasons.push(normalized);
+      } else if (typeof value === 'number' || typeof value === 'boolean') {
+        normalizedReasons.push(String(value));
+      }
+    }
+    return normalizedReasons;
+  }
+
+  private async persistAlertRun(
+    result: AgentPlatformHealthAlertCheckResult,
+    config: {
+      anomalyMultiplier: number;
+      anomalyMinErrorDeltaPercent: number;
+      anomalyMinLatencyDeltaMs: number;
+      errorRateWarnPercent: number;
+      latencyWarnMs: number;
+    },
+  ): Promise<void> {
+    try {
+      await this.alertRunRepo.save(
+        this.alertRunRepo.create({
+          alertsEnabled: result.alertsEnabled,
+          severity: result.severity || null,
+          reasons: result.reasons,
+          windowHours: result.windowHours,
+          baselineWindowHours: result.baselineWindowHours,
+          cooldownMinutes: result.cooldownMinutes,
+          minSampleCount: result.minSampleCount,
+          anomalyMultiplier: config.anomalyMultiplier,
+          anomalyMinErrorDeltaPercent: config.anomalyMinErrorDeltaPercent,
+          anomalyMinLatencyDeltaMs: config.anomalyMinLatencyDeltaMs,
+          errorRateWarnPercent: config.errorRateWarnPercent,
+          latencyWarnMs: config.latencyWarnMs,
+          recipientCount: result.recipientCount,
+          publishedCount: result.publishedCount,
+          evaluatedAt: new Date(result.evaluatedAtIso),
+        }),
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `agent-platform-alerts: failed persisting run snapshot: ${message}`,
+      );
+    }
   }
 
   private normalizeCsv(rawValue?: string): string[] {

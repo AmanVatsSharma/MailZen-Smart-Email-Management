@@ -4,12 +4,14 @@ import { NotificationEventBusService } from '../notification/notification-event-
 import { UserNotification } from '../notification/entities/user-notification.entity';
 import { User } from '../user/entities/user.entity';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
+import { AgentPlatformHealthAlertRun } from './entities/agent-platform-health-alert-run.entity';
 import { AiAgentPlatformHealthAlertScheduler } from './ai-agent-platform-health-alert.scheduler';
 
 describe('AiAgentPlatformHealthAlertScheduler', () => {
   let scheduler: AiAgentPlatformHealthAlertScheduler;
   let userRepo: jest.Mocked<Repository<User>>;
   let notificationRepo: jest.Mocked<Repository<UserNotification>>;
+  let alertRunRepo: jest.Mocked<Repository<AgentPlatformHealthAlertRun>>;
   let aiAgentGatewayService: jest.Mocked<
     Pick<AiAgentGatewayService, 'getPlatformHealthTrendSummary'>
   >;
@@ -47,6 +49,13 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
       findOne: jest.fn(),
       find: jest.fn(),
     } as unknown as jest.Mocked<Repository<UserNotification>>;
+    alertRunRepo = {
+      save: jest.fn(),
+      find: jest.fn(),
+      create: jest.fn(
+        (payload: unknown) => payload as AgentPlatformHealthAlertRun,
+      ),
+    } as unknown as jest.Mocked<Repository<AgentPlatformHealthAlertRun>>;
     aiAgentGatewayService = {
       getPlatformHealthTrendSummary: jest.fn(),
     };
@@ -61,6 +70,8 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     ]);
     notificationRepo.findOne.mockResolvedValue(null);
     notificationRepo.find.mockResolvedValue([]);
+    alertRunRepo.save.mockResolvedValue({} as AgentPlatformHealthAlertRun);
+    alertRunRepo.find.mockResolvedValue([]);
     aiAgentGatewayService.getPlatformHealthTrendSummary
       .mockResolvedValueOnce({
         windowHours: 6,
@@ -90,6 +101,7 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     scheduler = new AiAgentPlatformHealthAlertScheduler(
       userRepo,
       notificationRepo,
+      alertRunRepo,
       aiAgentGatewayService as unknown as AiAgentGatewayService,
       notificationEventBus as unknown as NotificationEventBusService,
     );
@@ -243,6 +255,20 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
         latencyWarnMs: 1800,
       }),
     );
+  });
+
+  it('persists health alert check run snapshot', async () => {
+    notificationEventBus.publishSafely.mockResolvedValue(null);
+
+    await scheduler.runHealthAlertCheck({});
+
+    expect(alertRunRepo.save).toHaveBeenCalledTimes(1);
+    const savedPayload = alertRunRepo.save.mock.calls[0]?.[0] as
+      | Partial<AgentPlatformHealthAlertRun>
+      | undefined;
+    expect(savedPayload?.alertsEnabled).toBe(true);
+    expect(Array.isArray(savedPayload?.reasons)).toBe(true);
+    expect(savedPayload?.evaluatedAt).toBeInstanceOf(Date);
   });
 
   it('skips publishing duplicate warning alerts during cooldown', async () => {
@@ -426,5 +452,45 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     expect(payload.stats.totalCount).toBe(1);
     expect(payload.series.length).toBeGreaterThan(0);
     expect(payload.series.some((point) => point.totalCount > 0)).toBe(true);
+  });
+
+  it('returns persisted health alert run history', async () => {
+    alertRunRepo.find.mockResolvedValue([
+      {
+        alertsEnabled: true,
+        severity: 'CRITICAL',
+        reasons: ['critical-samples-detected'],
+        windowHours: 6,
+        baselineWindowHours: 72,
+        cooldownMinutes: 60,
+        minSampleCount: 4,
+        anomalyMultiplier: 2,
+        anomalyMinErrorDeltaPercent: 1,
+        anomalyMinLatencyDeltaMs: 150,
+        errorRateWarnPercent: 5,
+        latencyWarnMs: 1500,
+        recipientCount: 2,
+        publishedCount: 2,
+        evaluatedAt: new Date('2026-02-16T00:00:00.000Z'),
+      },
+    ] as unknown as AgentPlatformHealthAlertRun[]);
+
+    const rows = await scheduler.getAlertRunHistory({
+      limit: 20,
+      windowHours: 48,
+    });
+
+    expect(alertRunRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 20,
+        order: { evaluatedAt: 'DESC' },
+      }),
+    );
+    expect(rows).toEqual([
+      expect.objectContaining({
+        severity: 'CRITICAL',
+        publishedCount: 2,
+      }),
+    ]);
   });
 });
