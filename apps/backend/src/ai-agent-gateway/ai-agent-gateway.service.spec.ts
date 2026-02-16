@@ -24,6 +24,8 @@ import { User } from '../user/entities/user.entity';
 import { WorkspaceMember } from '../workspace/entities/workspace-member.entity';
 import { AgentAssistInput } from './dto/agent-assist.input';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
+import { AgentPlatformEndpointRuntimeStat } from './entities/agent-platform-endpoint-runtime-stat.entity';
+import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-runtime-stat.entity';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
 
 jest.mock('axios');
@@ -42,6 +44,11 @@ describe('AiAgentGatewayService', () => {
   const deleteWhereMock = jest.fn();
   const deleteAndWhereMock = jest.fn();
   const deleteExecuteMock = jest.fn();
+  const findEndpointRuntimeStatsMock = jest.fn();
+  const upsertEndpointRuntimeStatMock = jest.fn();
+  const deleteEndpointRuntimeStatsMock = jest.fn();
+  const findSkillRuntimeStatsMock = jest.fn();
+  const upsertSkillRuntimeStatMock = jest.fn();
 
   const authService = {
     createVerificationToken: createVerificationTokenMock,
@@ -78,6 +85,21 @@ describe('AiAgentGatewayService', () => {
   const notificationEventBus = {
     publishSafely: createNotificationMock,
   } as unknown as Pick<NotificationEventBusService, 'publishSafely'>;
+  const endpointRuntimeStatRepo = {
+    find: findEndpointRuntimeStatsMock,
+    upsert: upsertEndpointRuntimeStatMock,
+    delete: deleteEndpointRuntimeStatsMock,
+  } as unknown as Pick<
+    Repository<AgentPlatformEndpointRuntimeStat>,
+    'find' | 'upsert' | 'delete'
+  >;
+  const skillRuntimeStatRepo = {
+    find: findSkillRuntimeStatsMock,
+    upsert: upsertSkillRuntimeStatMock,
+  } as unknown as Pick<
+    Repository<AgentPlatformSkillRuntimeStat>,
+    'find' | 'upsert'
+  >;
   const billingService = {
     consumeAiCredits: jest.fn().mockResolvedValue({
       allowed: true,
@@ -99,16 +121,20 @@ describe('AiAgentGatewayService', () => {
       externalEmailMessageRepo as Repository<ExternalEmailMessage>,
       workspaceMemberRepo as Repository<WorkspaceMember>,
       agentActionAuditRepo as Repository<AgentActionAudit>,
+      endpointRuntimeStatRepo as Repository<AgentPlatformEndpointRuntimeStat>,
+      skillRuntimeStatRepo as Repository<AgentPlatformSkillRuntimeStat>,
       notificationEventBus as NotificationEventBusService,
     );
   const originalPlatformUrls = process.env.AI_AGENT_PLATFORM_URLS;
   const originalLoadBalanceEnabled =
     process.env.AI_AGENT_PLATFORM_LOAD_BALANCE_ENABLED;
+  const originalUseRedisRateLimit = process.env.AI_AGENT_GATEWAY_USE_REDIS;
 
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.AI_AGENT_PLATFORM_URLS;
     delete process.env.AI_AGENT_PLATFORM_LOAD_BALANCE_ENABLED;
+    delete process.env.AI_AGENT_GATEWAY_USE_REDIS;
     createAgentActionAuditMock.mockImplementation(
       (value: Record<string, unknown>) => value,
     );
@@ -116,6 +142,11 @@ describe('AiAgentGatewayService', () => {
     findAgentActionAuditMock.mockResolvedValue([]);
     findWorkspaceMemberMock.mockResolvedValue(null);
     deleteExecuteMock.mockResolvedValue({ affected: 0 });
+    findEndpointRuntimeStatsMock.mockResolvedValue([]);
+    upsertEndpointRuntimeStatMock.mockResolvedValue(undefined);
+    deleteEndpointRuntimeStatsMock.mockResolvedValue({ affected: 0 });
+    findSkillRuntimeStatsMock.mockResolvedValue([]);
+    upsertSkillRuntimeStatMock.mockResolvedValue(undefined);
     (billingService.consumeAiCredits as jest.Mock).mockResolvedValue({
       allowed: true,
       planCode: 'PRO',
@@ -137,9 +168,14 @@ describe('AiAgentGatewayService', () => {
     if (typeof originalLoadBalanceEnabled === 'string') {
       process.env.AI_AGENT_PLATFORM_LOAD_BALANCE_ENABLED =
         originalLoadBalanceEnabled;
-      return;
+    } else {
+      delete process.env.AI_AGENT_PLATFORM_LOAD_BALANCE_ENABLED;
     }
-    delete process.env.AI_AGENT_PLATFORM_LOAD_BALANCE_ENABLED;
+    if (typeof originalUseRedisRateLimit === 'string') {
+      process.env.AI_AGENT_GATEWAY_USE_REDIS = originalUseRedisRateLimit;
+    } else {
+      delete process.env.AI_AGENT_GATEWAY_USE_REDIS;
+    }
   });
 
   it('redacts sensitive fields before platform call', async () => {
@@ -353,6 +389,61 @@ describe('AiAgentGatewayService', () => {
     ]);
   });
 
+  it('hydrates persisted runtime stats from database on module init', async () => {
+    process.env.AI_AGENT_GATEWAY_USE_REDIS = 'false';
+    findEndpointRuntimeStatsMock.mockResolvedValueOnce([
+      {
+        endpointUrl: 'http://primary-agent.local',
+        successCount: 7,
+        failureCount: 2,
+        lastSuccessAt: new Date('2026-02-15T10:00:00.000Z'),
+        lastFailureAt: new Date('2026-02-15T09:00:00.000Z'),
+      },
+    ]);
+    findSkillRuntimeStatsMock.mockResolvedValueOnce([
+      {
+        skill: 'inbox',
+        totalRequests: 11,
+        failedRequests: 3,
+        timeoutFailures: 1,
+        totalLatencyMs: 910,
+        lastLatencyMs: 72,
+        lastErrorAt: new Date('2026-02-15T09:05:00.000Z'),
+      },
+    ]);
+    const service = createService();
+    mockedAxios.get.mockResolvedValueOnce({
+      data: {
+        status: 'ok',
+      },
+    } as any);
+
+    await service.onModuleInit();
+    const health = await service.getPlatformHealth();
+
+    expect(health.endpointStats).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          endpointUrl: 'http://primary-agent.local',
+          successCount: 7,
+          failureCount: 2,
+        }),
+      ]),
+    );
+    expect(health.skillStats).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          skill: 'inbox',
+          totalRequests: 11,
+          failedRequests: 3,
+          timeoutFailures: 1,
+          lastLatencyMs: 72,
+        }),
+      ]),
+    );
+    delete process.env.AI_AGENT_GATEWAY_USE_REDIS;
+  });
+
   it('falls back to secondary platform endpoint when primary call fails', async () => {
     process.env.AI_AGENT_PLATFORM_URLS =
       'http://primary-agent.local,http://secondary-agent.local';
@@ -491,7 +582,7 @@ describe('AiAgentGatewayService', () => {
       }),
     );
 
-    const resetResult = service.resetPlatformRuntimeStats();
+    const resetResult = await service.resetPlatformRuntimeStats();
     const afterReset = await service.getPlatformHealth();
     const primaryAfter = afterReset.endpointStats.find(
       (entry: { endpointUrl: string }) =>
@@ -544,7 +635,7 @@ describe('AiAgentGatewayService', () => {
       executeRequestedAction: false,
     });
 
-    const resetResult = service.resetPlatformRuntimeStats({
+    const resetResult = await service.resetPlatformRuntimeStats({
       endpointUrl: 'http://primary-agent.local',
     });
     const health = await service.getPlatformHealth();
@@ -710,6 +801,48 @@ describe('AiAgentGatewayService', () => {
         errorRatePercent: 0,
       }),
     ]);
+  });
+
+  it('persists endpoint and skill runtime stats during assist requests', async () => {
+    const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'auth',
+        assistantText: 'Use forgot password.',
+        intent: 'forgot_password',
+        confidence: 0.9,
+        suggestedActions: [],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+
+    await service.assist({
+      skill: 'auth',
+      messages: [{ role: 'user', content: 'help me login' }],
+      context: { surface: 'auth-login', locale: 'en-IN' },
+      allowedActions: ['auth.open_login'],
+      executeRequestedAction: false,
+    });
+
+    expect(upsertEndpointRuntimeStatMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpointUrl: 'http://localhost:8100',
+        successCount: 1,
+        failureCount: 0,
+      }),
+      ['endpointUrl'],
+    );
+    expect(upsertSkillRuntimeStatMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skill: 'auth',
+        totalRequests: 1,
+        failedRequests: 0,
+        timeoutFailures: 0,
+      }),
+      ['skill'],
+    );
   });
 
   it('executes inbox summary action when suggested and requested', async () => {

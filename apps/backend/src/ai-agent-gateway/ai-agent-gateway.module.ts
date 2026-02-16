@@ -19,6 +19,8 @@ import { AiAgentActionAuditRetentionScheduler } from './ai-agent-action-audit-re
 import { AiAgentGatewayResolver } from './ai-agent-gateway.resolver';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
+import { AgentPlatformEndpointRuntimeStat } from './entities/agent-platform-endpoint-runtime-stat.entity';
+import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-runtime-stat.entity';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { AgentActionAudit } from './entities/agent-action-audit.entity';
       ExternalEmailMessage,
       WorkspaceMember,
       AgentActionAudit,
+      AgentPlatformEndpointRuntimeStat,
+      AgentPlatformSkillRuntimeStat,
     ]),
     BillingModule,
     NotificationModule,

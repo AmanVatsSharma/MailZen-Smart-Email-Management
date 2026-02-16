@@ -107,9 +107,9 @@ export class AiAgentGatewayResolver {
       'Reset in-memory AI platform endpoint runtime statistics (all or one endpoint)',
   })
   @UseGuards(JwtAuthGuard, AdminGuard)
-  resetAgentPlatformRuntimeStats(
+  async resetAgentPlatformRuntimeStats(
     @Args('endpointUrl', { nullable: true }) endpointUrl?: string,
-  ): AgentPlatformRuntimeResetResponse {
+  ): Promise<AgentPlatformRuntimeResetResponse> {
     return this.gatewayService.resetPlatformRuntimeStats({
       endpointUrl,
     });

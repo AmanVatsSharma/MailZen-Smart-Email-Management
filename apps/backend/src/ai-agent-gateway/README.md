@@ -30,6 +30,8 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - includes `configuredServiceUrls`, `probedServiceUrls`, and per-endpoint
     runtime counters via `endpointStats` for failover diagnostics.
   - includes per-skill runtime counters via `skillStats` for traffic/error analysis.
+  - runtime counters are persisted in Postgres and hydrated on service startup
+    to preserve observability continuity across backend restarts.
 - Expose `myAgentActionAudits(limit?)` query for authenticated audit review.
 - Expose `myAgentActionDataExport(limit?)` for authenticated JSON export of
   agent action audit history.
@@ -101,3 +103,4 @@ flowchart TD
 - 2026-02-16: Added executable inbox action-item extraction action.
 - 2026-02-16: Added optional request-id-based endpoint rotation for platform calls (`AI_AGENT_PLATFORM_LOAD_BALANCE_ENABLED`).
 - 2026-02-16: Added admin runtime reset mutation for endpoint health counters.
+- 2026-02-16: Added persistent endpoint/skill runtime metrics hydration from Postgres.

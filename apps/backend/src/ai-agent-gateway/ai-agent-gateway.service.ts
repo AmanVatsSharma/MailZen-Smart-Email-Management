@@ -31,6 +31,8 @@ import { WorkspaceMember } from '../workspace/entities/workspace-member.entity';
 import { AgentAssistInput, AgentMessageInput } from './dto/agent-assist.input';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
+import { AgentPlatformEndpointRuntimeStat } from './entities/agent-platform-endpoint-runtime-stat.entity';
+import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-runtime-stat.entity';
 import {
   AgentActionExecutionResponse,
   AgentAssistResponse,
@@ -236,10 +238,15 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     private readonly workspaceMemberRepo: Repository<WorkspaceMember>,
     @InjectRepository(AgentActionAudit)
     private readonly agentActionAuditRepo: Repository<AgentActionAudit>,
+    @InjectRepository(AgentPlatformEndpointRuntimeStat)
+    private readonly endpointRuntimeStatRepo: Repository<AgentPlatformEndpointRuntimeStat>,
+    @InjectRepository(AgentPlatformSkillRuntimeStat)
+    private readonly skillRuntimeStatRepo: Repository<AgentPlatformSkillRuntimeStat>,
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
 
   async onModuleInit(): Promise<void> {
+    await this.hydrateRuntimeStatsFromDatabase();
     if (!this.shouldUseRedisRateLimit()) return;
 
     this.redisClient = createClient({ url: this.getRedisUrl() });
@@ -257,6 +264,47 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       this.redisConnected = false;
       this.logger.warn(
         `[agent-rate-limit] redis connect failed; using memory fallback: ${String(error)}`,
+      );
+    }
+  }
+
+  private async hydrateRuntimeStatsFromDatabase(): Promise<void> {
+    try {
+      const [endpointStats, skillStats] = await Promise.all([
+        this.endpointRuntimeStatRepo.find(),
+        this.skillRuntimeStatRepo.find(),
+      ]);
+      this.endpointRuntimeStats.clear();
+      this.skillRuntimeStats.clear();
+      for (const stat of endpointStats) {
+        const endpointUrl = this.normalizePlatformBaseUrl(stat.endpointUrl);
+        if (!endpointUrl) continue;
+        this.endpointRuntimeStats.set(endpointUrl, {
+          successCount: Number(stat.successCount || 0),
+          failureCount: Number(stat.failureCount || 0),
+          lastSuccessAtIso: stat.lastSuccessAt?.toISOString(),
+          lastFailureAtIso: stat.lastFailureAt?.toISOString(),
+        });
+      }
+      for (const stat of skillStats) {
+        const skill = String(stat.skill || '').trim();
+        if (!skill) continue;
+        this.skillRuntimeStats.set(skill, {
+          totalRequests: Number(stat.totalRequests || 0),
+          failedRequests: Number(stat.failedRequests || 0),
+          timeoutFailures: Number(stat.timeoutFailures || 0),
+          totalLatencyMs: Number(stat.totalLatencyMs || 0),
+          lastLatencyMs: Number(stat.lastLatencyMs || 0),
+          lastErrorAtIso: stat.lastErrorAt?.toISOString(),
+        });
+      }
+      this.logger.log(
+        `agent-platform-runtime-stats: hydrated endpointRows=${endpointStats.length} skillRows=${skillStats.length}`,
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `agent-platform-runtime-stats: hydrate failed; using empty runtime stats. error=${message}`,
       );
     }
   }
@@ -385,7 +433,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       throw error;
     } finally {
       const latencyMs = Date.now() - startedAtMs;
-      this.recordGatewayMetrics(skill, latencyMs, failed, timeoutFailure);
+      await this.recordGatewayMetrics(skill, latencyMs, failed, timeoutFailure);
       this.logAssistCompletion(
         requestId,
         skill,
@@ -509,23 +557,35 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  resetPlatformRuntimeStats(input?: { endpointUrl?: string | null }): {
+  async resetPlatformRuntimeStats(input?: {
+    endpointUrl?: string | null;
+  }): Promise<{
     clearedEndpoints: number;
     scopedEndpointUrl: string | null;
     resetAtIso: string;
-  } {
+  }> {
     const scopedEndpointUrl = this.normalizePlatformBaseUrl(
       String(input?.endpointUrl || ''),
     );
     let clearedEndpoints = 0;
 
     if (scopedEndpointUrl) {
-      if (this.endpointRuntimeStats.delete(scopedEndpointUrl)) {
-        clearedEndpoints = 1;
-      }
+      const inMemoryDeleted = this.endpointRuntimeStats.delete(
+        scopedEndpointUrl,
+      )
+        ? 1
+        : 0;
+      const deleteResult = await this.endpointRuntimeStatRepo.delete({
+        endpointUrl: scopedEndpointUrl,
+      });
+      const persistedDeleted = Number(deleteResult.affected || 0);
+      clearedEndpoints = Math.max(inMemoryDeleted, persistedDeleted);
     } else {
-      clearedEndpoints = this.endpointRuntimeStats.size;
+      const inMemoryDeleted = this.endpointRuntimeStats.size;
       this.endpointRuntimeStats.clear();
+      const deleteResult = await this.endpointRuntimeStatRepo.delete({});
+      const persistedDeleted = Number(deleteResult.affected || 0);
+      clearedEndpoints = Math.max(inMemoryDeleted, persistedDeleted);
     }
     const resetAtIso = new Date().toISOString();
     this.logger.warn(
@@ -1225,10 +1285,10 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     return [...baseUrls.slice(startIndex), ...baseUrls.slice(0, startIndex)];
   }
 
-  private recordEndpointCallResult(input: {
+  private async recordEndpointCallResult(input: {
     endpointUrl: string;
     success: boolean;
-  }): void {
+  }): Promise<void> {
     const endpointUrl = this.normalizePlatformBaseUrl(input.endpointUrl);
     if (!endpointUrl) return;
     const existing = this.endpointRuntimeStats.get(endpointUrl) || {
@@ -1248,6 +1308,34 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       lastFailureAtIso: input.success ? existing.lastFailureAtIso : nowIso,
     };
     this.endpointRuntimeStats.set(endpointUrl, next);
+    await this.persistEndpointRuntimeStat(endpointUrl, next);
+  }
+
+  private async persistEndpointRuntimeStat(
+    endpointUrl: string,
+    stats: EndpointRuntimeStats,
+  ): Promise<void> {
+    try {
+      await this.endpointRuntimeStatRepo.upsert(
+        {
+          endpointUrl,
+          successCount: stats.successCount,
+          failureCount: stats.failureCount,
+          lastSuccessAt: stats.lastSuccessAtIso
+            ? new Date(stats.lastSuccessAtIso)
+            : null,
+          lastFailureAt: stats.lastFailureAtIso
+            ? new Date(stats.lastFailureAtIso)
+            : null,
+        },
+        ['endpointUrl'],
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `agent-platform-runtime-stats: failed persisting endpoint stat endpoint=${endpointUrl} error=${message}`,
+      );
+    }
   }
 
   private buildEndpointStatsSnapshot(configuredUrls: string[]): Array<{
@@ -1366,7 +1454,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
               headers,
             },
           );
-          this.recordEndpointCallResult({
+          await this.recordEndpointCallResult({
             endpointUrl: baseUrl,
             success: true,
           });
@@ -1376,7 +1464,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
             attemptCount,
           };
         } catch (error) {
-          this.recordEndpointCallResult({
+          await this.recordEndpointCallResult({
             endpointUrl: baseUrl,
             success: false,
           });
@@ -2402,12 +2490,12 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     ].join('\n');
   }
 
-  private recordGatewayMetrics(
+  private async recordGatewayMetrics(
     skill: string,
     latencyMs: number,
     failed: boolean,
     timeoutFailure: boolean,
-  ): void {
+  ): Promise<void> {
     const normalizedSkill = String(skill || 'unknown').trim() || 'unknown';
     this.metrics.totalRequests += 1;
     this.metrics.totalLatencyMs += latencyMs;
@@ -2436,6 +2524,34 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       updatedSkillStats.timeoutFailures += 1;
     }
     this.skillRuntimeStats.set(normalizedSkill, updatedSkillStats);
+    await this.persistSkillRuntimeStat(normalizedSkill, updatedSkillStats);
+  }
+
+  private async persistSkillRuntimeStat(
+    skill: string,
+    stats: SkillRuntimeStats,
+  ): Promise<void> {
+    try {
+      await this.skillRuntimeStatRepo.upsert(
+        {
+          skill,
+          totalRequests: stats.totalRequests,
+          failedRequests: stats.failedRequests,
+          timeoutFailures: stats.timeoutFailures,
+          totalLatencyMs: stats.totalLatencyMs,
+          lastLatencyMs: stats.lastLatencyMs,
+          lastErrorAt: stats.lastErrorAtIso
+            ? new Date(stats.lastErrorAtIso)
+            : null,
+        },
+        ['skill'],
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `agent-platform-runtime-stats: failed persisting skill stat skill=${skill} error=${message}`,
+      );
+    }
   }
 
   private logAssistCompletion(

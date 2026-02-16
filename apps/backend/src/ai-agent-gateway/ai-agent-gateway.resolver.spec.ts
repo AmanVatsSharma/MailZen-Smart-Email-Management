@@ -146,14 +146,14 @@ describe('AiAgentGatewayResolver', () => {
     });
   });
 
-  it('forwards endpointUrl to resetAgentPlatformRuntimeStats', () => {
-    gatewayService.resetPlatformRuntimeStats.mockReturnValue({
+  it('forwards endpointUrl to resetAgentPlatformRuntimeStats', async () => {
+    gatewayService.resetPlatformRuntimeStats.mockResolvedValue({
       clearedEndpoints: 2,
       scopedEndpointUrl: null,
       resetAtIso: '2026-02-16T00:00:00.000Z',
     });
 
-    const result = resolver.resetAgentPlatformRuntimeStats(
+    const result = await resolver.resetAgentPlatformRuntimeStats(
       'http://localhost:8100',
     );
 
