@@ -268,6 +268,22 @@ describe('UnifiedInboxService', () => {
 
     expect(threads).toHaveLength(1);
     expect(threads[0].id).toBe('mail-1');
+    expect(emailRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.arrayContaining([
+          expect.objectContaining({
+            userId,
+            mailboxId: 'mailbox-1',
+          }),
+          expect.objectContaining({
+            userId,
+            mailboxId: expect.any(Object),
+            providerId: expect.any(Object),
+          }),
+        ]),
+        relations: ['labels'],
+      }),
+    );
   });
 
   it('groups mailbox emails by inbound thread key in thread list', async () => {

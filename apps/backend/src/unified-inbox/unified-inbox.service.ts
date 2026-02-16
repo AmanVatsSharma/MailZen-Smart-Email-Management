@@ -8,7 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { OAuth2Client } from 'google-auth-library';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
@@ -225,7 +225,17 @@ export class UnifiedInboxService {
     mailboxAddress: string;
   }): Promise<Email[]> {
     const emails = await this.emailRepo.find({
-      where: { userId: input.userId },
+      where: [
+        {
+          userId: input.userId,
+          mailboxId: input.mailboxId,
+        },
+        {
+          userId: input.userId,
+          mailboxId: IsNull(),
+          providerId: IsNull(),
+        },
+      ] as any,
       order: { createdAt: 'DESC' },
       relations: ['labels'],
     });
