@@ -165,6 +165,31 @@ Login OAuth (backend redirect) uses:
 - `provider_oauth_redirect_target_invalid`
 - `provider_oauth_redirect_target_rejected_external`
 
+### Email provider service observability events
+
+- Connection/setup failures:
+  - `provider_connect_gmail_failed`
+  - `provider_connect_gmail_oauth_tokens_failed`
+  - `provider_connect_outlook_failed`
+  - `provider_connect_smtp_failed`
+  - `provider_active_state_update_failed`
+  - `provider_configure_failed`
+  - `provider_configure_gmail_failed`
+  - `provider_configure_outlook_failed`
+  - `provider_configure_smtp_failed`
+- Sync/entitlement failures:
+  - `provider_sync_failed`
+  - `provider_limit_reached`
+- CRUD/validation failures:
+  - `provider_emails_fetch_failed`
+  - `provider_list_failed`
+  - `provider_get_failed`
+  - `provider_delete_failed`
+  - `provider_credentials_update_failed`
+  - `provider_validation_failed`
+- OAuth token refresh failures:
+  - `provider_oauth_token_refresh_failed`
+
 ## Mermaid: connect provider via OAuth code
 
 ```mermaid

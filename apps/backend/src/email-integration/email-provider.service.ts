@@ -296,7 +296,11 @@ export class EmailProviderService {
       return this.getProviderUi(createdId, userId);
     } catch (error: any) {
       this.logger.error(
-        `Failed to connect Gmail: ${error.message}`,
+        serializeStructuredLog({
+          event: 'provider_connect_gmail_failed',
+          userId,
+          error: error.message,
+        }),
         error.stack,
       );
       if (
@@ -346,7 +350,11 @@ export class EmailProviderService {
       return this.getProviderUi(created.id, userId);
     } catch (error: any) {
       this.logger.error(
-        `Failed to connect Gmail from OAuth tokens: ${error.message}`,
+        serializeStructuredLog({
+          event: 'provider_connect_gmail_oauth_tokens_failed',
+          userId,
+          error: error.message,
+        }),
         error.stack,
       );
       if (
@@ -428,7 +436,11 @@ export class EmailProviderService {
       return this.getProviderUi(createdId, userId);
     } catch (error: any) {
       this.logger.error(
-        `Failed to connect Outlook: ${error.message}`,
+        serializeStructuredLog({
+          event: 'provider_connect_outlook_failed',
+          userId,
+          error: error.message,
+        }),
         error.stack,
       );
       if (
@@ -460,7 +472,11 @@ export class EmailProviderService {
       return this.getProviderUi(createdId, userId);
     } catch (error: any) {
       this.logger.error(
-        `Failed to connect SMTP: ${error.message}`,
+        serializeStructuredLog({
+          event: 'provider_connect_smtp_failed',
+          userId,
+          error: error.message,
+        }),
         error.stack,
       );
       if (
@@ -494,7 +510,12 @@ export class EmailProviderService {
       return this.getProviderUi(providerId, userId);
     } catch (error: any) {
       this.logger.error(
-        `Failed to update provider active state: ${error.message}`,
+        serializeStructuredLog({
+          event: 'provider_active_state_update_failed',
+          userId,
+          providerId,
+          error: error.message,
+        }),
         error.stack,
       );
       if (error instanceof NotFoundException) throw error;
@@ -575,7 +596,12 @@ export class EmailProviderService {
         error instanceof Error ? error.message : 'Provider sync failed';
       const normalizedErrorMessage = this.normalizeSyncErrorSignature(message);
       this.logger.warn(
-        `provider-sync: providerId=${providerId} type=${provider.type} failed error=${message}`,
+        serializeStructuredLog({
+          event: 'provider_sync_failed',
+          providerId,
+          providerType: provider.type,
+          error: message,
+        }),
       );
       await this.providerRepository.update(providerId, {
         status: 'error',
@@ -1720,8 +1746,12 @@ export class EmailProviderService {
       }
     } catch (error) {
       this.logger.error(
-        `Failed to configure provider: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'provider_configure_failed',
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+        error instanceof Error ? error.stack : undefined,
       );
       if (
         error instanceof BadRequestException ||
@@ -1744,7 +1774,12 @@ export class EmailProviderService {
     if (currentProviderCount < entitlements.providerLimit) return;
 
     this.logger.warn(
-      `email-provider-service: provider limit reached userId=${userId} current=${currentProviderCount} limit=${entitlements.providerLimit}`,
+      serializeStructuredLog({
+        event: 'provider_limit_reached',
+        userId,
+        currentProviderCount,
+        providerLimit: entitlements.providerLimit,
+      }),
     );
     throw new BadRequestException(
       `Plan limit reached. Your ${entitlements.planCode} plan supports up to ${entitlements.providerLimit} connected providers.`,
@@ -1790,8 +1825,12 @@ export class EmailProviderService {
       return await this.providerRepository.save(provider);
     } catch (error) {
       this.logger.error(
-        `Failed to configure Gmail provider: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'provider_configure_gmail_failed',
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+        error instanceof Error ? error.stack : undefined,
       );
       throw new InternalServerErrorException(
         'Failed to configure Gmail provider',
@@ -1822,8 +1861,12 @@ export class EmailProviderService {
       return await this.providerRepository.save(provider);
     } catch (error) {
       this.logger.error(
-        `Failed to configure Outlook provider: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'provider_configure_outlook_failed',
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+        error instanceof Error ? error.stack : undefined,
       );
       throw new InternalServerErrorException(
         'Failed to configure Outlook provider',
@@ -1852,8 +1895,12 @@ export class EmailProviderService {
       return await this.providerRepository.save(provider);
     } catch (error) {
       this.logger.error(
-        `Failed to configure SMTP provider: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'provider_configure_smtp_failed',
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+        error instanceof Error ? error.stack : undefined,
       );
       throw new InternalServerErrorException(
         'Failed to configure SMTP provider',
@@ -1878,8 +1925,13 @@ export class EmailProviderService {
       return provider.emails;
     } catch (error) {
       this.logger.error(
-        `Failed to get provider emails: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'provider_emails_fetch_failed',
+          userId,
+          providerId,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+        error instanceof Error ? error.stack : undefined,
       );
       if (error instanceof NotFoundException) {
         throw error;
@@ -1896,8 +1948,12 @@ export class EmailProviderService {
       });
     } catch (error) {
       this.logger.error(
-        `Failed to get all providers: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'provider_list_failed',
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+        error instanceof Error ? error.stack : undefined,
       );
       throw new InternalServerErrorException('Failed to get email providers');
     }
@@ -1919,8 +1975,13 @@ export class EmailProviderService {
       return provider;
     } catch (error) {
       this.logger.error(
-        `Failed to get provider: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'provider_get_failed',
+          userId,
+          providerId: id,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+        error instanceof Error ? error.stack : undefined,
       );
       if (error instanceof NotFoundException) {
         throw error;
@@ -1952,8 +2013,13 @@ export class EmailProviderService {
       return true;
     } catch (error) {
       this.logger.error(
-        `Failed to delete provider: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'provider_delete_failed',
+          userId,
+          providerId: id,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+        error instanceof Error ? error.stack : undefined,
       );
       if (error instanceof NotFoundException) {
         throw error;
@@ -2011,8 +2077,13 @@ export class EmailProviderService {
       return await this.providerRepository.findOne({ where: { id } });
     } catch (error) {
       this.logger.error(
-        `Failed to update provider credentials: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'provider_credentials_update_failed',
+          userId,
+          providerId: id,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+        error instanceof Error ? error.stack : undefined,
       );
       if (error instanceof NotFoundException) {
         throw error;
@@ -2039,12 +2110,19 @@ export class EmailProviderService {
       };
     } catch (error) {
       this.logger.error(
-        `Provider validation failed: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'provider_validation_failed',
+          userId,
+          providerId: id,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+        error instanceof Error ? error.stack : undefined,
       );
       return {
         valid: false,
-        message: error.message || 'Provider validation failed',
+        message:
+          (error instanceof Error ? error.message : String(error)) ||
+          'Provider validation failed',
       };
     }
   }
@@ -2219,8 +2297,14 @@ export class EmailProviderService {
       }
     } catch (error) {
       this.logger.error(
-        `Failed to refresh OAuth token: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'provider_oauth_token_refresh_failed',
+          providerId: provider.id,
+          providerType: provider.type,
+          userId: provider.userId,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+        error instanceof Error ? error.stack : undefined,
       );
       throw new InternalServerErrorException('Failed to refresh OAuth token');
     }
