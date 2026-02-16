@@ -47,6 +47,8 @@ fi
 require_cmd openssl
 require_cmd curl
 require_cmd python3
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
 
 log_info "Checking TLS certificate for domain: ${DOMAIN}"
 
@@ -86,7 +88,7 @@ if [[ ! "${days_left}" =~ ^-?[0-9]+$ ]]; then
   exit 1
 fi
 
-status_code="$(curl -sS -o /tmp/mailzen-ssl-check.out -w "%{http_code}" "https://${DOMAIN}" || true)"
+status_code="$(curl -sS -o /dev/null -w "%{http_code}" "https://${DOMAIN}" || true)"
 
 log_info "Certificate subject: ${subject_line:-unknown}"
 log_info "Certificate issuer:  ${issuer_line:-unknown}"

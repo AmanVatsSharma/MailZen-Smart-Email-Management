@@ -82,6 +82,8 @@ if [[ -n "${EXPECTED_IP}" ]]; then
 fi
 
 require_cmd getent
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
 
 log_info "Resolving DNS for domain: ${DOMAIN}"
 
