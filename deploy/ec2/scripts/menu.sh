@@ -41,8 +41,9 @@ show_menu() {
 15) Host ports check (80/443)
 16) Environment audit (redacted)
 17) Run diagnostics report (doctor)
-18) Run script self-check
-19) Exit
+18) Generate support bundle
+19) Run script self-check
+20) Exit
 ===============================================================================
 MENU
 }
@@ -55,7 +56,7 @@ fi
 
 while true; do
   show_menu
-  read -r -p "Select an option [1-19]: " choice
+  read -r -p "Select an option [1-20]: " choice
 
   case "${choice}" in
   1)
@@ -110,14 +111,17 @@ while true; do
     run_step "doctor.sh"
     ;;
   18)
-    run_step "self-check.sh"
+    run_step "support-bundle.sh"
     ;;
   19)
+    run_step "self-check.sh"
+    ;;
+  20)
     echo "[mailzen-deploy][INFO] Exiting menu."
     exit 0
     ;;
   *)
-    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-19."
+    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-20."
     ;;
   esac
 done

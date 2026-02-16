@@ -41,6 +41,7 @@ Additional deployment flowcharts:
   - `ports-check.sh` (check host port conflicts for 80/443)
   - `env-audit.sh` (redacted critical env audit)
   - `doctor.sh` (generate diagnostics report for support)
+  - `support-bundle.sh` (collect support-ready diagnostics archive)
 - `backups/`  
   Local backup dump directory (tracked folder; dump files ignored by git).
 - `reports/`  
@@ -139,6 +140,9 @@ The setup script:
 
 # Strict diagnostics mode (treat optional warnings as failures)
 ./deploy/ec2/scripts/doctor.sh --strict
+
+# Generate compressed support bundle archive
+./deploy/ec2/scripts/support-bundle.sh
 
 # Validate deployment scripts syntax/executable state
 ./deploy/ec2/scripts/self-check.sh

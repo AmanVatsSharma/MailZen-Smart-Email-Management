@@ -25,6 +25,7 @@ scripts=(
   "ports-check.sh"
   "env-audit.sh"
   "doctor.sh"
+  "support-bundle.sh"
   "self-check.sh"
   "status.sh"
   "logs.sh"

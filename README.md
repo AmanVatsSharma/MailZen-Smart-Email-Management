@@ -243,6 +243,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: strict diagnostics mode
 ./deploy/ec2/scripts/doctor.sh --strict
 
+# Optional: generate support bundle archive for troubleshooting
+./deploy/ec2/scripts/support-bundle.sh
+
 # 3) Build and run the stack
 ./deploy/ec2/scripts/deploy.sh
 

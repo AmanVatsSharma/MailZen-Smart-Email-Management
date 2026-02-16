@@ -58,4 +58,5 @@ flowchart TD
 - Periodically run `backup-prune.sh` to enforce backup retention.
 - Run `env-audit.sh` whenever secrets/domains are updated.
 - Run `doctor.sh` and share report output during incident triage.
+- Run `support-bundle.sh` to package diagnostics for escalation/support.
 - Use `self-check.sh` after editing deployment scripts.
