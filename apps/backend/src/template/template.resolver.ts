@@ -1,5 +1,5 @@
 import { Resolver, Query, Mutation, Args, Context } from '@nestjs/graphql';
-import { Template } from './template.entity';
+import { Template } from './entities/template.entity';
 import { TemplateService } from './template.service';
 import { CreateTemplateInput } from './dto/create-template.input';
 import { UpdateTemplateInput } from './dto/update-template.input';
@@ -21,13 +21,16 @@ export class TemplateResolver {
   constructor(private readonly templateService: TemplateService) {}
 
   @Query(() => [Template], { description: 'Get all templates' })
-  getAllTemplates(): Template[] {
-    return this.templateService.getAllTemplates();
+  async getAllTemplates(@Context() ctx: RequestContext): Promise<Template[]> {
+    return this.templateService.getAllTemplates(ctx.req.user.id);
   }
 
   @Query(() => Template, { description: 'Get a template by id' })
-  getTemplate(@Args('id') id: string): Template {
-    return this.templateService.getTemplateById(id);
+  async getTemplate(
+    @Args('id') id: string,
+    @Context() ctx: RequestContext,
+  ): Promise<Template> {
+    return this.templateService.getTemplateById(id, ctx.req.user.id);
   }
 
   @Mutation(() => Template, { description: 'Create a new template' })

@@ -6,8 +6,9 @@ Provide reusable email templates with admin-managed CRUD operations.
 
 ## Responsibilities
 
-- Maintain template catalog in service memory (current implementation)
+- Persist template catalog in Postgres (`templates` table)
 - Expose authenticated read operations
+- Scope template reads/mutations by authenticated actor user ownership
 - Restrict create/update/delete operations to admin users
 
 ## GraphQL API
@@ -26,16 +27,16 @@ flowchart TD
   Resolver --> JwtGuard[JwtAuthGuard]
   Resolver -->|admin mutations| AdminGuard[AdminGuard]
   Resolver --> Service[TemplateService]
-  Service --> Memory[(In-memory template array)]
-  Memory --> Service
+  Service --> Repo[(templates table)]
+  Repo --> Service
   Service --> Resolver
   Resolver --> Client
 ```
 
 ## Notes
 
-- Template persistence is currently in-memory; data resets on backend restart.
-- Module is structured so storage can be migrated to TypeORM with minimal API changes.
+- Template persistence uses TypeORM repository storage with per-user ownership scoping.
+- Service rejects missing actor IDs to avoid unscoped template reads.
 - Structured observability events:
   - `template_create_start`
   - `template_create_completed`

@@ -1,8 +1,13 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuditLog } from '../auth/entities/audit-log.entity';
-import { Template } from './template.entity';
+import { Template } from './entities/template.entity';
 import { CreateTemplateInput } from './dto/create-template.input';
 import { UpdateTemplateInput } from './dto/update-template.input';
 import { serializeStructuredLog } from '../common/logging/structured-log.util';
@@ -10,13 +15,21 @@ import { serializeStructuredLog } from '../common/logging/structured-log.util';
 @Injectable()
 export class TemplateService {
   private readonly logger = new Logger(TemplateService.name);
-  private templates: Template[] = [];
-  private idCounter = 1;
 
   constructor(
+    @InjectRepository(Template)
+    private readonly templateRepo: Repository<Template>,
     @InjectRepository(AuditLog)
     private readonly auditLogRepo: Repository<AuditLog>,
   ) {}
+
+  private normalizeActorUserId(actorUserId?: string): string {
+    const normalized = String(actorUserId || '').trim();
+    if (!normalized) {
+      throw new BadRequestException('Actor user id is required');
+    }
+    return normalized;
+  }
 
   private async writeAuditLog(input: {
     userId?: string;
@@ -46,54 +59,69 @@ export class TemplateService {
     input: CreateTemplateInput,
     actorUserId?: string,
   ): Promise<Template> {
+    const normalizedActorUserId = this.normalizeActorUserId(actorUserId);
     this.logger.log(
       serializeStructuredLog({
         event: 'template_create_start',
         templateName: input.name,
+        actorUserId: normalizedActorUserId,
       }),
     );
-    const template: Template = {
-      id: String(this.idCounter++),
+    const template = this.templateRepo.create({
       name: input.name,
       subject: input.subject,
       body: input.body,
-    };
-    this.templates.push(template);
+      userId: normalizedActorUserId,
+    });
+    const savedTemplate = await this.templateRepo.save(template);
     this.logger.log(
       serializeStructuredLog({
         event: 'template_create_completed',
-        templateId: template.id,
-        templateCount: this.templates.length,
+        templateId: savedTemplate.id,
+        actorUserId: normalizedActorUserId,
       }),
     );
     await this.writeAuditLog({
-      userId: actorUserId,
+      userId: normalizedActorUserId,
       action: 'template_created',
       metadata: {
-        templateId: template.id,
-        templateName: template.name,
+        templateId: savedTemplate.id,
+        templateName: savedTemplate.name,
       },
     });
-    return template;
+    return savedTemplate;
   }
 
-  getAllTemplates(): Template[] {
+  async getAllTemplates(actorUserId?: string): Promise<Template[]> {
+    const normalizedActorUserId = this.normalizeActorUserId(actorUserId);
+    const templates = await this.templateRepo.find({
+      where: { userId: normalizedActorUserId },
+      order: { updatedAt: 'DESC' },
+    });
     this.logger.log(
       serializeStructuredLog({
         event: 'template_list_completed',
-        templateCount: this.templates.length,
+        actorUserId: normalizedActorUserId,
+        templateCount: templates.length,
       }),
     );
-    return this.templates;
+    return templates;
   }
 
-  getTemplateById(id: string): Template {
-    const template = this.templates.find((t) => t.id === id);
+  async getTemplateById(id: string, actorUserId?: string): Promise<Template> {
+    const normalizedActorUserId = this.normalizeActorUserId(actorUserId);
+    const template = await this.templateRepo.findOne({
+      where: {
+        id,
+        userId: normalizedActorUserId,
+      },
+    });
     if (!template) {
       this.logger.warn(
         serializeStructuredLog({
           event: 'template_get_missing',
           templateId: id,
+          actorUserId: normalizedActorUserId,
         }),
       );
       throw new NotFoundException(`Template with id ${id} not found`);
@@ -105,13 +133,15 @@ export class TemplateService {
     input: UpdateTemplateInput,
     actorUserId?: string,
   ): Promise<Template> {
+    const normalizedActorUserId = this.normalizeActorUserId(actorUserId);
     this.logger.log(
       serializeStructuredLog({
         event: 'template_update_start',
         templateId: input.id,
+        actorUserId: normalizedActorUserId,
       }),
     );
-    const template = this.getTemplateById(input.id);
+    const template = await this.getTemplateById(input.id, normalizedActorUserId);
     if (input.name !== undefined) {
       template.name = input.name;
     }
@@ -125,51 +155,46 @@ export class TemplateService {
       .filter(([key, value]) => key !== 'id' && typeof value !== 'undefined')
       .map(([key]) => key)
       .sort();
+    const savedTemplate = await this.templateRepo.save(template);
     this.logger.log(
       serializeStructuredLog({
         event: 'template_update_completed',
-        templateId: template.id,
+        templateId: savedTemplate.id,
+        actorUserId: normalizedActorUserId,
       }),
     );
     await this.writeAuditLog({
-      userId: actorUserId,
+      userId: normalizedActorUserId,
       action: 'template_updated',
       metadata: {
-        templateId: template.id,
-        templateName: template.name,
+        templateId: savedTemplate.id,
+        templateName: savedTemplate.name,
         changedFields,
       },
     });
-    return template;
+    return savedTemplate;
   }
 
   async deleteTemplate(id: string, actorUserId?: string): Promise<Template> {
+    const normalizedActorUserId = this.normalizeActorUserId(actorUserId);
     this.logger.log(
       serializeStructuredLog({
         event: 'template_delete_start',
         templateId: id,
+        actorUserId: normalizedActorUserId,
       }),
     );
-    const index = this.templates.findIndex((t) => t.id === id);
-    if (index === -1) {
-      this.logger.warn(
-        serializeStructuredLog({
-          event: 'template_delete_missing',
-          templateId: id,
-        }),
-      );
-      throw new NotFoundException(`Template with id ${id} not found`);
-    }
-    const [deleted] = this.templates.splice(index, 1);
+    const deleted = await this.getTemplateById(id, normalizedActorUserId);
+    await this.templateRepo.remove(deleted);
     this.logger.log(
       serializeStructuredLog({
         event: 'template_delete_completed',
         templateId: deleted.id,
-        templateCount: this.templates.length,
+        actorUserId: normalizedActorUserId,
       }),
     );
     await this.writeAuditLog({
-      userId: actorUserId,
+      userId: normalizedActorUserId,
       action: 'template_deleted',
       metadata: {
         templateId: deleted.id,

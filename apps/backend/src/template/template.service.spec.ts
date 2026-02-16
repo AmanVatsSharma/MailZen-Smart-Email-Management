@@ -1,21 +1,54 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { AuditLog } from '../auth/entities/audit-log.entity';
+import { Template } from './entities/template.entity';
 import { TemplateService } from './template.service';
 
 describe('TemplateService', () => {
   let service: TemplateService;
+  let templateRepo: jest.Mocked<Repository<Template>>;
   let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
 
   beforeEach(() => {
+    templateRepo = {
+      create: jest.fn(),
+      save: jest.fn(),
+      find: jest.fn(),
+      findOne: jest.fn(),
+      remove: jest.fn(),
+    } as unknown as jest.Mocked<Repository<Template>>;
     auditLogRepo = {
       create: jest.fn((payload: unknown) => payload as AuditLog),
       save: jest.fn().mockResolvedValue({} as AuditLog),
     } as unknown as jest.Mocked<Repository<AuditLog>>;
-    service = new TemplateService(auditLogRepo);
+    service = new TemplateService(templateRepo, auditLogRepo);
   });
 
-  it('creates and lists templates', async () => {
+  it('creates and lists user-scoped templates', async () => {
+    templateRepo.create.mockImplementation(
+      (payload: Partial<Template>) => payload as Template,
+    );
+    templateRepo.save.mockResolvedValue({
+      id: 'template-1',
+      name: 'Welcome',
+      subject: 'Hello',
+      body: 'Body',
+      userId: 'admin-1',
+      createdAt: new Date('2026-02-16T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-16T00:00:00.000Z'),
+    } as Template);
+    templateRepo.find.mockResolvedValue([
+      {
+        id: 'template-1',
+        name: 'Welcome',
+        subject: 'Hello',
+        body: 'Body',
+        userId: 'admin-1',
+        createdAt: new Date('2026-02-16T00:00:00.000Z'),
+        updatedAt: new Date('2026-02-16T00:00:00.000Z'),
+      } as Template,
+    ]);
+
     const created = await service.createTemplate(
       {
         name: 'Welcome',
@@ -25,11 +58,15 @@ describe('TemplateService', () => {
       'admin-1',
     );
 
-    const allTemplates = service.getAllTemplates();
+    const allTemplates = await service.getAllTemplates('admin-1');
 
-    expect(created.id).toEqual(expect.any(String));
+    expect(created.id).toBe('template-1');
     expect(created.name).toBe('Welcome');
     expect(allTemplates).toHaveLength(1);
+    expect(templateRepo.find).toHaveBeenCalledWith({
+      where: { userId: 'admin-1' },
+      order: { updatedAt: 'DESC' },
+    });
     expect(auditLogRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'admin-1',
@@ -39,15 +76,28 @@ describe('TemplateService', () => {
   });
 
   it('updates existing template fields', async () => {
-    const created = await service.createTemplate({
+    templateRepo.findOne.mockResolvedValue({
+      id: 'template-1',
       name: 'Welcome',
       subject: 'Hello',
       body: 'Body',
-    });
+      userId: 'admin-2',
+      createdAt: new Date('2026-02-16T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-16T00:00:00.000Z'),
+    } as Template);
+    templateRepo.save.mockResolvedValue({
+      id: 'template-1',
+      name: 'Welcome',
+      subject: 'Updated subject',
+      body: 'Body',
+      userId: 'admin-2',
+      createdAt: new Date('2026-02-16T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-16T00:00:01.000Z'),
+    } as Template);
 
     const updated = await service.updateTemplate(
       {
-        id: created.id,
+        id: 'template-1',
         subject: 'Updated subject',
       },
       'admin-2',
@@ -67,16 +117,24 @@ describe('TemplateService', () => {
   });
 
   it('deletes template by id', async () => {
-    const created = await service.createTemplate({
+    templateRepo.findOne.mockResolvedValue({
+      id: 'template-9',
       name: 'Welcome',
       subject: 'Hello',
       body: 'Body',
-    });
+      userId: 'admin-3',
+      createdAt: new Date('2026-02-16T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-16T00:00:00.000Z'),
+    } as Template);
+    templateRepo.remove.mockResolvedValue({
+      id: 'template-9',
+    } as Template);
+    templateRepo.find.mockResolvedValue([]);
 
-    const deleted = await service.deleteTemplate(created.id, 'admin-3');
+    const deleted = await service.deleteTemplate('template-9', 'admin-3');
 
-    expect(deleted.id).toBe(created.id);
-    expect(service.getAllTemplates()).toHaveLength(0);
+    expect(deleted.id).toBe('template-9');
+    await expect(service.getAllTemplates('admin-3')).resolves.toEqual([]);
     expect(auditLogRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'admin-3',
@@ -86,16 +144,32 @@ describe('TemplateService', () => {
   });
 
   it('throws when template is missing', async () => {
-    expect(() => service.getTemplateById('missing')).toThrow(NotFoundException);
-    await expect(service.updateTemplate({ id: 'missing' })).rejects.toThrow(
+    templateRepo.findOne.mockResolvedValue(null);
+
+    await expect(service.getTemplateById('missing', 'admin-1')).rejects.toThrow(
       NotFoundException,
     );
-    await expect(service.deleteTemplate('missing')).rejects.toThrow(
+    await expect(
+      service.updateTemplate({ id: 'missing' }, 'admin-1'),
+    ).rejects.toThrow(NotFoundException);
+    await expect(service.deleteTemplate('missing', 'admin-1')).rejects.toThrow(
       NotFoundException,
     );
   });
 
   it('continues creating template when audit log write fails', async () => {
+    templateRepo.create.mockImplementation(
+      (payload: Partial<Template>) => payload as Template,
+    );
+    templateRepo.save.mockResolvedValue({
+      id: 'template-2',
+      name: 'Fallback',
+      subject: 'Fallback',
+      body: 'Body',
+      userId: 'admin-4',
+      createdAt: new Date('2026-02-16T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-16T00:00:00.000Z'),
+    } as Template);
     auditLogRepo.save.mockRejectedValueOnce(new Error('audit unavailable'));
 
     const created = await service.createTemplate(
@@ -107,7 +181,26 @@ describe('TemplateService', () => {
       'admin-4',
     );
 
-    expect(created.id).toEqual(expect.any(String));
+    expect(created.id).toBe('template-2');
     expect(created.name).toBe('Fallback');
+  });
+
+  it('rejects operations when actor user id is missing', async () => {
+    await expect(
+      service.createTemplate(
+        {
+          name: 'NoActor',
+          subject: 'NoActor',
+          body: 'NoActor',
+        },
+        '',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.getAllTemplates('')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(service.getTemplateById('template-1', '')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 });

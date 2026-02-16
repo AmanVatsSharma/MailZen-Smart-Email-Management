@@ -15,6 +15,45 @@ describe('TemplateResolver', () => {
     jest.clearAllMocks();
   });
 
+  it('forwards actor to template read queries', async () => {
+    templateService.getAllTemplates.mockResolvedValue([
+      {
+        id: 'template-1',
+        name: 'Welcome',
+        subject: 'Hello',
+        body: 'Body',
+      },
+    ]);
+    templateService.getTemplateById.mockResolvedValue({
+      id: 'template-1',
+      name: 'Welcome',
+      subject: 'Hello',
+      body: 'Body',
+    });
+    const context = {
+      req: {
+        user: {
+          id: 'admin-1',
+        },
+      },
+    } as never;
+
+    const templates = await resolver.getAllTemplates(context);
+    const template = await resolver.getTemplate('template-1', context);
+
+    expect(templateService.getAllTemplates).toHaveBeenCalledWith('admin-1');
+    expect(templateService.getTemplateById).toHaveBeenCalledWith(
+      'template-1',
+      'admin-1',
+    );
+    expect(templates).toHaveLength(1);
+    expect(template).toEqual(
+      expect.objectContaining({
+        id: 'template-1',
+      }),
+    );
+  });
+
   it('forwards actor to create template mutation', async () => {
     templateService.createTemplate.mockResolvedValue({
       id: 'template-1',
