@@ -24,6 +24,8 @@ Web sessions are persisted with an HttpOnly `token` cookie.
   - `AUTH_ABUSE_PROTECTION_ENABLED` (default `true`)
   - `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS` (default `60000`)
   - `AUTH_LOGIN_RATE_LIMIT_MAX_REQUESTS` (default `10`)
+  - `AUTH_REFRESH_RATE_LIMIT_WINDOW_MS` (default `60000`)
+  - `AUTH_REFRESH_RATE_LIMIT_MAX_REQUESTS` (default `20`)
   - `AUTH_REGISTER_RATE_LIMIT_WINDOW_MS` (default `300000`)
   - `AUTH_REGISTER_RATE_LIMIT_MAX_REQUESTS` (default `5`)
   - `AUTH_OTP_RATE_LIMIT_WINDOW_MS` (default `300000`)
@@ -134,6 +136,16 @@ flowchart TD
   Guard -->|exceeded| Throttle[HTTP 429 TooManyRequestsException]
   AuthLogic --> Session[Session cookie + token response]
 ```
+
+Protected mutation families include:
+- `login`
+- `refresh`
+- `logout` (when refresh token is supplied)
+- `register`
+- `signupSendOtp`
+- `signupVerify`
+- `forgotPassword`
+- `resetPassword`
 
 ## Changelog
 

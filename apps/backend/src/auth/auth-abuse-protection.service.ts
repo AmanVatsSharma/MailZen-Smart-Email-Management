@@ -12,6 +12,8 @@ type AuthRequestLike = {
 
 type AuthAbuseOperation =
   | 'login'
+  | 'refresh'
+  | 'logout'
   | 'register'
   | 'signup_send_otp'
   | 'signup_verify'
@@ -45,6 +47,20 @@ export class AuthAbuseProtectionService {
     maxRequests: this.resolvePositiveInteger(
       process.env.AUTH_REGISTER_RATE_LIMIT_MAX_REQUESTS,
       5,
+      1,
+      5_000,
+    ),
+  });
+  private readonly refreshLimiter = new RequestRateLimiter({
+    windowMs: this.resolvePositiveInteger(
+      process.env.AUTH_REFRESH_RATE_LIMIT_WINDOW_MS,
+      60_000,
+      1_000,
+      60 * 60 * 1_000,
+    ),
+    maxRequests: this.resolvePositiveInteger(
+      process.env.AUTH_REFRESH_RATE_LIMIT_MAX_REQUESTS,
+      20,
       1,
       5_000,
     ),
@@ -122,6 +138,9 @@ export class AuthAbuseProtectionService {
 
   private resolveLimiter(operation: AuthAbuseOperation): RequestRateLimiter {
     if (operation === 'login') return this.loginLimiter;
+    if (operation === 'refresh' || operation === 'logout') {
+      return this.refreshLimiter;
+    }
     if (operation === 'register') return this.registerLimiter;
     if (operation === 'signup_send_otp' || operation === 'signup_verify') {
       return this.otpLimiter;

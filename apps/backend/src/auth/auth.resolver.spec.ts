@@ -13,6 +13,8 @@ describe('AuthResolver', () => {
       AuthService,
       | 'login'
       | 'generateRefreshToken'
+      | 'rotateRefreshToken'
+      | 'logout'
       | 'createVerificationToken'
       | 'createSignupOtp'
       | 'verifySignupOtp'
@@ -20,6 +22,8 @@ describe('AuthResolver', () => {
   > = {
     login: jest.fn(),
     generateRefreshToken: jest.fn(),
+    rotateRefreshToken: jest.fn(),
+    logout: jest.fn(),
     createVerificationToken: jest.fn(),
     createSignupOtp: jest.fn(),
     verifySignupOtp: jest.fn(),
@@ -151,6 +155,63 @@ describe('AuthResolver', () => {
         identifier: '+15550000000',
       }),
     );
+    expect(result).toBe(true);
+  });
+
+  it('enforces abuse limits for refresh mutation', async () => {
+    authServiceMock.rotateRefreshToken.mockResolvedValue({
+      token: 'token-2',
+      refreshToken: 'refresh-2',
+      userId: 'user-2',
+    });
+    userServiceMock.getUser.mockResolvedValue({
+      id: 'user-2',
+      email: 'member@mailzen.com',
+      role: 'USER',
+    } as User);
+    mailboxServiceMock.getUserMailboxes.mockResolvedValue([
+      'member@mailzen.com',
+    ] as never[]);
+
+    const result = await resolver.refresh({
+      refreshToken: 'refresh-1',
+    } as never);
+
+    expect(authAbuseProtectionMock.enforceLimit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: 'refresh',
+        identifier: 'refresh-1',
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        token: 'token-2',
+        refreshToken: 'refresh-2',
+      }),
+    );
+  });
+
+  it('enforces abuse limits for logout mutation when refresh token provided', async () => {
+    authServiceMock.logout.mockResolvedValue(true);
+
+    const result = await resolver.logout(
+      { refreshToken: 'refresh-logout' } as never,
+      {
+        req: {
+          headers: {
+            'x-forwarded-for': '198.51.100.13',
+          },
+        },
+      } as never,
+    );
+
+    expect(authAbuseProtectionMock.enforceLimit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: 'logout',
+        identifier: 'refresh-logout',
+      }),
+    );
+    expect(authServiceMock.logout).toHaveBeenCalledWith('refresh-logout');
     expect(result).toBe(true);
   });
 });

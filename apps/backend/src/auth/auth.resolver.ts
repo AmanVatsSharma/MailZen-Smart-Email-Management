@@ -159,6 +159,10 @@ export class AuthResolver {
 
   @Mutation(() => AuthResponse)
   async refresh(@Args('input') input: RefreshInput): Promise<AuthResponse> {
+    this.authAbuseProtection.enforceLimit({
+      operation: 'refresh',
+      identifier: input.refreshToken,
+    });
     const result = await this.authService.rotateRefreshToken(
       input.refreshToken,
     );
@@ -179,6 +183,13 @@ export class AuthResolver {
     input: RefreshInput,
     @Context() ctx: RequestContext,
   ): Promise<boolean> {
+    if (input?.refreshToken) {
+      this.authAbuseProtection.enforceLimit({
+        operation: 'logout',
+        request: ctx?.req,
+        identifier: input.refreshToken,
+      });
+    }
     // Always clear cookie so browser session ends.
     const res = ctx?.res;
     if (res) this.sessionCookie.clearTokenCookie(res);

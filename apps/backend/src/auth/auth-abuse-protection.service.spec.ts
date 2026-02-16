@@ -6,12 +6,16 @@ describe('AuthAbuseProtectionService', () => {
     enabled: process.env.AUTH_ABUSE_PROTECTION_ENABLED,
     loginWindowMs: process.env.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS,
     loginMaxRequests: process.env.AUTH_LOGIN_RATE_LIMIT_MAX_REQUESTS,
+    refreshWindowMs: process.env.AUTH_REFRESH_RATE_LIMIT_WINDOW_MS,
+    refreshMaxRequests: process.env.AUTH_REFRESH_RATE_LIMIT_MAX_REQUESTS,
   };
 
   beforeEach(() => {
     delete process.env.AUTH_ABUSE_PROTECTION_ENABLED;
     process.env.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS = '60000';
     process.env.AUTH_LOGIN_RATE_LIMIT_MAX_REQUESTS = '2';
+    process.env.AUTH_REFRESH_RATE_LIMIT_WINDOW_MS = '60000';
+    process.env.AUTH_REFRESH_RATE_LIMIT_MAX_REQUESTS = '2';
   });
 
   afterAll(() => {
@@ -30,6 +34,17 @@ describe('AuthAbuseProtectionService', () => {
         envBackup.loginMaxRequests;
     } else {
       delete process.env.AUTH_LOGIN_RATE_LIMIT_MAX_REQUESTS;
+    }
+    if (typeof envBackup.refreshWindowMs === 'string') {
+      process.env.AUTH_REFRESH_RATE_LIMIT_WINDOW_MS = envBackup.refreshWindowMs;
+    } else {
+      delete process.env.AUTH_REFRESH_RATE_LIMIT_WINDOW_MS;
+    }
+    if (typeof envBackup.refreshMaxRequests === 'string') {
+      process.env.AUTH_REFRESH_RATE_LIMIT_MAX_REQUESTS =
+        envBackup.refreshMaxRequests;
+    } else {
+      delete process.env.AUTH_REFRESH_RATE_LIMIT_MAX_REQUESTS;
     }
   });
 
@@ -105,5 +120,22 @@ describe('AuthAbuseProtectionService', () => {
         });
       }
     }).not.toThrow();
+  });
+
+  it('applies refresh limiter thresholds independently', () => {
+    const service = new AuthAbuseProtectionService();
+    const input = {
+      operation: 'refresh' as const,
+      identifier: 'refresh-token-1',
+      request: {
+        headers: {
+          'x-forwarded-for': '203.0.113.13',
+        },
+      },
+    };
+
+    service.enforceLimit(input);
+    service.enforceLimit(input);
+    expect(() => service.enforceLimit(input)).toThrow(HttpException);
   });
 });
