@@ -21,6 +21,35 @@ run_step() {
   echo
 }
 
+prompt_with_default() {
+  local prompt_text="$1"
+  local default_value="$2"
+  local input=""
+  read -r -p "${prompt_text} [${default_value}]: " input
+  echo "${input:-${default_value}}"
+}
+
+prompt_yes_no() {
+  local prompt_text="$1"
+  local default_choice="${2:-no}"
+  local default_hint="y/N"
+  if [[ "${default_choice}" == "yes" ]]; then
+    default_hint="Y/n"
+  fi
+
+  local input=""
+  read -r -p "${prompt_text} (${default_hint}): " input
+  input="$(printf '%s' "${input:-}" | tr '[:upper:]' '[:lower:]')"
+  if [[ -z "${input}" ]]; then
+    input="${default_choice}"
+  fi
+
+  if [[ "${input}" == "y" ]] || [[ "${input}" == "yes" ]]; then
+    return 0
+  fi
+  return 1
+}
+
 show_menu() {
   cat <<'MENU'
 =========================== MailZen EC2 Operator Menu ==========================
@@ -34,9 +63,9 @@ show_menu() {
 8) Show logs (all services)
 9) Update stack (pull + recreate + verify)
 10) Backup database
-11) List backups
-12) Prune old backups (keep latest 10)
-13) Rollback DB using latest backup
+11) List backups (optional latest/count filters)
+12) Prune old backups (prompt keep-count + dry-run)
+13) Rollback DB using latest backup (optional label/dry-run)
 14) DNS readiness check
 15) SSL certificate check
 16) Host readiness check (disk/memory/cpu)
@@ -98,16 +127,46 @@ while true; do
     run_step "update.sh"
     ;;
   10)
-    run_step "backup-db.sh"
+    backup_label="$(prompt_with_default "Backup label" "manual")"
+    backup_args=(--label "${backup_label}")
+    if prompt_yes_no "Run backup in dry-run mode" "no"; then
+      backup_args+=(--dry-run)
+    fi
+    run_step "backup-db.sh" "${backup_args[@]}"
     ;;
   11)
-    run_step "backup-list.sh"
+    backup_list_args=()
+    if prompt_yes_no "Show only latest backup" "no"; then
+      backup_list_args+=(--latest)
+    else
+      backup_count="$(prompt_with_default "How many latest backups to show (leave as 0 for all)" "0")"
+      if [[ "${backup_count}" =~ ^[0-9]+$ ]] && [[ "${backup_count}" -gt 0 ]]; then
+        backup_list_args+=(--count "${backup_count}")
+      fi
+    fi
+    run_step "backup-list.sh" "${backup_list_args[@]}"
     ;;
   12)
-    run_step "backup-prune.sh"
+    prune_keep_count="$(prompt_with_default "Keep latest backups count" "10")"
+    backup_prune_args=(--keep-count "${prune_keep_count}")
+    if prompt_yes_no "Run prune in dry-run mode" "yes"; then
+      backup_prune_args+=(--dry-run)
+    fi
+    run_step "backup-prune.sh" "${backup_prune_args[@]}"
     ;;
   13)
-    run_step "rollback-latest.sh"
+    rollback_args=()
+    rollback_label="$(prompt_with_default "Rollback label filter (blank for any)" "")"
+    if [[ -n "${rollback_label}" ]]; then
+      rollback_args+=(--label "${rollback_label}")
+    fi
+    if prompt_yes_no "Run rollback in dry-run mode" "yes"; then
+      rollback_args+=(--dry-run)
+    fi
+    if prompt_yes_no "Bypass restore confirmation with --yes" "no"; then
+      rollback_args+=(--yes)
+    fi
+    run_step "rollback-latest.sh" "${rollback_args[@]}"
     ;;
   14)
     run_step "dns-check.sh"
@@ -137,7 +196,12 @@ while true; do
     run_step "pipeline-check.sh"
     ;;
   23)
-    run_step "reports-prune.sh"
+    reports_keep_count="$(prompt_with_default "Keep latest report artifacts count" "20")"
+    reports_prune_args=(--keep-count "${reports_keep_count}")
+    if prompt_yes_no "Run report prune in dry-run mode" "yes"; then
+      reports_prune_args+=(--dry-run)
+    fi
+    run_step "reports-prune.sh" "${reports_prune_args[@]}"
     ;;
   24)
     run_step "help.sh"
