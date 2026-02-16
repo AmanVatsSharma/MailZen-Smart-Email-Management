@@ -121,10 +121,13 @@ export class PhoneService {
       await em
         .getRepository(PhoneVerification)
         .update({ id: record.id }, { consumedAt: new Date() });
-      await em.getRepository(User).update({ id: userId }, {
-        isPhoneVerified: true,
-        phoneNumber: record.phoneNumber,
-      } as any);
+      await em.getRepository(User).update(
+        { id: userId },
+        {
+          isPhoneVerified: true,
+          phoneNumber: record.phoneNumber,
+        },
+      );
     });
     this.logger.log(
       serializeStructuredLog({
