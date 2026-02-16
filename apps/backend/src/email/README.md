@@ -150,6 +150,47 @@ flowchart TD
 - Monitor open rates and adjust strategy
 - Track warmup performance metrics
 - Pause and resume warmup process
+- Structured observability logs in `EmailWarmupService`:
+  - lifecycle:
+    - `email_warmup_start_requested`
+    - `email_warmup_start_config_resolved`
+    - `email_warmup_start_completed`
+    - `email_warmup_start_failed`
+    - `email_warmup_pause_requested`
+    - `email_warmup_pause_processing`
+    - `email_warmup_pause_completed`
+    - `email_warmup_pause_failed`
+  - daily strategy processing:
+    - `email_warmup_daily_processing_start`
+    - `email_warmup_daily_processing_loaded`
+    - `email_warmup_daily_limit_increased`
+    - `email_warmup_daily_limit_maintained`
+    - `email_warmup_daily_processing_item_failed`
+    - `email_warmup_daily_processing_completed`
+    - `email_warmup_daily_processing_failed`
+  - send cycle:
+    - `email_warmup_send_cycle_start`
+    - `email_warmup_send_cycle_loaded`
+    - `email_warmup_send_cycle_missing_activity`
+    - `email_warmup_send_cycle_daily_limit_reached`
+    - `email_warmup_send_cycle_dispatching`
+    - `email_warmup_send_cycle_dispatch_completed`
+    - `email_warmup_send_cycle_dispatch_failed`
+    - `email_warmup_send_cycle_completed`
+    - `email_warmup_send_cycle_failed`
+  - queries/strategy adjustment:
+    - `email_warmup_status_query_start`
+    - `email_warmup_status_query_completed`
+    - `email_warmup_status_query_failed`
+    - `email_warmup_metrics_query_start`
+    - `email_warmup_metrics_query_completed`
+    - `email_warmup_metrics_query_failed`
+    - `email_warmup_strategy_adjust_start`
+    - `email_warmup_strategy_adjust_slow_down`
+    - `email_warmup_strategy_adjust_speed_up`
+    - `email_warmup_strategy_adjust_maintain`
+    - `email_warmup_strategy_adjust_completed`
+    - `email_warmup_strategy_adjust_failed`
 
 ### Attachment Handling
 

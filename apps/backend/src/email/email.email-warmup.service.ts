@@ -2,15 +2,12 @@ import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EmailService } from './email.service';
-import {
-  StartWarmupInput,
-  PauseWarmupInput,
-  WarmupConfigInput,
-} from './dto/warmup.input';
+import { StartWarmupInput, PauseWarmupInput } from './dto/warmup.input';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { EmailWarmup } from './entities/email-warmup.entity';
 import { WarmupActivity } from './entities/warmup-activity.entity';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 @Injectable()
 export class EmailWarmupService {
@@ -106,7 +103,24 @@ export class EmailWarmupService {
     private readonly warmupActivityRepo: Repository<WarmupActivity>,
   ) {}
 
+  private resolveErrorMessage(error: unknown): string {
+    if (error instanceof Error && error.message) return error.message;
+    return String(error);
+  }
+
+  private resolveErrorStack(error: unknown): string | undefined {
+    if (error instanceof Error) return error.stack;
+    return undefined;
+  }
+
   async startWarmup(input: StartWarmupInput, userId: string) {
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_warmup_start_requested',
+        userId,
+        providerId: input.providerId,
+      }),
+    );
     try {
       // Verify provider ownership
       const provider = await this.emailProviderRepo.findOne({
@@ -123,10 +137,25 @@ export class EmailWarmupService {
       if (provider.warmup) {
         // Resume if paused
         if (provider.warmup.status === 'PAUSED') {
-          this.logger.log(`Resuming warmup for provider ${input.providerId}`);
+          this.logger.log(
+            serializeStructuredLog({
+              event: 'email_warmup_resume_requested',
+              userId,
+              providerId: input.providerId,
+              warmupId: provider.warmup.id,
+            }),
+          );
           await this.emailWarmupRepo.update(
             { id: provider.warmup.id },
             { status: 'ACTIVE' },
+          );
+          this.logger.log(
+            serializeStructuredLog({
+              event: 'email_warmup_resume_completed',
+              userId,
+              providerId: input.providerId,
+              warmupId: provider.warmup.id,
+            }),
           );
           return this.emailWarmupRepo.findOne({
             where: { id: provider.warmup.id },
@@ -142,9 +171,17 @@ export class EmailWarmupService {
       const targetOpenRate = input.config?.targetOpenRate || 80;
 
       this.logger.log(
-        `Starting new warmup for provider ${input.providerId} with dailyIncrement=${dailyIncrement}, maxDailyEmails=${maxDailyEmails}`,
+        serializeStructuredLog({
+          event: 'email_warmup_start_config_resolved',
+          userId,
+          providerId: input.providerId,
+          dailyIncrement,
+          maxDailyEmails,
+          minimumInterval,
+          targetOpenRate,
+        }),
       );
-      return this.emailWarmupRepo.save(
+      const warmupRecord = await this.emailWarmupRepo.save(
         this.emailWarmupRepo.create({
           providerId: input.providerId,
           dailyIncrement,
@@ -154,13 +191,38 @@ export class EmailWarmupService {
           status: 'ACTIVE',
         }),
       );
-    } catch (error) {
-      this.logger.error(`Error starting warmup: ${error.message}`, error.stack);
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'email_warmup_start_completed',
+          userId,
+          providerId: input.providerId,
+          warmupId: warmupRecord.id,
+          status: warmupRecord.status,
+        }),
+      );
+      return warmupRecord;
+    } catch (error: unknown) {
+      this.logger.error(
+        serializeStructuredLog({
+          event: 'email_warmup_start_failed',
+          userId,
+          providerId: input.providerId,
+          error: this.resolveErrorMessage(error),
+        }),
+        this.resolveErrorStack(error),
+      );
       throw error;
     }
   }
 
   async pauseWarmup(input: PauseWarmupInput, userId: string) {
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_warmup_pause_requested',
+        userId,
+        providerId: input.providerId,
+      }),
+    );
     try {
       const warmup = await this.emailWarmupRepo
         .createQueryBuilder('w')
@@ -173,29 +235,62 @@ export class EmailWarmupService {
         throw new NotFoundException('Warm-up process not found');
       }
 
-      this.logger.log(`Pausing warmup for provider ${input.providerId}`);
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'email_warmup_pause_processing',
+          userId,
+          providerId: input.providerId,
+          warmupId: warmup.id,
+        }),
+      );
       await this.emailWarmupRepo.update(
         { id: warmup.id },
         { status: 'PAUSED' },
       );
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'email_warmup_pause_completed',
+          userId,
+          providerId: input.providerId,
+          warmupId: warmup.id,
+        }),
+      );
       return this.emailWarmupRepo.findOne({ where: { id: warmup.id } });
-    } catch (error) {
-      this.logger.error(`Error pausing warmup: ${error.message}`, error.stack);
+    } catch (error: unknown) {
+      this.logger.error(
+        serializeStructuredLog({
+          event: 'email_warmup_pause_failed',
+          userId,
+          providerId: input.providerId,
+          error: this.resolveErrorMessage(error),
+        }),
+        this.resolveErrorStack(error),
+      );
       throw error;
     }
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async processWarmups() {
+    const runStartedAtIso = new Date().toISOString();
     try {
-      this.logger.log('Processing daily warmup updates');
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'email_warmup_daily_processing_start',
+          runStartedAtIso,
+        }),
+      );
       const activeWarmups = await this.emailWarmupRepo.find({
         where: { status: 'ACTIVE' },
         relations: ['provider'],
       });
 
       this.logger.log(
-        `Found ${activeWarmups.length} active warmups to process`,
+        serializeStructuredLog({
+          event: 'email_warmup_daily_processing_loaded',
+          runStartedAtIso,
+          activeWarmupCount: activeWarmups.length,
+        }),
       );
 
       for (const warmup of activeWarmups) {
@@ -220,11 +315,28 @@ export class EmailWarmupService {
               warmup.maxDailyEmails,
             );
             this.logger.log(
-              `Increasing daily limit for warmup ${warmup.id} to ${newDailyLimit}`,
+              serializeStructuredLog({
+                event: 'email_warmup_daily_limit_increased',
+                runStartedAtIso,
+                warmupId: warmup.id,
+                providerId: warmup.providerId,
+                previousDailyLimit: warmup.currentDailyLimit,
+                nextDailyLimit: newDailyLimit,
+                openRate: yesterdayActivity.openRate,
+                targetOpenRate: warmup.targetOpenRate,
+              }),
             );
           } else if (yesterdayActivity) {
             this.logger.log(
-              `Maintaining daily limit for warmup ${warmup.id} at ${newDailyLimit} (open rate: ${yesterdayActivity.openRate}%)`,
+              serializeStructuredLog({
+                event: 'email_warmup_daily_limit_maintained',
+                runStartedAtIso,
+                warmupId: warmup.id,
+                providerId: warmup.providerId,
+                currentDailyLimit: newDailyLimit,
+                openRate: yesterdayActivity.openRate,
+                targetOpenRate: warmup.targetOpenRate,
+              }),
             );
           }
 
@@ -242,26 +354,48 @@ export class EmailWarmupService {
               openRate: 0,
             }),
           );
-        } catch (error) {
+        } catch (error: unknown) {
           this.logger.error(
-            `Error processing warmup ${warmup.id}: ${error.message}`,
-            error.stack,
+            serializeStructuredLog({
+              event: 'email_warmup_daily_processing_item_failed',
+              runStartedAtIso,
+              warmupId: warmup.id,
+              providerId: warmup.providerId,
+              error: this.resolveErrorMessage(error),
+            }),
+            this.resolveErrorStack(error),
           );
           // Continue with next warmup
         }
       }
-    } catch (error) {
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'email_warmup_daily_processing_completed',
+          runStartedAtIso,
+        }),
+      );
+    } catch (error: unknown) {
       this.logger.error(
-        `Error in processWarmups: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'email_warmup_daily_processing_failed',
+          runStartedAtIso,
+          error: this.resolveErrorMessage(error),
+        }),
+        this.resolveErrorStack(error),
       );
     }
   }
 
   @Cron(CronExpression.EVERY_30_MINUTES)
   async sendWarmupEmails() {
+    const runStartedAtIso = new Date().toISOString();
     try {
-      this.logger.log('Checking for warmup emails to send');
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'email_warmup_send_cycle_start',
+          runStartedAtIso,
+        }),
+      );
       const cutoff = new Date(Date.now() - 1000 * 60 * 15);
       // TypeORM can't easily filter relation rows; fetch and filter in-memory (OK for MVP scale).
       const activeWarmups = await this.emailWarmupRepo.find({
@@ -273,7 +407,12 @@ export class EmailWarmupService {
       );
 
       this.logger.log(
-        `Found ${eligibleWarmups.length} warmups eligible for sending`,
+        serializeStructuredLog({
+          event: 'email_warmup_send_cycle_loaded',
+          runStartedAtIso,
+          activeWarmupCount: activeWarmups.length,
+          eligibleWarmupCount: eligibleWarmups.length,
+        }),
       );
 
       const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
@@ -284,14 +423,26 @@ export class EmailWarmupService {
 
         if (!todayActivity) {
           this.logger.warn(
-            `No activity record found for warmup ${warmup.id}, skipping`,
+            serializeStructuredLog({
+              event: 'email_warmup_send_cycle_missing_activity',
+              runStartedAtIso,
+              warmupId: warmup.id,
+              providerId: warmup.providerId,
+            }),
           );
           continue;
         }
 
         if (todayActivity.emailsSent >= warmup.currentDailyLimit) {
           this.logger.log(
-            `Daily limit reached for warmup ${warmup.id}, skipping`,
+            serializeStructuredLog({
+              event: 'email_warmup_send_cycle_daily_limit_reached',
+              runStartedAtIso,
+              warmupId: warmup.id,
+              providerId: warmup.providerId,
+              emailsSentToday: todayActivity.emailsSent,
+              currentDailyLimit: warmup.currentDailyLimit,
+            }),
           );
           continue;
         }
@@ -325,7 +476,17 @@ export class EmailWarmupService {
             <img src="https://via.placeholder.com/1x1.png?text=${uniqueId}" width="1" height="1" style="display:none">`;
 
           this.logger.log(
-            `Sending warmup email #${todayActivity.emailsSent + 1}/${warmup.currentDailyLimit} for provider ${warmup.providerId}`,
+            serializeStructuredLog({
+              event: 'email_warmup_send_cycle_dispatching',
+              runStartedAtIso,
+              warmupId: warmup.id,
+              providerId: warmup.providerId,
+              emailOrdinal: todayActivity.emailsSent + 1,
+              currentDailyLimit: warmup.currentDailyLimit,
+              subjectIndex,
+              bodyIndex,
+              templateIndex,
+            }),
           );
 
           await this.emailService.sendEmail(
@@ -350,22 +511,54 @@ export class EmailWarmupService {
             { id: warmup.id },
             { lastRunAt: new Date() },
           );
-        } catch (error) {
+          this.logger.log(
+            serializeStructuredLog({
+              event: 'email_warmup_send_cycle_dispatch_completed',
+              runStartedAtIso,
+              warmupId: warmup.id,
+              providerId: warmup.providerId,
+              updatedEmailsSentToday: todayActivity.emailsSent + 1,
+            }),
+          );
+        } catch (error: unknown) {
           this.logger.error(
-            `Error sending warm-up email for provider ${warmup.providerId}: ${error.message}`,
-            error.stack,
+            serializeStructuredLog({
+              event: 'email_warmup_send_cycle_dispatch_failed',
+              runStartedAtIso,
+              warmupId: warmup.id,
+              providerId: warmup.providerId,
+              error: this.resolveErrorMessage(error),
+            }),
+            this.resolveErrorStack(error),
           );
         }
       }
-    } catch (error) {
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'email_warmup_send_cycle_completed',
+          runStartedAtIso,
+        }),
+      );
+    } catch (error: unknown) {
       this.logger.error(
-        `Error in sendWarmupEmails: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'email_warmup_send_cycle_failed',
+          runStartedAtIso,
+          error: this.resolveErrorMessage(error),
+        }),
+        this.resolveErrorStack(error),
       );
     }
   }
 
   async getWarmupStatus(providerId: string, userId: string) {
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_warmup_status_query_start',
+        userId,
+        providerId,
+      }),
+    );
     try {
       const warmup = await this.emailWarmupRepo
         .createQueryBuilder('w')
@@ -381,11 +574,24 @@ export class EmailWarmupService {
           .slice(0, 7);
       }
 
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'email_warmup_status_query_completed',
+          userId,
+          providerId,
+          foundWarmup: Boolean(warmup),
+        }),
+      );
       return warmup;
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(
-        `Error getting warmup status: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'email_warmup_status_query_failed',
+          userId,
+          providerId,
+          error: this.resolveErrorMessage(error),
+        }),
+        this.resolveErrorStack(error),
       );
       throw error;
     }
@@ -397,6 +603,12 @@ export class EmailWarmupService {
     daysActive: number;
     currentPhase: string;
   }> {
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_warmup_metrics_query_start',
+        warmupId,
+      }),
+    );
     try {
       const warmup = await this.emailWarmupRepo.findOne({
         where: { id: warmupId },
@@ -428,22 +640,42 @@ export class EmailWarmupService {
         currentPhase = 'Intermediate';
       }
 
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'email_warmup_metrics_query_completed',
+          warmupId,
+          averageOpenRate,
+          totalEmailsSent,
+          daysActive,
+          currentPhase,
+        }),
+      );
       return {
         averageOpenRate,
         totalEmailsSent,
         daysActive,
         currentPhase,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(
-        `Error getting warmup metrics: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'email_warmup_metrics_query_failed',
+          warmupId,
+          error: this.resolveErrorMessage(error),
+        }),
+        this.resolveErrorStack(error),
       );
       throw error;
     }
   }
 
   async adjustWarmupStrategy(warmupId: string) {
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_warmup_strategy_adjust_start',
+        warmupId,
+      }),
+    );
     try {
       const warmup = await this.emailWarmupRepo.findOne({
         where: { id: warmupId },
@@ -475,18 +707,39 @@ export class EmailWarmupService {
         adjustedDailyIncrement = Math.max(1, warmup.dailyIncrement - 2);
         adjustedMinimumInterval = Math.min(60, warmup.minimumInterval + 5);
         this.logger.log(
-          `Slowing down warmup ${warmupId} due to poor performance (${averageRecentOpenRate}%)`,
+          serializeStructuredLog({
+            event: 'email_warmup_strategy_adjust_slow_down',
+            warmupId,
+            averageRecentOpenRate,
+            targetOpenRate: warmup.targetOpenRate,
+            adjustedDailyIncrement,
+            adjustedMinimumInterval,
+          }),
         );
       } else if (averageRecentOpenRate > warmup.targetOpenRate * 1.2) {
         // Excellent performance - speed up
         adjustedDailyIncrement = Math.min(10, warmup.dailyIncrement + 2);
         adjustedMinimumInterval = Math.max(10, warmup.minimumInterval - 5);
         this.logger.log(
-          `Speeding up warmup ${warmupId} due to excellent performance (${averageRecentOpenRate}%)`,
+          serializeStructuredLog({
+            event: 'email_warmup_strategy_adjust_speed_up',
+            warmupId,
+            averageRecentOpenRate,
+            targetOpenRate: warmup.targetOpenRate,
+            adjustedDailyIncrement,
+            adjustedMinimumInterval,
+          }),
         );
       } else {
         this.logger.log(
-          `Maintaining current warmup strategy for ${warmupId} (${averageRecentOpenRate}%)`,
+          serializeStructuredLog({
+            event: 'email_warmup_strategy_adjust_maintain',
+            warmupId,
+            averageRecentOpenRate,
+            targetOpenRate: warmup.targetOpenRate,
+            adjustedDailyIncrement,
+            adjustedMinimumInterval,
+          }),
         );
       }
 
@@ -497,11 +750,23 @@ export class EmailWarmupService {
           minimumInterval: adjustedMinimumInterval,
         },
       );
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'email_warmup_strategy_adjust_completed',
+          warmupId,
+          adjustedDailyIncrement,
+          adjustedMinimumInterval,
+        }),
+      );
       return this.emailWarmupRepo.findOne({ where: { id: warmupId } });
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(
-        `Error adjusting warmup strategy: ${error.message}`,
-        error.stack,
+        serializeStructuredLog({
+          event: 'email_warmup_strategy_adjust_failed',
+          warmupId,
+          error: this.resolveErrorMessage(error),
+        }),
+        this.resolveErrorStack(error),
       );
       throw error;
     }
