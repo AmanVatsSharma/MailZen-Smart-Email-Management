@@ -67,6 +67,85 @@ export class MailboxInboundSlaScheduler {
     }
   }
 
+  async runMailboxInboundSlaAlertCheck(input: {
+    userId: string;
+    windowHours?: number | null;
+  }): Promise<{
+    alertsEnabled: boolean;
+    evaluatedAtIso: string;
+    windowHours: number;
+    status: string;
+    statusReason: string;
+    shouldAlert: boolean;
+    cooldownMinutes: number;
+    totalCount: number;
+    acceptedCount: number;
+    deduplicatedCount: number;
+    rejectedCount: number;
+    successRatePercent: number;
+    rejectionRatePercent: number;
+    slaTargetSuccessPercent: number;
+    slaWarningRejectedPercent: number;
+    slaCriticalRejectedPercent: number;
+    lastProcessedAtIso?: string;
+  }> {
+    const preferences = await this.notificationService.getOrCreatePreferences(
+      input.userId,
+    );
+    const windowHours = this.resolvePositiveInteger({
+      rawValue:
+        typeof input.windowHours === 'number' &&
+        Number.isFinite(input.windowHours)
+          ? String(input.windowHours)
+          : process.env.MAILZEN_INBOUND_SLA_ALERT_WINDOW_HOURS,
+      fallbackValue: MailboxInboundSlaScheduler.DEFAULT_WINDOW_HOURS,
+      minimumValue: 1,
+      maximumValue: 168,
+    });
+    const cooldownMinutes = this.resolveCooldownMinutes({
+      fallbackCooldownMinutes: this.resolvePositiveInteger({
+        rawValue: process.env.MAILZEN_INBOUND_SLA_ALERT_COOLDOWN_MINUTES,
+        fallbackValue: MailboxInboundSlaScheduler.DEFAULT_COOLDOWN_MINUTES,
+        minimumValue: 1,
+        maximumValue: 24 * 60,
+      }),
+      preferenceCooldownMinutes:
+        preferences.mailboxInboundSlaAlertCooldownMinutes,
+    });
+    const stats = await this.mailboxService.getInboundEventStats(input.userId, {
+      windowHours,
+    });
+    const status = this.normalizeSlaStatus(stats.slaStatus);
+    const shouldAlert =
+      preferences.mailboxInboundSlaAlertsEnabled &&
+      MailboxInboundSlaScheduler.ALERTABLE_STATUSES.has(status);
+    return {
+      alertsEnabled: preferences.mailboxInboundSlaAlertsEnabled,
+      evaluatedAtIso: new Date().toISOString(),
+      windowHours: stats.windowHours,
+      status,
+      statusReason: this.resolveSlaStatusReason({
+        alertsEnabled: preferences.mailboxInboundSlaAlertsEnabled,
+        totalCount: stats.totalCount,
+        status,
+      }),
+      shouldAlert,
+      cooldownMinutes,
+      totalCount: stats.totalCount,
+      acceptedCount: stats.acceptedCount,
+      deduplicatedCount: stats.deduplicatedCount,
+      rejectedCount: stats.rejectedCount,
+      successRatePercent: stats.successRatePercent,
+      rejectionRatePercent: stats.rejectionRatePercent,
+      slaTargetSuccessPercent: stats.slaTargetSuccessPercent,
+      slaWarningRejectedPercent: stats.slaWarningRejectedPercent,
+      slaCriticalRejectedPercent: stats.slaCriticalRejectedPercent,
+      lastProcessedAtIso: stats.lastProcessedAt
+        ? stats.lastProcessedAt.toISOString()
+        : undefined,
+    };
+  }
+
   private async resolveMonitoredUserIds(input: {
     windowHours: number;
     maxUsersPerRun: number;
@@ -269,5 +348,18 @@ export class MailboxInboundSlaScheduler {
       minimumValue: 1,
       maximumValue: 24 * 60,
     });
+  }
+
+  private resolveSlaStatusReason(input: {
+    alertsEnabled: boolean;
+    totalCount: number;
+    status: MailboxInboundSlaStatus;
+  }): string {
+    if (!input.alertsEnabled) return 'alerts-disabled';
+    if (input.totalCount <= 0 || input.status === 'NO_DATA') return 'no-data';
+    if (input.status === 'CRITICAL') return 'rejection-rate-critical';
+    if (input.status === 'WARNING') return 'rejection-rate-warning';
+    if (input.status === 'HEALTHY') return 'within-threshold';
+    return 'status-unknown';
   }
 }

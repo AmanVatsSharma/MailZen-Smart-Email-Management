@@ -10,8 +10,10 @@ import {
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { MailboxService } from './mailbox.service';
+import { MailboxInboundSlaScheduler } from './mailbox-inbound-sla.scheduler';
 import { MailboxSyncIncidentScheduler } from './mailbox-sync-incident.scheduler';
 import { MailboxSyncService } from './mailbox-sync.service';
+import { MailboxInboundSlaAlertCheckResponse } from './dto/mailbox-inbound-sla-alert-check.response';
 import { MailboxInboundDataExportResponse } from './dto/mailbox-inbound-data-export.response';
 import {
   MailboxInboundEventObservabilityResponse,
@@ -54,6 +56,7 @@ export class MailboxResolver {
   constructor(
     private readonly mailboxService: MailboxService,
     private readonly mailboxSyncService: MailboxSyncService,
+    private readonly mailboxInboundSlaScheduler: MailboxInboundSlaScheduler,
     private readonly mailboxSyncIncidentScheduler: MailboxSyncIncidentScheduler,
   ) {}
 
@@ -334,6 +337,18 @@ export class MailboxResolver {
       warningRatePercent: warningRatePercent ?? null,
       criticalRatePercent: criticalRatePercent ?? null,
       minIncidentRuns: minIncidentRuns ?? null,
+    });
+  }
+
+  @Mutation(() => MailboxInboundSlaAlertCheckResponse)
+  async runMyMailboxInboundSlaAlertCheck(
+    @Context() ctx: RequestContext,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+  ): Promise<MailboxInboundSlaAlertCheckResponse> {
+    return this.mailboxInboundSlaScheduler.runMailboxInboundSlaAlertCheck({
+      userId: ctx.req.user.id,
+      windowHours: windowHours ?? null,
     });
   }
 

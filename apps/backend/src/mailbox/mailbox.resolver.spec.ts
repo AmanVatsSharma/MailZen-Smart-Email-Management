@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { MailboxResolver } from './mailbox.resolver';
+import { MailboxInboundSlaScheduler } from './mailbox-inbound-sla.scheduler';
 import { MailboxSyncIncidentScheduler } from './mailbox-sync-incident.scheduler';
 import { MailboxService } from './mailbox.service';
 import { MailboxSyncService } from './mailbox-sync.service';
@@ -38,6 +39,9 @@ describe('MailboxResolver', () => {
     getIncidentAlertConfigSnapshot: jest.fn(),
     runIncidentAlertCheck: jest.fn(),
   };
+  const mailboxInboundSlaSchedulerMock = {
+    runMailboxInboundSlaAlertCheck: jest.fn(),
+  };
 
   const ctx = {
     req: {
@@ -52,6 +56,7 @@ describe('MailboxResolver', () => {
     resolver = new MailboxResolver(
       mailboxServiceMock as unknown as MailboxService,
       mailboxSyncServiceMock as unknown as MailboxSyncService,
+      mailboxInboundSlaSchedulerMock as unknown as MailboxInboundSlaScheduler,
       mailboxSyncIncidentSchedulerMock as unknown as MailboxSyncIncidentScheduler,
     );
   });
@@ -601,6 +606,44 @@ describe('MailboxResolver', () => {
       warningRatePercent: 10,
       criticalRatePercent: 25,
       minIncidentRuns: 1,
+    });
+    expect(result.shouldAlert).toBe(true);
+    expect(result.status).toBe('WARNING');
+  });
+
+  it('runs mailbox inbound SLA alert check for current user', async () => {
+    mailboxInboundSlaSchedulerMock.runMailboxInboundSlaAlertCheck.mockResolvedValue(
+      {
+        alertsEnabled: true,
+        evaluatedAtIso: '2026-02-16T00:00:00.000Z',
+        windowHours: 24,
+        status: 'WARNING',
+        statusReason: 'rejection-rate-warning',
+        shouldAlert: true,
+        cooldownMinutes: 60,
+        totalCount: 10,
+        acceptedCount: 8,
+        deduplicatedCount: 1,
+        rejectedCount: 1,
+        successRatePercent: 90,
+        rejectionRatePercent: 10,
+        slaTargetSuccessPercent: 95,
+        slaWarningRejectedPercent: 5,
+        slaCriticalRejectedPercent: 15,
+        lastProcessedAtIso: '2026-02-16T00:00:00.000Z',
+      },
+    );
+
+    const result = await resolver.runMyMailboxInboundSlaAlertCheck(
+      ctx as any,
+      24,
+    );
+
+    expect(
+      mailboxInboundSlaSchedulerMock.runMailboxInboundSlaAlertCheck,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      windowHours: 24,
     });
     expect(result.shouldAlert).toBe(true);
     expect(result.status).toBe('WARNING');

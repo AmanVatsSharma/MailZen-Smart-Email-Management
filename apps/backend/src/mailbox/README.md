@@ -55,6 +55,7 @@ This module covers:
     - `myMailboxSyncIncidentAlertHistoryDataExport(workspaceId?: String, windowHours?: Int, limit?: Int): MailboxSyncIncidentAlertHistoryDataExportResponse!`
     - `myMailboxSyncIncidentAlertDeliverySeries(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxSyncIncidentAlertDeliveryTrendPointResponse!]!`
     - `myMailboxSyncIncidentAlertDeliveryDataExport(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): MailboxSyncIncidentAlertDeliveryDataExportResponse!`
+    - `runMyMailboxInboundSlaAlertCheck(windowHours?: Int): MailboxInboundSlaAlertCheckResponse!`
     - `runMyMailboxSyncIncidentAlertCheck(windowHours?: Int, warningRatePercent?: Float, criticalRatePercent?: Float, minIncidentRuns?: Int): MailboxSyncIncidentAlertCheckResponse!`
     - `myMailboxSyncDataExport(mailboxId?: String, workspaceId?: String, limit?: Int, windowHours?: Int, bucketMinutes?: Int): MailboxSyncDataExportResponse!`
     - `purgeMyMailboxSyncRunRetentionData(retentionDays?: Int): MailboxSyncRunRetentionPurgeResponse!`
@@ -372,6 +373,9 @@ flowchart TD
   - returns bucketed failed/partial sync incident trend points for alert dashboards
 - `myMailboxSyncIncidentDataExport`
   - exports sync incident analytics snapshot (stats + trend) as JSON payload
+- `runMyMailboxInboundSlaAlertCheck`
+  - evaluates current user mailbox inbound SLA status on-demand for a rolling window
+  - returns current counters/rates/thresholds, status reason, and whether alert conditions are met
 - `myMailboxSyncIncidentAlertConfig`
   - returns resolved mailbox sync incident alert scheduler configuration snapshot
 - `runMyMailboxSyncIncidentAlertCheck`

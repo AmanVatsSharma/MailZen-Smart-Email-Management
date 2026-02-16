@@ -274,4 +274,47 @@ describe('MailboxInboundSlaScheduler', () => {
     });
     expect(notificationEventBus.publishSafely).not.toHaveBeenCalled();
   });
+
+  it('runs inbound SLA alert check and returns alertable status snapshot', async () => {
+    notificationService.getOrCreatePreferences.mockResolvedValue(
+      preferenceSnapshot,
+    );
+    mailboxService.getInboundEventStats.mockResolvedValue(criticalStats as any);
+
+    const result = await scheduler.runMailboxInboundSlaAlertCheck({
+      userId: 'user-1',
+      windowHours: 24,
+    });
+
+    expect(mailboxService.getInboundEventStats).toHaveBeenCalledWith('user-1', {
+      windowHours: 24,
+    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        alertsEnabled: true,
+        windowHours: 24,
+        status: 'CRITICAL',
+        shouldAlert: true,
+        statusReason: 'rejection-rate-critical',
+        totalCount: 20,
+      }),
+    );
+  });
+
+  it('marks alert check as non-alertable when alerts are disabled', async () => {
+    notificationService.getOrCreatePreferences.mockResolvedValue({
+      ...preferenceSnapshot,
+      mailboxInboundSlaAlertsEnabled: false,
+    } as UserNotificationPreference);
+    mailboxService.getInboundEventStats.mockResolvedValue(criticalStats as any);
+
+    const result = await scheduler.runMailboxInboundSlaAlertCheck({
+      userId: 'user-1',
+      windowHours: 24,
+    });
+
+    expect(result.shouldAlert).toBe(false);
+    expect(result.alertsEnabled).toBe(false);
+    expect(result.statusReason).toBe('alerts-disabled');
+  });
 });

@@ -1406,6 +1406,9 @@ extend type Mutation {
     criticalRatePercent: Float
     minIncidentRuns: Int
   ): MailboxSyncIncidentAlertCheckResponse!
+  runMyMailboxInboundSlaAlertCheck(
+    windowHours: Int
+  ): MailboxInboundSlaAlertCheckResponse!
   syncMyMailboxPull(
     mailboxId: String
     workspaceId: String
@@ -1687,6 +1690,26 @@ type MailboxSyncIncidentAlertCheckResponse {
   partialRuns: Int!
   incidentRatePercent: Float!
   lastIncidentAtIso: String
+}
+
+type MailboxInboundSlaAlertCheckResponse {
+  alertsEnabled: Boolean!
+  evaluatedAtIso: String!
+  windowHours: Int!
+  status: String!
+  statusReason: String!
+  shouldAlert: Boolean!
+  cooldownMinutes: Int!
+  totalCount: Int!
+  acceptedCount: Int!
+  deduplicatedCount: Int!
+  rejectedCount: Int!
+  successRatePercent: Float!
+  rejectionRatePercent: Float!
+  slaTargetSuccessPercent: Float!
+  slaWarningRejectedPercent: Float!
+  slaCriticalRejectedPercent: Float!
+  lastProcessedAtIso: String
 }
 
 type MailboxSyncIncidentAlertDeliveryStatsResponse {
