@@ -23,6 +23,7 @@ import { AgentPlatformHealthAlertCheckResponse } from './dto/agent-platform-heal
 import { AgentPlatformHealthAlertConfigResponse } from './dto/agent-platform-health-alert-config.response';
 import { AgentPlatformHealthAlertDeliveryDataExportResponse } from './dto/agent-platform-health-alert-delivery-data-export.response';
 import { AgentPlatformHealthAlertRunHistoryDataExportResponse } from './dto/agent-platform-health-alert-run-history-data-export.response';
+import { AgentPlatformHealthAlertRunTrendDataExportResponse } from './dto/agent-platform-health-alert-run-trend-data-export.response';
 import { AgentPlatformHealthAlertRunRetentionPurgeResponse } from './dto/agent-platform-health-alert-run-retention-purge.response';
 import {
   AgentPlatformHealthAlertDeliveryStatsResponse,
@@ -313,6 +314,23 @@ export class AiAgentGatewayResolver {
     bucketMinutes?: number,
   ): Promise<AgentPlatformHealthAlertRunTrendPointResponse[]> {
     return this.healthAlertScheduler.getAlertRunTrendSeries({
+      windowHours,
+      bucketMinutes,
+    });
+  }
+
+  @Query(() => AgentPlatformHealthAlertRunTrendDataExportResponse, {
+    description:
+      'Export persisted AI platform health alert run trend analytics as JSON payload',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async agentPlatformHealthAlertRunTrendDataExport(
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<AgentPlatformHealthAlertRunTrendDataExportResponse> {
+    return this.healthAlertScheduler.exportAlertRunTrendData({
       windowHours,
       bucketMinutes,
     });

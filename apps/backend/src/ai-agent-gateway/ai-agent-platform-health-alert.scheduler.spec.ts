@@ -630,6 +630,61 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     expect(nonEmptyBucket.totalPublished).toBeGreaterThanOrEqual(0);
   });
 
+  it('exports persisted alert run trend analytics payload', async () => {
+    const now = Date.now();
+    alertRunRepo.find
+      .mockResolvedValueOnce([
+        {
+          alertsEnabled: true,
+          severity: 'CRITICAL',
+          reasons: ['critical-samples-detected'],
+          windowHours: 6,
+          baselineWindowHours: 72,
+          cooldownMinutes: 60,
+          minSampleCount: 4,
+          anomalyMultiplier: 2,
+          anomalyMinErrorDeltaPercent: 1,
+          anomalyMinLatencyDeltaMs: 150,
+          errorRateWarnPercent: 5,
+          latencyWarnMs: 1500,
+          recipientCount: 2,
+          publishedCount: 2,
+          evaluatedAt: new Date(now - 10 * 60 * 1000),
+        },
+      ] as unknown as AgentPlatformHealthAlertRun[])
+      .mockResolvedValueOnce([
+        {
+          alertsEnabled: true,
+          severity: 'CRITICAL',
+          reasons: ['critical-samples-detected'],
+          windowHours: 6,
+          baselineWindowHours: 72,
+          cooldownMinutes: 60,
+          minSampleCount: 4,
+          anomalyMultiplier: 2,
+          anomalyMinErrorDeltaPercent: 1,
+          anomalyMinLatencyDeltaMs: 150,
+          errorRateWarnPercent: 5,
+          latencyWarnMs: 1500,
+          recipientCount: 2,
+          publishedCount: 2,
+          evaluatedAt: new Date(now - 10 * 60 * 1000),
+        },
+      ] as unknown as AgentPlatformHealthAlertRun[]);
+
+    const result = await scheduler.exportAlertRunTrendData({
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+    const payload = JSON.parse(result.dataJson) as {
+      summary: { runCount: number };
+      series: Array<{ runCount: number }>;
+    };
+
+    expect(payload.summary.runCount).toBe(1);
+    expect(payload.series.length).toBeGreaterThan(0);
+  });
+
   it('exports persisted alert run history as JSON payload', async () => {
     alertRunRepo.find.mockResolvedValue([
       {

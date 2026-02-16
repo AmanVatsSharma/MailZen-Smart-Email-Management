@@ -716,6 +716,11 @@ type AgentPlatformHealthAlertRunTrendPointResponse {
   totalPublished: Int!
 }
 
+type AgentPlatformHealthAlertRunTrendDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
 type AgentPlatformHealthAlertRunRetentionPurgeResponse {
   deletedRuns: Int!
   retentionDays: Int!
@@ -1237,6 +1242,10 @@ extend type Query {
     windowHours: Int
     bucketMinutes: Int
   ): [AgentPlatformHealthAlertRunTrendPointResponse!]!
+  agentPlatformHealthAlertRunTrendDataExport(
+    windowHours: Int
+    bucketMinutes: Int
+  ): AgentPlatformHealthAlertRunTrendDataExportResponse!
   myWorkspaces: [Workspace!]!
   myActiveWorkspace: Workspace
   myWorkspaceDataExport(workspaceId: String!): WorkspaceDataExportResponse!

@@ -76,6 +76,7 @@ const requiredContracts = [
   'agentPlatformHealthAlertRunHistoryDataExport',
   'agentPlatformHealthAlertRunTrendSummary',
   'agentPlatformHealthAlertRunTrendSeries',
+  'agentPlatformHealthAlertRunTrendDataExport',
   'runAgentPlatformHealthAlertCheck',
   'purgeAgentPlatformHealthAlertRunRetentionData',
   'resetAgentPlatformRuntimeStats',

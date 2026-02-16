@@ -628,6 +628,41 @@ export class AiAgentPlatformHealthAlertScheduler {
     return series;
   }
 
+  async exportAlertRunTrendData(input?: {
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const windowHours = this.normalizeAlertDeliveryWindowHours(
+      input?.windowHours,
+    );
+    const bucketMinutes = this.normalizeAlertDeliveryBucketMinutes(
+      input?.bucketMinutes,
+    );
+    const [summary, series] = await Promise.all([
+      this.getAlertRunTrendSummary({
+        windowHours,
+      }),
+      this.getAlertRunTrendSeries({
+        windowHours,
+        bucketMinutes,
+      }),
+    ]);
+    const generatedAtIso = new Date().toISOString();
+    return {
+      generatedAtIso,
+      dataJson: JSON.stringify({
+        generatedAtIso,
+        windowHours,
+        bucketMinutes,
+        summary,
+        series,
+      }),
+    };
+  }
+
   async purgeAlertRunRetentionData(input?: {
     retentionDays?: number | null;
   }): Promise<{

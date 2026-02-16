@@ -24,6 +24,7 @@ describe('AiAgentGatewayResolver', () => {
     getAlertRunHistory: jest.fn(),
     getAlertRunTrendSummary: jest.fn(),
     getAlertRunTrendSeries: jest.fn(),
+    exportAlertRunTrendData: jest.fn(),
     exportAlertRunHistoryData: jest.fn(),
     purgeAlertRunRetentionData: jest.fn(),
     getAlertDeliveryStats: jest.fn(),
@@ -571,6 +572,28 @@ describe('AiAgentGatewayResolver', () => {
         totalPublished: 4,
       }),
     ]);
+  });
+
+  it('delegates agentPlatformHealthAlertRunTrendDataExport to health alert scheduler', async () => {
+    healthAlertScheduler.exportAlertRunTrendData.mockResolvedValue({
+      generatedAtIso: '2026-02-16T00:00:00.000Z',
+      dataJson: '{"summary":{"runCount":4}}',
+    });
+
+    const result = await resolver.agentPlatformHealthAlertRunTrendDataExport(
+      24,
+      60,
+    );
+
+    expect(healthAlertScheduler.exportAlertRunTrendData).toHaveBeenCalledWith({
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        generatedAtIso: '2026-02-16T00:00:00.000Z',
+      }),
+    );
   });
 
   it('forwards user context to myAgentActionDataExport', async () => {
