@@ -44,6 +44,7 @@ Readiness checks:
 
 Operations:
   ./deploy/ec2/scripts/update.sh
+  ./deploy/ec2/scripts/update.sh --verify-skip-oauth-check --status-runtime-checks
   ./deploy/ec2/scripts/logs.sh backend
   ./deploy/ec2/scripts/logs.sh --service backend --tail 500 --no-follow
   ./deploy/ec2/scripts/restart.sh backend

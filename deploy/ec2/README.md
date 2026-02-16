@@ -180,6 +180,12 @@ Example:
 # Update with custom verify retries
 ./deploy/ec2/scripts/update.sh --verify-max-retries 10 --verify-retry-sleep 5
 
+# Update while skipping optional verify checks
+./deploy/ec2/scripts/update.sh --verify-skip-ssl-check --verify-skip-oauth-check
+
+# Update dry-run + runtime status checks
+./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify --status-runtime-checks
+
 # Config-only preflight + deploy dry-run update simulation
 ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify
 

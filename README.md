@@ -316,6 +316,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: update dry-run simulation
 ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify
 
+# Optional: update with verify skip flags and runtime status checks
+./deploy/ec2/scripts/update.sh --verify-skip-ssl-check --verify-skip-oauth-check --status-runtime-checks
+
 # 7) Optional DB backup
 ./deploy/ec2/scripts/backup-db.sh
 
