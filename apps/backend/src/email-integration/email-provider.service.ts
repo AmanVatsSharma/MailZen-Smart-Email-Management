@@ -2239,7 +2239,10 @@ export class EmailProviderService {
         delete this.smtpConnectionPool[id];
         this.connectionCache.del(`transporter_${id}`);
         this.logger.debug(
-          `Removed idle connection for provider ${id} from pool`,
+          serializeStructuredLog({
+            event: 'provider_connection_pool_idle_connection_removed',
+            providerId: id,
+          }),
         );
       }
     }
@@ -2251,7 +2254,10 @@ export class EmailProviderService {
       delete this.smtpConnectionPool[providerId];
       this.connectionCache.del(`transporter_${providerId}`);
       this.logger.debug(
-        `Removed connection for provider ${providerId} from pool`,
+        serializeStructuredLog({
+          event: 'provider_connection_pool_connection_removed',
+          providerId,
+        }),
       );
     }
   }

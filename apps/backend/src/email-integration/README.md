@@ -383,6 +383,9 @@ For SMTP providers, the module implements connection pooling to improve performa
 - Idle connections are automatically closed after 30 minutes
 - A maximum of 5 connections per provider is maintained
 - Each connection handles up to a maximum of 100 messages
+- Structured pool lifecycle debug events:
+  - `provider_connection_pool_idle_connection_removed`
+  - `provider_connection_pool_connection_removed`
 
 ## Error Handling
 
