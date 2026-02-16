@@ -10,6 +10,8 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - Execute approved privileged actions safely in backend:
   - `auth.forgot_password`
   - `inbox.summarize_thread` (authenticated, ownership-scoped thread summary)
+  - `inbox.classify_thread` (authenticated heuristic thread classification)
+  - `inbox.prioritize_thread` (authenticated urgency scoring and priority level)
   - `inbox.compose_reply_draft` (authenticated, ownership-scoped draft generation)
   - `inbox.schedule_followup` (authenticated follow-up reminder notification via `NotificationEventBusService`)
 - Enforce human-in-the-loop approval token flow for risky agent actions:
@@ -82,3 +84,4 @@ flowchart TD
 - 2026-02-16: Added user-scoped agent action audit data export query.
 - 2026-02-16: Added agent action audit retention purge API + scheduler.
 - 2026-02-16: Added runtime memory-context retrieval for inbox agent payloads.
+- 2026-02-16: Added executable inbox classify/prioritize actions.

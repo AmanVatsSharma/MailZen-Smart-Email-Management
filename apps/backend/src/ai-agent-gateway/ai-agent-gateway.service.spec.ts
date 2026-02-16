@@ -397,6 +397,122 @@ describe('AiAgentGatewayService', () => {
     expect(response.executedAction?.message).toContain('summary');
   });
 
+  it('executes inbox classify action when suggested and requested', async () => {
+    const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'inbox',
+        assistantText: 'I can classify this thread.',
+        intent: 'thread_classification',
+        confidence: 0.89,
+        suggestedActions: [
+          {
+            name: 'inbox.classify_thread',
+            label: 'Classify thread',
+            payload: {},
+          },
+        ],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+    findExternalMessagesMock.mockResolvedValue([
+      {
+        subject: 'Critical outage impact',
+        from: 'ops@example.com',
+        snippet: 'Urgent blocker impacting customer delivery.',
+      },
+    ]);
+
+    const response = await service.assist(
+      {
+        skill: 'inbox',
+        messages: [{ role: 'user', content: 'Classify this thread.' }],
+        context: {
+          surface: 'inbox',
+          locale: 'en-IN',
+          metadataJson: JSON.stringify({ threadId: 'thread-classify-1' }),
+        },
+        allowedActions: ['inbox.classify_thread'],
+        requestedAction: 'inbox.classify_thread',
+        executeRequestedAction: true,
+      },
+      {
+        requestId: 'req-classify-1',
+        headers: { authorization: 'Bearer token-1' },
+      },
+    );
+
+    expect(response.executedAction?.executed).toBe(true);
+    expect(response.executedAction?.message).toContain(
+      'classified as URGENT_ISSUE',
+    );
+    expect(saveAgentActionAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'inbox.classify_thread',
+        executed: true,
+      }),
+    );
+  });
+
+  it('executes inbox prioritize action when suggested and requested', async () => {
+    const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'inbox',
+        assistantText: 'I can prioritize this thread.',
+        intent: 'thread_priority',
+        confidence: 0.9,
+        suggestedActions: [
+          {
+            name: 'inbox.prioritize_thread',
+            label: 'Prioritize thread',
+            payload: {},
+          },
+        ],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+    findExternalMessagesMock.mockResolvedValue([
+      {
+        subject: 'ASAP renewal approval',
+        from: 'ceo@example.com',
+        snippet: 'Urgent: need this renewal decision today?',
+      },
+    ]);
+
+    const response = await service.assist(
+      {
+        skill: 'inbox',
+        messages: [{ role: 'user', content: 'Prioritize this thread.' }],
+        context: {
+          surface: 'inbox',
+          locale: 'en-IN',
+          metadataJson: JSON.stringify({ threadId: 'thread-priority-1' }),
+        },
+        allowedActions: ['inbox.prioritize_thread'],
+        requestedAction: 'inbox.prioritize_thread',
+        executeRequestedAction: true,
+      },
+      {
+        requestId: 'req-priority-1',
+        headers: { authorization: 'Bearer token-1' },
+      },
+    );
+
+    expect(response.executedAction?.executed).toBe(true);
+    expect(response.executedAction?.message).toContain('Priority set to HIGH');
+    expect(saveAgentActionAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'inbox.prioritize_thread',
+        executed: true,
+      }),
+    );
+  });
+
   it('adds runtime memory context for authenticated inbox requests', async () => {
     const service = createService();
     mockedAxios.post.mockResolvedValueOnce({

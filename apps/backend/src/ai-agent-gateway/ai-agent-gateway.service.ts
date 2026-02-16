@@ -175,12 +175,16 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       access: 'authenticated',
       allowedActions: new Set([
         'inbox.summarize_thread',
+        'inbox.classify_thread',
+        'inbox.prioritize_thread',
         'inbox.compose_reply_draft',
         'inbox.schedule_followup',
         'inbox.open_thread',
       ]),
       serverExecutableActions: new Set([
         'inbox.summarize_thread',
+        'inbox.classify_thread',
+        'inbox.prioritize_thread',
         'inbox.compose_reply_draft',
         'inbox.schedule_followup',
       ]),
@@ -1484,6 +1488,76 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
+    if (requestedAction === 'inbox.classify_thread') {
+      if (!userId) {
+        throw new BadRequestException(
+          'Authenticated user is required for inbox classification action',
+        );
+      }
+
+      const metadata = this.parseContextMetadata(input.context?.metadataJson);
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        '';
+      const classification = await this.classifyThreadForUser(
+        userId,
+        threadId || undefined,
+      );
+
+      return this.finalizeActionExecution({
+        action: requestedAction,
+        executed: true,
+        message: classification.message,
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          threadId: threadId || null,
+          classificationLabel: classification.label,
+          classificationConfidence: classification.confidence,
+        },
+      });
+    }
+
+    if (requestedAction === 'inbox.prioritize_thread') {
+      if (!userId) {
+        throw new BadRequestException(
+          'Authenticated user is required for inbox prioritization action',
+        );
+      }
+
+      const metadata = this.parseContextMetadata(input.context?.metadataJson);
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        '';
+      const priority = await this.prioritizeThreadForUser(
+        userId,
+        threadId || undefined,
+      );
+
+      return this.finalizeActionExecution({
+        action: requestedAction,
+        executed: true,
+        message: priority.message,
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          threadId: threadId || null,
+          priorityLevel: priority.level,
+          priorityScore: priority.score,
+        },
+      });
+    }
+
     if (requestedAction === 'inbox.compose_reply_draft') {
       if (!userId) {
         throw new BadRequestException(
@@ -1632,17 +1706,194 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     return normalized.slice(-8);
   }
 
+  private async loadThreadMessagesForUser(input: {
+    userId: string;
+    threadId?: string;
+    take: number;
+  }): Promise<ExternalEmailMessage[]> {
+    const messages = await this.externalEmailMessageRepo.find({
+      where: input.threadId
+        ? { userId: input.userId, threadId: input.threadId }
+        : { userId: input.userId },
+      order: { internalDate: 'DESC', createdAt: 'DESC' },
+      take: input.take,
+    });
+    return this.normalizeExternalMessages(messages);
+  }
+
+  private buildThreadSignalText(messages: ExternalEmailMessage[]): string {
+    return messages
+      .map((message) =>
+        [
+          String(message.subject || ''),
+          String(message.snippet || ''),
+          String(message.from || ''),
+        ]
+          .join(' ')
+          .toLowerCase(),
+      )
+      .join(' ');
+  }
+
+  private async classifyThreadForUser(
+    userId: string,
+    threadId?: string,
+  ): Promise<{
+    label: string;
+    confidence: number;
+    message: string;
+  }> {
+    const messages = await this.loadThreadMessagesForUser({
+      userId,
+      threadId,
+      take: 5,
+    });
+    if (!messages.length) {
+      return {
+        label: 'general',
+        confidence: 0.35,
+        message:
+          'Thread classified as GENERAL (confidence 35%) because no synced context is available yet.',
+      };
+    }
+    const signalText = this.buildThreadSignalText(messages);
+    if (
+      /(urgent|asap|blocker|blocked|outage|critical|failure|escalat)/.test(
+        signalText,
+      )
+    ) {
+      return {
+        label: 'urgent_issue',
+        confidence: 0.91,
+        message:
+          'Thread classified as URGENT_ISSUE (confidence 91%) due to high-severity urgency signals.',
+      };
+    }
+    if (
+      /(meeting|schedule|calendar|availability|slot|reschedul)/.test(signalText)
+    ) {
+      return {
+        label: 'coordination',
+        confidence: 0.84,
+        message:
+          'Thread classified as COORDINATION (confidence 84%) based on scheduling vocabulary.',
+      };
+    }
+    if (
+      /(invoice|pricing|quote|contract|payment|renewal|budget)/.test(signalText)
+    ) {
+      return {
+        label: 'commercial',
+        confidence: 0.8,
+        message:
+          'Thread classified as COMMERCIAL (confidence 80%) from billing/pricing context.',
+      };
+    }
+    if (
+      /(status|update|timeline|eta|follow up|follow-up|progress)/.test(
+        signalText,
+      )
+    ) {
+      return {
+        label: 'status_tracking',
+        confidence: 0.74,
+        message:
+          'Thread classified as STATUS_TRACKING (confidence 74%) from progress-tracking language.',
+      };
+    }
+    return {
+      label: 'general',
+      confidence: 0.62,
+      message:
+        'Thread classified as GENERAL (confidence 62%) with no high-priority special-case signals.',
+    };
+  }
+
+  private async prioritizeThreadForUser(
+    userId: string,
+    threadId?: string,
+  ): Promise<{
+    level: 'HIGH' | 'MEDIUM' | 'LOW';
+    score: number;
+    message: string;
+  }> {
+    const messages = await this.loadThreadMessagesForUser({
+      userId,
+      threadId,
+      take: 5,
+    });
+    if (!messages.length) {
+      return {
+        level: 'MEDIUM',
+        score: 50,
+        message:
+          'Priority set to MEDIUM (score 50) because no thread history is available yet.',
+      };
+    }
+
+    const signalText = this.buildThreadSignalText(messages);
+    const reasons: string[] = [];
+    let score = 0;
+    if (
+      /(urgent|asap|blocker|blocked|outage|critical|failure|escalat)/.test(
+        signalText,
+      )
+    ) {
+      score += 55;
+      reasons.push('urgent language detected');
+    }
+    const questionRatio = messages.filter((message) =>
+      String(message.snippet || '').includes('?'),
+    ).length;
+    if (questionRatio > 0) {
+      score += 12;
+      reasons.push('direct question found');
+    }
+    const recentActivity = messages.some((message) => {
+      if (!message.internalDate) return false;
+      return (
+        Date.now() - new Date(message.internalDate).getTime() <
+        24 * 60 * 60 * 1000
+      );
+    });
+    if (recentActivity) {
+      score += 10;
+      reasons.push('recent activity (<24h)');
+    }
+    const executiveSender = messages.some((message) =>
+      /(ceo|founder|director|vp|head)/i.test(String(message.from || '')),
+    );
+    if (executiveSender) {
+      score += 18;
+      reasons.push('executive sender detected');
+    }
+    if (/(invoice|contract|renewal|payment)/.test(signalText)) {
+      score += 8;
+      reasons.push('commercial risk context');
+    }
+
+    const cappedScore = Math.max(0, Math.min(100, score));
+    const level: 'HIGH' | 'MEDIUM' | 'LOW' =
+      cappedScore >= 65 ? 'HIGH' : cappedScore >= 30 ? 'MEDIUM' : 'LOW';
+    const reasonSummary = reasons.length
+      ? reasons.join('; ')
+      : 'no escalations detected';
+    return {
+      level,
+      score: cappedScore,
+      message: `Priority set to ${level} (score ${cappedScore}) because ${reasonSummary}.`,
+    };
+  }
+
   private async summarizeThreadForUser(
     userId: string,
     threadId?: string,
   ): Promise<string> {
-    const messages = this.normalizeExternalMessages(
-      await this.externalEmailMessageRepo.find({
-        where: threadId ? { userId, threadId } : { userId },
-        order: { internalDate: 'DESC', createdAt: 'DESC' },
-        take: 5,
-      }),
-    );
+    const messages = await this.loadThreadMessagesForUser({
+      userId,
+      threadId,
+      take: 5,
+    });
 
     if (!messages.length) {
       return 'No email messages were found for this thread yet.';
@@ -1667,13 +1918,11 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     userId: string,
     threadId?: string,
   ): Promise<string> {
-    const messages = this.normalizeExternalMessages(
-      await this.externalEmailMessageRepo.find({
-        where: threadId ? { userId, threadId } : { userId },
-        order: { internalDate: 'DESC', createdAt: 'DESC' },
-        take: 1,
-      }),
-    );
+    const messages = await this.loadThreadMessagesForUser({
+      userId,
+      threadId,
+      take: 1,
+    });
 
     const latest = messages[0];
     if (!latest) {
