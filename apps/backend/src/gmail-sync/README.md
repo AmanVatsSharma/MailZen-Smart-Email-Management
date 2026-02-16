@@ -62,6 +62,17 @@ Scheduler hardening features:
 - structured sync lifecycle logs (`gmail_sync_start`, `gmail_sync_batch_loaded`,
   `gmail_sync_message_import_failed`, `gmail_sync_completed`, `gmail_sync_failed`)
   include correlation id and duration metadata for observability triage
+- structured Gmail resilience/push events:
+  - `gmail_sync_access_token_refresh_failed`
+  - `gmail_sync_labels_completed`
+  - `gmail_sync_labels_failed`
+  - `gmail_sync_profile_history_id_read_failed`
+  - `gmail_sync_history_cursor_expired`
+  - `gmail_sync_history_lookup_failed_fallback`
+  - `gmail_sync_watch_renewed`
+  - `gmail_sync_watch_renew_failed`
+  - `gmail_push_notification_ignored_no_provider`
+  - `gmail_push_notification_provider_failed`
 - structured scheduler logs (`gmail_sync_scheduler_start`,
   `gmail_sync_scheduler_retry`, `gmail_sync_scheduler_provider_failed`,
   `gmail_sync_watch_refresh_start`, `gmail_sync_watch_refresh_failed`) provide

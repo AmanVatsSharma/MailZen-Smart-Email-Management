@@ -15,6 +15,7 @@ import {
   ProviderSecretsKeyring,
 } from '../common/provider-secrets.util';
 import {
+  fingerprintIdentifier,
   resolveCorrelationId,
   serializeStructuredLog,
 } from '../common/logging/structured-log.util';
@@ -189,7 +190,11 @@ export class OutlookSyncService {
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         this.logger.warn(
-          `Outlook subscription renew failed provider=${input.provider.id}: ${message}; attempting create`,
+          serializeStructuredLog({
+            event: 'outlook_sync_subscription_renew_failed_fallback_create',
+            providerId: input.provider.id,
+            error: message,
+          }),
         );
       }
     }
@@ -223,7 +228,11 @@ export class OutlookSyncService {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `Outlook subscription create failed provider=${input.provider.id}: ${message}`,
+        serializeStructuredLog({
+          event: 'outlook_sync_subscription_create_failed',
+          providerId: input.provider.id,
+          error: message,
+        }),
       );
     }
   }
@@ -307,7 +316,12 @@ export class OutlookSyncService {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Failed to refresh Outlook access token for provider=${provider.id}: ${message}`,
+        serializeStructuredLog({
+          event: 'outlook_sync_access_token_refresh_failed',
+          providerId: provider.id,
+          userId: provider.userId,
+          error: message,
+        }),
       );
       throw new InternalServerErrorException(
         'Failed to refresh Outlook access token',
@@ -507,7 +521,13 @@ export class OutlookSyncService {
     }
     if (!providers.length) {
       this.logger.warn(
-        `Outlook push notification ignored: no active provider matched providerId=${normalizedProviderId || 'n/a'} email=${normalizedEmailAddress || 'n/a'}`,
+        serializeStructuredLog({
+          event: 'outlook_push_notification_ignored_no_provider',
+          providerId: normalizedProviderId || null,
+          accountFingerprint: normalizedEmailAddress
+            ? fingerprintIdentifier(normalizedEmailAddress)
+            : null,
+        }),
       );
       return { processedProviders: 0, skippedProviders: 0 };
     }
@@ -539,7 +559,11 @@ export class OutlookSyncService {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         this.logger.warn(
-          `Outlook push processing failed provider=${provider.id}: ${errorMessage}`,
+          serializeStructuredLog({
+            event: 'outlook_push_notification_provider_failed',
+            providerId: provider.id,
+            error: errorMessage,
+          }),
         );
       }
     }

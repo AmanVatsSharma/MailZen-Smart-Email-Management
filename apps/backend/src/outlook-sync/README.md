@@ -44,6 +44,12 @@ label metadata into `ExternalEmailLabel`, similar to Gmail sync.
   `outlook_sync_incremental_start`, `outlook_sync_incremental_fallback`,
   `outlook_sync_completed`, `outlook_sync_failed`) include correlation id and
   duration metadata for incident triage
+- structured Outlook resilience/push events:
+  - `outlook_sync_access_token_refresh_failed`
+  - `outlook_sync_subscription_renew_failed_fallback_create`
+  - `outlook_sync_subscription_create_failed`
+  - `outlook_push_notification_ignored_no_provider`
+  - `outlook_push_notification_provider_failed`
 - structured scheduler logs (`outlook_sync_scheduler_start`,
   `outlook_sync_scheduler_retry`, `outlook_sync_scheduler_provider_failed`,
   `outlook_sync_subscription_refresh_start`,

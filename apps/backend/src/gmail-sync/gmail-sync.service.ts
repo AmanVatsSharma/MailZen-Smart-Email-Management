@@ -17,6 +17,7 @@ import {
   ProviderSecretsKeyring,
 } from '../common/provider-secrets.util';
 import {
+  fingerprintIdentifier,
   resolveCorrelationId,
   serializeStructuredLog,
 } from '../common/logging/structured-log.util';
@@ -146,7 +147,12 @@ export class GmailSyncService {
       return credentials.access_token;
     } catch (e: any) {
       this.logger.error(
-        `Failed to refresh Gmail access token: ${e?.message || e}`,
+        serializeStructuredLog({
+          event: 'gmail_sync_access_token_refresh_failed',
+          providerId: provider.id,
+          userId: provider.userId,
+          error: e?.message || String(e),
+        }),
         e?.stack,
       );
       throw new InternalServerErrorException(
@@ -190,12 +196,22 @@ export class GmailSyncService {
       }
 
       this.logger.log(
-        `Synced Gmail labels provider=${providerId} user=${userId} count=${labels.length}`,
+        serializeStructuredLog({
+          event: 'gmail_sync_labels_completed',
+          providerId,
+          userId,
+          syncedLabels: labels.length,
+        }),
       );
     } catch (e: any) {
       // Label sync failure should not block message sync.
       this.logger.warn(
-        `Failed to sync Gmail labels provider=${providerId} user=${userId}: ${e?.message || e}`,
+        serializeStructuredLog({
+          event: 'gmail_sync_labels_failed',
+          providerId,
+          userId,
+          error: e?.message || String(e),
+        }),
       );
     }
   }
@@ -213,7 +229,10 @@ export class GmailSyncService {
       return profile.data.historyId || null;
     } catch (e: any) {
       this.logger.warn(
-        `Failed to read Gmail profile historyId: ${e?.message || e}`,
+        serializeStructuredLog({
+          event: 'gmail_sync_profile_history_id_read_failed',
+          error: e?.message || String(e),
+        }),
       );
       return null;
     }
@@ -267,11 +286,18 @@ export class GmailSyncService {
         const status = e?.response?.status;
         if (status === 404) {
           this.logger.warn(
-            `Gmail history cursor expired provider startHistoryId=${input.startHistoryId}; falling back to full sync`,
+            serializeStructuredLog({
+              event: 'gmail_sync_history_cursor_expired',
+              startHistoryId: input.startHistoryId,
+            }),
           );
         } else {
           this.logger.warn(
-            `Gmail history lookup failed (${status ?? 'n/a'}): ${e?.message || e}. Falling back to full sync`,
+            serializeStructuredLog({
+              event: 'gmail_sync_history_lookup_failed_fallback',
+              statusCode: status ?? null,
+              error: e?.message || String(e),
+            }),
           );
         }
       }
@@ -394,13 +420,23 @@ export class GmailSyncService {
         },
       );
       this.logger.log(
-        `Gmail push watch renewed provider=${input.provider.id} expiration=${watchExpirationAt ? watchExpirationAt.toISOString() : 'n/a'}`,
+        serializeStructuredLog({
+          event: 'gmail_sync_watch_renewed',
+          providerId: input.provider.id,
+          watchExpirationAtIso: watchExpirationAt
+            ? watchExpirationAt.toISOString()
+            : null,
+        }),
       );
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `Failed to renew Gmail push watch provider=${input.provider.id}: ${errorMessage}`,
+        serializeStructuredLog({
+          event: 'gmail_sync_watch_renew_failed',
+          providerId: input.provider.id,
+          error: errorMessage,
+        }),
       );
     }
   }
@@ -439,7 +475,10 @@ export class GmailSyncService {
     });
     if (!providers.length) {
       this.logger.warn(
-        `Gmail push notification ignored: no active provider for email=${normalizedEmail}`,
+        serializeStructuredLog({
+          event: 'gmail_push_notification_ignored_no_provider',
+          accountFingerprint: fingerprintIdentifier(normalizedEmail),
+        }),
       );
       return { processedProviders: 0, skippedProviders: 0 };
     }
@@ -480,7 +519,11 @@ export class GmailSyncService {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         this.logger.warn(
-          `Gmail push processing failed provider=${provider.id}: ${errorMessage}`,
+          serializeStructuredLog({
+            event: 'gmail_push_notification_provider_failed',
+            providerId: provider.id,
+            error: errorMessage,
+          }),
         );
       }
     }
