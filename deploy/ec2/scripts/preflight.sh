@@ -22,34 +22,53 @@ RUN_HOST_READINESS=true
 RUN_DNS_CHECK=true
 RUN_SSL_CHECK=true
 RUN_PORTS_CHECK=true
+PORTS_CHECK_PORTS=""
 
-for arg in "$@"; do
-  case "${arg}" in
+while [[ $# -gt 0 ]]; do
+  case "$1" in
   --config-only|--skip-daemon)
     CONFIG_ONLY=true
+    shift
     ;;
   --with-runtime-checks)
     WITH_RUNTIME_CHECKS=true
+    shift
     ;;
   --skip-host-readiness)
     RUN_HOST_READINESS=false
+    shift
     ;;
   --skip-dns-check)
     RUN_DNS_CHECK=false
+    shift
     ;;
   --skip-ssl-check)
     RUN_SSL_CHECK=false
+    shift
     ;;
   --skip-ports-check)
     RUN_PORTS_CHECK=false
+    shift
+    ;;
+  --ports-check-ports)
+    PORTS_CHECK_PORTS="${2:-}"
+    if [[ -z "${PORTS_CHECK_PORTS}" ]]; then
+      log_error "--ports-check-ports requires a value."
+      exit 1
+    fi
+    shift 2
     ;;
   *)
-    log_error "Unknown argument: ${arg}"
-    log_error "Supported flags: --config-only --with-runtime-checks --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check"
+    log_error "Unknown argument: $1"
+    log_error "Supported flags: --config-only --with-runtime-checks --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --ports-check-ports <p1,p2,...>"
     exit 1
     ;;
   esac
 done
+
+if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${WITH_RUNTIME_CHECKS}" == false ]]; then
+  log_warn "--ports-check-ports provided without --with-runtime-checks; value will only apply when runtime checks are enabled."
+fi
 
 log_info "Running MailZen EC2 preflight checks..."
 log_info "Active env file: $(get_env_file)"
@@ -94,7 +113,11 @@ if [[ "${WITH_RUNTIME_CHECKS}" == true ]]; then
   fi
 
   if [[ "${RUN_PORTS_CHECK}" == true ]]; then
-    "${SCRIPT_DIR}/ports-check.sh"
+    ports_check_args=()
+    if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+      ports_check_args+=(--ports "${PORTS_CHECK_PORTS}")
+    fi
+    "${SCRIPT_DIR}/ports-check.sh" "${ports_check_args[@]}"
   else
     log_warn "Skipping ports check (--skip-ports-check)."
   fi

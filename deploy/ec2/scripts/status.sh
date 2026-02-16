@@ -24,6 +24,7 @@ RUN_HOST_READINESS=true
 RUN_DNS_CHECK=true
 RUN_SSL_CHECK=true
 RUN_PORTS_CHECK=true
+PORTS_CHECK_PORTS=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -51,13 +52,25 @@ while [[ $# -gt 0 ]]; do
     RUN_PORTS_CHECK=false
     shift
     ;;
+  --ports-check-ports)
+    PORTS_CHECK_PORTS="${2:-}"
+    if [[ -z "${PORTS_CHECK_PORTS}" ]]; then
+      log_error "--ports-check-ports requires a value."
+      exit 1
+    fi
+    shift 2
+    ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --strict --with-runtime-checks --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check"
+    log_error "Supported flags: --strict --with-runtime-checks --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --ports-check-ports <p1,p2,...>"
     exit 1
     ;;
   esac
 done
+
+if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${WITH_RUNTIME_CHECKS}" == false ]]; then
+  log_warn "--ports-check-ports provided without --with-runtime-checks; value will only apply when runtime checks are enabled."
+fi
 
 log_info "Checking MailZen deployment status..."
 log_info "Active env file: $(get_env_file)"
@@ -109,7 +122,11 @@ if [[ "${WITH_RUNTIME_CHECKS}" == true ]]; then
     log_warn "Skipping SSL check (--skip-ssl-check)."
   fi
   if [[ "${RUN_PORTS_CHECK}" == true ]]; then
-    "${SCRIPT_DIR}/ports-check.sh"
+    ports_check_args=()
+    if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+      ports_check_args+=(--ports "${PORTS_CHECK_PORTS}")
+    fi
+    "${SCRIPT_DIR}/ports-check.sh" "${ports_check_args[@]}"
   else
     log_warn "Skipping ports check (--skip-ports-check)."
   fi

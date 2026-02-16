@@ -20,6 +20,7 @@
 #   --skip-status
 #   --status-runtime-checks
 #   --status-strict
+#   --ports-check-ports <p1,p2,...>
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -37,6 +38,7 @@ VERIFY_SKIP_SSL_CHECK=false
 VERIFY_SKIP_OAUTH_CHECK=false
 STATUS_RUNTIME_CHECKS=false
 STATUS_STRICT=false
+PORTS_CHECK_PORTS=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -88,9 +90,17 @@ while [[ $# -gt 0 ]]; do
     STATUS_STRICT=true
     shift
     ;;
+  --ports-check-ports)
+    PORTS_CHECK_PORTS="${2:-}"
+    if [[ -z "${PORTS_CHECK_PORTS}" ]]; then
+      log_error "--ports-check-ports requires a value."
+      exit 1
+    fi
+    shift 2
+    ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --skip-verify --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --preflight-config-only --deploy-dry-run --skip-status --status-runtime-checks --status-strict"
+    log_error "Supported flags: --skip-verify --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --preflight-config-only --deploy-dry-run --skip-status --status-runtime-checks --status-strict --ports-check-ports <p1,p2,...>"
     exit 1
     ;;
   esac
@@ -118,6 +128,9 @@ log_info "Active compose file: $(get_compose_file)"
 preflight_args=()
 if [[ "${PREFLIGHT_CONFIG_ONLY}" == true ]]; then
   preflight_args+=(--config-only)
+fi
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  preflight_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
 fi
 "${SCRIPT_DIR}/preflight.sh" "${preflight_args[@]}"
 
@@ -152,6 +165,9 @@ if [[ "${RUN_STATUS}" == true ]]; then
   status_args=()
   if [[ "${STATUS_RUNTIME_CHECKS}" == true ]]; then
     status_args+=(--with-runtime-checks)
+    if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+      status_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
+    fi
   fi
   if [[ "${STATUS_STRICT}" == true ]]; then
     status_args+=(--strict)

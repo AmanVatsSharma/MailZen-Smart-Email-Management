@@ -231,6 +231,9 @@ For production-style EC2 deployment, use the deployment module:
   --acme-email ops@example.com \
   --setup-skip-daemon
 
+# Optional: launch with custom runtime ports-check targets
+./deploy/ec2/scripts/launch.sh --ports-check-ports 80,443,8100
+
 # Optional: interactive menu for non-technical operators
 ./deploy/ec2/scripts/menu.sh
 
@@ -248,6 +251,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: extended runtime checks (host/dns/ssl/ports)
 ./deploy/ec2/scripts/preflight.sh --with-runtime-checks
+
+# Optional: runtime checks with custom ports-check targets
+./deploy/ec2/scripts/preflight.sh --with-runtime-checks --ports-check-ports 80,443,8100
 
 # Optional: confirm domain DNS resolution before cutover
 ./deploy/ec2/scripts/dns-check.sh
@@ -324,6 +330,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: status with runtime checks
 ./deploy/ec2/scripts/status.sh --with-runtime-checks
 
+# Optional: status runtime checks with custom ports-check targets
+./deploy/ec2/scripts/status.sh --with-runtime-checks --ports-check-ports 80,443,8100
+
 # 6) Future updates (includes verify checks)
 ./deploy/ec2/scripts/update.sh
 
@@ -332,6 +341,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: update with verify skip flags and runtime status checks
 ./deploy/ec2/scripts/update.sh --verify-skip-ssl-check --verify-skip-oauth-check --status-runtime-checks
+
+# Optional: update runtime status checks with custom ports-check targets
+./deploy/ec2/scripts/update.sh --status-runtime-checks --ports-check-ports 80,443,8100
 
 # 7) Optional DB backup
 ./deploy/ec2/scripts/backup-db.sh

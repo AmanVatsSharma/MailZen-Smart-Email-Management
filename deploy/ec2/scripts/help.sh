@@ -28,12 +28,15 @@ cat <<HELP
 Primary flow:
   ./deploy/ec2/scripts/launch.sh
   ./deploy/ec2/scripts/launch.sh --preflight-config-only --deploy-dry-run --skip-verify
+  ./deploy/ec2/scripts/launch.sh --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/preflight.sh
+  ./deploy/ec2/scripts/preflight.sh --with-runtime-checks --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/deploy.sh
   ./deploy/ec2/scripts/verify.sh
   ./deploy/ec2/scripts/verify.sh --skip-oauth-check
   ./deploy/ec2/scripts/status.sh
   ./deploy/ec2/scripts/status.sh --with-runtime-checks
+  ./deploy/ec2/scripts/status.sh --with-runtime-checks --ports-check-ports 80,443,8100
 
 Setup and env:
   ./deploy/ec2/scripts/setup.sh --non-interactive --skip-daemon
@@ -51,6 +54,7 @@ Readiness checks:
 Operations:
   ./deploy/ec2/scripts/update.sh
   ./deploy/ec2/scripts/update.sh --verify-skip-oauth-check --status-runtime-checks
+  ./deploy/ec2/scripts/update.sh --status-runtime-checks --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/logs.sh backend
   ./deploy/ec2/scripts/logs.sh --service backend --tail 500 --no-follow
   ./deploy/ec2/scripts/restart.sh backend

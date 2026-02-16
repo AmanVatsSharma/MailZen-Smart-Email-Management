@@ -20,6 +20,7 @@
 #   --verify-retry-sleep <n>
 #   --status-runtime-checks
 #   --status-strict
+#   --ports-check-ports <p1,p2,...>
 #   --domain <hostname>
 #   --acme-email <email>
 # -----------------------------------------------------------------------------
@@ -43,6 +44,7 @@ VERIFY_MAX_RETRIES=""
 VERIFY_RETRY_SLEEP=""
 DOMAIN_ARG=""
 ACME_EMAIL_ARG=""
+PORTS_CHECK_PORTS=""
 
 run_step() {
   local step_number="$1"
@@ -118,6 +120,14 @@ while [[ $# -gt 0 ]]; do
     STATUS_STRICT=true
     shift
     ;;
+  --ports-check-ports)
+    PORTS_CHECK_PORTS="${2:-}"
+    if [[ -z "${PORTS_CHECK_PORTS}" ]]; then
+      log_error "--ports-check-ports requires a value."
+      exit 1
+    fi
+    shift 2
+    ;;
   --domain)
     DOMAIN_ARG="${2:-}"
     if [[ -z "${DOMAIN_ARG}" ]]; then
@@ -152,7 +162,7 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --skip-setup --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --skip-verify --setup-skip-daemon --preflight-config-only --deploy-dry-run --verify-max-retries <n> --verify-retry-sleep <n> --status-runtime-checks --status-strict --domain <hostname> --acme-email <email>"
+    log_error "Supported flags: --skip-setup --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --skip-verify --setup-skip-daemon --preflight-config-only --deploy-dry-run --verify-max-retries <n> --verify-retry-sleep <n> --status-runtime-checks --status-strict --ports-check-ports <p1,p2,...> --domain <hostname> --acme-email <email>"
     exit 1
     ;;
   esac
@@ -246,13 +256,20 @@ if [[ "${RUN_SSL_CHECK}" == true ]]; then
 fi
 
 if [[ "${RUN_PORTS_CHECK}" == true ]]; then
-  run_step "${step}" "${total_steps}" "host ports check" "${SCRIPT_DIR}/ports-check.sh"
+  ports_check_args=()
+  if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+    ports_check_args+=(--ports "${PORTS_CHECK_PORTS}")
+  fi
+  run_step "${step}" "${total_steps}" "host ports check" "${SCRIPT_DIR}/ports-check.sh" "${ports_check_args[@]}"
   step=$((step + 1))
 fi
 
 preflight_args=()
 if [[ "${PREFLIGHT_CONFIG_ONLY}" == true ]]; then
   preflight_args+=(--config-only)
+fi
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  preflight_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
 fi
 run_step "${step}" "${total_steps}" "preflight validation" "${SCRIPT_DIR}/preflight.sh" "${preflight_args[@]}"
 step=$((step + 1))
@@ -283,6 +300,9 @@ fi
 status_args=()
 if [[ "${STATUS_RUNTIME_CHECKS}" == true ]]; then
   status_args+=(--with-runtime-checks)
+  if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+    status_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
+  fi
 fi
 if [[ "${STATUS_STRICT}" == true ]]; then
   status_args+=(--strict)

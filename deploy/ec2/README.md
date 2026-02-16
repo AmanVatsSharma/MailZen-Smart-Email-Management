@@ -107,6 +107,10 @@ From repository root:
   --verify-retry-sleep 8 \
   --status-runtime-checks
 
+# Launch with custom ports-check target list
+./deploy/ec2/scripts/launch.sh \
+  --ports-check-ports 80,443,8100
+
 # Launch with explicit domain/email and skip daemon check during setup
 ./deploy/ec2/scripts/launch.sh \
   --domain mail.example.com \
@@ -159,6 +163,9 @@ Example:
 # Status with runtime checks (host/dns/ssl/ports)
 ./deploy/ec2/scripts/status.sh --with-runtime-checks
 
+# Status runtime checks with custom port targets
+./deploy/ec2/scripts/status.sh --with-runtime-checks --ports-check-ports 80,443,8100
+
 # Strict status mode (fail if daemon unavailable)
 ./deploy/ec2/scripts/status.sh --strict
 
@@ -170,6 +177,9 @@ Example:
 
 # Extended runtime checks (host + dns + ssl + ports)
 ./deploy/ec2/scripts/preflight.sh --with-runtime-checks
+
+# Extended runtime checks with custom port targets
+./deploy/ec2/scripts/preflight.sh --with-runtime-checks --ports-check-ports 80,443,8100
 
 # Extended runtime checks with selective skips
 ./deploy/ec2/scripts/preflight.sh --with-runtime-checks --skip-dns-check --skip-ssl-check
@@ -185,6 +195,9 @@ Example:
 
 # Update dry-run + runtime status checks
 ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify --status-runtime-checks
+
+# Update with runtime status checks and custom port targets
+./deploy/ec2/scripts/update.sh --status-runtime-checks --ports-check-ports 80,443,8100
 
 # Config-only preflight + deploy dry-run update simulation
 ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify
