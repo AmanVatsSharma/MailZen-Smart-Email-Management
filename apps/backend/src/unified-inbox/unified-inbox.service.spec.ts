@@ -224,6 +224,59 @@ describe('UnifiedInboxService', () => {
     });
   });
 
+  it('filters mailbox threads by custom label ids', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: userId,
+      activeInboxType: 'MAILBOX',
+      activeInboxId: 'mailbox-1',
+    } as any);
+    mailboxRepo.findOne.mockResolvedValue({
+      id: 'mailbox-1',
+      userId,
+      email: 'sales@mailzen.com',
+    } as any);
+    emailRepo.find.mockResolvedValue([
+      {
+        id: 'mail-1',
+        userId,
+        mailboxId: 'mailbox-1',
+        subject: 'VIP thread',
+        body: '<p>priority</p>',
+        from: 'client@example.com',
+        to: ['sales@mailzen.com'],
+        status: 'UNREAD',
+        labels: [{ labelId: 'label-vip' }],
+        createdAt: new Date('2026-02-15T10:00:00.000Z'),
+        updatedAt: new Date('2026-02-15T10:00:00.000Z'),
+      } as any,
+      {
+        id: 'mail-2',
+        userId,
+        mailboxId: 'mailbox-1',
+        subject: 'General thread',
+        body: '<p>general</p>',
+        from: 'lead@example.com',
+        to: ['sales@mailzen.com'],
+        status: 'READ',
+        labels: [],
+        createdAt: new Date('2026-02-15T10:05:00.000Z'),
+        updatedAt: new Date('2026-02-15T10:05:00.000Z'),
+      } as any,
+    ]);
+
+    const threads = await service.listThreads(
+      userId,
+      20,
+      0,
+      { labelIds: ['label-vip'] } as any,
+      null,
+    );
+
+    expect(threads).toHaveLength(1);
+    expect(threads[0].id).toBe('mail-1');
+    expect(threads[0].labelIds).toContain('label-vip');
+  });
+
   it('scopes mailbox thread list to mailboxId when mailbox linkage exists', async () => {
     userRepo.findOne.mockResolvedValue({
       id: userId,
