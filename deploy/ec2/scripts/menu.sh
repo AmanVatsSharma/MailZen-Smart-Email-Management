@@ -24,16 +24,17 @@ run_step() {
 show_menu() {
   cat <<'MENU'
 =========================== MailZen EC2 Operator Menu ==========================
-1) Bootstrap Docker on Ubuntu (run with sudo)
-2) Setup environment (.env.ec2)
-3) Preflight checks
-4) Deploy stack
-5) Verify deployment (smoke checks)
-6) Show status
-7) Show logs (all services)
-8) Update stack (pull + recreate)
-9) Backup database
-10) Exit
+1) One-command launch (setup + preflight + deploy + verify + status)
+2) Bootstrap Docker on Ubuntu (run with sudo)
+3) Setup environment (.env.ec2)
+4) Preflight checks
+5) Deploy stack
+6) Verify deployment (smoke checks)
+7) Show status
+8) Show logs (all services)
+9) Update stack (pull + recreate)
+10) Backup database
+11) Exit
 ===============================================================================
 MENU
 }
@@ -46,42 +47,45 @@ fi
 
 while true; do
   show_menu
-  read -r -p "Select an option [1-10]: " choice
+  read -r -p "Select an option [1-11]: " choice
 
   case "${choice}" in
   1)
-    run_step "bootstrap-ubuntu.sh"
+    run_step "launch.sh"
     ;;
   2)
-    run_step "setup.sh"
+    run_step "bootstrap-ubuntu.sh"
     ;;
   3)
-    run_step "preflight.sh"
+    run_step "setup.sh"
     ;;
   4)
-    run_step "deploy.sh"
+    run_step "preflight.sh"
     ;;
   5)
-    run_step "verify.sh"
+    run_step "deploy.sh"
     ;;
   6)
-    run_step "status.sh"
+    run_step "verify.sh"
     ;;
   7)
-    run_step "logs.sh"
+    run_step "status.sh"
     ;;
   8)
-    run_step "update.sh"
+    run_step "logs.sh"
     ;;
   9)
-    run_step "backup-db.sh"
+    run_step "update.sh"
     ;;
   10)
+    run_step "backup-db.sh"
+    ;;
+  11)
     echo "[mailzen-deploy][INFO] Exiting menu."
     exit 0
     ;;
   *)
-    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-10."
+    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-11."
     ;;
   esac
 done

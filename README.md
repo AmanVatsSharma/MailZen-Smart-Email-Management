@@ -206,6 +206,9 @@ For production-style EC2 deployment, use the deployment module:
 ### Quick start
 
 ```bash
+# Fastest path for non-technical launch
+./deploy/ec2/scripts/launch.sh
+
 # Optional: interactive menu for non-technical operators
 ./deploy/ec2/scripts/menu.sh
 

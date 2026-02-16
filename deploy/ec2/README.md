@@ -20,6 +20,7 @@ on an EC2 instance using Docker Compose, a public domain, and HTTPS.
 - `scripts/`  
   Non-technical-friendly operational scripts:
   - `bootstrap-ubuntu.sh` (optional, install Docker on Ubuntu)
+  - `launch.sh` (one-command full pipeline)
   - `menu.sh` (interactive operator menu)
   - `setup.sh`
   - `preflight.sh`
@@ -53,6 +54,9 @@ From repository root:
 ```bash
 # Optional non-technical operator menu
 ./deploy/ec2/scripts/menu.sh
+
+# One-command launch (setup + preflight + deploy + verify + status)
+./deploy/ec2/scripts/launch.sh
 
 # Optional (Ubuntu EC2 only): install Docker + Compose
 sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
