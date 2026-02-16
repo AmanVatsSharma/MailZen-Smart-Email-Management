@@ -7,6 +7,10 @@ import { UserNotification } from '../notification/entities/user-notification.ent
 import { User } from '../user/entities/user.entity';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
 import { AgentPlatformHealthAlertRun } from './entities/agent-platform-health-alert-run.entity';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 type AlertSeverity = 'WARNING' | 'CRITICAL';
 export type AgentPlatformHealthAlertCheckResult = {
@@ -154,6 +158,7 @@ export class AiAgentPlatformHealthAlertScheduler {
     anomalyMinErrorDeltaPercent?: number | null;
     anomalyMinLatencyDeltaMs?: number | null;
   }): Promise<AgentPlatformHealthAlertCheckResult> {
+    const runCorrelationId = resolveCorrelationId(undefined);
     const evaluatedAtIso = new Date().toISOString();
     const alertsEnabled = this.isAlertsEnabled();
     const windowHours = this.resolvePositiveInteger({
@@ -222,18 +227,27 @@ export class AiAgentPlatformHealthAlertScheduler {
     const finalizeResult = async (
       result: AgentPlatformHealthAlertCheckResult,
     ): Promise<AgentPlatformHealthAlertCheckResult> => {
-      await this.persistAlertRun(result, {
-        anomalyMultiplier,
-        anomalyMinErrorDeltaPercent,
-        anomalyMinLatencyDeltaMs,
-        errorRateWarnPercent,
-        latencyWarnMs,
-      });
+      await this.persistAlertRun(
+        result,
+        {
+          anomalyMultiplier,
+          anomalyMinErrorDeltaPercent,
+          anomalyMinLatencyDeltaMs,
+          errorRateWarnPercent,
+          latencyWarnMs,
+        },
+        runCorrelationId,
+      );
       return result;
     };
 
     if (!alertsEnabled) {
-      this.logger.log('agent-platform-alerts: disabled by env');
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'agent_platform_health_alerts_disabled',
+          runCorrelationId,
+        }),
+      );
       return finalizeResult({
         alertsEnabled: false,
         evaluatedAtIso,
@@ -259,7 +273,15 @@ export class AiAgentPlatformHealthAlertScheduler {
 
     if (currentSummary.sampleCount < minSampleCount) {
       this.logger.log(
-        `agent-platform-alerts: skipped due to insufficient samples sampleCount=${currentSummary.sampleCount} min=${minSampleCount}`,
+        serializeStructuredLog({
+          event:
+            'agent_platform_health_alert_check_skipped_insufficient_samples',
+          runCorrelationId,
+          sampleCount: currentSummary.sampleCount,
+          minSampleCount,
+          windowHours,
+          baselineWindowHours,
+        }),
       );
       return finalizeResult({
         alertsEnabled: true,
@@ -285,7 +307,14 @@ export class AiAgentPlatformHealthAlertScheduler {
     });
     if (!alertAssessment.severity) {
       this.logger.log(
-        `agent-platform-alerts: no alert currentState healthy sampleCount=${currentSummary.sampleCount}`,
+        serializeStructuredLog({
+          event: 'agent_platform_health_alert_check_no_alert',
+          runCorrelationId,
+          sampleCount: currentSummary.sampleCount,
+          reasons: alertAssessment.reasons,
+          windowHours,
+          baselineWindowHours,
+        }),
       );
       return finalizeResult({
         alertsEnabled: true,
@@ -304,7 +333,12 @@ export class AiAgentPlatformHealthAlertScheduler {
     const recipientUserIds = await this.resolveRecipientUserIds();
     if (!recipientUserIds.length) {
       this.logger.warn(
-        `agent-platform-alerts: no recipients configured severity=${alertAssessment.severity}`,
+        serializeStructuredLog({
+          event: 'agent_platform_health_alert_check_no_recipients',
+          runCorrelationId,
+          severity: alertAssessment.severity,
+          reasons: alertAssessment.reasons,
+        }),
       );
       return finalizeResult({
         alertsEnabled: true,
@@ -367,7 +401,14 @@ export class AiAgentPlatformHealthAlertScheduler {
     }
 
     this.logger.warn(
-      `agent-platform-alerts: evaluated severity=${alertAssessment.severity} recipients=${recipientUserIds.length} published=${publishedCount}`,
+      serializeStructuredLog({
+        event: 'agent_platform_health_alert_check_evaluated',
+        runCorrelationId,
+        severity: alertAssessment.severity,
+        recipientCount: recipientUserIds.length,
+        publishedCount,
+        reasons: alertAssessment.reasons,
+      }),
     );
     return finalizeResult({
       alertsEnabled: true,
@@ -670,6 +711,7 @@ export class AiAgentPlatformHealthAlertScheduler {
     retentionDays: number;
     executedAtIso: string;
   }> {
+    const runCorrelationId = resolveCorrelationId(undefined);
     const retentionDays = this.normalizeAlertRunRetentionDays(
       input?.retentionDays,
     );
@@ -682,7 +724,13 @@ export class AiAgentPlatformHealthAlertScheduler {
     const deletedRuns = Number(deleteResult.affected || 0);
     const executedAtIso = new Date().toISOString();
     this.logger.log(
-      `agent-platform-alerts: run retention purge deleted=${deletedRuns} retentionDays=${retentionDays}`,
+      serializeStructuredLog({
+        event: 'agent_platform_health_alert_run_retention_purge_completed',
+        runCorrelationId,
+        deletedRuns,
+        retentionDays,
+        executedAtIso,
+      }),
     );
     return {
       deletedRuns,
@@ -1118,6 +1166,7 @@ export class AiAgentPlatformHealthAlertScheduler {
       errorRateWarnPercent: number;
       latencyWarnMs: number;
     },
+    runCorrelationId?: string,
   ): Promise<void> {
     try {
       await this.alertRunRepo.save(
@@ -1142,7 +1191,11 @@ export class AiAgentPlatformHealthAlertScheduler {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `agent-platform-alerts: failed persisting run snapshot: ${message}`,
+        serializeStructuredLog({
+          event: 'agent_platform_health_alert_run_persist_failed',
+          runCorrelationId: resolveCorrelationId(runCorrelationId),
+          error: message,
+        }),
       );
     }
   }

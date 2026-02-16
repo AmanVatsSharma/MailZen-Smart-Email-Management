@@ -172,6 +172,16 @@ flowchart TD
   Cooldown -->|no| Emit[Publish AI_AGENT_PLATFORM_HEALTH_ALERT]
 ```
 
+Health alert scheduler structured observability events:
+
+- `agent_platform_health_alerts_disabled`
+- `agent_platform_health_alert_check_skipped_insufficient_samples`
+- `agent_platform_health_alert_check_no_alert`
+- `agent_platform_health_alert_check_no_recipients`
+- `agent_platform_health_alert_check_evaluated`
+- `agent_platform_health_alert_run_retention_purge_completed`
+- `agent_platform_health_alert_run_persist_failed`
+
 ## Changelog
 
 - 2026-02-14: Added initial GraphQL gateway, policy enforcement, retries, and request-ID propagation.
