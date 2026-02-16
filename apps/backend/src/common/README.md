@@ -16,6 +16,8 @@ Provide shared cross-cutting backend utilities used by multiple modules
   privacy-preserving identifier fingerprints.
 - `rate-limit/request-rate-limiter.ts` — in-memory windowed request counter with
   bounded key-compaction.
+- `rate-limit/http-auth-callback-rate-limit.middleware.ts` — scoped
+  callback-path throttling middleware for OAuth callback endpoints.
 - `rate-limit/http-rate-limit.middleware.ts` — global HTTP rate-limit middleware
   that returns HTTP `429` with `retry-after` semantics.
 - `security/http-csrf-origin.middleware.ts` — cookie-session CSRF origin
@@ -38,6 +40,23 @@ Behavior:
 - emits structured warning log event `http_rate_limited` with hashed
   `clientFingerprint` instead of raw user/IP identifier
 - includes `x-rate-limit-limit`, `x-rate-limit-remaining`, and `retry-after` headers
+
+## Auth callback scoped rate limiting
+
+Configured in `main.ts` and applied before global rate limiting:
+
+- `AUTH_CALLBACK_RATE_LIMIT_ENABLED` (default `true`)
+- `AUTH_CALLBACK_RATE_LIMIT_WINDOW_MS` (default `60000`)
+- `AUTH_CALLBACK_RATE_LIMIT_MAX_REQUESTS` (default `40`)
+- `AUTH_CALLBACK_RATE_LIMIT_PATHS`
+  (default Google/Microsoft auth + provider OAuth callback paths)
+
+Behavior:
+- only throttles configured callback paths
+- emits structured warning event `http_auth_callback_rate_limited`
+- includes callback-specific response headers:
+  - `x-auth-callback-rate-limit-limit`
+  - `x-auth-callback-rate-limit-remaining`
 
 ## Global CSRF origin protection (cookie sessions)
 

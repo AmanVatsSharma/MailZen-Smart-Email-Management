@@ -33,6 +33,11 @@ Web sessions are persisted with an HttpOnly `token` cookie.
   - `AUTH_PASSWORD_RESET_RATE_LIMIT_WINDOW_MS` (default `600000`)
   - `AUTH_PASSWORD_RESET_RATE_LIMIT_MAX_REQUESTS` (default `6`)
   - `MAILZEN_SIGNUP_OTP_MAX_ATTEMPTS` (default `5`)
+- OAuth callback throttling:
+  - `AUTH_CALLBACK_RATE_LIMIT_ENABLED` (default `true`)
+  - `AUTH_CALLBACK_RATE_LIMIT_WINDOW_MS` (default `60000`)
+  - `AUTH_CALLBACK_RATE_LIMIT_MAX_REQUESTS` (default `40`)
+  - `AUTH_CALLBACK_RATE_LIMIT_PATHS` (callback route CSV)
 - Google OAuth requires:
   - `GOOGLE_CLIENT_ID`
   - `GOOGLE_CLIENT_SECRET`

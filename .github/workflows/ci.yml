@@ -61,6 +61,7 @@ jobs:
           common/sms/sms-dispatcher.util.spec.ts
           common/logging/structured-log.util.spec.ts
           common/rate-limit/request-rate-limiter.spec.ts
+          common/rate-limit/http-auth-callback-rate-limit.middleware.spec.ts
           common/rate-limit/http-rate-limit.middleware.spec.ts
           common/security/http-csrf-origin.middleware.spec.ts
           common/security/http-security-headers.middleware.spec.ts

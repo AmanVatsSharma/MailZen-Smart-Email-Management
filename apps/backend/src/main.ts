@@ -8,6 +8,7 @@ import {
   resolveCorrelationId,
   serializeStructuredLog,
 } from './common/logging/structured-log.util';
+import { createHttpAuthCallbackRateLimitMiddleware } from './common/rate-limit/http-auth-callback-rate-limit.middleware';
 import { createHttpRateLimitMiddleware } from './common/rate-limit/http-rate-limit.middleware';
 import { createHttpCsrfOriginProtectionMiddleware } from './common/security/http-csrf-origin.middleware';
 import { createHttpSecurityHeadersMiddleware } from './common/security/http-security-headers.middleware';
@@ -238,6 +239,43 @@ async function bootstrap() {
         excludedPaths: csrfExcludedPaths,
         enforceMethods: csrfEnforcedMethods,
         sessionCookieName: sessionCookieName || 'token',
+      },
+      bootstrapLogger,
+    ),
+  );
+
+  const authCallbackRateLimitEnabled = parseBooleanEnv(
+    process.env.AUTH_CALLBACK_RATE_LIMIT_ENABLED,
+    true,
+  );
+  const authCallbackRateLimitWindowMs = parsePositiveIntegerEnv(
+    process.env.AUTH_CALLBACK_RATE_LIMIT_WINDOW_MS,
+    60_000,
+    1_000,
+    60 * 60 * 1_000,
+  );
+  const authCallbackRateLimitMaxRequests = parsePositiveIntegerEnv(
+    process.env.AUTH_CALLBACK_RATE_LIMIT_MAX_REQUESTS,
+    40,
+    1,
+    5_000,
+  );
+  const authCallbackRateLimitPaths = parseCsvEnv(
+    process.env.AUTH_CALLBACK_RATE_LIMIT_PATHS,
+    [
+      '/auth/google/callback',
+      '/auth/microsoft/callback',
+      '/email-integration/google/callback',
+      '/email-integration/microsoft/callback',
+    ],
+  );
+  app.use(
+    createHttpAuthCallbackRateLimitMiddleware(
+      {
+        enabled: authCallbackRateLimitEnabled,
+        windowMs: authCallbackRateLimitWindowMs,
+        maxRequests: authCallbackRateLimitMaxRequests,
+        callbackPaths: authCallbackRateLimitPaths,
       },
       bootstrapLogger,
     ),
