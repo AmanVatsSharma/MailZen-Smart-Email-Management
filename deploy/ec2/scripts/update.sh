@@ -20,6 +20,10 @@
 #   --skip-status
 #   --status-runtime-checks
 #   --status-strict
+#   --status-skip-host-readiness
+#   --status-skip-dns-check
+#   --status-skip-ssl-check
+#   --status-skip-ports-check
 #   --ports-check-ports <p1,p2,...>
 # -----------------------------------------------------------------------------
 
@@ -38,6 +42,10 @@ VERIFY_SKIP_SSL_CHECK=false
 VERIFY_SKIP_OAUTH_CHECK=false
 STATUS_RUNTIME_CHECKS=false
 STATUS_STRICT=false
+STATUS_SKIP_HOST_READINESS=false
+STATUS_SKIP_DNS_CHECK=false
+STATUS_SKIP_SSL_CHECK=false
+STATUS_SKIP_PORTS_CHECK=false
 PORTS_CHECK_PORTS=""
 
 while [[ $# -gt 0 ]]; do
@@ -90,6 +98,22 @@ while [[ $# -gt 0 ]]; do
     STATUS_STRICT=true
     shift
     ;;
+  --status-skip-host-readiness)
+    STATUS_SKIP_HOST_READINESS=true
+    shift
+    ;;
+  --status-skip-dns-check)
+    STATUS_SKIP_DNS_CHECK=true
+    shift
+    ;;
+  --status-skip-ssl-check)
+    STATUS_SKIP_SSL_CHECK=true
+    shift
+    ;;
+  --status-skip-ports-check)
+    STATUS_SKIP_PORTS_CHECK=true
+    shift
+    ;;
   --ports-check-ports)
     PORTS_CHECK_PORTS="${2:-}"
     if [[ -z "${PORTS_CHECK_PORTS}" ]]; then
@@ -100,7 +124,7 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --skip-verify --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --preflight-config-only --deploy-dry-run --skip-status --status-runtime-checks --status-strict --ports-check-ports <p1,p2,...>"
+    log_error "Supported flags: --skip-verify --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --preflight-config-only --deploy-dry-run --skip-status --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...>"
     exit 1
     ;;
   esac
@@ -119,6 +143,14 @@ fi
 if [[ "${RUN_VERIFY}" == false ]] &&
   { [[ "${VERIFY_SKIP_SSL_CHECK}" == true ]] || [[ "${VERIFY_SKIP_OAUTH_CHECK}" == true ]] || [[ -n "${VERIFY_MAX_RETRIES}" ]] || [[ -n "${VERIFY_RETRY_SLEEP}" ]]; }; then
   log_warn "Verify-related flags were provided while --skip-verify is enabled; verify flags will be ignored."
+fi
+if [[ "${RUN_STATUS}" == false ]] &&
+  { [[ "${STATUS_RUNTIME_CHECKS}" == true ]] || [[ "${STATUS_STRICT}" == true ]] || [[ "${STATUS_SKIP_HOST_READINESS}" == true ]] || [[ "${STATUS_SKIP_DNS_CHECK}" == true ]] || [[ "${STATUS_SKIP_SSL_CHECK}" == true ]] || [[ "${STATUS_SKIP_PORTS_CHECK}" == true ]] || [[ -n "${PORTS_CHECK_PORTS}" ]]; }; then
+  log_warn "Status-related flags were provided while --skip-status is enabled; status flags will be ignored."
+fi
+if [[ "${STATUS_RUNTIME_CHECKS}" == false ]] &&
+  { [[ "${STATUS_SKIP_HOST_READINESS}" == true ]] || [[ "${STATUS_SKIP_DNS_CHECK}" == true ]] || [[ "${STATUS_SKIP_SSL_CHECK}" == true ]] || [[ "${STATUS_SKIP_PORTS_CHECK}" == true ]]; }; then
+  log_warn "Status runtime skip flags were provided without --status-runtime-checks; skip flags will be ignored."
 fi
 if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${STATUS_RUNTIME_CHECKS}" == false ]]; then
   log_warn "--ports-check-ports has no effect unless --status-runtime-checks is enabled."
@@ -165,6 +197,18 @@ if [[ "${RUN_STATUS}" == true ]]; then
   status_args=()
   if [[ "${STATUS_RUNTIME_CHECKS}" == true ]]; then
     status_args+=(--with-runtime-checks)
+    if [[ "${STATUS_SKIP_HOST_READINESS}" == true ]]; then
+      status_args+=(--skip-host-readiness)
+    fi
+    if [[ "${STATUS_SKIP_DNS_CHECK}" == true ]]; then
+      status_args+=(--skip-dns-check)
+    fi
+    if [[ "${STATUS_SKIP_SSL_CHECK}" == true ]]; then
+      status_args+=(--skip-ssl-check)
+    fi
+    if [[ "${STATUS_SKIP_PORTS_CHECK}" == true ]]; then
+      status_args+=(--skip-ports-check)
+    fi
     if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
       status_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
     fi

@@ -300,6 +300,18 @@ fi
 status_args=()
 if [[ "${STATUS_RUNTIME_CHECKS}" == true ]]; then
   status_args+=(--with-runtime-checks)
+  if [[ "${RUN_HOST_READINESS}" == false ]]; then
+    status_args+=(--skip-host-readiness)
+  fi
+  if [[ "${RUN_DNS_CHECK}" == false ]]; then
+    status_args+=(--skip-dns-check)
+  fi
+  if [[ "${RUN_SSL_CHECK}" == false ]]; then
+    status_args+=(--skip-ssl-check)
+  fi
+  if [[ "${RUN_PORTS_CHECK}" == false ]]; then
+    status_args+=(--skip-ports-check)
+  fi
   if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
     status_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
   fi

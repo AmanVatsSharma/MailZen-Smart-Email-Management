@@ -57,7 +57,7 @@ prompt_yes_no() {
 show_menu() {
   cat <<'MENU'
 =========================== MailZen EC2 Operator Menu ==========================
-1) One-command launch (setup + preflight + deploy + verify + status)
+1) One-command launch (guided flags)
 2) Bootstrap Docker on Ubuntu (run with sudo)
 3) Setup environment (.env.ec2)
 4) Preflight checks (prompt runtime options)
@@ -65,7 +65,7 @@ show_menu() {
 6) Verify deployment (smoke checks)
 7) Show status (prompt runtime/strict options)
 8) Show logs (all services)
-9) Update stack (pull + recreate + verify)
+9) Update stack (guided flags)
 10) Backup database
 11) List backups (optional latest/count filters)
 12) Prune old backups (prompt keep-count + dry-run)
@@ -104,7 +104,42 @@ while true; do
 
   case "${choice}" in
   1)
-    run_step "launch.sh"
+    launch_args=()
+    if prompt_yes_no "Skip setup step" "no"; then
+      launch_args+=(--skip-setup)
+    fi
+    if prompt_yes_no "Skip host readiness check" "no"; then
+      launch_args+=(--skip-host-readiness)
+    fi
+    if prompt_yes_no "Skip DNS check" "no"; then
+      launch_args+=(--skip-dns-check)
+    fi
+    if prompt_yes_no "Skip SSL check" "no"; then
+      launch_args+=(--skip-ssl-check)
+    fi
+    if prompt_yes_no "Skip host ports check" "no"; then
+      launch_args+=(--skip-ports-check)
+    fi
+    if prompt_yes_no "Run preflight in config-only mode" "no"; then
+      launch_args+=(--preflight-config-only)
+    fi
+    if prompt_yes_no "Run deploy in dry-run mode" "no"; then
+      launch_args+=(--deploy-dry-run)
+    fi
+    if prompt_yes_no "Skip verify step" "no"; then
+      launch_args+=(--skip-verify)
+    fi
+    if prompt_yes_no "Enable runtime checks in final status step" "no"; then
+      launch_args+=(--status-runtime-checks)
+    fi
+    if prompt_yes_no "Enable strict status mode (fail when daemon unavailable)" "no"; then
+      launch_args+=(--status-strict)
+    fi
+    launch_ports="$(prompt_with_default "Custom ports-check targets for launch flow (blank = default)" "")"
+    if [[ -n "${launch_ports}" ]]; then
+      launch_args+=(--ports-check-ports "${launch_ports}")
+    fi
+    run_step "launch.sh" "${launch_args[@]}"
     ;;
   2)
     run_step "bootstrap-ubuntu.sh"
@@ -143,7 +178,62 @@ while true; do
     run_step "logs.sh"
     ;;
   9)
-    run_step "update.sh"
+    update_args=()
+    if prompt_yes_no "Run preflight in config-only mode" "no"; then
+      update_args+=(--preflight-config-only)
+    fi
+    if prompt_yes_no "Run deploy in dry-run mode" "no"; then
+      update_args+=(--deploy-dry-run)
+    fi
+
+    if prompt_yes_no "Skip verify step" "no"; then
+      update_args+=(--skip-verify)
+    else
+      if prompt_yes_no "Skip OAuth check in verify step" "no"; then
+        update_args+=(--verify-skip-oauth-check)
+      fi
+      if prompt_yes_no "Skip SSL check in verify step" "no"; then
+        update_args+=(--verify-skip-ssl-check)
+      fi
+    fi
+
+    status_enabled=true
+    if ! prompt_yes_no "Run status step after update" "yes"; then
+      status_enabled=false
+      update_args+=(--skip-status)
+    fi
+
+    status_runtime_enabled=false
+    if [[ "${status_enabled}" == true ]]; then
+      if prompt_yes_no "Enable runtime checks in status step" "no"; then
+        status_runtime_enabled=true
+        update_args+=(--status-runtime-checks)
+        if prompt_yes_no "Skip host readiness inside status runtime checks" "no"; then
+          update_args+=(--status-skip-host-readiness)
+        fi
+        if prompt_yes_no "Skip DNS check inside status runtime checks" "yes"; then
+          update_args+=(--status-skip-dns-check)
+        fi
+        if prompt_yes_no "Skip SSL check inside status runtime checks" "yes"; then
+          update_args+=(--status-skip-ssl-check)
+        fi
+        if prompt_yes_no "Skip ports check inside status runtime checks" "no"; then
+          update_args+=(--status-skip-ports-check)
+        fi
+      fi
+      if prompt_yes_no "Enable strict status mode" "no"; then
+        update_args+=(--status-strict)
+      fi
+    fi
+
+    if [[ "${status_runtime_enabled}" == true ]]; then
+      update_ports="$(prompt_with_default "Custom ports-check targets for status runtime checks (blank = default)" "")"
+      if [[ -n "${update_ports}" ]]; then
+        update_args+=(--ports-check-ports "${update_ports}")
+      fi
+    fi
+
+    run_step "update.sh" "${update_args[@]}"
     ;;
   10)
     backup_label="$(prompt_with_default "Backup label" "manual")"

@@ -354,6 +354,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: update runtime status checks with custom ports-check targets
 ./deploy/ec2/scripts/update.sh --status-runtime-checks --ports-check-ports 80,443,8100
 
+# Optional: update runtime status checks while skipping DNS/SSL runtime probes
+./deploy/ec2/scripts/update.sh --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
+
 # 7) Optional DB backup
 ./deploy/ec2/scripts/backup-db.sh
 ./deploy/ec2/scripts/backup-db.sh --label before-release --dry-run

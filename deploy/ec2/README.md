@@ -199,6 +199,9 @@ Example:
 # Update with runtime status checks and custom port targets
 ./deploy/ec2/scripts/update.sh --status-runtime-checks --ports-check-ports 80,443,8100
 
+# Update with runtime status checks and skip expensive DNS/SSL checks
+./deploy/ec2/scripts/update.sh --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
+
 # Config-only preflight + deploy dry-run update simulation
 ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify
 
