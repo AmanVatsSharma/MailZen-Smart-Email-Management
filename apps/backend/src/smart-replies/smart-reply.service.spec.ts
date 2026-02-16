@@ -3,6 +3,7 @@
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DeleteResult, Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { SmartReplyHistory } from './entities/smart-reply-history.entity';
 import { SmartReplyProviderRouter } from './smart-reply-provider.router';
 import { SmartReplyService } from './smart-reply.service';
@@ -12,6 +13,7 @@ describe('SmartReplyService', () => {
   let service: SmartReplyService;
   let settingsRepo: jest.Mocked<Repository<SmartReplySettings>>;
   let historyRepo: jest.Mocked<Repository<SmartReplyHistory>>;
+  let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
   let providerRouter: jest.Mocked<SmartReplyProviderRouter>;
 
   beforeEach(async () => {
@@ -31,6 +33,10 @@ describe('SmartReplyService', () => {
       generateSuggestions: jest.fn(),
       getProviderHealthSnapshot: jest.fn(),
     } as unknown as jest.Mocked<SmartReplyProviderRouter>;
+    const auditLogRepoMock = {
+      create: jest.fn().mockImplementation((value) => value),
+      save: jest.fn().mockResolvedValue({} as AuditLog),
+    } as unknown as jest.Mocked<Repository<AuditLog>>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -40,6 +46,7 @@ describe('SmartReplyService', () => {
           provide: getRepositoryToken(SmartReplyHistory),
           useValue: historyRepoMock,
         },
+        { provide: getRepositoryToken(AuditLog), useValue: auditLogRepoMock },
         { provide: SmartReplyProviderRouter, useValue: providerRouterMock },
       ],
     }).compile();
@@ -47,6 +54,7 @@ describe('SmartReplyService', () => {
     service = module.get<SmartReplyService>(SmartReplyService);
     settingsRepo = module.get(getRepositoryToken(SmartReplySettings));
     historyRepo = module.get(getRepositoryToken(SmartReplyHistory));
+    auditLogRepo = module.get(getRepositoryToken(AuditLog));
     providerRouter = module.get(SmartReplyProviderRouter);
     historyRepo.create.mockImplementation(
       (value) => value as SmartReplyHistory,
@@ -192,6 +200,12 @@ describe('SmartReplyService', () => {
     expect(settingsRepo.merge).toHaveBeenCalled();
     expect(settingsRepo.save).toHaveBeenCalledWith(merged);
     expect(result).toEqual(merged);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'smart_reply_settings_updated',
+      }),
+    );
   });
 
   it('uses maxSuggestions cap when generating suggestions', async () => {
@@ -312,6 +326,12 @@ describe('SmartReplyService', () => {
 
     expect(historyRepo.delete).toHaveBeenCalledWith({ userId: 'user-1' });
     expect(result).toEqual({ purgedRows: 7 });
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'smart_reply_history_purged',
+      }),
+    );
   });
 
   it('purges smart reply history by retention policy', async () => {
@@ -392,6 +412,22 @@ describe('SmartReplyService', () => {
     ]);
     expect(payload.settings.keepHistory).toBe(true);
     expect(payload.retentionPolicy.historyLengthDays).toBe(30);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'smart_reply_data_export_requested',
+      }),
+    );
+  });
+
+  it('does not fail when audit log writes fail', async () => {
+    historyRepo.delete.mockResolvedValue({ affected: 2 } as DeleteResult);
+    auditLogRepo.save.mockRejectedValueOnce(new Error('audit unavailable'));
+
+    const result = await service.purgeHistory('user-1');
+
+    expect(result.purgedRows).toBe(2);
+    expect(historyRepo.delete).toHaveBeenCalledWith({ userId: 'user-1' });
   });
 
   it('returns provider health summary snapshot', () => {

@@ -109,6 +109,7 @@ flowchart TD
   - `smart_reply_suggestions_failed`
   - `smart_reply_history_persisted`
   - `smart_reply_history_persist_failed`
+  - `smart_reply_audit_log_write_failed`
 - Provider router events:
   - `smart_reply_provider_mode_invalid_fallback`
   - `smart_reply_provider_selected`
@@ -127,6 +128,14 @@ flowchart TD
   - Agent platform: `smart_reply_external_completed`,
     `smart_reply_external_failed_fallback`
   - Template provider: `smart_reply_template_generated`
+
+## Compliance / Audit Trail
+
+- Uses shared `AuditLog` persistence for user-managed smart-reply mutations.
+- Audit actions:
+  - `smart_reply_settings_updated`
+  - `smart_reply_history_purged`
+  - `smart_reply_data_export_requested`
 
 ## API
 

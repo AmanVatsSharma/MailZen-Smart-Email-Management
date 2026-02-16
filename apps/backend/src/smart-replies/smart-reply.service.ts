@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { SmartReplyInput } from './dto/smart-reply.input';
 import { SmartReplyHistory } from './entities/smart-reply-history.entity';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
@@ -27,8 +28,34 @@ export class SmartReplyService {
     private readonly settingsRepo: Repository<SmartReplySettings>,
     @InjectRepository(SmartReplyHistory)
     private readonly historyRepo: Repository<SmartReplyHistory>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly providerRouter: SmartReplyProviderRouter,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'smart_reply_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
 
   async generateReply(input: SmartReplyInput, userId: string): Promise<string> {
     try {
@@ -298,8 +325,16 @@ export class SmartReplyService {
 
   async purgeHistory(userId: string): Promise<{ purgedRows: number }> {
     const result = await this.historyRepo.delete({ userId });
+    const purgedRows = Number(result.affected || 0);
+    await this.writeAuditLog({
+      userId,
+      action: 'smart_reply_history_purged',
+      metadata: {
+        purgedRows,
+      },
+    });
     return {
-      purgedRows: Number(result.affected || 0),
+      purgedRows,
     };
   }
 
@@ -394,6 +429,14 @@ export class SmartReplyService {
         createdAtIso: row.createdAt.toISOString(),
       })),
     });
+    await this.writeAuditLog({
+      userId,
+      action: 'smart_reply_data_export_requested',
+      metadata: {
+        limit: exportHistoryLimit,
+        exportedHistoryRows: historyRows.length,
+      },
+    });
 
     return {
       generatedAtIso,
@@ -453,6 +496,21 @@ export class SmartReplyService {
       historyLength: input.historyLength ?? existing.historyLength,
     });
 
-    return this.settingsRepo.save(updated);
+    const savedSettings = await this.settingsRepo.save(updated);
+    const changedKeys = Object.entries(input)
+      .filter(([, value]) => value !== undefined)
+      .map(([key]) => key);
+    await this.writeAuditLog({
+      userId,
+      action: 'smart_reply_settings_updated',
+      metadata: {
+        changedKeys,
+        keepHistory: savedSettings.keepHistory,
+        historyLength: savedSettings.historyLength,
+        maxSuggestions: savedSettings.maxSuggestions,
+        aiModel: savedSettings.aiModel,
+      },
+    });
+    return savedSettings;
   }
 }
