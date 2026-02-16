@@ -356,6 +356,10 @@ The Email Module requires the following environment variables:
 ## Compliance / Audit Trail
 
 - Persisted audit actions:
+  - `email_send_requested`
+  - `email_send_scheduled`
+  - `email_sent`
+  - `email_send_failed`
   - `email_filter_created`
   - `email_filter_deleted`
   - `email_warmup_started`
@@ -364,6 +368,8 @@ The Email Module requires the following environment variables:
   - `email_template_created`
   - `email_template_updated`
   - `email_template_deleted`
+  - `email_template_sent`
+  - `email_template_send_failed`
   - `attachment_uploaded`
   - `attachment_deleted`
   - `email_marked_read`

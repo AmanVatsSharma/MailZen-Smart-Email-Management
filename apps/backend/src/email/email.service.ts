@@ -108,6 +108,16 @@ export class EmailService {
         emailId: savedEmail.id,
       }),
     );
+    await this.writeAuditLog({
+      userId,
+      action: 'email_send_requested',
+      metadata: {
+        emailId: savedEmail.id,
+        providerId: input.providerId,
+        recipientCount: input.to.length,
+        scheduled: Boolean(input.scheduledAt),
+      },
+    });
 
     // If scheduled, return early
     if (input.scheduledAt) {
@@ -118,6 +128,16 @@ export class EmailService {
           scheduledAtIso: input.scheduledAt.toISOString(),
         }),
       );
+      await this.writeAuditLog({
+        userId,
+        action: 'email_send_scheduled',
+        metadata: {
+          emailId: savedEmail.id,
+          providerId: input.providerId,
+          scheduledAtIso: input.scheduledAt.toISOString(),
+          recipientCount: input.to.length,
+        },
+      });
       return savedEmail;
     }
 
@@ -135,6 +155,15 @@ export class EmailService {
           emailId: savedEmail.id,
         }),
       );
+      await this.writeAuditLog({
+        userId,
+        action: 'email_send_failed',
+        metadata: {
+          emailId: savedEmail.id,
+          providerId: input.providerId,
+          reason: 'provider_not_found',
+        },
+      });
       throw new Error('Email provider not found');
     }
 
@@ -208,7 +237,20 @@ export class EmailService {
         }),
       );
       await this.emailRepository.update(savedEmail.id, { status: 'SENT' });
-      return this.emailRepository.findOne({ where: { id: savedEmail.id } });
+      const persistedEmail = await this.emailRepository.findOne({
+        where: { id: savedEmail.id },
+      });
+      await this.writeAuditLog({
+        userId,
+        action: 'email_sent',
+        metadata: {
+          emailId: savedEmail.id,
+          providerId: provider.id,
+          providerType: provider.type,
+          recipientCount: input.to.length,
+        },
+      });
+      return persistedEmail;
     } catch (error: unknown) {
       // Update email status on failure
       this.logger.error(
@@ -221,6 +263,16 @@ export class EmailService {
         }),
       );
       await this.emailRepository.update(savedEmail.id, { status: 'FAILED' });
+      await this.writeAuditLog({
+        userId,
+        action: 'email_send_failed',
+        metadata: {
+          emailId: savedEmail.id,
+          providerId: provider.id,
+          providerType: provider.type,
+          error: error instanceof Error ? error.message : 'unknown send error',
+        },
+      });
       throw error;
     }
   }
@@ -247,48 +299,69 @@ export class EmailService {
         recipientCount: to.length,
       }),
     );
-
-    const emailResponse: unknown = await this.mailerService.sendMail({
-      to: to.join(','),
-      subject: context.subject,
-      template,
-      context,
-    });
-    const normalizedEmailResponse =
-      emailResponse &&
-      typeof emailResponse === 'object' &&
-      !Array.isArray(emailResponse)
-        ? (emailResponse as Record<string, unknown>)
-        : {};
-    const responseHtml =
-      typeof normalizedEmailResponse.html === 'string'
-        ? normalizedEmailResponse.html
-        : '';
-    const responseFrom =
-      typeof normalizedEmailResponse.from === 'string'
-        ? normalizedEmailResponse.from
-        : '';
-
-    const savedEmail = this.emailRepository.create({
-      subject: context.subject,
-      body: responseHtml,
-      from: responseFrom,
-      to,
-      status: 'SENT',
-      userId,
-    });
-
-    const result = await this.emailRepository.save(savedEmail);
-    this.logger.log(
-      serializeStructuredLog({
-        event: 'email_template_send_completed',
-        userId,
-        emailId: result.id,
+    try {
+      const emailResponse: unknown = await this.mailerService.sendMail({
+        to: to.join(','),
+        subject: context.subject,
         template,
-      }),
-    );
+        context,
+      });
+      const normalizedEmailResponse =
+        emailResponse &&
+        typeof emailResponse === 'object' &&
+        !Array.isArray(emailResponse)
+          ? (emailResponse as Record<string, unknown>)
+          : {};
+      const responseHtml =
+        typeof normalizedEmailResponse.html === 'string'
+          ? normalizedEmailResponse.html
+          : '';
+      const responseFrom =
+        typeof normalizedEmailResponse.from === 'string'
+          ? normalizedEmailResponse.from
+          : '';
 
-    return result;
+      const savedEmail = this.emailRepository.create({
+        subject: context.subject,
+        body: responseHtml,
+        from: responseFrom,
+        to,
+        status: 'SENT',
+        userId,
+      });
+
+      const result = await this.emailRepository.save(savedEmail);
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'email_template_send_completed',
+          userId,
+          emailId: result.id,
+          template,
+        }),
+      );
+      await this.writeAuditLog({
+        userId,
+        action: 'email_template_sent',
+        metadata: {
+          emailId: result.id,
+          template,
+          recipientCount: to.length,
+        },
+      });
+
+      return result;
+    } catch (error) {
+      await this.writeAuditLog({
+        userId,
+        action: 'email_template_send_failed',
+        metadata: {
+          template,
+          recipientCount: to.length,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+      throw error;
+    }
   }
 
   private addClickTracking(html: string, emailId: string): string {
