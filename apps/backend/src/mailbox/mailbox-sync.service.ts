@@ -1619,6 +1619,67 @@ export class MailboxSyncService {
     };
   }
 
+  async exportMailboxSyncIncidentDataForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const targetUserId = String(input.targetUserId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!targetUserId) {
+      throw new BadRequestException('Target user id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+    const normalizedMailboxId = String(input.mailboxId || '').trim() || null;
+    const normalizedWorkspaceId =
+      String(input.workspaceId || '').trim() || null;
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'mailbox_sync_incident_data_export_admin_start',
+        actorUserId,
+        targetUserId,
+        mailboxId: normalizedMailboxId,
+        workspaceId: normalizedWorkspaceId,
+      }),
+    );
+    const exportPayload = await this.exportMailboxSyncIncidentDataForUser({
+      userId: targetUserId,
+      mailboxId: normalizedMailboxId,
+      workspaceId: normalizedWorkspaceId,
+      windowHours: input.windowHours ?? null,
+      bucketMinutes: input.bucketMinutes ?? null,
+    });
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'mailbox_sync_incident_data_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        mailboxId: normalizedMailboxId,
+        workspaceId: normalizedWorkspaceId,
+        generatedAtIso: exportPayload.generatedAtIso,
+        selfRequested: actorUserId === targetUserId,
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'mailbox_sync_incident_data_export_admin_completed',
+        actorUserId,
+        targetUserId,
+        mailboxId: normalizedMailboxId,
+        workspaceId: normalizedWorkspaceId,
+      }),
+    );
+    return exportPayload;
+  }
+
   async getMailboxSyncIncidentAlertDeliveryStatsForUser(input: {
     userId: string;
     workspaceId?: string | null;
@@ -1801,6 +1862,62 @@ export class MailboxSyncService {
     };
   }
 
+  async exportMailboxSyncIncidentAlertHistoryDataForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    limit?: number | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const targetUserId = String(input.targetUserId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!targetUserId) {
+      throw new BadRequestException('Target user id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+    const normalizedWorkspaceId =
+      String(input.workspaceId || '').trim() || null;
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'mailbox_sync_incident_alert_history_export_admin_start',
+        actorUserId,
+        targetUserId,
+        workspaceId: normalizedWorkspaceId,
+      }),
+    );
+    const exportPayload =
+      await this.exportMailboxSyncIncidentAlertHistoryDataForUser({
+        userId: targetUserId,
+        workspaceId: normalizedWorkspaceId,
+        windowHours: input.windowHours ?? null,
+        limit: input.limit ?? null,
+      });
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'mailbox_sync_incident_alert_history_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        workspaceId: normalizedWorkspaceId,
+        generatedAtIso: exportPayload.generatedAtIso,
+        selfRequested: actorUserId === targetUserId,
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'mailbox_sync_incident_alert_history_export_admin_completed',
+        actorUserId,
+        targetUserId,
+        workspaceId: normalizedWorkspaceId,
+      }),
+    );
+    return exportPayload;
+  }
+
   async getMailboxSyncIncidentAlertDeliverySeriesForUser(input: {
     userId: string;
     workspaceId?: string | null;
@@ -1948,6 +2065,62 @@ export class MailboxSyncService {
         })),
       }),
     };
+  }
+
+  async exportMailboxSyncIncidentAlertDeliveryDataForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const targetUserId = String(input.targetUserId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!targetUserId) {
+      throw new BadRequestException('Target user id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+    const normalizedWorkspaceId =
+      String(input.workspaceId || '').trim() || null;
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'mailbox_sync_incident_alert_delivery_export_admin_start',
+        actorUserId,
+        targetUserId,
+        workspaceId: normalizedWorkspaceId,
+      }),
+    );
+    const exportPayload =
+      await this.exportMailboxSyncIncidentAlertDeliveryDataForUser({
+        userId: targetUserId,
+        workspaceId: normalizedWorkspaceId,
+        windowHours: input.windowHours ?? null,
+        bucketMinutes: input.bucketMinutes ?? null,
+      });
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'mailbox_sync_incident_alert_delivery_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        workspaceId: normalizedWorkspaceId,
+        generatedAtIso: exportPayload.generatedAtIso,
+        selfRequested: actorUserId === targetUserId,
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'mailbox_sync_incident_alert_delivery_export_admin_completed',
+        actorUserId,
+        targetUserId,
+        workspaceId: normalizedWorkspaceId,
+      }),
+    );
+    return exportPayload;
   }
 
   async exportMailboxSyncDataForUser(input: {

@@ -983,6 +983,94 @@ describe('MailboxSyncService', () => {
     );
   });
 
+  it('exports mailbox sync incident analytics payload for admin legal workflows', async () => {
+    const incidentStatsSpy = jest
+      .spyOn(service, 'getMailboxSyncIncidentStatsForUser')
+      .mockResolvedValue({
+        mailboxId: 'mailbox-2',
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        totalRuns: 4,
+        incidentRuns: 1,
+        failedRuns: 1,
+        partialRuns: 0,
+        incidentRatePercent: 25,
+        lastIncidentAtIso: '2026-02-16T01:00:00.000Z',
+      });
+    const incidentSeriesSpy = jest
+      .spyOn(service, 'getMailboxSyncIncidentSeriesForUser')
+      .mockResolvedValue([]);
+
+    const exported = await service.exportMailboxSyncIncidentDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      mailboxId: 'mailbox-2',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+
+    expect(incidentStatsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+      }),
+    );
+    expect(incidentSeriesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+      }),
+    );
+    expect(exported.generatedAtIso).toBeTruthy();
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'mailbox_sync_incident_data_export_requested_by_admin',
+        metadata: expect.objectContaining({
+          targetUserId: 'user-2',
+        }),
+      }),
+    );
+  });
+
+  it('does not fail admin mailbox sync incident export when admin audit write fails', async () => {
+    jest.spyOn(service, 'getMailboxSyncIncidentStatsForUser').mockResolvedValue({
+      mailboxId: null,
+      workspaceId: null,
+      windowHours: 24,
+      totalRuns: 0,
+      incidentRuns: 0,
+      failedRuns: 0,
+      partialRuns: 0,
+      incidentRatePercent: 0,
+      lastIncidentAtIso: undefined,
+    });
+    jest.spyOn(service, 'getMailboxSyncIncidentSeriesForUser').mockResolvedValue(
+      [],
+    );
+    auditLogRepo.save
+      .mockResolvedValueOnce({ id: 'audit-log-1' } as AuditLog)
+      .mockRejectedValueOnce(new Error('audit datastore unavailable'));
+
+    const exported = await service.exportMailboxSyncIncidentDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+
+    expect(exported.generatedAtIso).toBeTruthy();
+    expect(exported.dataJson).toContain('"stats"');
+  });
+
+  it('rejects admin mailbox sync incident export when actor user id is missing', async () => {
+    await expect(
+      service.exportMailboxSyncIncidentDataForAdmin({
+        targetUserId: 'user-2',
+        actorUserId: '',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('returns mailbox sync incident alert delivery stats', async () => {
     notificationRepo.find.mockResolvedValue([
       {
@@ -1098,6 +1186,38 @@ describe('MailboxSyncService', () => {
     );
   });
 
+  it('exports mailbox sync incident alert history payload for admin legal workflows', async () => {
+    const alertsSpy = jest
+      .spyOn(service, 'getMailboxSyncIncidentAlertsForUser')
+      .mockResolvedValue([]);
+
+    const exported = await service.exportMailboxSyncIncidentAlertHistoryDataForAdmin(
+      {
+        targetUserId: 'user-2',
+        actorUserId: 'admin-1',
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        limit: 50,
+      },
+    );
+
+    expect(alertsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+      }),
+    );
+    expect(exported.generatedAtIso).toBeTruthy();
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'mailbox_sync_incident_alert_history_export_requested_by_admin',
+        metadata: expect.objectContaining({
+          targetUserId: 'user-2',
+        }),
+      }),
+    );
+  });
+
   it('returns mailbox sync incident alert delivery series', async () => {
     notificationRepo.find.mockResolvedValue([
       {
@@ -1165,6 +1285,53 @@ describe('MailboxSyncService', () => {
       expect.objectContaining({
         userId: 'user-1',
         action: 'mailbox_sync_incident_alert_delivery_export_requested',
+      }),
+    );
+  });
+
+  it('exports mailbox sync incident alert delivery payload for admin legal workflows', async () => {
+    const statsSpy = jest
+      .spyOn(service, 'getMailboxSyncIncidentAlertDeliveryStatsForUser')
+      .mockResolvedValue({
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        totalCount: 0,
+        warningCount: 0,
+        criticalCount: 0,
+        lastAlertAtIso: undefined,
+      });
+    const seriesSpy = jest
+      .spyOn(service, 'getMailboxSyncIncidentAlertDeliverySeriesForUser')
+      .mockResolvedValue([]);
+
+    const exported =
+      await service.exportMailboxSyncIncidentAlertDeliveryDataForAdmin({
+        targetUserId: 'user-2',
+        actorUserId: 'admin-1',
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        bucketMinutes: 60,
+      });
+
+    expect(statsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+      }),
+    );
+    expect(seriesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+      }),
+    );
+    expect(exported.generatedAtIso).toBeTruthy();
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action:
+          'mailbox_sync_incident_alert_delivery_export_requested_by_admin',
+        metadata: expect.objectContaining({
+          targetUserId: 'user-2',
+        }),
       }),
     );
   });

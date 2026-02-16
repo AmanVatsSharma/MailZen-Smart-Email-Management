@@ -363,6 +363,28 @@ export class MailboxResolver {
     });
   }
 
+  @Query(() => MailboxSyncIncidentDataExportResponse)
+  @UseGuards(AdminGuard)
+  async userMailboxSyncIncidentDataExport(
+    @Context() ctx: RequestContext,
+    @Args('userId') userId: string,
+    @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<MailboxSyncIncidentDataExportResponse> {
+    return this.mailboxSyncService.exportMailboxSyncIncidentDataForAdmin({
+      targetUserId: userId,
+      actorUserId: ctx.req.user.id,
+      mailboxId: mailboxId || null,
+      workspaceId: workspaceId || null,
+      windowHours: windowHours ?? null,
+      bucketMinutes: bucketMinutes ?? null,
+    });
+  }
+
   @Query(() => MailboxSyncIncidentAlertConfigResponse)
   myMailboxSyncIncidentAlertConfig(): MailboxSyncIncidentAlertConfigResponse {
     return this.mailboxSyncIncidentScheduler.getIncidentAlertConfigSnapshot();
@@ -451,6 +473,27 @@ export class MailboxResolver {
     );
   }
 
+  @Query(() => MailboxSyncIncidentAlertHistoryDataExportResponse)
+  @UseGuards(AdminGuard)
+  async userMailboxSyncIncidentAlertHistoryDataExport(
+    @Context() ctx: RequestContext,
+    @Args('userId') userId: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+  ): Promise<MailboxSyncIncidentAlertHistoryDataExportResponse> {
+    return this.mailboxSyncService.exportMailboxSyncIncidentAlertHistoryDataForAdmin(
+      {
+        targetUserId: userId,
+        actorUserId: ctx.req.user.id,
+        workspaceId: workspaceId || null,
+        windowHours: windowHours ?? null,
+        limit: limit ?? null,
+      },
+    );
+  }
+
   @Query(() => [MailboxSyncIncidentAlertDeliveryTrendPointResponse])
   async myMailboxSyncIncidentAlertDeliverySeries(
     @Context() ctx: RequestContext,
@@ -482,6 +525,28 @@ export class MailboxResolver {
     return this.mailboxSyncService.exportMailboxSyncIncidentAlertDeliveryDataForUser(
       {
         userId: ctx.req.user.id,
+        workspaceId: workspaceId || null,
+        windowHours: windowHours ?? null,
+        bucketMinutes: bucketMinutes ?? null,
+      },
+    );
+  }
+
+  @Query(() => MailboxSyncIncidentAlertDeliveryDataExportResponse)
+  @UseGuards(AdminGuard)
+  async userMailboxSyncIncidentAlertDeliveryDataExport(
+    @Context() ctx: RequestContext,
+    @Args('userId') userId: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<MailboxSyncIncidentAlertDeliveryDataExportResponse> {
+    return this.mailboxSyncService.exportMailboxSyncIncidentAlertDeliveryDataForAdmin(
+      {
+        targetUserId: userId,
+        actorUserId: ctx.req.user.id,
         workspaceId: workspaceId || null,
         windowHours: windowHours ?? null,
         bucketMinutes: bucketMinutes ?? null,

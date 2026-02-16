@@ -50,12 +50,15 @@ This module covers:
     - `myMailboxSyncIncidentStats(mailboxId?: String, workspaceId?: String, windowHours?: Int): MailboxSyncIncidentStatsResponse!`
     - `myMailboxSyncIncidentSeries(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxSyncIncidentTrendPointResponse!]!`
     - `myMailboxSyncIncidentDataExport(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): MailboxSyncIncidentDataExportResponse!`
+    - `userMailboxSyncIncidentDataExport(userId: String!, mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): MailboxSyncIncidentDataExportResponse!` (admin)
     - `myMailboxSyncIncidentAlertConfig: MailboxSyncIncidentAlertConfigResponse!`
     - `myMailboxSyncIncidentAlertDeliveryStats(workspaceId?: String, windowHours?: Int): MailboxSyncIncidentAlertDeliveryStatsResponse!`
     - `myMailboxSyncIncidentAlerts(workspaceId?: String, windowHours?: Int, limit?: Int): [MailboxSyncIncidentAlertResponse!]!`
     - `myMailboxSyncIncidentAlertHistoryDataExport(workspaceId?: String, windowHours?: Int, limit?: Int): MailboxSyncIncidentAlertHistoryDataExportResponse!`
+    - `userMailboxSyncIncidentAlertHistoryDataExport(userId: String!, workspaceId?: String, windowHours?: Int, limit?: Int): MailboxSyncIncidentAlertHistoryDataExportResponse!` (admin)
     - `myMailboxSyncIncidentAlertDeliverySeries(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxSyncIncidentAlertDeliveryTrendPointResponse!]!`
     - `myMailboxSyncIncidentAlertDeliveryDataExport(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): MailboxSyncIncidentAlertDeliveryDataExportResponse!`
+    - `userMailboxSyncIncidentAlertDeliveryDataExport(userId: String!, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): MailboxSyncIncidentAlertDeliveryDataExportResponse!` (admin)
     - `runMyMailboxInboundSlaAlertCheck(windowHours?: Int): MailboxInboundSlaAlertCheckResponse!`
     - `runMyMailboxSyncIncidentAlertCheck(windowHours?: Int, warningRatePercent?: Float, criticalRatePercent?: Float, minIncidentRuns?: Int): MailboxSyncIncidentAlertCheckResponse!`
     - `myMailboxSyncDataExport(mailboxId?: String, workspaceId?: String, limit?: Int, windowHours?: Int, bucketMinutes?: Int): MailboxSyncDataExportResponse!`
@@ -406,6 +409,8 @@ flowchart TD
   - returns bucketed failed/partial sync incident trend points for alert dashboards
 - `myMailboxSyncIncidentDataExport`
   - exports sync incident analytics snapshot (stats + trend) as JSON payload
+- `userMailboxSyncIncidentDataExport` (admin)
+  - exports target-user sync incident analytics snapshot for legal/compliance workflows
 - `runMyMailboxInboundSlaAlertCheck`
   - evaluates current user mailbox inbound SLA status on-demand for a rolling window
   - returns current counters/rates/thresholds, status reason, and whether alert conditions are met
@@ -420,10 +425,14 @@ flowchart TD
   - returns recent emitted sync incident alert notifications with incident metadata context
 - `myMailboxSyncIncidentAlertHistoryDataExport`
   - exports recent sync incident alert history as JSON payload
+- `userMailboxSyncIncidentAlertHistoryDataExport` (admin)
+  - exports target-user sync incident alert history as JSON payload for legal/compliance workflows
 - `myMailboxSyncIncidentAlertDeliverySeries`
   - returns bucketed delivery trend for emitted sync incident alerts
 - `myMailboxSyncIncidentAlertDeliveryDataExport`
   - exports sync incident alert delivery analytics snapshot (stats + trend)
+- `userMailboxSyncIncidentAlertDeliveryDataExport` (admin)
+  - exports target-user sync incident alert delivery analytics snapshot for legal/compliance workflows
 - `myMailboxSyncDataExport`
   - exports sync run observability payload (stats + trend + recent runs) as JSON
 - `userMailboxSyncDataExport` (admin)
@@ -468,6 +477,12 @@ flowchart TD
   - `mailbox_sync_audit_log_write_failed`
   - `mailbox_sync_data_export_admin_start`
   - `mailbox_sync_data_export_admin_completed`
+  - `mailbox_sync_incident_data_export_admin_start`
+  - `mailbox_sync_incident_data_export_admin_completed`
+  - `mailbox_sync_incident_alert_history_export_admin_start`
+  - `mailbox_sync_incident_alert_history_export_admin_completed`
+  - `mailbox_sync_incident_alert_delivery_export_admin_start`
+  - `mailbox_sync_incident_alert_delivery_export_admin_completed`
 - `MailboxSyncRunRetentionScheduler` emits audit resilience event:
   - `mailbox_sync_run_retention_scheduler_audit_log_write_failed`
 - `MailboxInboundRetentionScheduler` emits audit resilience event:
@@ -501,8 +516,11 @@ flowchart TD
   - `mailbox_sync_data_export_requested`
   - `mailbox_sync_data_export_requested_by_admin`
   - `mailbox_sync_incident_data_export_requested`
+  - `mailbox_sync_incident_data_export_requested_by_admin`
   - `mailbox_sync_incident_alert_history_export_requested`
+  - `mailbox_sync_incident_alert_history_export_requested_by_admin`
   - `mailbox_sync_incident_alert_delivery_export_requested`
+  - `mailbox_sync_incident_alert_delivery_export_requested_by_admin`
   - `mailbox_inbound_sla_alert_check_requested`
   - `mailbox_sync_incident_alert_check_requested`
 

@@ -30,11 +30,14 @@ describe('MailboxResolver', () => {
     getMailboxSyncIncidentStatsForUser: jest.fn(),
     getMailboxSyncIncidentSeriesForUser: jest.fn(),
     exportMailboxSyncIncidentDataForUser: jest.fn(),
+    exportMailboxSyncIncidentDataForAdmin: jest.fn(),
     getMailboxSyncIncidentAlertDeliveryStatsForUser: jest.fn(),
     getMailboxSyncIncidentAlertsForUser: jest.fn(),
     exportMailboxSyncIncidentAlertHistoryDataForUser: jest.fn(),
+    exportMailboxSyncIncidentAlertHistoryDataForAdmin: jest.fn(),
     getMailboxSyncIncidentAlertDeliverySeriesForUser: jest.fn(),
     exportMailboxSyncIncidentAlertDeliveryDataForUser: jest.fn(),
+    exportMailboxSyncIncidentAlertDeliveryDataForAdmin: jest.fn(),
     purgeMailboxSyncRunRetentionData: jest.fn(),
   };
   const mailboxSyncIncidentSchedulerMock = {
@@ -610,6 +613,36 @@ describe('MailboxResolver', () => {
     expect(result.generatedAtIso).toBe('2026-02-16T00:00:00.000Z');
   });
 
+  it('exports mailbox sync incident analytics payload for target user as admin', async () => {
+    mailboxSyncServiceMock.exportMailboxSyncIncidentDataForAdmin.mockResolvedValue(
+      {
+        generatedAtIso: '2026-02-16T01:00:00.000Z',
+        dataJson: '{"stats":{"incidentRuns":3}}',
+      },
+    );
+
+    const result = await resolver.userMailboxSyncIncidentDataExport(
+      ctx as any,
+      'user-2',
+      'mailbox-2',
+      'workspace-1',
+      24,
+      60,
+    );
+
+    expect(
+      mailboxSyncServiceMock.exportMailboxSyncIncidentDataForAdmin,
+    ).toHaveBeenCalledWith({
+      targetUserId: 'user-2',
+      actorUserId: 'user-1',
+      mailboxId: 'mailbox-2',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+    expect(result.generatedAtIso).toBe('2026-02-16T01:00:00.000Z');
+  });
+
   it('returns mailbox sync incident alert config snapshot', () => {
     mailboxSyncIncidentSchedulerMock.getIncidentAlertConfigSnapshot.mockReturnValue(
       {
@@ -804,6 +837,34 @@ describe('MailboxResolver', () => {
     expect(result.generatedAtIso).toBe('2026-02-16T00:00:00.000Z');
   });
 
+  it('exports mailbox sync incident alert history payload for target user as admin', async () => {
+    mailboxSyncServiceMock.exportMailboxSyncIncidentAlertHistoryDataForAdmin.mockResolvedValue(
+      {
+        generatedAtIso: '2026-02-16T01:00:00.000Z',
+        dataJson: '{"alertCount":2}',
+      },
+    );
+
+    const result = await resolver.userMailboxSyncIncidentAlertHistoryDataExport(
+      ctx as any,
+      'user-2',
+      'workspace-1',
+      24,
+      50,
+    );
+
+    expect(
+      mailboxSyncServiceMock.exportMailboxSyncIncidentAlertHistoryDataForAdmin,
+    ).toHaveBeenCalledWith({
+      targetUserId: 'user-2',
+      actorUserId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      limit: 50,
+    });
+    expect(result.generatedAtIso).toBe('2026-02-16T01:00:00.000Z');
+  });
+
   it('returns mailbox sync incident alert delivery series for current user', async () => {
     mailboxSyncServiceMock.getMailboxSyncIncidentAlertDeliverySeriesForUser.mockResolvedValue(
       [
@@ -858,6 +919,34 @@ describe('MailboxResolver', () => {
       bucketMinutes: 60,
     });
     expect(result.generatedAtIso).toBe('2026-02-16T00:00:00.000Z');
+  });
+
+  it('exports mailbox sync incident alert delivery payload for target user as admin', async () => {
+    mailboxSyncServiceMock.exportMailboxSyncIncidentAlertDeliveryDataForAdmin.mockResolvedValue(
+      {
+        generatedAtIso: '2026-02-16T01:00:00.000Z',
+        dataJson: '{"stats":{"totalCount":5}}',
+      },
+    );
+
+    const result = await resolver.userMailboxSyncIncidentAlertDeliveryDataExport(
+      ctx as any,
+      'user-2',
+      'workspace-1',
+      24,
+      60,
+    );
+
+    expect(
+      mailboxSyncServiceMock.exportMailboxSyncIncidentAlertDeliveryDataForAdmin,
+    ).toHaveBeenCalledWith({
+      targetUserId: 'user-2',
+      actorUserId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+    expect(result.generatedAtIso).toBe('2026-02-16T01:00:00.000Z');
   });
 
   it('triggers mailbox pull sync for current user', async () => {
