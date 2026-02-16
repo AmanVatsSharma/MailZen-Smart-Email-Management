@@ -37,8 +37,12 @@ Primary flow:
   ./deploy/ec2/scripts/preflight.sh
   ./deploy/ec2/scripts/preflight.sh --with-runtime-checks --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/deploy.sh
+  ./deploy/ec2/scripts/deploy.sh --no-build --pull --force-recreate
+  ./deploy/ec2/scripts/deploy.sh --config-only
   ./deploy/ec2/scripts/verify.sh
+  ./deploy/ec2/scripts/verify.sh --max-retries 10 --retry-sleep 5
   ./deploy/ec2/scripts/verify.sh --skip-oauth-check
+  ./deploy/ec2/scripts/verify.sh --require-oauth-check
   ./deploy/ec2/scripts/status.sh
   ./deploy/ec2/scripts/status.sh --with-runtime-checks
   ./deploy/ec2/scripts/status.sh --with-runtime-checks --ports-check-ports 80,443,8100
@@ -66,6 +70,7 @@ Operations:
   ./deploy/ec2/scripts/update.sh --status-runtime-checks --status-skip-host-readiness --status-skip-ports-check
   ./deploy/ec2/scripts/logs.sh backend
   ./deploy/ec2/scripts/logs.sh --service backend --tail 500 --no-follow
+  ./deploy/ec2/scripts/logs.sh --service backend --since 30m --no-follow
   ./deploy/ec2/scripts/restart.sh backend
   ./deploy/ec2/scripts/restart.sh --service backend --wait-seconds 5
   ./deploy/ec2/scripts/stop.sh
