@@ -693,6 +693,29 @@ type AgentPlatformHealthAlertRunHistoryDataExportResponse {
   dataJson: String!
 }
 
+type AgentPlatformHealthAlertRunTrendSummaryResponse {
+  windowHours: Int!
+  runCount: Int!
+  alertsEnabledRunCount: Int!
+  noAlertRunCount: Int!
+  warningRunCount: Int!
+  criticalRunCount: Int!
+  totalRecipients: Int!
+  totalPublished: Int!
+  avgPublishedPerRun: Float!
+  latestEvaluatedAtIso: String
+}
+
+type AgentPlatformHealthAlertRunTrendPointResponse {
+  bucketStartIso: String!
+  runCount: Int!
+  noAlertRunCount: Int!
+  warningRunCount: Int!
+  criticalRunCount: Int!
+  totalRecipients: Int!
+  totalPublished: Int!
+}
+
 type AgentPlatformHealthAlertRunRetentionPurgeResponse {
   deletedRuns: Int!
   retentionDays: Int!
@@ -1207,6 +1230,13 @@ extend type Query {
     limit: Int
     windowHours: Int
   ): AgentPlatformHealthAlertRunHistoryDataExportResponse!
+  agentPlatformHealthAlertRunTrendSummary(
+    windowHours: Int
+  ): AgentPlatformHealthAlertRunTrendSummaryResponse!
+  agentPlatformHealthAlertRunTrendSeries(
+    windowHours: Int
+    bucketMinutes: Int
+  ): [AgentPlatformHealthAlertRunTrendPointResponse!]!
   myWorkspaces: [Workspace!]!
   myActiveWorkspace: Workspace
   myWorkspaceDataExport(workspaceId: String!): WorkspaceDataExportResponse!

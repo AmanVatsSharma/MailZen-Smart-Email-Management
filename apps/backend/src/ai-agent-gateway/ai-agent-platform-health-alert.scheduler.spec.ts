@@ -497,6 +497,139 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     ]);
   });
 
+  it('returns aggregated trend summary for persisted alert runs', async () => {
+    alertRunRepo.find.mockResolvedValue([
+      {
+        alertsEnabled: true,
+        severity: 'CRITICAL',
+        reasons: ['critical-samples-detected'],
+        windowHours: 6,
+        baselineWindowHours: 72,
+        cooldownMinutes: 60,
+        minSampleCount: 4,
+        anomalyMultiplier: 2,
+        anomalyMinErrorDeltaPercent: 1,
+        anomalyMinLatencyDeltaMs: 150,
+        errorRateWarnPercent: 5,
+        latencyWarnMs: 1500,
+        recipientCount: 2,
+        publishedCount: 2,
+        evaluatedAt: new Date('2026-02-16T02:00:00.000Z'),
+      },
+      {
+        alertsEnabled: true,
+        severity: 'WARNING',
+        reasons: ['warn-samples-detected'],
+        windowHours: 6,
+        baselineWindowHours: 72,
+        cooldownMinutes: 60,
+        minSampleCount: 4,
+        anomalyMultiplier: 2,
+        anomalyMinErrorDeltaPercent: 1,
+        anomalyMinLatencyDeltaMs: 150,
+        errorRateWarnPercent: 5,
+        latencyWarnMs: 1500,
+        recipientCount: 3,
+        publishedCount: 1,
+        evaluatedAt: new Date('2026-02-16T01:00:00.000Z'),
+      },
+      {
+        alertsEnabled: true,
+        severity: null,
+        reasons: ['insufficient-samples'],
+        windowHours: 6,
+        baselineWindowHours: 72,
+        cooldownMinutes: 60,
+        minSampleCount: 4,
+        anomalyMultiplier: 2,
+        anomalyMinErrorDeltaPercent: 1,
+        anomalyMinLatencyDeltaMs: 150,
+        errorRateWarnPercent: 5,
+        latencyWarnMs: 1500,
+        recipientCount: 0,
+        publishedCount: 0,
+        evaluatedAt: new Date('2026-02-16T00:00:00.000Z'),
+      },
+    ] as unknown as AgentPlatformHealthAlertRun[]);
+
+    const summary = await scheduler.getAlertRunTrendSummary({
+      windowHours: 24,
+    });
+
+    expect(summary).toEqual(
+      expect.objectContaining({
+        runCount: 3,
+        warningRunCount: 1,
+        criticalRunCount: 1,
+        noAlertRunCount: 1,
+        totalRecipients: 5,
+        totalPublished: 3,
+        avgPublishedPerRun: 1,
+        latestEvaluatedAtIso: '2026-02-16T02:00:00.000Z',
+      }),
+    );
+  });
+
+  it('returns bucketed trend series for persisted alert runs', async () => {
+    const now = Date.now();
+    alertRunRepo.find.mockResolvedValue([
+      {
+        alertsEnabled: true,
+        severity: 'WARNING',
+        reasons: ['warn-samples-detected'],
+        windowHours: 6,
+        baselineWindowHours: 72,
+        cooldownMinutes: 60,
+        minSampleCount: 4,
+        anomalyMultiplier: 2,
+        anomalyMinErrorDeltaPercent: 1,
+        anomalyMinLatencyDeltaMs: 150,
+        errorRateWarnPercent: 5,
+        latencyWarnMs: 1500,
+        recipientCount: 2,
+        publishedCount: 1,
+        evaluatedAt: new Date(now - 58 * 60 * 1000),
+      },
+      {
+        alertsEnabled: true,
+        severity: 'CRITICAL',
+        reasons: ['critical-samples-detected'],
+        windowHours: 6,
+        baselineWindowHours: 72,
+        cooldownMinutes: 60,
+        minSampleCount: 4,
+        anomalyMultiplier: 2,
+        anomalyMinErrorDeltaPercent: 1,
+        anomalyMinLatencyDeltaMs: 150,
+        errorRateWarnPercent: 5,
+        latencyWarnMs: 1500,
+        recipientCount: 3,
+        publishedCount: 3,
+        evaluatedAt: new Date(now - 12 * 60 * 1000),
+      },
+    ] as unknown as AgentPlatformHealthAlertRun[]);
+
+    const series = await scheduler.getAlertRunTrendSeries({
+      windowHours: 1,
+      bucketMinutes: 15,
+    });
+
+    expect(series.length).toBeGreaterThan(0);
+    expect(series.some((point) => point.runCount > 0)).toBe(true);
+    const nonEmptyBucket:
+      | {
+          runCount: number;
+          totalPublished: number;
+        }
+      | undefined = series.find((point) => point.runCount > 0);
+    expect(nonEmptyBucket).toBeDefined();
+    if (!nonEmptyBucket) {
+      throw new Error('Expected non-empty alert-run trend bucket');
+    }
+    expect(nonEmptyBucket.runCount).toBeGreaterThan(0);
+    expect(nonEmptyBucket.totalPublished).toBeGreaterThanOrEqual(0);
+  });
+
   it('exports persisted alert run history as JSON payload', async () => {
     alertRunRepo.find.mockResolvedValue([
       {

@@ -42,6 +42,7 @@ export class AiAgentPlatformHealthAlertScheduler {
   private static readonly DEFAULT_ALERT_RUN_HISTORY_LIMIT = 100;
   private static readonly MAX_ALERT_RUN_HISTORY_LIMIT = 2000;
   private static readonly DEFAULT_ALERT_RUN_RETENTION_DAYS = 120;
+  private static readonly MAX_ALERT_RUN_TREND_SCAN = 5000;
   private readonly logger = new Logger(
     AiAgentPlatformHealthAlertScheduler.name,
   );
@@ -463,6 +464,168 @@ export class AiAgentPlatformHealthAlertScheduler {
         runs: history,
       }),
     };
+  }
+
+  async getAlertRunTrendSummary(input?: {
+    windowHours?: number | null;
+  }): Promise<{
+    windowHours: number;
+    runCount: number;
+    alertsEnabledRunCount: number;
+    noAlertRunCount: number;
+    warningRunCount: number;
+    criticalRunCount: number;
+    totalRecipients: number;
+    totalPublished: number;
+    avgPublishedPerRun: number;
+    latestEvaluatedAtIso?: string;
+  }> {
+    const windowHours = this.normalizeAlertDeliveryWindowHours(
+      input?.windowHours,
+    );
+    const windowStartDate = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const rows = await this.alertRunRepo.find({
+      where: {
+        evaluatedAt: MoreThanOrEqual(windowStartDate),
+      },
+      order: {
+        evaluatedAt: 'DESC',
+      },
+      take: AiAgentPlatformHealthAlertScheduler.MAX_ALERT_RUN_TREND_SCAN,
+    });
+    let alertsEnabledRunCount = 0;
+    let noAlertRunCount = 0;
+    let warningRunCount = 0;
+    let criticalRunCount = 0;
+    let totalRecipients = 0;
+    let totalPublished = 0;
+
+    for (const row of rows) {
+      if (row.alertsEnabled) {
+        alertsEnabledRunCount += 1;
+      }
+      const severity = this.resolveRunSeverity(row.severity);
+      if (severity === 'CRITICAL') {
+        criticalRunCount += 1;
+      } else if (severity === 'WARNING') {
+        warningRunCount += 1;
+      } else {
+        noAlertRunCount += 1;
+      }
+      totalRecipients += Number(row.recipientCount || 0);
+      totalPublished += Number(row.publishedCount || 0);
+    }
+    return {
+      windowHours,
+      runCount: rows.length,
+      alertsEnabledRunCount,
+      noAlertRunCount,
+      warningRunCount,
+      criticalRunCount,
+      totalRecipients,
+      totalPublished,
+      avgPublishedPerRun:
+        rows.length > 0 ? Number((totalPublished / rows.length).toFixed(2)) : 0,
+      latestEvaluatedAtIso: rows[0]?.evaluatedAt?.toISOString(),
+    };
+  }
+
+  async getAlertRunTrendSeries(input?: {
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<
+    Array<{
+      bucketStartIso: string;
+      runCount: number;
+      noAlertRunCount: number;
+      warningRunCount: number;
+      criticalRunCount: number;
+      totalRecipients: number;
+      totalPublished: number;
+    }>
+  > {
+    const windowHours = this.normalizeAlertDeliveryWindowHours(
+      input?.windowHours,
+    );
+    const bucketMinutes = this.normalizeAlertDeliveryBucketMinutes(
+      input?.bucketMinutes,
+    );
+    const bucketMs = bucketMinutes * 60 * 1000;
+    const nowMs = Date.now();
+    const windowStartMs = nowMs - windowHours * 60 * 60 * 1000;
+    const windowStartDate = new Date(windowStartMs);
+    const rows = await this.alertRunRepo.find({
+      where: {
+        evaluatedAt: MoreThanOrEqual(windowStartDate),
+      },
+      order: {
+        evaluatedAt: 'ASC',
+      },
+      take: AiAgentPlatformHealthAlertScheduler.MAX_ALERT_RUN_TREND_SCAN,
+    });
+    const bucketMap = new Map<
+      number,
+      {
+        runCount: number;
+        noAlertRunCount: number;
+        warningRunCount: number;
+        criticalRunCount: number;
+        totalRecipients: number;
+        totalPublished: number;
+      }
+    >();
+    for (const row of rows) {
+      const bucketStartMs =
+        Math.floor(row.evaluatedAt.getTime() / bucketMs) * bucketMs;
+      const entry = bucketMap.get(bucketStartMs) || {
+        runCount: 0,
+        noAlertRunCount: 0,
+        warningRunCount: 0,
+        criticalRunCount: 0,
+        totalRecipients: 0,
+        totalPublished: 0,
+      };
+      entry.runCount += 1;
+      const severity = this.resolveRunSeverity(row.severity);
+      if (severity === 'CRITICAL') {
+        entry.criticalRunCount += 1;
+      } else if (severity === 'WARNING') {
+        entry.warningRunCount += 1;
+      } else {
+        entry.noAlertRunCount += 1;
+      }
+      entry.totalRecipients += Number(row.recipientCount || 0);
+      entry.totalPublished += Number(row.publishedCount || 0);
+      bucketMap.set(bucketStartMs, entry);
+    }
+    const normalizedWindowStartMs =
+      Math.floor(windowStartMs / bucketMs) * bucketMs;
+    const series: Array<{
+      bucketStartIso: string;
+      runCount: number;
+      noAlertRunCount: number;
+      warningRunCount: number;
+      criticalRunCount: number;
+      totalRecipients: number;
+      totalPublished: number;
+    }> = [];
+    for (
+      let cursor = normalizedWindowStartMs;
+      cursor <= nowMs;
+      cursor += bucketMs
+    ) {
+      const bucket = bucketMap.get(cursor);
+      series.push({
+        bucketStartIso: new Date(cursor).toISOString(),
+        runCount: bucket?.runCount || 0,
+        noAlertRunCount: bucket?.noAlertRunCount || 0,
+        warningRunCount: bucket?.warningRunCount || 0,
+        criticalRunCount: bucket?.criticalRunCount || 0,
+        totalRecipients: bucket?.totalRecipients || 0,
+        totalPublished: bucket?.totalPublished || 0,
+      });
+    }
+    return series;
   }
 
   async purgeAlertRunRetentionData(input?: {
@@ -900,6 +1063,15 @@ export class AiAgentPlatformHealthAlertScheduler {
       }
     }
     return normalizedReasons;
+  }
+
+  private resolveRunSeverity(value?: string | null): AlertSeverity | null {
+    const normalized = String(value || '')
+      .trim()
+      .toUpperCase();
+    if (normalized === 'CRITICAL') return 'CRITICAL';
+    if (normalized === 'WARNING') return 'WARNING';
+    return null;
   }
 
   private async persistAlertRun(

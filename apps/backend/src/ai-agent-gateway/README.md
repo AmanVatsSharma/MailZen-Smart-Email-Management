@@ -60,6 +60,10 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - returns persisted scheduler-run snapshots for alert audit and troubleshooting.
   - `agentPlatformHealthAlertRunHistoryDataExport(limit?, windowHours?)`
   - returns JSON export payload of persisted scheduler-run snapshots.
+  - `agentPlatformHealthAlertRunTrendSummary(windowHours?)`
+  - returns aggregate run-outcome trend rollup from persisted scheduler snapshots.
+  - `agentPlatformHealthAlertRunTrendSeries(windowHours?, bucketMinutes?)`
+  - returns bucketed run-outcome trend points from persisted scheduler snapshots.
   - `runAgentPlatformHealthAlertCheck(windowHours?, baselineWindowHours?, cooldownMinutes?, minSampleCount?)`
   - runs anomaly detection on-demand and returns publish diagnostics.
   - `purgeAgentPlatformHealthAlertRunRetentionData(retentionDays?)`
@@ -188,3 +192,4 @@ flowchart TD
 - 2026-02-16: Added persisted health alert scheduler run history query for auditability.
 - 2026-02-16: Added alert-run retention purge API + daily auto-purge scheduler.
 - 2026-02-16: Added alert-run history JSON export query for external reporting pipelines.
+- 2026-02-16: Added persisted alert-run trend summary + bucketed trend series queries.

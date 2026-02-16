@@ -22,6 +22,8 @@ describe('AiAgentGatewayResolver', () => {
     runHealthAlertCheck: jest.fn(),
     getAlertConfigSnapshot: jest.fn(),
     getAlertRunHistory: jest.fn(),
+    getAlertRunTrendSummary: jest.fn(),
+    getAlertRunTrendSeries: jest.fn(),
     exportAlertRunHistoryData: jest.fn(),
     purgeAlertRunRetentionData: jest.fn(),
     getAlertDeliveryStats: jest.fn(),
@@ -512,6 +514,63 @@ describe('AiAgentGatewayResolver', () => {
         generatedAtIso: '2026-02-16T00:00:00.000Z',
       }),
     );
+  });
+
+  it('delegates agentPlatformHealthAlertRunTrendSummary to health alert scheduler', async () => {
+    healthAlertScheduler.getAlertRunTrendSummary.mockResolvedValue({
+      windowHours: 24,
+      runCount: 10,
+      alertsEnabledRunCount: 10,
+      noAlertRunCount: 4,
+      warningRunCount: 3,
+      criticalRunCount: 3,
+      totalRecipients: 20,
+      totalPublished: 15,
+      avgPublishedPerRun: 1.5,
+      latestEvaluatedAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    const result = await resolver.agentPlatformHealthAlertRunTrendSummary(24);
+
+    expect(healthAlertScheduler.getAlertRunTrendSummary).toHaveBeenCalledWith({
+      windowHours: 24,
+    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        runCount: 10,
+        criticalRunCount: 3,
+      }),
+    );
+  });
+
+  it('delegates agentPlatformHealthAlertRunTrendSeries to health alert scheduler', async () => {
+    healthAlertScheduler.getAlertRunTrendSeries.mockResolvedValue([
+      {
+        bucketStartIso: '2026-02-16T00:00:00.000Z',
+        runCount: 3,
+        noAlertRunCount: 1,
+        warningRunCount: 1,
+        criticalRunCount: 1,
+        totalRecipients: 6,
+        totalPublished: 4,
+      },
+    ]);
+
+    const result = await resolver.agentPlatformHealthAlertRunTrendSeries(
+      24,
+      60,
+    );
+
+    expect(healthAlertScheduler.getAlertRunTrendSeries).toHaveBeenCalledWith({
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+    expect(result).toEqual([
+      expect.objectContaining({
+        runCount: 3,
+        totalPublished: 4,
+      }),
+    ]);
   });
 
   it('forwards user context to myAgentActionDataExport', async () => {

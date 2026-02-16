@@ -29,6 +29,10 @@ import {
   AgentPlatformHealthAlertDeliveryTrendPointResponse,
 } from './dto/agent-platform-health-alert-delivery-stats.response';
 import { AgentPlatformHealthAlertRunResponse } from './dto/agent-platform-health-alert-run.response';
+import {
+  AgentPlatformHealthAlertRunTrendPointResponse,
+  AgentPlatformHealthAlertRunTrendSummaryResponse,
+} from './dto/agent-platform-health-alert-run-trend.response';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
 import { AgentPlatformHealthIncidentDataExportResponse } from './dto/agent-platform-health-incident-data-export.response';
 import { AgentPlatformHealthSampleDataExportResponse } from './dto/agent-platform-health-sample-data-export.response';
@@ -280,6 +284,37 @@ export class AiAgentGatewayResolver {
     return this.healthAlertScheduler.exportAlertRunHistoryData({
       limit,
       windowHours,
+    });
+  }
+
+  @Query(() => AgentPlatformHealthAlertRunTrendSummaryResponse, {
+    description:
+      'Get aggregated trend summary over persisted AI platform health alert runs',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async agentPlatformHealthAlertRunTrendSummary(
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+  ): Promise<AgentPlatformHealthAlertRunTrendSummaryResponse> {
+    return this.healthAlertScheduler.getAlertRunTrendSummary({
+      windowHours,
+    });
+  }
+
+  @Query(() => [AgentPlatformHealthAlertRunTrendPointResponse], {
+    description:
+      'Get bucketed trend points over persisted AI platform health alert runs',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async agentPlatformHealthAlertRunTrendSeries(
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<AgentPlatformHealthAlertRunTrendPointResponse[]> {
+    return this.healthAlertScheduler.getAlertRunTrendSeries({
+      windowHours,
+      bucketMinutes,
     });
   }
 
