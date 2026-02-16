@@ -45,8 +45,9 @@ export class FeatureResolver {
   @UseGuards(AdminGuard)
   createFeature(
     @Args('createFeatureInput') createFeatureInput: CreateFeatureInput,
+    @Context() ctx: RequestContext,
   ): Promise<Feature> {
-    return this.featureService.createFeature(createFeatureInput);
+    return this.featureService.createFeature(createFeatureInput, ctx.req.user.id);
   }
 
   @Mutation(() => Feature, { description: 'Update a feature' })
@@ -54,14 +55,18 @@ export class FeatureResolver {
   @UseGuards(AdminGuard)
   updateFeature(
     @Args('updateFeatureInput') updateFeatureInput: UpdateFeatureInput,
+    @Context() ctx: RequestContext,
   ): Promise<Feature> {
-    return this.featureService.updateFeature(updateFeatureInput);
+    return this.featureService.updateFeature(updateFeatureInput, ctx.req.user.id);
   }
 
   @Mutation(() => Feature, { description: 'Delete a feature' })
   @SetMetadata('roles', ['ADMIN'])
   @UseGuards(AdminGuard)
-  deleteFeature(@Args('id') id: string): Promise<Feature> {
-    return this.featureService.deleteFeature(id);
+  deleteFeature(
+    @Args('id') id: string,
+    @Context() ctx: RequestContext,
+  ): Promise<Feature> {
+    return this.featureService.deleteFeature(id, ctx.req.user.id);
   }
 }

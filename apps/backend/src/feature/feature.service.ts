@@ -2,22 +2,70 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
+import {
+  fingerprintIdentifier,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 import { Feature } from './entities/feature.entity';
 import { CreateFeatureInput } from './dto/create-feature.input';
 import { UpdateFeatureInput } from './dto/update-feature.input';
 
 @Injectable()
 export class FeatureService {
+  private readonly logger = new Logger(FeatureService.name);
+
   constructor(
     @InjectRepository(Feature)
     private readonly featureRepo: Repository<Feature>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
   ) {}
 
-  async createFeature(input: CreateFeatureInput): Promise<Feature> {
+  private resolveTargetValueForAudit(feature: Feature): string | null {
+    const normalizedTargetValue = this.normalizeTargetValue(feature.targetValue);
+    if (!normalizedTargetValue) {
+      return null;
+    }
+    if (feature.targetType === 'USER') {
+      return fingerprintIdentifier(normalizedTargetValue);
+    }
+    return normalizedTargetValue;
+  }
+
+  private async writeAuditLog(input: {
+    userId?: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'feature_audit_log_write_failed',
+          userId: input.userId || null,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
+
+  async createFeature(
+    input: CreateFeatureInput,
+    actorUserId?: string,
+  ): Promise<Feature> {
     const existing = await this.featureRepo.findOne({
       where: { name: input.name },
     });
@@ -36,7 +84,20 @@ export class FeatureService {
         input.rolloutPercentage,
       ),
     });
-    return this.featureRepo.save(feature);
+    const savedFeature = await this.featureRepo.save(feature);
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'feature_flag_created',
+      metadata: {
+        featureId: savedFeature.id,
+        name: savedFeature.name,
+        isActive: savedFeature.isActive,
+        targetType: savedFeature.targetType,
+        targetValue: this.resolveTargetValueForAudit(savedFeature),
+        rolloutPercentage: savedFeature.rolloutPercentage,
+      },
+    });
+    return savedFeature;
   }
 
   async getAllFeatures(): Promise<Feature[]> {
@@ -53,8 +114,15 @@ export class FeatureService {
     return feature;
   }
 
-  async updateFeature(input: UpdateFeatureInput): Promise<Feature> {
+  async updateFeature(
+    input: UpdateFeatureInput,
+    actorUserId?: string,
+  ): Promise<Feature> {
     const feature = await this.getFeatureById(input.id);
+    const changedFields = Object.entries(input)
+      .filter(([key, value]) => key !== 'id' && typeof value !== 'undefined')
+      .map(([key]) => key)
+      .sort();
     if (input.name !== undefined) {
       feature.name = input.name;
     }
@@ -72,12 +140,38 @@ export class FeatureService {
         input.rolloutPercentage,
       );
     }
-    return this.featureRepo.save(feature);
+    const savedFeature = await this.featureRepo.save(feature);
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'feature_flag_updated',
+      metadata: {
+        featureId: savedFeature.id,
+        name: savedFeature.name,
+        changedFields,
+        isActive: savedFeature.isActive,
+        targetType: savedFeature.targetType,
+        targetValue: this.resolveTargetValueForAudit(savedFeature),
+        rolloutPercentage: savedFeature.rolloutPercentage,
+      },
+    });
+    return savedFeature;
   }
 
-  async deleteFeature(id: string): Promise<Feature> {
+  async deleteFeature(id: string, actorUserId?: string): Promise<Feature> {
     const feature = await this.getFeatureById(id);
     await this.featureRepo.remove(feature);
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'feature_flag_deleted',
+      metadata: {
+        featureId: feature.id,
+        name: feature.name,
+        isActive: feature.isActive,
+        targetType: feature.targetType,
+        targetValue: this.resolveTargetValueForAudit(feature),
+        rolloutPercentage: feature.rolloutPercentage,
+      },
+    });
     return feature;
   }
 

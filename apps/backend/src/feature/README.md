@@ -212,3 +212,15 @@ export class Feature {
 - GraphQL
 - JWT Authentication
 - Role-based Authorization 
+
+## Observability (structured events)
+
+- `FeatureService` emits resilient audit warning event:
+  - `feature_audit_log_write_failed`
+
+## Compliance / Audit Trail
+
+- Persisted audit actions:
+  - `feature_flag_created`
+  - `feature_flag_updated`
+  - `feature_flag_deleted`
