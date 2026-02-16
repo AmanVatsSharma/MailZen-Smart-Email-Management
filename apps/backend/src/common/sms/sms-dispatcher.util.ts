@@ -1,8 +1,14 @@
 import * as crypto from 'crypto';
+import { Logger } from '@nestjs/common';
+import {
+  fingerprintIdentifier,
+  serializeStructuredLog,
+} from '../logging/structured-log.util';
 
 type SmsDispatchPurpose = 'SIGNUP_OTP' | 'PHONE_VERIFY_OTP';
 type SmsProvider = 'CONSOLE' | 'WEBHOOK' | 'TWILIO' | 'DISABLED';
 type ActiveSmsProvider = Exclude<SmsProvider, 'DISABLED'>;
+const smsLogger = new Logger('SmsDispatcher');
 
 export type SmsDispatchInput = {
   phoneNumber: string;
@@ -183,8 +189,12 @@ async function dispatchViaTwilio(
 }
 
 function dispatchViaConsole(input: SmsDispatchInput): SmsDispatchResult {
-  console.log(
-    `[SmsDispatcher] OTP (${input.purpose}) for ${input.phoneNumber}: ${input.code}`,
+  smsLogger.log(
+    serializeStructuredLog({
+      event: 'sms_dispatch_console_delivered',
+      purpose: input.purpose,
+      phoneFingerprint: fingerprintIdentifier(input.phoneNumber),
+    }),
   );
   return {
     delivered: true,
@@ -263,8 +273,15 @@ export async function dispatchSmsOtp(
       const hasFallback = index < providerChain.length - 1;
       if (hasFallback) {
         const nextProvider = providerChain[index + 1];
-        console.warn(
-          `[SmsDispatcher] Provider ${activeProvider} failed; attempting fallback provider ${nextProvider}. message=${lastErrorMessage}`,
+        smsLogger.warn(
+          serializeStructuredLog({
+            event: 'sms_dispatch_provider_fallback_attempt',
+            provider: activeProvider,
+            nextProvider,
+            reason: lastErrorMessage,
+            purpose: input.purpose,
+            phoneFingerprint: fingerprintIdentifier(input.phoneNumber),
+          }),
         );
       }
     }
@@ -272,8 +289,14 @@ export async function dispatchSmsOtp(
   if (strictDelivery) {
     throw new Error(`SMS delivery failed: ${lastErrorMessage}`);
   }
-  console.warn(
-    `[SmsDispatcher] Non-strict delivery failure: ${lastErrorMessage}`,
+  smsLogger.warn(
+    serializeStructuredLog({
+      event: 'sms_dispatch_non_strict_failure',
+      provider: lastProvider,
+      reason: lastErrorMessage,
+      purpose: input.purpose,
+      phoneFingerprint: fingerprintIdentifier(input.phoneNumber),
+    }),
   );
   return {
     delivered: false,

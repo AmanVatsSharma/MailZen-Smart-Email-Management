@@ -79,3 +79,8 @@ flowchart TD
 - If `MAILZEN_SMS_FALLBACK_PROVIDER` is set and different from primary provider,
   dispatcher retries OTP delivery once on fallback provider before final failure.
 - Webhook integrations should verify signing headers before accepting OTP dispatch payloads.
+- Structured observability events:
+  - `sms_dispatch_console_delivered`
+  - `sms_dispatch_provider_fallback_attempt`
+  - `sms_dispatch_non_strict_failure`
+- SMS logs use phone-number fingerprints and never include raw OTP values.

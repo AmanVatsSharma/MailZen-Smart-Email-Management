@@ -104,9 +104,7 @@ describe('dispatchSmsOtp', () => {
     }
   });
 
-  it('logs OTP in console mode by default', async () => {
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-
+  it('returns delivered result in console mode by default', async () => {
     const result = await dispatchSmsOtp({
       phoneNumber: '+15550000000',
       code: '123456',
@@ -117,9 +115,6 @@ describe('dispatchSmsOtp', () => {
       delivered: true,
       provider: 'CONSOLE',
     });
-    expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining('OTP (SIGNUP_OTP)'),
-    );
   });
 
   it('dispatches webhook request when provider is WEBHOOK', async () => {
