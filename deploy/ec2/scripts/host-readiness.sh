@@ -22,6 +22,12 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 MIN_DISK_GB=10
 MIN_MEMORY_MB=2048
 MIN_CPU_CORES=2
+MIN_DISK_FLAG_SET=false
+MIN_DISK_FLAG_VALUE=""
+MIN_MEMORY_FLAG_SET=false
+MIN_MEMORY_FLAG_VALUE=""
+MIN_CPU_FLAG_SET=false
+MIN_CPU_FLAG_VALUE=""
 
 assert_positive_integer() {
   local flag_name="$1"
@@ -35,27 +41,45 @@ assert_positive_integer() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --min-disk-gb)
-    MIN_DISK_GB="${2:-}"
-    if [[ -z "${MIN_DISK_GB}" ]]; then
+    min_disk_arg="${2:-}"
+    if [[ -z "${min_disk_arg}" ]]; then
       log_error "--min-disk-gb requires a value."
       exit 1
     fi
+    if [[ "${MIN_DISK_FLAG_SET}" == true ]] && [[ "${min_disk_arg}" != "${MIN_DISK_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --min-disk-gb '${MIN_DISK_FLAG_VALUE}' overridden by --min-disk-gb '${min_disk_arg}'."
+    fi
+    MIN_DISK_GB="${min_disk_arg}"
+    MIN_DISK_FLAG_SET=true
+    MIN_DISK_FLAG_VALUE="${min_disk_arg}"
     shift 2
     ;;
   --min-memory-mb)
-    MIN_MEMORY_MB="${2:-}"
-    if [[ -z "${MIN_MEMORY_MB}" ]]; then
+    min_memory_arg="${2:-}"
+    if [[ -z "${min_memory_arg}" ]]; then
       log_error "--min-memory-mb requires a value."
       exit 1
     fi
+    if [[ "${MIN_MEMORY_FLAG_SET}" == true ]] && [[ "${min_memory_arg}" != "${MIN_MEMORY_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --min-memory-mb '${MIN_MEMORY_FLAG_VALUE}' overridden by --min-memory-mb '${min_memory_arg}'."
+    fi
+    MIN_MEMORY_MB="${min_memory_arg}"
+    MIN_MEMORY_FLAG_SET=true
+    MIN_MEMORY_FLAG_VALUE="${min_memory_arg}"
     shift 2
     ;;
   --min-cpu-cores)
-    MIN_CPU_CORES="${2:-}"
-    if [[ -z "${MIN_CPU_CORES}" ]]; then
+    min_cpu_arg="${2:-}"
+    if [[ -z "${min_cpu_arg}" ]]; then
       log_error "--min-cpu-cores requires a value."
       exit 1
     fi
+    if [[ "${MIN_CPU_FLAG_SET}" == true ]] && [[ "${min_cpu_arg}" != "${MIN_CPU_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --min-cpu-cores '${MIN_CPU_FLAG_VALUE}' overridden by --min-cpu-cores '${min_cpu_arg}'."
+    fi
+    MIN_CPU_CORES="${min_cpu_arg}"
+    MIN_CPU_FLAG_SET=true
+    MIN_CPU_FLAG_VALUE="${min_cpu_arg}"
     shift 2
     ;;
   *)
