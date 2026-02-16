@@ -344,6 +344,8 @@ The Email Module requires the following environment variables:
   - `email_filter_audit_log_write_failed`
 - `EmailWarmupService` emits resilient audit warning event:
   - `email_warmup_audit_log_write_failed`
+- `EmailTemplateService` emits resilient audit warning event:
+  - `email_template_audit_log_write_failed`
 
 ## Compliance / Audit Trail
 
@@ -353,6 +355,9 @@ The Email Module requires the following environment variables:
   - `email_warmup_started`
   - `email_warmup_resumed`
   - `email_warmup_paused`
+  - `email_template_created`
+  - `email_template_updated`
+  - `email_template_deleted`
 
 ## Best Practices
 

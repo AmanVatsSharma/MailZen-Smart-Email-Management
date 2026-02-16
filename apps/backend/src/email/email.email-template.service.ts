@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 import {
   CreateEmailTemplateInput,
   UpdateEmailTemplateInput,
@@ -9,10 +11,38 @@ import { Template } from '../template/entities/template.entity';
 
 @Injectable()
 export class EmailTemplateService {
+  private readonly logger = new Logger(EmailTemplateService.name);
+
   constructor(
     @InjectRepository(Template)
     private readonly templateRepo: Repository<Template>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'email_template_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
 
   async createTemplate(
     input: CreateEmailTemplateInput,
@@ -25,7 +55,16 @@ export class EmailTemplateService {
       metadata: input.metadata ?? undefined,
       userId,
     });
-    return this.templateRepo.save(entity);
+    const savedTemplate = await this.templateRepo.save(entity);
+    await this.writeAuditLog({
+      userId,
+      action: 'email_template_created',
+      metadata: {
+        templateId: savedTemplate.id,
+        templateName: savedTemplate.name,
+      },
+    });
+    return savedTemplate;
   }
 
   async updateTemplate(
@@ -39,10 +78,23 @@ export class EmailTemplateService {
       throw new NotFoundException(`Template with ID ${id} not found`);
     }
 
+    const changedFields = Object.entries(input)
+      .filter(([, value]) => typeof value !== 'undefined')
+      .map(([key]) => key)
+      .sort();
     await this.templateRepo.update({ id }, { ...input } as any);
     const updated = await this.templateRepo.findOne({ where: { id, userId } });
     if (!updated)
       throw new NotFoundException(`Template with ID ${id} not found`);
+    await this.writeAuditLog({
+      userId,
+      action: 'email_template_updated',
+      metadata: {
+        templateId: updated.id,
+        templateName: updated.name,
+        changedFields,
+      },
+    });
     return updated;
   }
 
@@ -54,6 +106,14 @@ export class EmailTemplateService {
     }
 
     await this.templateRepo.delete({ id });
+    await this.writeAuditLog({
+      userId,
+      action: 'email_template_deleted',
+      metadata: {
+        templateId: template.id,
+        templateName: template.name,
+      },
+    });
     return template;
   }
 
