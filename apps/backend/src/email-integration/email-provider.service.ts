@@ -332,6 +332,18 @@ export class EmailProviderService {
       });
       return this.getProviderUi(createdId, userId);
     } catch (error: any) {
+      await this.writeAuditLog({
+        userId,
+        action: 'provider_connect_failed',
+        metadata: {
+          providerType: 'GMAIL',
+          source: 'oauth_code',
+          reason:
+            error instanceof Error
+              ? error.message
+              : 'unknown connect gmail error',
+        },
+      });
       this.logger.error(
         serializeStructuredLog({
           event: 'provider_connect_gmail_failed',
@@ -386,6 +398,18 @@ export class EmailProviderService {
 
       return this.getProviderUi(created.id, userId);
     } catch (error: any) {
+      await this.writeAuditLog({
+        userId,
+        action: 'provider_connect_failed',
+        metadata: {
+          providerType: 'GMAIL',
+          source: 'oauth_tokens',
+          reason:
+            error instanceof Error
+              ? error.message
+              : 'unknown connect gmail token error',
+        },
+      });
       this.logger.error(
         serializeStructuredLog({
           event: 'provider_connect_gmail_oauth_tokens_failed',
@@ -472,6 +496,18 @@ export class EmailProviderService {
       });
       return this.getProviderUi(createdId, userId);
     } catch (error: any) {
+      await this.writeAuditLog({
+        userId,
+        action: 'provider_connect_failed',
+        metadata: {
+          providerType: 'OUTLOOK',
+          source: 'oauth_code',
+          reason:
+            error instanceof Error
+              ? error.message
+              : 'unknown connect outlook error',
+        },
+      });
       this.logger.error(
         serializeStructuredLog({
           event: 'provider_connect_outlook_failed',
@@ -508,6 +544,18 @@ export class EmailProviderService {
       });
       return this.getProviderUi(createdId, userId);
     } catch (error: any) {
+      await this.writeAuditLog({
+        userId,
+        action: 'provider_connect_failed',
+        metadata: {
+          providerType: 'CUSTOM_SMTP',
+          source: 'smtp_settings',
+          reason:
+            error instanceof Error
+              ? error.message
+              : 'unknown connect smtp error',
+        },
+      });
       this.logger.error(
         serializeStructuredLog({
           event: 'provider_connect_smtp_failed',

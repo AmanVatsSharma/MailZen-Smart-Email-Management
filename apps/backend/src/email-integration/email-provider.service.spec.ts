@@ -228,6 +228,92 @@ describe('EmailProviderService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('records audit action when Gmail oauth code connect fails', async () => {
+    const originalGoogleClientId = process.env.GOOGLE_CLIENT_ID;
+    const originalGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const originalGoogleProviderRedirectUri =
+      process.env.GOOGLE_PROVIDER_REDIRECT_URI;
+    const originalGoogleRedirectUri = process.env.GOOGLE_REDIRECT_URI;
+
+    try {
+      delete process.env.GOOGLE_CLIENT_ID;
+      delete process.env.GOOGLE_CLIENT_SECRET;
+      delete process.env.GOOGLE_PROVIDER_REDIRECT_URI;
+      delete process.env.GOOGLE_REDIRECT_URI;
+
+      await expect(
+        service.connectGmail('oauth-code', 'user-1'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(auditLogRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user-1',
+          action: 'provider_connect_failed',
+          metadata: expect.objectContaining({
+            providerType: 'GMAIL',
+            source: 'oauth_code',
+          }),
+        }),
+      );
+    } finally {
+      process.env.GOOGLE_CLIENT_ID = originalGoogleClientId;
+      process.env.GOOGLE_CLIENT_SECRET = originalGoogleClientSecret;
+      process.env.GOOGLE_PROVIDER_REDIRECT_URI =
+        originalGoogleProviderRedirectUri;
+      process.env.GOOGLE_REDIRECT_URI = originalGoogleRedirectUri;
+    }
+  });
+
+  it('records audit action when Gmail token connect fails', async () => {
+    await expect(
+      service.connectGmailFromOAuthTokens(
+        {
+          email: '',
+          accessToken: 'token',
+        },
+        'user-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'provider_connect_failed',
+        metadata: expect.objectContaining({
+          providerType: 'GMAIL',
+          source: 'oauth_tokens',
+        }),
+      }),
+    );
+  });
+
+  it('records audit action when SMTP connect fails', async () => {
+    jest
+      .spyOn(service, 'configureProvider')
+      .mockRejectedValue(new ConflictException('provider exists'));
+
+    await expect(
+      service.connectSmtp(
+        {
+          email: 'ops@example.com',
+          username: 'ops@example.com',
+          host: 'smtp.example.com',
+          port: 587,
+          password: 'password',
+        },
+        'user-1',
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'provider_connect_failed',
+        metadata: expect.objectContaining({
+          providerType: 'CUSTOM_SMTP',
+          source: 'smtp_settings',
+        }),
+      }),
+    );
+  });
+
   it('rejects SMTP provider configuration without required fields', async () => {
     providerRepository.findOne.mockResolvedValue(null);
 

@@ -193,6 +193,7 @@ Login OAuth (backend redirect) uses:
   - `provider_audit_log_write_failed`
   - audit actions:
     - `provider_connected`
+    - `provider_connect_failed`
     - `provider_disconnected`
     - `provider_active_state_updated`
     - `provider_credentials_updated`
