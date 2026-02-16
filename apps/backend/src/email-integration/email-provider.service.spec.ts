@@ -10,6 +10,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { createTransport } from 'nodemailer';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { BillingService } from '../billing/billing.service';
 import { GmailSyncService } from '../gmail-sync/gmail-sync.service';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
@@ -51,6 +52,7 @@ describe('EmailProviderService', () => {
   let service: EmailProviderService;
   let providerRepository: jest.Mocked<Repository<EmailProvider>>;
   let notificationRepository: jest.Mocked<Repository<UserNotification>>;
+  let auditLogRepository: jest.Mocked<Repository<AuditLog>>;
   const gmailSyncServiceMock = {
     syncGmailProvider: jest.fn(),
   };
@@ -101,6 +103,10 @@ describe('EmailProviderService', () => {
     const notificationRepoMock = {
       find: jest.fn(),
     } as unknown as jest.Mocked<Repository<UserNotification>>;
+    const auditLogRepoMock = {
+      create: jest.fn(),
+      save: jest.fn(),
+    } as unknown as jest.Mocked<Repository<AuditLog>>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -109,6 +115,10 @@ describe('EmailProviderService', () => {
         {
           provide: getRepositoryToken(UserNotification),
           useValue: notificationRepoMock,
+        },
+        {
+          provide: getRepositoryToken(AuditLog),
+          useValue: auditLogRepoMock,
         },
         { provide: BillingService, useValue: billingServiceMock },
         { provide: WorkspaceService, useValue: workspaceServiceMock },
@@ -124,7 +134,14 @@ describe('EmailProviderService', () => {
     service = module.get<EmailProviderService>(EmailProviderService);
     providerRepository = module.get(getRepositoryToken(EmailProvider));
     notificationRepository = module.get(getRepositoryToken(UserNotification));
+    auditLogRepository = module.get(getRepositoryToken(AuditLog));
     providerRepository.count.mockResolvedValue(0);
+    auditLogRepository.create.mockImplementation(
+      (value: Partial<AuditLog>) => value as AuditLog,
+    );
+    auditLogRepository.save.mockResolvedValue({
+      id: 'audit-log-1',
+    } as AuditLog);
   });
 
   afterEach(() => {
@@ -166,6 +183,12 @@ describe('EmailProviderService', () => {
       }),
     );
     expect(result.type).toBe('GMAIL');
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'provider_connected',
+      }),
+    );
   });
 
   it('rejects provider creation when entitlement limit is reached', async () => {
@@ -245,6 +268,56 @@ describe('EmailProviderService', () => {
     await expect(
       service.deleteProvider('missing-provider', 'user-1'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('records provider disconnection audit log on delete', async () => {
+    providerRepository.findOne.mockResolvedValue({
+      id: 'provider-1',
+      type: 'GMAIL',
+      email: 'founder@mailzen.com',
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+    } as EmailProvider);
+    providerRepository.delete.mockResolvedValue({ affected: 1 } as never);
+
+    await expect(service.deleteProvider('provider-1', 'user-1')).resolves.toBe(
+      true,
+    );
+
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'provider_disconnected',
+      }),
+    );
+  });
+
+  it('continues provider configuration when audit log write fails', async () => {
+    const input: EmailProviderInput = {
+      autoDetect: true,
+      providerType: 'CUSTOM_SMTP',
+      email: 'ops@gmail.com',
+      accessToken: 'access-token',
+    } as EmailProviderInput;
+    const created = {
+      id: 'provider-2',
+      type: 'GMAIL',
+      email: 'ops@gmail.com',
+      accessToken: 'access-token',
+      userId: 'user-1',
+    } as EmailProvider;
+    providerRepository.findOne.mockResolvedValue(null);
+    providerRepository.create.mockReturnValue(created);
+    providerRepository.save.mockResolvedValue(created);
+    auditLogRepository.save.mockRejectedValue(
+      new Error('audit datastore unavailable'),
+    );
+
+    await expect(
+      service.configureProvider(input, 'user-1'),
+    ).resolves.toMatchObject({
+      id: 'provider-2',
+    });
   });
 
   it('updates credentials for SMTP provider', async () => {

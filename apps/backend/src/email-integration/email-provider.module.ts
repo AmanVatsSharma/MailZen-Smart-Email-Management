@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from './entities/email-provider.entity';
 import { EmailProviderService } from './email-provider.service';
 import { EmailProviderResolver } from './email-provider.resolver';
@@ -19,7 +20,7 @@ import { ProviderSyncIncidentScheduler } from './provider-sync-incident.schedule
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([EmailProvider, UserNotification]),
+    TypeOrmModule.forFeature([EmailProvider, UserNotification, AuditLog]),
     BillingModule,
     WorkspaceModule,
     NotificationModule,

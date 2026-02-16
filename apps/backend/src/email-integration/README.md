@@ -189,6 +189,9 @@ Login OAuth (backend redirect) uses:
   - `provider_validation_failed`
 - OAuth token refresh failures:
   - `provider_oauth_token_refresh_failed`
+- Compliance/audit persistence:
+  - `provider_audit_log_write_failed`
+  - audit actions: `provider_connected`, `provider_disconnected`
 
 ## Mermaid: connect provider via OAuth code
 

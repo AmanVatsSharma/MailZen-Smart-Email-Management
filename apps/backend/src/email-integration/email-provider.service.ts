@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from './entities/email-provider.entity';
 import { EmailProviderInput } from './dto/email-provider.input';
 import { SmtpSettingsInput } from './dto/smtp-settings.input';
@@ -21,6 +22,7 @@ import { NotificationEventBusService } from '../notification/notification-event-
 import { OutlookSyncService } from '../outlook-sync/outlook-sync.service';
 import { WorkspaceService } from '../workspace/workspace.service';
 import {
+  fingerprintIdentifier,
   resolveCorrelationId,
   serializeStructuredLog,
 } from '../common/logging/structured-log.util';
@@ -71,6 +73,8 @@ export class EmailProviderService {
     private readonly providerRepository: Repository<EmailProvider>,
     @InjectRepository(UserNotification)
     private readonly notificationRepository: Repository<UserNotification>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepository: Repository<AuditLog>,
     private readonly billingService: BillingService,
     private readonly workspaceService: WorkspaceService,
     private readonly gmailSyncService: GmailSyncService,
@@ -88,6 +92,31 @@ export class EmailProviderService {
 
     // Start connection pool cleanup interval
     setInterval(() => this.cleanupConnectionPool(), 15 * 60 * 1000); // Run every 15 minutes
+  }
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.auditLogRepository.save(
+        this.auditLogRepository.create({
+          userId: input.userId,
+          action: input.action,
+          metadata: input.metadata || {},
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'provider_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
   }
 
   private async resolveDefaultWorkspaceId(userId: string): Promise<string> {
@@ -1732,18 +1761,35 @@ export class EmailProviderService {
         );
       }
 
+      let configuredProvider: EmailProvider;
       switch (config.providerType) {
         case 'GMAIL':
-          return this.configureGmail(config, userId);
+          configuredProvider = await this.configureGmail(config, userId);
+          break;
         case 'OUTLOOK':
-          return this.configureOutlook(config, userId);
+          configuredProvider = await this.configureOutlook(config, userId);
+          break;
         case 'CUSTOM_SMTP':
-          return this.configureSmtp(config, userId);
+          configuredProvider = await this.configureSmtp(config, userId);
+          break;
         default:
           throw new BadRequestException(
             `Unsupported provider type: ${config.providerType}`,
           );
       }
+
+      await this.writeAuditLog({
+        userId,
+        action: 'provider_connected',
+        metadata: {
+          providerId: configuredProvider.id,
+          providerType: configuredProvider.type,
+          workspaceId: configuredProvider.workspaceId || null,
+          accountFingerprint: fingerprintIdentifier(configuredProvider.email),
+        },
+      });
+
+      return configuredProvider;
     } catch (error) {
       this.logger.error(
         serializeStructuredLog({
@@ -2009,6 +2055,16 @@ export class EmailProviderService {
 
       // Delete the provider
       await this.providerRepository.delete(id);
+      await this.writeAuditLog({
+        userId,
+        action: 'provider_disconnected',
+        metadata: {
+          providerId: provider.id,
+          providerType: provider.type,
+          workspaceId: provider.workspaceId || null,
+          accountFingerprint: fingerprintIdentifier(provider.email),
+        },
+      });
 
       return true;
     } catch (error) {
