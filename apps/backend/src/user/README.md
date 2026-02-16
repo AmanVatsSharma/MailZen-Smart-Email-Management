@@ -20,6 +20,7 @@ compliance-friendly account data exports.
 - `createUser(createUserInput)` (admin): create user
 - `updateUser(updateUserInput)` (admin): update user
 - `myAccountDataExport`: export current user account data JSON snapshot
+- `userAccountDataExport(id)` (admin): export target user account data snapshot
 
 ## Flow
 
@@ -61,6 +62,8 @@ flowchart TD
   - `user_update_completed`
   - `user_data_export_start`
   - `user_data_export_completed`
+  - `user_data_export_admin_start`
+  - `user_data_export_admin_completed`
 - Email inputs are logged as irreversible fingerprints to avoid exposing PII.
 
 ## Compliance / Audit Trail
@@ -76,3 +79,4 @@ flowchart TD
   - `user_registered`
   - `user_profile_updated`
   - `user_data_export_requested`
+  - `user_data_export_requested_by_admin`

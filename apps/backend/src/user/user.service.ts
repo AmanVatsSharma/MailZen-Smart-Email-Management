@@ -526,4 +526,43 @@ export class UserService {
     });
     return response;
   }
+
+  async exportUserDataSnapshotForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+  }): Promise<AccountDataExportResponse> {
+    const targetUserId = String(input.targetUserId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!targetUserId) {
+      throw new BadRequestException('Target user id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_data_export_admin_start',
+        actorUserId,
+        targetUserId,
+      }),
+    );
+    const response = await this.exportUserDataSnapshot(targetUserId);
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'user_data_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        selfRequested: actorUserId === targetUserId,
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_data_export_admin_completed',
+        actorUserId,
+        targetUserId,
+      }),
+    );
+    return response;
+  }
 }

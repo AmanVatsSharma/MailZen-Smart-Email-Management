@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { AuditLog } from '../auth/entities/audit-log.entity';
 import { BillingInvoice } from '../billing/entities/billing-invoice.entity';
@@ -190,5 +191,84 @@ describe('UserService', () => {
         action: 'user_data_export_requested',
       }),
     );
+  });
+
+  it('exports user account data for admin actor and records admin audit action', async () => {
+    userRepository.findOne.mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      role: 'USER',
+      isEmailVerified: true,
+      isPhoneVerified: false,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-01T00:00:00.000Z'),
+    } as User);
+    emailProviderRepository.find.mockResolvedValue([]);
+    mailboxRepository.find.mockResolvedValue([]);
+    workspaceMemberRepository.find.mockResolvedValue([]);
+    userSubscriptionRepository.findOne.mockResolvedValue(null);
+    billingInvoiceRepository.find.mockResolvedValue([]);
+    userNotificationRepository.find.mockResolvedValue([]);
+
+    const result = await service.exportUserDataSnapshotForAdmin({
+      targetUserId: 'user-1',
+      actorUserId: 'admin-1',
+    });
+
+    expect(result.generatedAtIso).toBeTruthy();
+    expect(result.dataJson).toContain('"user"');
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'user_data_export_requested',
+      }),
+    );
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'user_data_export_requested_by_admin',
+        metadata: expect.objectContaining({
+          targetUserId: 'user-1',
+        }),
+      }),
+    );
+  });
+
+  it('does not fail admin account export when admin audit write fails', async () => {
+    userRepository.findOne.mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      role: 'USER',
+      isEmailVerified: true,
+      isPhoneVerified: false,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-01T00:00:00.000Z'),
+    } as User);
+    emailProviderRepository.find.mockResolvedValue([]);
+    mailboxRepository.find.mockResolvedValue([]);
+    workspaceMemberRepository.find.mockResolvedValue([]);
+    userSubscriptionRepository.findOne.mockResolvedValue(null);
+    billingInvoiceRepository.find.mockResolvedValue([]);
+    userNotificationRepository.find.mockResolvedValue([]);
+    auditLogRepository.save
+      .mockResolvedValueOnce({} as AuditLog)
+      .mockRejectedValueOnce(new Error('audit store unavailable'));
+
+    const result = await service.exportUserDataSnapshotForAdmin({
+      targetUserId: 'user-1',
+      actorUserId: 'admin-1',
+    });
+
+    expect(result.generatedAtIso).toBeTruthy();
+    expect(result.dataJson).toContain('"user"');
+  });
+
+  it('rejects admin account export when actor user id is missing', async () => {
+    await expect(
+      service.exportUserDataSnapshotForAdmin({
+        targetUserId: 'user-1',
+        actorUserId: '',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

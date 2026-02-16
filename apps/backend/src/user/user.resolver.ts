@@ -20,6 +20,18 @@ export class UserResolver {
     return this.userService.exportUserDataSnapshot(context.req.user.id);
   }
 
+  @Query(() => AccountDataExportResponse)
+  @UseGuards(AdminGuard)
+  async userAccountDataExport(
+    @Args('id', { type: () => ID }) id: string,
+    @Context() context: { req: { user: { id: string } } },
+  ): Promise<AccountDataExportResponse> {
+    return this.userService.exportUserDataSnapshotForAdmin({
+      targetUserId: id,
+      actorUserId: context.req.user.id,
+    });
+  }
+
   @Query(() => [User])
   @UseGuards(AdminGuard)
   async users(): Promise<User[]> {
