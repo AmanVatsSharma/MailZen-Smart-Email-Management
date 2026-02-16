@@ -111,6 +111,19 @@ export class MailServerService {
     });
   }
 
+  private isExternalProvisioningRequired(): boolean {
+    const strictByDefault =
+      (process.env.NODE_ENV || 'development') === 'production';
+    const normalized = String(
+      process.env.MAILZEN_MAIL_ADMIN_REQUIRED ?? String(strictByDefault),
+    )
+      .trim()
+      .toLowerCase();
+    if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+    return strictByDefault;
+  }
+
   private resolveMailcowQuotaMb(overrideQuotaMb?: number | null): number {
     const override =
       typeof overrideQuotaMb === 'number' && Number.isFinite(overrideQuotaMb)
@@ -282,6 +295,14 @@ export class MailServerService {
   }): Promise<void> {
     const adminApiUrl = process.env.MAILZEN_MAIL_ADMIN_API_URL?.trim();
     if (!adminApiUrl) {
+      if (this.isExternalProvisioningRequired()) {
+        this.logger.error(
+          `MAILZEN_MAIL_ADMIN_API_URL missing while provisioning is required mailbox=${input.mailboxEmail}`,
+        );
+        throw new InternalServerErrorException(
+          'External mailbox provisioning endpoint is required but not configured',
+        );
+      }
       this.logger.warn(
         'MAILZEN_MAIL_ADMIN_API_URL not configured; skipping external mailbox API provisioning',
       );

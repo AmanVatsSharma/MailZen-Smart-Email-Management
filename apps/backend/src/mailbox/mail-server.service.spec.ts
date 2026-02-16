@@ -25,6 +25,7 @@ describe('MailServerService', () => {
     delete process.env.MAILZEN_MAIL_ADMIN_API_URL;
     delete process.env.MAILZEN_MAIL_ADMIN_API_TOKEN;
     delete process.env.MAILZEN_MAIL_ADMIN_PROVIDER;
+    delete process.env.MAILZEN_MAIL_ADMIN_REQUIRED;
     delete process.env.MAILZEN_MAIL_ADMIN_API_RETRIES;
     delete process.env.MAILZEN_MAIL_ADMIN_API_RETRY_BACKOFF_MS;
     delete process.env.MAILZEN_MAIL_ADMIN_API_RETRY_JITTER_MS;
@@ -60,6 +61,19 @@ describe('MailServerService', () => {
     expect(updateInput.username).toBe('sales@mailzen.com');
     expect(updateInput.passwordEnc).toEqual(expect.stringMatching(/^enc:v2:/));
     expect(updateInput.passwordIv).toBeUndefined();
+  });
+
+  it('fails provisioning when external admin API is required but not configured', async () => {
+    process.env.MAILZEN_MAIL_ADMIN_REQUIRED = 'true';
+    mailboxRepo.update.mockResolvedValue({ affected: 1 });
+    const service = new MailServerService(
+      mailboxRepo as unknown as Repository<Mailbox>,
+    );
+
+    await expect(service.provisionMailbox('user-1', 'sales')).rejects.toThrow(
+      InternalServerErrorException,
+    );
+    expect(mailboxRepo.update).not.toHaveBeenCalled();
   });
 
   it('throws when mailbox row cannot be updated', async () => {

@@ -78,13 +78,15 @@ flowchart TD
   Service --> DB1[(mailboxes insert)]
   Service --> Provision[MailServerService.provisionMailbox]
   Provision --> API{MAILZEN_MAIL_ADMIN_API_URL configured?}
+  API -->|no| Required{MAILZEN_MAIL_ADMIN_REQUIRED?}
+  Required -->|yes| Fail[Raise provisioning error]
+  Required -->|no| Skip[Local dev fallback mode]
   API -->|yes| AdminAPI[POST provider endpoint + idempotency key]
   AdminAPI --> Retry{Recoverable failure?}
   Retry -->|yes| Backoff[Retry with backoff + jitter]
   Backoff --> AdminAPI
-  Retry -->|no| Fail[Raise provisioning error]
+  Retry -->|no| Fail
   Fail --> Rollback[MailboxService deletes inserted mailbox row]
-  API -->|no| Skip[Local dev fallback mode]
   Provision --> Encrypt[Encrypt generated password with active keyring key]
   Encrypt --> DB2[(mailboxes update creds + hosts)]
   DB2 --> PersistFail{Row updated?}
@@ -110,6 +112,9 @@ flowchart TD
 
 - `MAILZEN_MAIL_ADMIN_API_URL`
   - when set, service calls provider-specific mailbox provisioning endpoint
+- `MAILZEN_MAIL_ADMIN_REQUIRED` (default `true` in production, `false` otherwise)
+  - when `true`, alias provisioning fails if `MAILZEN_MAIL_ADMIN_API_URL` is missing
+  - when `false`, service runs in local fallback mode if API URL is not configured
 - `MAILZEN_MAIL_ADMIN_API_TOKEN`
   - optional bearer token for admin API
 - `MAILZEN_MAIL_ADMIN_API_TIMEOUT_MS` (default `5000`)
@@ -197,6 +202,12 @@ flowchart TD
 
 ## Error handling behavior
 
+- If `MAILZEN_MAIL_ADMIN_API_URL` is missing:
+  - and `MAILZEN_MAIL_ADMIN_REQUIRED=true`:
+    - throws `InternalServerErrorException`
+    - mailbox credential persistence is not attempted
+  - and `MAILZEN_MAIL_ADMIN_REQUIRED=false`:
+    - provisioning continues in local fallback mode for non-production usage
 - If external admin API is configured and provisioning call fails:
   - throws `InternalServerErrorException`
   - mailbox credential persistence is skipped
