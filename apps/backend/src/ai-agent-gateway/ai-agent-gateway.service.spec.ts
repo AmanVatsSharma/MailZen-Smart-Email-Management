@@ -221,6 +221,8 @@ describe('AiAgentGatewayService', () => {
       'PASSWORD_RESET',
     );
     expect(response.executedAction?.executed).toBe(true);
+    expect(response.platformEndpointUsed).toBe('http://localhost:8100');
+    expect(response.platformAttemptCount).toBe(1);
   });
 
   it('rejects authenticated skills without a bearer token', async () => {
@@ -369,6 +371,8 @@ describe('AiAgentGatewayService', () => {
     });
 
     expect(response.assistantText).toBe('Use forgot password.');
+    expect(response.platformEndpointUsed).toBe('http://secondary-agent.local');
+    expect(response.platformAttemptCount).toBe(2);
     expect(mockedAxios.post.mock.calls[0]?.[0]).toContain(
       'http://primary-agent.local',
     );

@@ -526,6 +526,8 @@ type AgentAssistResponse {
   aiCreditsMonthlyLimit: Int
   aiCreditsUsed: Int
   aiCreditsRemaining: Int
+  platformEndpointUsed: String
+  platformAttemptCount: Int
   executedAction: AgentActionExecutionResponse
 }
 

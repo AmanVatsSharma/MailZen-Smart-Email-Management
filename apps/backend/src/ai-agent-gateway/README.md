@@ -36,6 +36,9 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - Run daily retention scheduler for stale audit rows.
 - Include current-period AI credit balance (`aiCreditsMonthlyLimit`,
   `aiCreditsUsed`, `aiCreditsRemaining`) in authenticated `agentAssist` responses.
+- Include platform execution diagnostics in `agentAssist` responses:
+  - `platformEndpointUsed`
+  - `platformAttemptCount`
 
 ## Env Variables
 

@@ -93,6 +93,12 @@ export class AgentAssistResponse {
   @Field(() => Int, { nullable: true })
   aiCreditsRemaining?: number;
 
+  @Field({ nullable: true })
+  platformEndpointUsed?: string;
+
+  @Field(() => Int, { nullable: true })
+  platformAttemptCount?: number;
+
   @Field(() => AgentActionExecutionResponse, { nullable: true })
   executedAction?: AgentActionExecutionResponse;
 }

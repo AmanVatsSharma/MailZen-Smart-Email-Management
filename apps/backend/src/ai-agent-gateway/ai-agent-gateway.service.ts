@@ -69,6 +69,12 @@ interface AgentPlatformResponse {
   safetyFlags: Array<{ code: string; severity: string; message: string }>;
 }
 
+interface AgentPlatformCallResult {
+  response: AgentPlatformResponse;
+  endpointUrl: string;
+  attemptCount: number;
+}
+
 interface GatewayRequestMeta {
   requestId?: string;
   ip?: string;
@@ -279,11 +285,12 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         }),
       );
 
-      const platformResponse = await this.callPlatform(
+      const platformCall = await this.callPlatform(
         sanitizedPayload,
         requestId,
         requestMeta?.ip,
       );
+      const platformResponse = platformCall.response;
       if (userId) {
         aiCreditBalance = await this.billingService.consumeAiCredits({
           userId,
@@ -345,6 +352,8 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         aiCreditsMonthlyLimit: aiCreditBalance?.monthlyLimit,
         aiCreditsUsed: aiCreditBalance?.usedCredits,
         aiCreditsRemaining: aiCreditBalance?.remainingCredits,
+        platformEndpointUsed: platformCall.endpointUrl,
+        platformAttemptCount: platformCall.attemptCount,
         executedAction: executedAction || undefined,
       };
     } catch (error) {
@@ -1165,7 +1174,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     payload: AgentPlatformPayload,
     requestId: string,
     ip?: string,
-  ): Promise<AgentPlatformResponse> {
+  ): Promise<AgentPlatformCallResult> {
     const baseUrls = this.orderPlatformBaseUrlsForRequest(
       this.getPlatformBaseUrls(),
       requestId,
@@ -1182,6 +1191,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     const maxRetries = Number(process.env.AI_AGENT_PLATFORM_RETRIES || 1);
     let lastError: unknown;
     let timeoutFailure = false;
+    let attemptCount = 0;
 
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
       for (
@@ -1193,6 +1203,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         if (!baseUrl) continue;
         const url = `${baseUrl}/v1/agent/respond`;
         try {
+          attemptCount += 1;
           const response = await axios.post<AgentPlatformResponse>(
             url,
             payload,
@@ -1201,7 +1212,11 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
               headers,
             },
           );
-          return response.data;
+          return {
+            response: response.data,
+            endpointUrl: baseUrl,
+            attemptCount,
+          };
         } catch (error) {
           lastError = error;
           timeoutFailure =
@@ -1234,7 +1249,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         requestId,
         finalStatus,
         timeoutFailure,
-        attemptedEndpoints: baseUrls.length * (maxRetries + 1),
+        attemptedEndpoints: attemptCount,
       }),
     );
     throw new ServiceUnavailableException({
