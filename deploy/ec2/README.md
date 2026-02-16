@@ -36,6 +36,7 @@ Additional deployment flowcharts:
   - `backup-db.sh` (database backup)
   - `backup-prune.sh` (backup retention cleanup)
   - `restore-db.sh` (database restore with confirmation)
+  - `env-audit.sh` (redacted critical env audit)
   - `status.sh`
   - `logs.sh`
   - `restart.sh`
@@ -111,6 +112,9 @@ The setup script:
 
 # Validate DNS points to a specific public IP
 ./deploy/ec2/scripts/dns-check.sh --expected-ip 203.0.113.10
+
+# Redacted audit of critical env keys
+./deploy/ec2/scripts/env-audit.sh
 
 # Validate deployment scripts syntax/executable state
 ./deploy/ec2/scripts/self-check.sh

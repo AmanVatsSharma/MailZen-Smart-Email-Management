@@ -227,6 +227,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: confirm domain DNS resolution before cutover
 ./deploy/ec2/scripts/dns-check.sh
 
+# Optional: redacted audit of critical deploy env keys
+./deploy/ec2/scripts/env-audit.sh
+
 # 3) Build and run the stack
 ./deploy/ec2/scripts/deploy.sh
 

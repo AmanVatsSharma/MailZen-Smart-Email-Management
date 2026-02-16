@@ -36,8 +36,9 @@ show_menu() {
 10) Backup database
 11) Prune old backups (keep latest 10)
 12) DNS readiness check
-13) Run script self-check
-14) Exit
+13) Environment audit (redacted)
+14) Run script self-check
+15) Exit
 ===============================================================================
 MENU
 }
@@ -50,7 +51,7 @@ fi
 
 while true; do
   show_menu
-  read -r -p "Select an option [1-14]: " choice
+  read -r -p "Select an option [1-15]: " choice
 
   case "${choice}" in
   1)
@@ -90,14 +91,17 @@ while true; do
     run_step "dns-check.sh"
     ;;
   13)
-    run_step "self-check.sh"
+    run_step "env-audit.sh"
     ;;
   14)
+    run_step "self-check.sh"
+    ;;
+  15)
     echo "[mailzen-deploy][INFO] Exiting menu."
     exit 0
     ;;
   *)
-    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-14."
+    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-15."
     ;;
   esac
 done
