@@ -40,6 +40,7 @@ import {
   AgentSafetyFlagResponse,
   AgentSuggestedActionResponse,
 } from './dto/agent-assist.response';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 interface AgentPlatformPayload {
   version: 'v1';
@@ -268,18 +269,28 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     this.redisClient = createClient({ url: this.getRedisUrl() });
     this.redisClient.on('error', (error) => {
       this.logger.warn(
-        `[agent-rate-limit] redis error; falling back to memory: ${String(error)}`,
+        serializeStructuredLog({
+          event: 'agent_rate_limit_redis_error_fallback',
+          error: String(error),
+        }),
       );
     });
 
     try {
       await this.redisClient.connect();
       this.redisConnected = true;
-      this.logger.log('[agent-rate-limit] connected to redis store');
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'agent_rate_limit_redis_connected',
+        }),
+      );
     } catch (error) {
       this.redisConnected = false;
       this.logger.warn(
-        `[agent-rate-limit] redis connect failed; using memory fallback: ${String(error)}`,
+        serializeStructuredLog({
+          event: 'agent_rate_limit_redis_connect_failed_fallback',
+          error: String(error),
+        }),
       );
     }
   }
@@ -315,12 +326,19 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         });
       }
       this.logger.log(
-        `agent-platform-runtime-stats: hydrated endpointRows=${endpointStats.length} skillRows=${skillStats.length}`,
+        serializeStructuredLog({
+          event: 'agent_platform_runtime_stats_hydrated',
+          endpointRowCount: endpointStats.length,
+          skillRowCount: skillStats.length,
+        }),
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `agent-platform-runtime-stats: hydrate failed; using empty runtime stats. error=${message}`,
+        serializeStructuredLog({
+          event: 'agent_platform_runtime_stats_hydrate_failed',
+          error: message,
+        }),
       );
     }
   }
@@ -668,7 +686,12 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     const deletedSamples = Number(deleteResult.affected || 0);
     const executedAtIso = new Date().toISOString();
     this.logger.log(
-      `agent-platform-health-sample: retention purge deleted=${deletedSamples} retentionDays=${retentionDays}`,
+      serializeStructuredLog({
+        event: 'agent_platform_health_sample_retention_purge_completed',
+        deletedSamples,
+        retentionDays,
+        executedAtIso,
+      }),
     );
     return {
       deletedSamples,
@@ -1257,7 +1280,10 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `agent-platform-runtime-stats: failed persisting health sample error=${message}`,
+        serializeStructuredLog({
+          event: 'agent_platform_health_sample_persist_failed',
+          error: message,
+        }),
       );
     }
   }
@@ -1491,7 +1517,13 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     const userScoped = Boolean(userId);
 
     this.logger.log(
-      `agent-action-audit: retention purge deletedRows=${deletedRows} retentionDays=${retentionDays} userScoped=${userScoped}`,
+      serializeStructuredLog({
+        event: 'agent_action_audit_retention_purge_completed',
+        deletedRows,
+        retentionDays,
+        userScoped,
+        executedAtIso,
+      }),
     );
 
     return {
@@ -1611,7 +1643,10 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
       this.logger.warn(
-        `[agent-rate-limit] redis enforcement failed; using memory fallback: ${String(error)}`,
+        serializeStructuredLog({
+          event: 'agent_rate_limit_redis_enforcement_failed_fallback',
+          error: String(error),
+        }),
       );
       return false;
     }
@@ -1793,7 +1828,12 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `agent-assist-memory: failed to resolve runtime context requestId=${input.requestId} userId=${input.userId} error=${errorMessage}`,
+        serializeStructuredLog({
+          event: 'agent_assist_runtime_context_resolve_failed',
+          requestId: input.requestId,
+          userId: input.userId,
+          error: errorMessage,
+        }),
       );
     }
     return metadata;
@@ -2080,7 +2120,11 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `agent-platform-runtime-stats: failed persisting endpoint stat endpoint=${endpointUrl} error=${message}`,
+        serializeStructuredLog({
+          event: 'agent_platform_runtime_stats_endpoint_persist_failed',
+          endpointUrl,
+          error: message,
+        }),
       );
     }
   }
@@ -2408,7 +2452,10 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       return true;
     } catch (error) {
       this.logger.warn(
-        `[agent-approval] redis store failed; using memory fallback: ${String(error)}`,
+        serializeStructuredLog({
+          event: 'agent_approval_redis_store_failed_fallback',
+          error: String(error),
+        }),
       );
       return false;
     }
@@ -2445,7 +2492,10 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       };
     } catch (error) {
       this.logger.warn(
-        `[agent-approval] redis consume failed; using memory fallback: ${String(error)}`,
+        serializeStructuredLog({
+          event: 'agent_approval_redis_consume_failed_fallback',
+          error: String(error),
+        }),
       );
       return null;
     }
@@ -2863,7 +2913,12 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       await this.agentActionAuditRepo.save(audit);
     } catch (error) {
       this.logger.warn(
-        `agent-action-audit: failed persist requestId=${input.requestId} action=${input.action} error=${String(error)}`,
+        serializeStructuredLog({
+          event: 'agent_action_audit_persist_failed',
+          requestId: input.requestId,
+          action: input.action,
+          error: String(error),
+        }),
       );
     }
   }
@@ -3296,7 +3351,11 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `agent-platform-runtime-stats: failed persisting skill stat skill=${skill} error=${message}`,
+        serializeStructuredLog({
+          event: 'agent_platform_runtime_stats_skill_persist_failed',
+          skill,
+          error: message,
+        }),
       );
     }
   }

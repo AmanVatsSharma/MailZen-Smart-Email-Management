@@ -182,6 +182,24 @@ Health alert scheduler structured observability events:
 - `agent_platform_health_alert_run_retention_purge_completed`
 - `agent_platform_health_alert_run_persist_failed`
 
+Gateway service structured resilience/retention events:
+
+- `agent_rate_limit_redis_connected`
+- `agent_rate_limit_redis_error_fallback`
+- `agent_rate_limit_redis_connect_failed_fallback`
+- `agent_rate_limit_redis_enforcement_failed_fallback`
+- `agent_platform_runtime_stats_hydrated`
+- `agent_platform_runtime_stats_hydrate_failed`
+- `agent_platform_health_sample_retention_purge_completed`
+- `agent_platform_health_sample_persist_failed`
+- `agent_action_audit_retention_purge_completed`
+- `agent_action_audit_persist_failed`
+- `agent_assist_runtime_context_resolve_failed`
+- `agent_platform_runtime_stats_endpoint_persist_failed`
+- `agent_platform_runtime_stats_skill_persist_failed`
+- `agent_approval_redis_store_failed_fallback`
+- `agent_approval_redis_consume_failed_fallback`
+
 ## Changelog
 
 - 2026-02-14: Added initial GraphQL gateway, policy enforcement, retries, and request-ID propagation.
@@ -224,3 +242,4 @@ Health alert scheduler structured observability events:
 - 2026-02-16: Added alert-run history JSON export query for external reporting pipelines.
 - 2026-02-16: Added persisted alert-run trend summary + bucketed trend series queries.
 - 2026-02-16: Added persisted alert-run trend data export query.
+- 2026-02-16: Migrated AI gateway fallback/retention diagnostics to structured JSON events.
