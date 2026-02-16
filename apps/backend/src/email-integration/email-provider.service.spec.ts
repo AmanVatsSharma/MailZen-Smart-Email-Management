@@ -688,6 +688,12 @@ describe('EmailProviderService', () => {
         }),
       ]),
     );
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'provider_sync_batch_requested',
+      }),
+    );
   });
 
   it('throws when explicit provider id is not owned by user', async () => {
@@ -808,6 +814,12 @@ describe('EmailProviderService', () => {
         expect.objectContaining({ id: 'provider-1', status: 'connected' }),
         expect.objectContaining({ id: 'provider-2', status: 'error' }),
       ]),
+    );
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'provider_sync_data_export_requested',
+      }),
     );
   });
 
@@ -960,6 +972,12 @@ describe('EmailProviderService', () => {
     expect(payload.stats.totalAlerts).toBe(2);
     expect(payload.series[0]?.totalAlerts).toBe(2);
     expect(payload.alertCount).toBe(1);
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'provider_sync_alert_delivery_export_requested',
+      }),
+    );
   });
 
   it('returns provider sync incident alert delivery stats for scoped workspace', async () => {
@@ -1097,6 +1115,12 @@ describe('EmailProviderService', () => {
     expect(alertsSpy).toHaveBeenCalledTimes(1);
     expect(payload.alertCount).toBe(1);
     expect(payload.alerts[0]?.notificationId).toBe('notif-warning');
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'provider_sync_incident_alert_history_export_requested',
+      }),
+    );
   });
 
   it('exports provider sync incident alert delivery analytics payload', async () => {
@@ -1158,5 +1182,11 @@ describe('EmailProviderService', () => {
     expect(payload.stats.totalAlerts).toBe(2);
     expect(payload.series[0]?.totalAlerts).toBe(2);
     expect(payload.alertCount).toBe(1);
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'provider_sync_incident_alert_delivery_export_requested',
+      }),
+    );
   });
 });

@@ -197,6 +197,11 @@ Login OAuth (backend redirect) uses:
     - `provider_active_state_updated`
     - `provider_credentials_updated`
     - `provider_sync_requested`
+    - `provider_sync_batch_requested`
+    - `provider_sync_data_export_requested`
+    - `provider_sync_alert_delivery_export_requested`
+    - `provider_sync_incident_alert_history_export_requested`
+    - `provider_sync_incident_alert_delivery_export_requested`
 
 ## Mermaid: connect provider via OAuth code
 

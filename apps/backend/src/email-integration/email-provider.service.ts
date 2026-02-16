@@ -873,7 +873,7 @@ export class EmailProviderService {
         skippedProviders,
       }),
     );
-    return {
+    const summary = {
       requestedProviders: providers.length,
       syncedProviders,
       failedProviders,
@@ -881,6 +881,19 @@ export class EmailProviderService {
       results,
       executedAtIso: new Date().toISOString(),
     };
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'provider_sync_batch_requested',
+      metadata: {
+        workspaceId: normalizedWorkspaceId || null,
+        providerId: normalizedProviderId || null,
+        requestedProviders: summary.requestedProviders,
+        syncedProviders: summary.syncedProviders,
+        failedProviders: summary.failedProviders,
+        skippedProviders: summary.skippedProviders,
+      },
+    });
+    return summary;
   }
 
   private normalizeSyncStatsWindowHours(windowHours?: number | null): number {
@@ -1034,6 +1047,15 @@ export class EmailProviderService {
         outlookPushSubscriptionLastRenewedAtIso:
           provider.outlookPushSubscriptionLastRenewedAt?.toISOString() || null,
       })),
+    });
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'provider_sync_data_export_requested',
+      metadata: {
+        workspaceId: normalizedWorkspaceId || null,
+        limit: normalizedLimit,
+        exportedProviderCount: providers.length,
+      },
     });
 
     return {
@@ -1347,6 +1369,17 @@ export class EmailProviderService {
       }),
     ]);
     const generatedAtIso = new Date().toISOString();
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'provider_sync_alert_delivery_export_requested',
+      metadata: {
+        workspaceId: normalizedWorkspaceId,
+        windowHours: normalizedWindowHours,
+        bucketMinutes: normalizedBucketMinutes,
+        limit: normalizedLimit,
+        alertCount: alerts.length,
+      },
+    });
     return {
       generatedAtIso,
       dataJson: JSON.stringify({
@@ -1648,6 +1681,16 @@ export class EmailProviderService {
       limit: normalizedLimit,
     });
     const generatedAtIso = new Date().toISOString();
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'provider_sync_incident_alert_history_export_requested',
+      metadata: {
+        workspaceId: normalizedWorkspaceId,
+        windowHours: normalizedWindowHours,
+        limit: normalizedLimit,
+        alertCount: alerts.length,
+      },
+    });
     return {
       generatedAtIso,
       dataJson: JSON.stringify({
@@ -1701,6 +1744,17 @@ export class EmailProviderService {
       }),
     ]);
     const generatedAtIso = new Date().toISOString();
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'provider_sync_incident_alert_delivery_export_requested',
+      metadata: {
+        workspaceId: normalizedWorkspaceId,
+        windowHours: normalizedWindowHours,
+        bucketMinutes: normalizedBucketMinutes,
+        limit: normalizedLimit,
+        alertCount: alerts.length,
+      },
+    });
     return {
       generatedAtIso,
       dataJson: JSON.stringify({
