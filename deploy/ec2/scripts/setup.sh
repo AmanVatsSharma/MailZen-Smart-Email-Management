@@ -167,6 +167,8 @@ else
 fi
 
 ensure_env_file_from_template
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
 
 existing_domain="$(read_env_value "MAILZEN_DOMAIN")"
 existing_email="$(read_env_value "ACME_EMAIL")"
