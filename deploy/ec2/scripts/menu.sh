@@ -73,7 +73,7 @@ show_menu() {
 18) Environment audit (redacted)
 19) Run diagnostics report (doctor)
 20) Generate support bundle
-21) Rotate app secrets
+21) Rotate app secrets (prompt keys/dry-run)
 22) Run pipeline check (config-only)
 23) Prune old diagnostics reports (keep latest 20)
 24) Show command help
@@ -190,7 +190,18 @@ while true; do
     run_step "support-bundle.sh"
     ;;
   21)
-    run_step "rotate-app-secrets.sh"
+    rotate_args=()
+    rotate_keys="$(prompt_with_default "Rotate keys (all or comma-separated: JWT_SECRET,OAUTH_STATE_SECRET,AI_AGENT_PLATFORM_KEY)" "all")"
+    if [[ "${rotate_keys}" != "all" ]]; then
+      rotate_args+=(--keys "${rotate_keys}")
+    fi
+    if prompt_yes_no "Run secret rotation in dry-run mode" "yes"; then
+      rotate_args+=(--dry-run)
+    fi
+    if prompt_yes_no "Bypass confirmation prompt with --yes" "no"; then
+      rotate_args+=(--yes)
+    fi
+    run_step "rotate-app-secrets.sh" "${rotate_args[@]}"
     ;;
   22)
     run_step "pipeline-check.sh"
