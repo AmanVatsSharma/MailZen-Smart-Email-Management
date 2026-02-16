@@ -436,6 +436,20 @@ flowchart TD
 
 - This module provisions credentials and metadata; full inbound mailbox ingestion pipeline is handled by inbox/sync modules.
 - Keep provider/mailbox encryption keys managed via secure secret store in production.
+- `MailServerService` emits structured provisioning/rollback observability events:
+  - `mailbox_keyring_resolve_failed`
+  - `mailbox_admin_provider_unknown`
+  - `mailbox_external_provisioning_config_missing_required`
+  - `mailbox_external_provisioning_config_missing_optional`
+  - `mailbox_external_provisioning_succeeded`
+  - `mailbox_external_provisioning_already_exists`
+  - `mailbox_external_provisioning_failed_terminal`
+  - `mailbox_external_provisioning_failover`
+  - `mailbox_external_provisioning_retry_scheduled`
+  - `mailbox_external_rollback_succeeded`
+  - `mailbox_external_rollback_failed`
+  - `mailbox_credential_persistence_failed`
+  - `mailbox_provision_completed`
 - Each inbound request emits structured log events (`mailbox_inbound_*`) through
   common structured logging utilities, with recursive PII redaction and request correlation id propagation.
 

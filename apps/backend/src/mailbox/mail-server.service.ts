@@ -13,6 +13,10 @@ import {
   ProviderSecretsKeyring,
   resolveProviderSecretsKeyring,
 } from '../common/provider-secrets.util';
+import {
+  fingerprintIdentifier,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 export interface MailboxProvisioningHealthSnapshot {
   provider: string;
@@ -44,7 +48,12 @@ export class MailServerService {
       this.providerSecretsKeyring = resolveProviderSecretsKeyring();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Mailbox keyring resolve failed: ${message}`);
+      this.logger.error(
+        serializeStructuredLog({
+          event: 'mailbox_keyring_resolve_failed',
+          error: message,
+        }),
+      );
       throw new InternalServerErrorException(
         'Mailbox credential encryption keyring is misconfigured',
       );
@@ -70,9 +79,17 @@ export class MailServerService {
     if (rawProvider === 'GENERIC') return 'GENERIC';
 
     this.logger.warn(
-      `Unknown MAILZEN_MAIL_ADMIN_PROVIDER=${rawProvider}; falling back to GENERIC`,
+      serializeStructuredLog({
+        event: 'mailbox_admin_provider_unknown',
+        rawProvider,
+        fallbackProvider: 'GENERIC',
+      }),
     );
     return 'GENERIC';
+  }
+
+  private fingerprintMailbox(mailboxEmail: string): string {
+    return fingerprintIdentifier(mailboxEmail);
   }
 
   private resolveIntegerEnv(input: {
@@ -327,14 +344,22 @@ export class MailServerService {
     if (!adminApiBaseUrls.length) {
       if (this.isExternalProvisioningRequired()) {
         this.logger.error(
-          `MAILZEN_MAIL_ADMIN_API_URL/MAILZEN_MAIL_ADMIN_API_URLS missing while provisioning is required mailbox=${input.mailboxEmail}`,
+          serializeStructuredLog({
+            event: 'mailbox_external_provisioning_config_missing_required',
+            mailboxFingerprint: this.fingerprintMailbox(input.mailboxEmail),
+            provisioningRequired: true,
+          }),
         );
         throw new InternalServerErrorException(
           'External mailbox provisioning endpoint is required but not configured',
         );
       }
       this.logger.warn(
-        'MAILZEN_MAIL_ADMIN_API_URL/MAILZEN_MAIL_ADMIN_API_URLS not configured; skipping external mailbox API provisioning',
+        serializeStructuredLog({
+          event: 'mailbox_external_provisioning_config_missing_optional',
+          mailboxFingerprint: this.fingerprintMailbox(input.mailboxEmail),
+          provisioningRequired: false,
+        }),
       );
       return;
     }
@@ -378,13 +403,25 @@ export class MailServerService {
             headers,
           });
           this.logger.log(
-            `External mailbox API provisioning succeeded for ${input.mailboxEmail} provider=${provider} endpoint=${baseUrl} attempts=${attempt + 1}`,
+            serializeStructuredLog({
+              event: 'mailbox_external_provisioning_succeeded',
+              mailboxFingerprint: this.fingerprintMailbox(input.mailboxEmail),
+              provider,
+              endpoint: baseUrl,
+              attemptNumber: attempt + 1,
+              maxRetries,
+            }),
           );
           return;
         } catch (error: unknown) {
           if (this.isAlreadyProvisionedError(error)) {
             this.logger.warn(
-              `External mailbox already provisioned for ${input.mailboxEmail}; treating as idempotent success`,
+              serializeStructuredLog({
+                event: 'mailbox_external_provisioning_already_exists',
+                mailboxFingerprint: this.fingerprintMailbox(input.mailboxEmail),
+                provider,
+                endpoint: baseUrl,
+              }),
             );
             return;
           }
@@ -394,7 +431,16 @@ export class MailServerService {
 
           if (!isRetryable || (isLastAttempt && isLastEndpoint)) {
             this.logger.error(
-              `External mailbox API provisioning failed for ${input.mailboxEmail} provider=${provider} endpoint=${baseUrl} attempts=${attempt + 1}: ${errorMessage}`,
+              serializeStructuredLog({
+                event: 'mailbox_external_provisioning_failed_terminal',
+                mailboxFingerprint: this.fingerprintMailbox(input.mailboxEmail),
+                provider,
+                endpoint: baseUrl,
+                attemptNumber: attempt + 1,
+                maxRetries,
+                retryable: isRetryable,
+                error: errorMessage,
+              }),
             );
             throw new InternalServerErrorException(
               'Mailbox provisioning failed on external mail server',
@@ -403,7 +449,15 @@ export class MailServerService {
 
           if (!isLastEndpoint) {
             this.logger.warn(
-              `External mailbox provisioning failover for ${input.mailboxEmail} provider=${provider} from=${baseUrl} to=${adminApiBaseUrls[endpointIndex + 1]} error=${errorMessage}`,
+              serializeStructuredLog({
+                event: 'mailbox_external_provisioning_failover',
+                mailboxFingerprint: this.fingerprintMailbox(input.mailboxEmail),
+                provider,
+                fromEndpoint: baseUrl,
+                toEndpoint: adminApiBaseUrls[endpointIndex + 1],
+                attemptNumber: attempt + 1,
+                error: errorMessage,
+              }),
             );
             continue;
           }
@@ -412,7 +466,15 @@ export class MailServerService {
             maxJitterMs > 0 ? Math.floor(Math.random() * (maxJitterMs + 1)) : 0;
           const waitMs = backoffMs * (attempt + 1) + jitterMs;
           this.logger.warn(
-            `External mailbox provisioning retry for ${input.mailboxEmail} provider=${provider} attempt=${attempt + 1} waitMs=${waitMs} error=${errorMessage}`,
+            serializeStructuredLog({
+              event: 'mailbox_external_provisioning_retry_scheduled',
+              mailboxFingerprint: this.fingerprintMailbox(input.mailboxEmail),
+              provider,
+              endpoint: baseUrl,
+              attemptNumber: attempt + 1,
+              waitMs,
+              error: errorMessage,
+            }),
           );
           await this.sleep(waitMs);
         }
@@ -479,13 +541,24 @@ export class MailServerService {
           });
         }
         this.logger.warn(
-          `External mailbox rollback succeeded for ${input.mailboxEmail} endpoint=${baseUrl}`,
+          serializeStructuredLog({
+            event: 'mailbox_external_rollback_succeeded',
+            mailboxFingerprint: this.fingerprintMailbox(input.mailboxEmail),
+            endpoint: baseUrl,
+            provider,
+          }),
         );
         return;
       } catch (error: unknown) {
         const message = this.describeProvisioningError(error);
         this.logger.warn(
-          `External mailbox rollback failed for ${input.mailboxEmail} endpoint=${baseUrl}: ${message}`,
+          serializeStructuredLog({
+            event: 'mailbox_external_rollback_failed',
+            mailboxFingerprint: this.fingerprintMailbox(input.mailboxEmail),
+            endpoint: baseUrl,
+            provider,
+            error: message,
+          }),
         );
       }
     }
@@ -547,7 +620,14 @@ export class MailServerService {
 
     if (!updateResult.affected) {
       this.logger.error(
-        `Mailbox credential persistence failed for ${mailboxEmail}; mailbox row not found`,
+        serializeStructuredLog({
+          event: 'mailbox_credential_persistence_failed',
+          mailboxFingerprint: this.fingerprintMailbox(mailboxEmail),
+          userId,
+          localPart,
+          domain: MailServerService.MAILZEN_DOMAIN,
+          reason: 'mailbox_row_not_found',
+        }),
       );
       await this.attemptExternalRollback({ mailboxEmail });
       throw new InternalServerErrorException(
@@ -555,6 +635,14 @@ export class MailServerService {
       );
     }
 
-    this.logger.log(`Provisioned mailbox ${mailboxEmail}`);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'mailbox_provision_completed',
+        mailboxFingerprint: this.fingerprintMailbox(mailboxEmail),
+        userId,
+        localPart,
+        domain: MailServerService.MAILZEN_DOMAIN,
+      }),
+    );
   }
 }
