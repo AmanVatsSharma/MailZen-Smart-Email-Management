@@ -41,6 +41,18 @@ organization features.
 
 - Structured service warning event:
   - `workspace_member_limit_reached`
+  - `workspace_audit_log_write_failed`
+
+## Compliance / Audit Trail
+
+Workspace mutation flows now persist `audit_logs` entries for:
+
+- `workspace_created`
+- `workspace_member_invited`
+- `workspace_invitation_responded`
+- `workspace_member_role_updated`
+- `workspace_member_removed`
+- `workspace_active_set`
 
 ## Flow
 

@@ -7,8 +7,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { BillingService } from '../billing/billing.service';
-import { serializeStructuredLog } from '../common/logging/structured-log.util';
+import {
+  fingerprintIdentifier,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 import { User } from '../user/entities/user.entity';
 import { WorkspaceDataExportResponse } from './workspace-data-export.response';
 import { Workspace } from './entities/workspace.entity';
@@ -25,8 +29,35 @@ export class WorkspaceService {
     private readonly workspaceMemberRepo: Repository<WorkspaceMember>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly billingService: BillingService,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId?: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.auditLogRepo.save(
+        this.auditLogRepo.create({
+          userId: input.userId,
+          action: input.action,
+          metadata: input.metadata || {},
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'workspace_audit_log_write_failed',
+          userId: input.userId || null,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
 
   private normalizeWorkspaceName(name: string): string {
     const normalized = String(name || '').trim();
@@ -127,6 +158,16 @@ export class WorkspaceService {
         invitedByUserId: userId,
       }),
     );
+    await this.writeAuditLog({
+      userId,
+      action: 'workspace_created',
+      metadata: {
+        workspaceId: created.id,
+        workspaceSlug: created.slug,
+        workspaceName: created.name,
+        isPersonal: false,
+      },
+    });
 
     return created;
   }
@@ -346,7 +387,21 @@ export class WorkspaceService {
         existingMember.status = user ? 'active' : 'pending';
         existingMember.invitedByUserId = actorUserId;
         existingMember.userId = user?.id || null;
-        return this.workspaceMemberRepo.save(existingMember);
+        const savedMember = await this.workspaceMemberRepo.save(existingMember);
+        await this.writeAuditLog({
+          userId: actorUserId,
+          action: 'workspace_member_invited',
+          metadata: {
+            workspaceId,
+            workspaceMemberId: savedMember.id,
+            invitedUserId: savedMember.userId || null,
+            invitedEmailFingerprint: fingerprintIdentifier(normalizedEmail),
+            role: normalizedRole,
+            status: savedMember.status,
+            invitedViaReactivation: true,
+          },
+        });
+        return savedMember;
       }
       return existingMember;
     }
@@ -363,7 +418,21 @@ export class WorkspaceService {
       status: user ? 'active' : 'pending',
       invitedByUserId: actorUserId,
     });
-    return this.workspaceMemberRepo.save(member);
+    const savedMember = await this.workspaceMemberRepo.save(member);
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'workspace_member_invited',
+      metadata: {
+        workspaceId,
+        workspaceMemberId: savedMember.id,
+        invitedUserId: savedMember.userId || null,
+        invitedEmailFingerprint: fingerprintIdentifier(normalizedEmail),
+        role: normalizedRole,
+        status: savedMember.status,
+        invitedViaReactivation: false,
+      },
+    });
+    return savedMember;
   }
 
   async respondToWorkspaceInvitation(input: {
@@ -415,7 +484,18 @@ export class WorkspaceService {
 
     invitation.userId = input.userId;
     invitation.status = input.accept ? 'active' : 'declined';
-    return this.workspaceMemberRepo.save(invitation);
+    const savedInvitation = await this.workspaceMemberRepo.save(invitation);
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'workspace_invitation_responded',
+      metadata: {
+        workspaceId: invitation.workspaceId,
+        workspaceMemberId: invitation.id,
+        accepted: input.accept,
+        resultingStatus: savedInvitation.status,
+      },
+    });
+    return savedInvitation;
   }
 
   async updateWorkspaceMemberRole(input: {
@@ -451,8 +531,21 @@ export class WorkspaceService {
         throw new BadRequestException('Workspace must always have one OWNER');
       }
     }
+    const previousRole = member.role;
     member.role = normalizedRole;
-    return this.workspaceMemberRepo.save(member);
+    const savedMember = await this.workspaceMemberRepo.save(member);
+    await this.writeAuditLog({
+      userId: input.actorUserId,
+      action: 'workspace_member_role_updated',
+      metadata: {
+        workspaceId: member.workspaceId,
+        workspaceMemberId: member.id,
+        previousRole,
+        role: savedMember.role,
+        targetUserId: member.userId || null,
+      },
+    });
+    return savedMember;
   }
 
   async removeWorkspaceMember(input: {
@@ -493,6 +586,16 @@ export class WorkspaceService {
         activeWorkspaceId: undefined,
       });
     }
+    await this.writeAuditLog({
+      userId: input.actorUserId,
+      action: 'workspace_member_removed',
+      metadata: {
+        workspaceId: member.workspaceId,
+        workspaceMemberId: member.id,
+        role: member.role,
+        removedUserId: member.userId || null,
+      },
+    });
     return saved;
   }
 
@@ -508,6 +611,14 @@ export class WorkspaceService {
       where: { id: workspaceId },
     });
     if (!workspace) throw new NotFoundException('Workspace not found');
+    await this.writeAuditLog({
+      userId,
+      action: 'workspace_active_set',
+      metadata: {
+        workspaceId: workspace.id,
+        workspaceSlug: workspace.slug,
+      },
+    });
     return workspace;
   }
 

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { BillingModule } from '../billing/billing.module';
 import { User } from '../user/entities/user.entity';
 import { WorkspaceMember } from './entities/workspace-member.entity';
@@ -9,7 +10,7 @@ import { WorkspaceService } from './workspace.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Workspace, WorkspaceMember, User]),
+    TypeOrmModule.forFeature([Workspace, WorkspaceMember, User, AuditLog]),
     BillingModule,
   ],
   providers: [WorkspaceService, WorkspaceResolver],

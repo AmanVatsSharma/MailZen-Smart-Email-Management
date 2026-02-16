@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { Repository, UpdateResult } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { BillingService } from '../billing/billing.service';
 import { User } from '../user/entities/user.entity';
 import { WorkspaceMember } from './entities/workspace-member.entity';
@@ -12,7 +13,13 @@ describe('WorkspaceService', () => {
   let workspaceRepo: jest.Mocked<Repository<Workspace>>;
   let workspaceMemberRepo: jest.Mocked<Repository<WorkspaceMember>>;
   let userRepo: jest.Mocked<Repository<User>>;
+  let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
   let billingService: jest.Mocked<Pick<BillingService, 'getEntitlements'>>;
+  const updateResult: UpdateResult = {
+    generatedMaps: [],
+    raw: {},
+    affected: 1,
+  };
 
   beforeEach(() => {
     workspaceRepo = {
@@ -34,6 +41,10 @@ describe('WorkspaceService', () => {
       find: jest.fn(),
       update: jest.fn(),
     } as unknown as jest.Mocked<Repository<User>>;
+    auditLogRepo = {
+      create: jest.fn(),
+      save: jest.fn(),
+    } as unknown as jest.Mocked<Repository<AuditLog>>;
     billingService = {
       getEntitlements: jest.fn().mockResolvedValue({
         planCode: 'PRO',
@@ -47,11 +58,16 @@ describe('WorkspaceService', () => {
     };
     workspaceRepo.count.mockResolvedValue(1);
     workspaceMemberRepo.count.mockResolvedValue(1);
+    auditLogRepo.create.mockImplementation(
+      (value: Partial<AuditLog>) => value as AuditLog,
+    );
+    auditLogRepo.save.mockResolvedValue({ id: 'audit-log-1' } as AuditLog);
 
     service = new WorkspaceService(
       workspaceRepo,
       workspaceMemberRepo,
       userRepo,
+      auditLogRepo,
       billingService as unknown as BillingService,
     );
   });
@@ -94,6 +110,12 @@ describe('WorkspaceService', () => {
 
     expect(result.name).toBe('Sales Team');
     expect(workspaceMemberRepo.save).toHaveBeenCalled();
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'workspace_created',
+        userId: 'user-1',
+      }),
+    );
   });
 
   it('rejects member invite when actor is not owner/admin', async () => {
@@ -207,7 +229,7 @@ describe('WorkspaceService', () => {
       slug: 'workspace-one',
       isPersonal: false,
     } as Workspace);
-    userRepo.update.mockResolvedValue({} as any);
+    userRepo.update.mockResolvedValue(updateResult);
 
     const result = await service.setActiveWorkspace('user-1', 'workspace-1');
 
@@ -215,6 +237,12 @@ describe('WorkspaceService', () => {
       activeWorkspaceId: 'workspace-1',
     });
     expect(result.id).toBe('workspace-1');
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'workspace_active_set',
+        userId: 'user-1',
+      }),
+    );
   });
 
   it('lists pending invitations for user email', async () => {
@@ -476,7 +504,7 @@ describe('WorkspaceService', () => {
     workspaceMemberRepo.save.mockImplementation((member: WorkspaceMember) =>
       Promise.resolve(member),
     );
-    userRepo.update.mockResolvedValue({} as any);
+    userRepo.update.mockResolvedValue(updateResult);
 
     const removed = await service.removeWorkspaceMember({
       workspaceMemberId: 'member-2',
@@ -487,6 +515,12 @@ describe('WorkspaceService', () => {
     expect(userRepo.update).toHaveBeenCalledWith('user-2', {
       activeWorkspaceId: undefined,
     });
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'workspace_member_removed',
+        userId: 'user-1',
+      }),
+    );
   });
 
   it('reinvites declined member as pending', async () => {
@@ -525,5 +559,32 @@ describe('WorkspaceService', () => {
 
     expect(reinvited.status).toBe('pending');
     expect(reinvited.role).toBe('ADMIN');
+  });
+
+  it('does not fail workspace operations when audit log write errors', async () => {
+    workspaceMemberRepo.findOne.mockResolvedValue({
+      id: 'member-1',
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+      role: 'OWNER',
+      status: 'active',
+    } as WorkspaceMember);
+    workspaceRepo.findOne.mockResolvedValue({
+      id: 'workspace-1',
+      ownerUserId: 'user-1',
+      name: 'Workspace One',
+      slug: 'workspace-one',
+      isPersonal: false,
+    } as Workspace);
+    userRepo.update.mockResolvedValue(updateResult);
+    auditLogRepo.save.mockRejectedValue(
+      new Error('audit datastore unavailable'),
+    );
+
+    await expect(
+      service.setActiveWorkspace('user-1', 'workspace-1'),
+    ).resolves.toMatchObject({
+      id: 'workspace-1',
+    });
   });
 });
