@@ -207,11 +207,14 @@ For production-style EC2 deployment, use the deployment module:
 
 ```bash
 # Fastest path for non-technical launch
-# (setup + dns + ports + preflight + deploy + verify + status)
+# (setup + host-readiness + dns + ssl + ports + preflight + deploy + verify + status)
 ./deploy/ec2/scripts/launch.sh
 
 # Non-interactive launch when env is already configured
 ./deploy/ec2/scripts/launch.sh --skip-setup
+
+# Optional: skip selected prechecks
+./deploy/ec2/scripts/launch.sh --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check
 
 # Optional: launch with explicit setup inputs
 ./deploy/ec2/scripts/launch.sh \
@@ -239,6 +242,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: validate HTTPS certificate status/expiry
 ./deploy/ec2/scripts/ssl-check.sh
+
+# Optional: validate host baseline resources
+./deploy/ec2/scripts/host-readiness.sh
 
 # Optional: ensure host ports 80/443 are free before first deploy
 ./deploy/ec2/scripts/ports-check.sh

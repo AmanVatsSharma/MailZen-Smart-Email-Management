@@ -4,11 +4,13 @@
 # MailZen EC2 one-command launch script (non-technical friendly)
 # -----------------------------------------------------------------------------
 # Runs the full happy-path pipeline:
-#   setup -> dns-check -> ports-check -> preflight -> deploy -> verify -> status
+#   setup -> host-readiness -> dns-check -> ssl-check -> ports-check -> preflight -> deploy -> verify -> status
 #
 # Optional flags:
 #   --skip-setup
+#   --skip-host-readiness
 #   --skip-dns-check
+#   --skip-ssl-check
 #   --skip-ports-check
 #   --setup-skip-daemon
 #   --domain <hostname>
@@ -19,7 +21,9 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUN_SETUP=true
+RUN_HOST_READINESS=true
 RUN_DNS_CHECK=true
+RUN_SSL_CHECK=true
 RUN_PORTS_CHECK=true
 SETUP_SKIP_DAEMON=false
 DOMAIN_ARG=""
@@ -43,8 +47,16 @@ while [[ $# -gt 0 ]]; do
     RUN_SETUP=false
     shift
     ;;
+  --skip-host-readiness)
+    RUN_HOST_READINESS=false
+    shift
+    ;;
   --skip-dns-check)
     RUN_DNS_CHECK=false
+    shift
+    ;;
+  --skip-ssl-check)
+    RUN_SSL_CHECK=false
     shift
     ;;
   --skip-ports-check)
@@ -81,7 +93,7 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     echo "[mailzen-deploy][ERROR] Unknown argument: $1"
-    echo "[mailzen-deploy][INFO] Supported flags: --skip-setup --skip-dns-check --skip-ports-check --setup-skip-daemon --domain <hostname> --acme-email <email>"
+    echo "[mailzen-deploy][INFO] Supported flags: --skip-setup --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --setup-skip-daemon --domain <hostname> --acme-email <email>"
     exit 1
     ;;
   esac
@@ -94,8 +106,14 @@ fi
 if [[ "${RUN_SETUP}" == false ]]; then
   echo "[mailzen-deploy][LAUNCH] setup step skipped by --skip-setup"
 fi
+if [[ "${RUN_HOST_READINESS}" == false ]]; then
+  echo "[mailzen-deploy][LAUNCH] host-readiness step skipped by --skip-host-readiness"
+fi
 if [[ "${RUN_DNS_CHECK}" == false ]]; then
   echo "[mailzen-deploy][LAUNCH] dns-check step skipped by --skip-dns-check"
+fi
+if [[ "${RUN_SSL_CHECK}" == false ]]; then
+  echo "[mailzen-deploy][LAUNCH] ssl-check step skipped by --skip-ssl-check"
 fi
 if [[ "${RUN_PORTS_CHECK}" == false ]]; then
   echo "[mailzen-deploy][LAUNCH] ports-check step skipped by --skip-ports-check"
@@ -105,7 +123,13 @@ total_steps=4 # preflight + deploy + verify + status
 if [[ "${RUN_SETUP}" == true ]]; then
   total_steps=$((total_steps + 1))
 fi
+if [[ "${RUN_HOST_READINESS}" == true ]]; then
+  total_steps=$((total_steps + 1))
+fi
 if [[ "${RUN_DNS_CHECK}" == true ]]; then
+  total_steps=$((total_steps + 1))
+fi
+if [[ "${RUN_SSL_CHECK}" == true ]]; then
   total_steps=$((total_steps + 1))
 fi
 if [[ "${RUN_PORTS_CHECK}" == true ]]; then
@@ -128,8 +152,18 @@ if [[ "${RUN_SETUP}" == true ]]; then
   step=$((step + 1))
 fi
 
+if [[ "${RUN_HOST_READINESS}" == true ]]; then
+  run_step "${step}" "${total_steps}" "host readiness check" "${SCRIPT_DIR}/host-readiness.sh"
+  step=$((step + 1))
+fi
+
 if [[ "${RUN_DNS_CHECK}" == true ]]; then
   run_step "${step}" "${total_steps}" "dns readiness check" "${SCRIPT_DIR}/dns-check.sh"
+  step=$((step + 1))
+fi
+
+if [[ "${RUN_SSL_CHECK}" == true ]]; then
+  run_step "${step}" "${total_steps}" "ssl certificate check" "${SCRIPT_DIR}/ssl-check.sh"
   step=$((step + 1))
 fi
 

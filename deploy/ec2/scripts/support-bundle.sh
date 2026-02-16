@@ -11,6 +11,7 @@
 # - preflight config-only output
 # - dns-check output (best-effort)
 # - ssl-check output (best-effort)
+# - host-readiness output
 # - ports-check output
 # - doctor output (best-effort)
 # - pipeline-check output
@@ -52,6 +53,7 @@ run_capture "env-audit" "\"${SCRIPT_DIR}/env-audit.sh\""
 run_capture "preflight-config-only" "\"${SCRIPT_DIR}/preflight.sh\" --config-only"
 run_capture "dns-check" "\"${SCRIPT_DIR}/dns-check.sh\""
 run_capture "ssl-check" "\"${SCRIPT_DIR}/ssl-check.sh\""
+run_capture "host-readiness" "\"${SCRIPT_DIR}/host-readiness.sh\""
 run_capture "ports-check" "\"${SCRIPT_DIR}/ports-check.sh\""
 run_capture "doctor" "\"${SCRIPT_DIR}/doctor.sh\""
 run_capture "pipeline-check" "\"${SCRIPT_DIR}/pipeline-check.sh\""

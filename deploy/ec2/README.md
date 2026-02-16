@@ -33,41 +33,43 @@ Additional deployment flowcharts:
   - `verify.sh` (post-deploy smoke checks)
   - `dns-check.sh` (domain DNS readiness validation)
   - `ssl-check.sh` (HTTPS certificate validity and expiry check)
-  - `self-check.sh` (validate deployment script integrity)
-  - `backup-db.sh` (database backup)
-  - `backup-list.sh` (list available backups)
-  - `backup-prune.sh` (backup retention cleanup)
-  - `restore-db.sh` (database restore with confirmation)
-  - `rollback-latest.sh` (restore newest backup quickly)
+  - `host-readiness.sh` (disk/memory/cpu baseline checks)
   - `ports-check.sh` (check host port conflicts for 80/443)
   - `env-audit.sh` (redacted critical env audit)
   - `doctor.sh` (generate diagnostics report for support)
   - `support-bundle.sh` (collect support-ready diagnostics archive)
   - `rotate-app-secrets.sh` (rotate JWT/OAuth/platform secrets)
   - `pipeline-check.sh` (CI/config-only deployment validation sequence)
+  - `self-check.sh` (validate deployment script integrity)
+  - `status.sh`
+  - `logs.sh`
+  - `restart.sh`
+  - `stop.sh`
+  - `backup-db.sh` (database backup)
+  - `backup-list.sh` (list available backups)
+  - `backup-prune.sh` (backup retention cleanup)
+  - `restore-db.sh` (database restore with confirmation)
+  - `rollback-latest.sh` (restore newest backup quickly)
 - `backups/`  
   Local backup dump directory (tracked folder; dump files ignored by git).
 - `reports/`  
   Generated diagnostics report directory (tracked folder; report files ignored by git).
-  - Additional ops scripts:
-    - `status.sh`
-    - `logs.sh`
-    - `restart.sh`
-    - `stop.sh`
 
 ## Deployment flow
 
 ```mermaid
 flowchart TD
   A[Run setup.sh] --> B[Generate/validate .env.ec2]
-  B --> C[Run dns-check.sh]
-  C --> D[Run ports-check.sh]
-  D --> E[Run preflight.sh]
-  E --> F[Run deploy.sh]
-  F --> G[docker compose build + up]
-  G --> H[caddy enables HTTPS for domain]
-  H --> I[Run verify.sh]
-  I --> J[Use status/logs/restart/stop scripts for ops]
+  B --> C[Run host-readiness.sh]
+  C --> D[Run dns-check.sh]
+  D --> E[Run ssl-check.sh]
+  E --> F[Run ports-check.sh]
+  F --> G[Run preflight.sh]
+  G --> H[Run deploy.sh]
+  H --> I[docker compose build + up]
+  I --> J[caddy enables HTTPS for domain]
+  J --> K[Run verify.sh]
+  K --> L[Use status/logs/restart/stop scripts for ops]
 ```
 
 ## First-time setup
@@ -79,11 +81,14 @@ From repository root:
 ./deploy/ec2/scripts/menu.sh
 
 # One-command launch
-# (setup + dns + ports + preflight + deploy + verify + status)
+# (setup + host-readiness + dns + ssl + ports + preflight + deploy + verify + status)
 ./deploy/ec2/scripts/launch.sh
 
 # Non-interactive launch if env already configured
 ./deploy/ec2/scripts/launch.sh --skip-setup
+
+# Skip selected prechecks during launch
+./deploy/ec2/scripts/launch.sh --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check
 
 # Launch with explicit domain/email and skip daemon check during setup
 ./deploy/ec2/scripts/launch.sh \
@@ -163,6 +168,9 @@ Example:
 
 # Validate TLS certificate visibility and expiry
 ./deploy/ec2/scripts/ssl-check.sh
+
+# Validate host resource readiness (disk/memory/cpu)
+./deploy/ec2/scripts/host-readiness.sh
 
 # Validate host ports 80/443 are available
 ./deploy/ec2/scripts/ports-check.sh

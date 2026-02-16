@@ -20,6 +20,7 @@ echo "[mailzen-deploy][PIPELINE-CHECK] starting..."
 "${SCRIPT_DIR}/self-check.sh"
 "${SCRIPT_DIR}/env-audit.sh"
 "${SCRIPT_DIR}/preflight.sh" --config-only
+"${SCRIPT_DIR}/host-readiness.sh" --min-disk-gb 1 --min-memory-mb 256 --min-cpu-cores 1
 "${SCRIPT_DIR}/ports-check.sh"
 
 echo "[mailzen-deploy][PIPELINE-CHECK] rendering compose config..."

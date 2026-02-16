@@ -23,6 +23,7 @@ scripts=(
   "verify.sh"
   "dns-check.sh"
   "ssl-check.sh"
+  "host-readiness.sh"
   "ports-check.sh"
   "env-audit.sh"
   "doctor.sh"
