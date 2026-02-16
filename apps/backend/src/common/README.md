@@ -45,6 +45,7 @@ Configured in `main.ts` and applied before global rate limiting:
 - `GLOBAL_CSRF_TRUSTED_ORIGINS` (default `FRONTEND_URL`)
 - `GLOBAL_CSRF_EXCLUDED_PATHS` (default empty)
 - `GLOBAL_CSRF_ENFORCED_METHODS` (default `POST,PUT,PATCH,DELETE`)
+- `MAILZEN_SESSION_COOKIE_NAME` (default `token`; shared with auth guard/cookie service)
 
 Behavior:
 - protects only requests that carry authenticated session cookie (`token`)

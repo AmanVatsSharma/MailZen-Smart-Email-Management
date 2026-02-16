@@ -13,10 +13,21 @@ describe('JwtAuthGuard', () => {
   const authServiceMock: jest.Mocked<Pick<AuthService, 'validateToken'>> = {
     validateToken: jest.fn(),
   };
-  const guard = new JwtAuthGuard(authServiceMock as unknown as AuthService);
+  const originalCookieName = process.env.MAILZEN_SESSION_COOKIE_NAME;
+  let guard: JwtAuthGuard;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.MAILZEN_SESSION_COOKIE_NAME;
+    guard = new JwtAuthGuard(authServiceMock as unknown as AuthService);
+  });
+
+  afterAll(() => {
+    if (typeof originalCookieName === 'string') {
+      process.env.MAILZEN_SESSION_COOKIE_NAME = originalCookieName;
+      return;
+    }
+    delete process.env.MAILZEN_SESSION_COOKIE_NAME;
   });
 
   function createHttpContext(request: GuardRequest): ExecutionContext {
@@ -87,5 +98,21 @@ describe('JwtAuthGuard', () => {
       UnauthorizedException,
     );
     expect(authServiceMock.validateToken).toHaveBeenCalledWith('invalid-token');
+  });
+
+  it('uses configured session cookie name for auth token extraction', () => {
+    process.env.MAILZEN_SESSION_COOKIE_NAME = 'mailzen_session';
+    guard = new JwtAuthGuard(authServiceMock as unknown as AuthService);
+    const request: GuardRequest = {
+      headers: {
+        cookie: 'mailzen_session=configured-token',
+      },
+    };
+    authServiceMock.validateToken.mockReturnValue({ id: 'user-3' } as never);
+
+    expect(guard.canActivate(createHttpContext(request))).toBe(true);
+    expect(authServiceMock.validateToken).toHaveBeenCalledWith(
+      'configured-token',
+    );
   });
 });

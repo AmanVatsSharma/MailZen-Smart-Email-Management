@@ -7,6 +7,7 @@ describe('SessionCookieService', () => {
     clearCookie: jest.Mock;
   };
   const originalNodeEnv = process.env.NODE_ENV;
+  const originalCookieName = process.env.MAILZEN_SESSION_COOKIE_NAME;
   const originalSameSite = process.env.MAILZEN_SESSION_COOKIE_SAMESITE;
   const originalSecure = process.env.MAILZEN_SESSION_COOKIE_SECURE;
   const originalDomain = process.env.MAILZEN_SESSION_COOKIE_DOMAIN;
@@ -15,6 +16,7 @@ describe('SessionCookieService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.NODE_ENV = 'development';
+    delete process.env.MAILZEN_SESSION_COOKIE_NAME;
     delete process.env.MAILZEN_SESSION_COOKIE_SAMESITE;
     delete process.env.MAILZEN_SESSION_COOKIE_SECURE;
     delete process.env.MAILZEN_SESSION_COOKIE_DOMAIN;
@@ -32,6 +34,11 @@ describe('SessionCookieService', () => {
       process.env.NODE_ENV = originalNodeEnv;
     } else {
       delete process.env.NODE_ENV;
+    }
+    if (typeof originalCookieName === 'string') {
+      process.env.MAILZEN_SESSION_COOKIE_NAME = originalCookieName;
+    } else {
+      delete process.env.MAILZEN_SESSION_COOKIE_NAME;
     }
     if (typeof originalSameSite === 'string') {
       process.env.MAILZEN_SESSION_COOKIE_SAMESITE = originalSameSite;
@@ -66,6 +73,21 @@ describe('SessionCookieService', () => {
         sameSite: 'lax',
         secure: false,
         path: '/',
+      }),
+    );
+  });
+
+  it('supports configurable cookie name', () => {
+    process.env.MAILZEN_SESSION_COOKIE_NAME = 'mailzen_session';
+    const cookieNameService = new SessionCookieService();
+
+    cookieNameService.setTokenCookie(response as never, 'token-value');
+
+    expect(response.cookie).toHaveBeenCalledWith(
+      'mailzen_session',
+      'token-value',
+      expect.objectContaining({
+        httpOnly: true,
       }),
     );
   });
@@ -127,6 +149,20 @@ describe('SessionCookieService', () => {
         secure: true,
         domain: 'mailzen.com',
         path: '/',
+      }),
+    );
+  });
+
+  it('clears configured cookie name', () => {
+    process.env.MAILZEN_SESSION_COOKIE_NAME = 'mailzen_session';
+    const cookieNameService = new SessionCookieService();
+
+    cookieNameService.clearTokenCookie(response as never);
+
+    expect(response.clearCookie).toHaveBeenCalledWith(
+      'mailzen_session',
+      expect.objectContaining({
+        httpOnly: true,
       }),
     );
   });

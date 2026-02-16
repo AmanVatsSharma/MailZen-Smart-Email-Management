@@ -18,11 +18,20 @@ type JwtGuardRequest = {
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   private readonly logger = new Logger(JwtAuthGuard.name);
+  private readonly sessionCookieName = this.resolveSessionCookieName();
 
   constructor(private readonly authService: AuthService) {}
 
+  private resolveSessionCookieName(): string {
+    const normalized = String(process.env.MAILZEN_SESSION_COOKIE_NAME || '')
+      .trim()
+      .toLowerCase();
+    if (!normalized) return 'token';
+    return normalized;
+  }
+
   private getCookieToken(req: JwtGuardRequest | undefined): string | null {
-    const direct = req?.cookies?.token;
+    const direct = req?.cookies?.[this.sessionCookieName];
     if (typeof direct === 'string' && direct.length > 0) return direct;
 
     const header = req?.headers?.cookie;
@@ -35,7 +44,7 @@ export class JwtAuthGuard implements CanActivate {
       const [kRaw, ...vParts] = part.split('=');
       if (!kRaw) continue;
       const key = kRaw.trim();
-      if (key !== 'token') continue;
+      if (key !== this.sessionCookieName) continue;
       const value = vParts.join('=').trim();
       if (!value) return null;
       try {

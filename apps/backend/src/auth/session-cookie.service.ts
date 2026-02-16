@@ -12,13 +12,9 @@ import { serializeStructuredLog } from '../common/logging/structured-log.util';
  */
 @Injectable()
 export class SessionCookieService {
-  private readonly logger = new Logger(SessionCookieService.name);
+  private readonly cookieName = this.resolveCookieName();
 
-  /**
-   * IMPORTANT: This name must match what the Next middleware expects.
-   * Frontend middleware currently checks `request.cookies.get('token')`.
-   */
-  private readonly cookieName = 'token';
+  private readonly logger = new Logger(SessionCookieService.name);
 
   private isProd(): boolean {
     return (process.env.NODE_ENV || 'development') === 'production';
@@ -31,6 +27,14 @@ export class SessionCookieService {
     const safeSeconds =
       Number.isFinite(expSeconds) && expSeconds > 0 ? expSeconds : 86400;
     return safeSeconds * 1000;
+  }
+
+  private resolveCookieName(): string {
+    const normalized = String(process.env.MAILZEN_SESSION_COOKIE_NAME || '')
+      .trim()
+      .toLowerCase();
+    if (!normalized) return 'token';
+    return normalized;
   }
 
   private resolveCookieSameSite(): 'lax' | 'strict' | 'none' {

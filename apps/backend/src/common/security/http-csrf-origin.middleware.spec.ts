@@ -200,4 +200,36 @@ describe('createHttpCsrfOriginProtectionMiddleware', () => {
     expect(next).toHaveBeenCalledTimes(1);
     expect(response.status).not.toHaveBeenCalled();
   });
+
+  it('uses configured session cookie name when enforcing origin checks', () => {
+    const middleware = createHttpCsrfOriginProtectionMiddleware(
+      {
+        enabled: true,
+        trustedOrigins: ['https://app.mailzen.com'],
+        excludedPaths: [],
+        enforceMethods: ['POST'],
+        sessionCookieName: 'mailzen_session',
+      },
+      logger,
+    );
+    const next = jest.fn();
+
+    middleware(
+      {
+        method: 'POST',
+        path: '/graphql',
+        originalUrl: '/graphql',
+        headers: {
+          cookie: 'mailzen_session=abc123',
+          origin: 'https://evil.example',
+          host: 'api.mailzen.com',
+        },
+      } as never,
+      response as never,
+      next,
+    );
+
+    expect(next).not.toHaveBeenCalled();
+    expect(response.status).toHaveBeenCalledWith(403);
+  });
 });

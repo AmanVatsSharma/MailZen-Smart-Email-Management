@@ -15,6 +15,7 @@ Web sessions are persisted with an HttpOnly `token` cookie.
 
 - `JWT_SECRET` is mandatory and validated at bootstrap.
 - Session cookie tuning:
+  - `MAILZEN_SESSION_COOKIE_NAME` (default `token`; must match frontend middleware expectations)
   - `MAILZEN_SESSION_COOKIE_SAMESITE` (`lax|strict|none`, default `lax`)
   - `MAILZEN_SESSION_COOKIE_SECURE` (optional override; defaults to `true` in prod)
   - `MAILZEN_SESSION_COOKIE_DOMAIN` (optional; useful for shared parent domains)
@@ -147,3 +148,5 @@ flowchart TD
 - Hardened session cookie management with env-configurable SameSite/secure/domain/path options.
 - Added structured auth lifecycle logs with phone-number fingerprinting for OTP flow.
 - Added operation-scoped auth abuse protection with 429 throttling.
+- Added shared `MAILZEN_SESSION_COOKIE_NAME` support across cookie service,
+  JWT guard, and CSRF origin protection middleware.

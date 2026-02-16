@@ -146,6 +146,11 @@ async function bootstrap() {
     process.env.GLOBAL_CSRF_EXCLUDED_PATHS,
     [],
   );
+  const sessionCookieName = String(
+    process.env.MAILZEN_SESSION_COOKIE_NAME || 'token',
+  )
+    .trim()
+    .toLowerCase();
   const csrfEnforcedMethods = parseCsvEnv(
     process.env.GLOBAL_CSRF_ENFORCED_METHODS,
     ['POST', 'PUT', 'PATCH', 'DELETE'],
@@ -157,6 +162,7 @@ async function bootstrap() {
         trustedOrigins: csrfTrustedOrigins,
         excludedPaths: csrfExcludedPaths,
         enforceMethods: csrfEnforcedMethods,
+        sessionCookieName: sessionCookieName || 'token',
       },
       bootstrapLogger,
     ),
