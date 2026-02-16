@@ -19,6 +19,7 @@ import { AgentAssistInput } from './dto/agent-assist.input';
 import { AgentAssistResponse } from './dto/agent-assist.response';
 import { AgentActionDataExportResponse } from './dto/agent-action-data-export.response';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
+import { AgentPlatformHealthSampleDataExportResponse } from './dto/agent-platform-health-sample-data-export.response';
 import { AgentPlatformHealthSampleResponse } from './dto/agent-platform-health-sample.response';
 import { AgentPlatformHealthSampleRetentionPurgeResponse } from './dto/agent-platform-health-sample-retention-purge.response';
 import { AgentPlatformRuntimeResetResponse } from './dto/agent-platform-runtime-reset.response';
@@ -72,6 +73,22 @@ export class AiAgentGatewayResolver {
     windowHours?: number,
   ): Promise<AgentPlatformHealthSampleResponse[]> {
     return this.gatewayService.getPlatformHealthHistory({
+      limit,
+      windowHours,
+    });
+  }
+
+  @Query(() => AgentPlatformHealthSampleDataExportResponse, {
+    description:
+      'Export persisted AI platform health snapshots as JSON for observability pipelines',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async agentPlatformHealthSampleDataExport(
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+  ): Promise<AgentPlatformHealthSampleDataExportResponse> {
+    return this.gatewayService.exportPlatformHealthSampleData({
       limit,
       windowHours,
     });

@@ -516,6 +516,44 @@ describe('AiAgentGatewayService', () => {
     );
   });
 
+  it('exports persisted health sample data as JSON payload', async () => {
+    const service = createService();
+    findHealthSamplesMock.mockResolvedValueOnce([
+      {
+        status: 'ok',
+        reachable: true,
+        serviceUrl: 'http://localhost:8100',
+        configuredServiceUrls: ['http://localhost:8100'],
+        probedServiceUrls: ['http://localhost:8100'],
+        endpointStats: [],
+        skillStats: [],
+        checkedAt: new Date('2026-02-16T00:00:00.000Z'),
+        requestCount: 4,
+        errorCount: 0,
+        timeoutErrorCount: 0,
+        errorRatePercent: 0,
+        avgLatencyMs: 12,
+        latencyWarnMs: 1500,
+        errorRateWarnPercent: 5,
+        alertingState: 'healthy',
+      },
+    ]);
+
+    const result = await service.exportPlatformHealthSampleData({
+      limit: 25,
+      windowHours: 24,
+    });
+    const payload = JSON.parse(result.dataJson) as {
+      sampleCount: number;
+      samples: Array<{ status: string }>;
+      retentionPolicy: { retentionDays: number };
+    };
+
+    expect(payload.sampleCount).toBe(1);
+    expect(payload.samples[0]?.status).toBe('ok');
+    expect(payload.retentionPolicy.retentionDays).toBe(30);
+  });
+
   it('hydrates persisted runtime stats from database on module init', async () => {
     process.env.AI_AGENT_GATEWAY_USE_REDIS = 'false';
     findEndpointRuntimeStatsMock.mockResolvedValueOnce([

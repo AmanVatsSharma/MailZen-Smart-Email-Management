@@ -673,6 +673,34 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  async exportPlatformHealthSampleData(input?: {
+    limit?: number | null;
+    windowHours?: number | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const generatedAtIso = new Date().toISOString();
+    const samples = await this.getPlatformHealthHistory({
+      limit: input?.limit ?? null,
+      windowHours: input?.windowHours ?? null,
+    });
+    const retentionDays = this.normalizeHealthSampleRetentionDays(null);
+    const payload = {
+      generatedAtIso,
+      retentionPolicy: {
+        retentionDays,
+      },
+      windowHours: this.normalizeHealthHistoryWindowHours(input?.windowHours),
+      sampleCount: samples.length,
+      samples,
+    };
+    return {
+      generatedAtIso,
+      dataJson: JSON.stringify(payload),
+    };
+  }
+
   private normalizeHealthHistoryLimit(limit?: number | null): number {
     if (typeof limit !== 'number' || !Number.isFinite(limit)) {
       return AiAgentGatewayService.DEFAULT_HEALTH_HISTORY_LIMIT;

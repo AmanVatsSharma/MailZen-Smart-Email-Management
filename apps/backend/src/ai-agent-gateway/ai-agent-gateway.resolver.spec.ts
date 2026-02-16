@@ -5,6 +5,7 @@ describe('AiAgentGatewayResolver', () => {
     assist: jest.fn(),
     getPlatformHealth: jest.fn(),
     getPlatformHealthHistory: jest.fn(),
+    exportPlatformHealthSampleData: jest.fn(),
     resetPlatformRuntimeStats: jest.fn(),
     resetSkillRuntimeStats: jest.fn(),
     purgePlatformHealthSampleRetentionData: jest.fn(),
@@ -132,6 +133,25 @@ describe('AiAgentGatewayResolver', () => {
         requestCount: 12,
       }),
     ]);
+  });
+
+  it('delegates agentPlatformHealthSampleDataExport to gateway service', async () => {
+    gatewayService.exportPlatformHealthSampleData.mockResolvedValue({
+      generatedAtIso: '2026-02-16T00:00:00.000Z',
+      dataJson: '{"sampleCount":2}',
+    });
+
+    const result = await resolver.agentPlatformHealthSampleDataExport(50, 24);
+
+    expect(gatewayService.exportPlatformHealthSampleData).toHaveBeenCalledWith({
+      limit: 50,
+      windowHours: 24,
+    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        generatedAtIso: '2026-02-16T00:00:00.000Z',
+      }),
+    );
   });
 
   it('forwards user context to myAgentActionDataExport', async () => {
