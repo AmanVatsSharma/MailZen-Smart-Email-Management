@@ -27,6 +27,7 @@ import { BillingService } from '../billing/billing.service';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { User } from '../user/entities/user.entity';
+import { WorkspaceMember } from '../workspace/entities/workspace-member.entity';
 import { AgentAssistInput, AgentMessageInput } from './dto/agent-assist.input';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
@@ -186,6 +187,8 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     private readonly userRepo: Repository<User>,
     @InjectRepository(ExternalEmailMessage)
     private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
+    @InjectRepository(WorkspaceMember)
+    private readonly workspaceMemberRepo: Repository<WorkspaceMember>,
     @InjectRepository(AgentActionAudit)
     private readonly agentActionAuditRepo: Repository<AgentActionAudit>,
     private readonly notificationEventBus: NotificationEventBusService,
@@ -241,7 +244,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       } | null = null;
       await this.enforceRateLimit(skill, requestMeta?.ip || 'unknown');
 
-      const sanitizedPayload = this.buildSanitizedPayload(
+      const sanitizedPayload = await this.buildSanitizedPayload(
         input,
         skill,
         requestId,
@@ -751,12 +754,12 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     return policy;
   }
 
-  private buildSanitizedPayload(
+  private async buildSanitizedPayload(
     input: AgentAssistInput,
     skill: string,
     requestId: string,
     userId: string | null,
-  ): AgentPlatformPayload {
+  ): Promise<AgentPlatformPayload> {
     const skillPolicy = this.getSkillPolicy(skill);
     const messages = input.messages.map((message) =>
       this.sanitizeMessage(message),
@@ -771,9 +774,11 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     const allowedActions = candidateActions.filter((action) =>
       skillPolicy.allowedActions.has(action),
     );
-    const metadata = this.parseContextMetadata(input.context?.metadataJson);
-    if (userId) metadata.userId = userId;
-    metadata.requestId = requestId;
+    const metadata = await this.buildContextMetadata({
+      input,
+      requestId,
+      userId,
+    });
 
     return {
       version: 'v1',
@@ -790,6 +795,160 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       requestedAction: input.requestedAction || null,
       requestedActionPayload: {},
     };
+  }
+
+  private async buildContextMetadata(input: {
+    input: AgentAssistInput;
+    requestId: string;
+    userId: string | null;
+  }): Promise<Record<string, string>> {
+    const metadata = this.parseContextMetadata(
+      input.input.context?.metadataJson,
+    );
+    metadata.requestId = input.requestId;
+    if (!input.userId) return metadata;
+
+    metadata.userId = input.userId;
+    try {
+      const user = await this.userRepo.findOne({
+        where: { id: input.userId },
+      });
+      if (user?.name) {
+        metadata.userProfileName = this.sanitizeMetadataValue({
+          rawValue: user.name,
+          maxLength: 120,
+        });
+      }
+      if (user?.email) {
+        metadata.userProfileEmailDomain = this.sanitizeMetadataValue({
+          rawValue: user.email.split('@')[1] || 'unknown',
+          maxLength: 120,
+        });
+      }
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        null;
+      const threadMessages = await this.externalEmailMessageRepo.find({
+        where: threadId
+          ? { userId: input.userId, threadId }
+          : { userId: input.userId },
+        order: { internalDate: 'DESC', createdAt: 'DESC' },
+        take: threadId ? 5 : 3,
+      });
+      const normalizedThreadMessages =
+        this.normalizeExternalMessages(threadMessages);
+      const threadSummary = this.buildThreadSummary(normalizedThreadMessages);
+      if (threadSummary) {
+        metadata.threadSummary = threadSummary;
+      }
+      const styleProfile = this.buildUserStyleProfile(normalizedThreadMessages);
+      if (styleProfile) {
+        metadata.userStyleProfile = styleProfile;
+      }
+      const workspacePolicySummary = await this.resolveWorkspacePolicySummary({
+        user,
+        userId: input.userId,
+      });
+      if (workspacePolicySummary) {
+        metadata.workspacePolicy = workspacePolicySummary;
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `agent-assist-memory: failed to resolve runtime context requestId=${input.requestId} userId=${input.userId} error=${errorMessage}`,
+      );
+    }
+    return metadata;
+  }
+
+  private sanitizeMetadataValue(input: {
+    rawValue: string;
+    maxLength: number;
+  }): string {
+    return String(input.rawValue || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, input.maxLength);
+  }
+
+  private buildThreadSummary(messages: ExternalEmailMessage[]): string | null {
+    if (!messages.length) return null;
+    const summaryParts = messages.slice(0, 2).map((message, index) => {
+      const subject = this.sanitizeMetadataValue({
+        rawValue: message.subject || 'Untitled',
+        maxLength: 100,
+      });
+      const snippet = this.sanitizeMetadataValue({
+        rawValue: message.snippet || 'No preview',
+        maxLength: 140,
+      });
+      return `${index + 1}) ${subject}: ${snippet}`;
+    });
+    return summaryParts.join(' | ');
+  }
+
+  private buildUserStyleProfile(
+    messages: ExternalEmailMessage[],
+  ): string | null {
+    if (!messages.length) return null;
+    const snippets = messages
+      .map((message) =>
+        this.sanitizeMetadataValue({
+          rawValue: message.snippet || '',
+          maxLength: 160,
+        }),
+      )
+      .filter(Boolean);
+    if (!snippets.length) return null;
+    const wordsPerSnippet = snippets.map(
+      (snippet) => snippet.split(/\s+/).filter(Boolean).length,
+    );
+    const averageWords = Math.round(
+      wordsPerSnippet.reduce((sum, count) => sum + count, 0) /
+        wordsPerSnippet.length,
+    );
+    const questionSnippetCount = snippets.filter((snippet) =>
+      snippet.includes('?'),
+    ).length;
+    const questionRatio = Math.round(
+      (questionSnippetCount / snippets.length) * 100,
+    );
+    return `avgWords=${averageWords};questionRatio=${questionRatio};samples=${snippets.length}`;
+  }
+
+  private async resolveWorkspacePolicySummary(input: {
+    user?: User | null;
+    userId: string;
+  }): Promise<string | null> {
+    const activeWorkspaceId = String(
+      input.user?.activeWorkspaceId || '',
+    ).trim();
+    if (!activeWorkspaceId) return null;
+    const membership = await this.workspaceMemberRepo.findOne({
+      where: {
+        workspaceId: activeWorkspaceId,
+        userId: input.userId,
+        status: 'active',
+      },
+    });
+    const normalizedRole = String(membership?.role || 'MEMBER')
+      .trim()
+      .toUpperCase();
+    const policyMode =
+      normalizedRole === 'OWNER' || normalizedRole === 'ADMIN'
+        ? 'elevated-review'
+        : 'standard-review';
+    return `workspace=${activeWorkspaceId};role=${normalizedRole};mode=${policyMode}`;
+  }
+
+  private normalizeExternalMessages(
+    messages: ExternalEmailMessage[] | null | undefined,
+  ): ExternalEmailMessage[] {
+    if (!Array.isArray(messages)) return [];
+    return messages;
   }
 
   private parseContextMetadata(metadataJson?: string): Record<string, string> {
@@ -1389,11 +1548,13 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     userId: string,
     threadId?: string,
   ): Promise<string> {
-    const messages = await this.externalEmailMessageRepo.find({
-      where: threadId ? { userId, threadId } : { userId },
-      order: { internalDate: 'DESC', createdAt: 'DESC' },
-      take: 5,
-    });
+    const messages = this.normalizeExternalMessages(
+      await this.externalEmailMessageRepo.find({
+        where: threadId ? { userId, threadId } : { userId },
+        order: { internalDate: 'DESC', createdAt: 'DESC' },
+        take: 5,
+      }),
+    );
 
     if (!messages.length) {
       return 'No email messages were found for this thread yet.';
@@ -1418,11 +1579,13 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     userId: string,
     threadId?: string,
   ): Promise<string> {
-    const messages = await this.externalEmailMessageRepo.find({
-      where: threadId ? { userId, threadId } : { userId },
-      order: { internalDate: 'DESC', createdAt: 'DESC' },
-      take: 1,
-    });
+    const messages = this.normalizeExternalMessages(
+      await this.externalEmailMessageRepo.find({
+        where: threadId ? { userId, threadId } : { userId },
+        order: { internalDate: 'DESC', createdAt: 'DESC' },
+        take: 1,
+      }),
+    );
 
     const latest = messages[0];
     if (!latest) {

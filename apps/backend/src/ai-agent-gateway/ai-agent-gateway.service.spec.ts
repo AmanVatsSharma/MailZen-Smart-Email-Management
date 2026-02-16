@@ -19,6 +19,7 @@ import { BillingService } from '../billing/billing.service';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { User } from '../user/entities/user.entity';
+import { WorkspaceMember } from '../workspace/entities/workspace-member.entity';
 import { AgentAssistInput } from './dto/agent-assist.input';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
@@ -31,6 +32,7 @@ describe('AiAgentGatewayService', () => {
   const createVerificationTokenMock = jest.fn();
   const findOneMock = jest.fn();
   const findExternalMessagesMock = jest.fn();
+  const findWorkspaceMemberMock = jest.fn();
   const createNotificationMock = jest.fn();
   const findAgentActionAuditMock = jest.fn();
   const createAgentActionAuditMock = jest.fn();
@@ -53,6 +55,9 @@ describe('AiAgentGatewayService', () => {
   const externalEmailMessageRepo = {
     find: findExternalMessagesMock,
   } as unknown as Pick<Repository<ExternalEmailMessage>, 'find'>;
+  const workspaceMemberRepo = {
+    findOne: findWorkspaceMemberMock,
+  } as unknown as Pick<Repository<WorkspaceMember>, 'findOne'>;
   const agentActionAuditRepo = {
     find: findAgentActionAuditMock,
     create: createAgentActionAuditMock,
@@ -90,6 +95,7 @@ describe('AiAgentGatewayService', () => {
       billingService as BillingService,
       userRepo as Repository<User>,
       externalEmailMessageRepo as Repository<ExternalEmailMessage>,
+      workspaceMemberRepo as Repository<WorkspaceMember>,
       agentActionAuditRepo as Repository<AgentActionAudit>,
       notificationEventBus as NotificationEventBusService,
     );
@@ -101,6 +107,7 @@ describe('AiAgentGatewayService', () => {
     );
     saveAgentActionAuditMock.mockResolvedValue({ id: 'audit-1' });
     findAgentActionAuditMock.mockResolvedValue([]);
+    findWorkspaceMemberMock.mockResolvedValue(null);
     deleteExecuteMock.mockResolvedValue({ affected: 0 });
     (billingService.consumeAiCredits as jest.Mock).mockResolvedValue({
       allowed: true,
@@ -333,18 +340,31 @@ describe('AiAgentGatewayService', () => {
         safetyFlags: [],
       },
     } as any);
-    findExternalMessagesMock.mockResolvedValueOnce([
-      {
-        subject: 'Q1 plan',
-        from: 'alice@example.com',
-        snippet: 'Please review the quarterly plan before Friday.',
-      },
-      {
-        subject: 'Q1 plan',
-        from: 'you@example.com',
-        snippet: 'Acknowledged. I will review and revert with comments.',
-      },
-    ]);
+    findExternalMessagesMock
+      .mockResolvedValueOnce([
+        {
+          subject: 'Q1 plan',
+          from: 'alice@example.com',
+          snippet: 'Please review the quarterly plan before Friday.',
+        },
+        {
+          subject: 'Q1 plan',
+          from: 'you@example.com',
+          snippet: 'Acknowledged. I will review and revert with comments.',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          subject: 'Q1 plan',
+          from: 'alice@example.com',
+          snippet: 'Please review the quarterly plan before Friday.',
+        },
+        {
+          subject: 'Q1 plan',
+          from: 'you@example.com',
+          snippet: 'Acknowledged. I will review and revert with comments.',
+        },
+      ]);
 
     const input: AgentAssistInput = {
       skill: 'inbox',
@@ -375,6 +395,76 @@ describe('AiAgentGatewayService', () => {
     expect(response.aiCreditsRemaining).toBe(490);
     expect(response.executedAction?.executed).toBe(true);
     expect(response.executedAction?.message).toContain('summary');
+  });
+
+  it('adds runtime memory context for authenticated inbox requests', async () => {
+    const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'inbox',
+        assistantText: 'Acknowledged.',
+        intent: 'thread_summary',
+        confidence: 0.93,
+        suggestedActions: [],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+    findOneMock.mockResolvedValueOnce({
+      id: 'user-1',
+      name: 'Aman Sharma',
+      email: 'aman@mailzen.com',
+      activeWorkspaceId: 'workspace-1',
+    });
+    findExternalMessagesMock.mockResolvedValueOnce([
+      {
+        subject: 'Quarterly review',
+        snippet: 'Can we close the planning doc by Friday?',
+      },
+      {
+        subject: 'Quarterly review follow-up',
+        snippet: 'Please share risk register updates and owners.',
+      },
+    ]);
+    findWorkspaceMemberMock.mockResolvedValueOnce({
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+      role: 'ADMIN',
+      status: 'active',
+    });
+
+    await service.assist(
+      {
+        skill: 'inbox',
+        messages: [{ role: 'user', content: 'Summarize this thread quickly.' }],
+        context: {
+          surface: 'inbox',
+          locale: 'en-IN',
+          metadataJson: JSON.stringify({ threadId: 'thread-5' }),
+        },
+        allowedActions: ['inbox.summarize_thread'],
+        executeRequestedAction: false,
+      },
+      {
+        requestId: 'req-memory-1',
+        headers: { authorization: 'Bearer token-1' },
+      },
+    );
+
+    const payload = mockedAxios.post.mock.calls[0]?.[1] as {
+      context: {
+        metadata: Record<string, string>;
+      };
+    };
+    expect(payload.context.metadata.threadSummary).toContain(
+      'Quarterly review',
+    );
+    expect(payload.context.metadata.userStyleProfile).toContain('avgWords=');
+    expect(payload.context.metadata.workspacePolicy).toContain(
+      'mode=elevated-review',
+    );
+    expect(payload.context.metadata.userProfileName).toBe('Aman Sharma');
   });
 
   it('rejects risky inbox actions without approval token', async () => {
@@ -460,13 +550,16 @@ describe('AiAgentGatewayService', () => {
         safetyFlags: [],
       },
     } as any);
-    findExternalMessagesMock.mockResolvedValueOnce([
-      {
-        subject: 'Vendor onboarding',
-        from: 'ops@example.com',
-        snippet: 'Can you confirm the onboarding checklist timeline?',
-      },
-    ]);
+    findExternalMessagesMock
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          subject: 'Vendor onboarding',
+          from: 'ops@example.com',
+          snippet: 'Can you confirm the onboarding checklist timeline?',
+        },
+      ]);
 
     const approvalResponse = await service.assist(
       {

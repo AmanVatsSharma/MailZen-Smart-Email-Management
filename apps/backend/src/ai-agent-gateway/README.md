@@ -18,6 +18,10 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - Enforce monthly AI credit entitlements for authenticated assist requests
   through billing usage consumption.
 - Persist executed agent-action audits (`agent_action_audits`) for compliance and debugging.
+- Build runtime memory context for authenticated inbox skills:
+  - thread summary snippets from recent synced messages
+  - user style profile heuristics (`avgWords/questionRatio`)
+  - workspace role policy hints (`standard-review` / `elevated-review`)
 - Provide `agentPlatformHealth` GraphQL probe with gateway metrics snapshot.
 - Expose `myAgentActionAudits(limit?)` query for authenticated audit review.
 - Expose `myAgentActionDataExport(limit?)` for authenticated JSON export of
@@ -76,3 +80,4 @@ flowchart TD
 - 2026-02-16: Added billing-backed AI credit consumption enforcement.
 - 2026-02-16: Added user-scoped agent action audit data export query.
 - 2026-02-16: Added agent action audit retention purge API + scheduler.
+- 2026-02-16: Added runtime memory-context retrieval for inbox agent payloads.
