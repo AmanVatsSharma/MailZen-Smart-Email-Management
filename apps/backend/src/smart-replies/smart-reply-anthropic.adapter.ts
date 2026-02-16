@@ -4,6 +4,7 @@ import {
   SmartReplyProviderRequest,
   SmartReplySuggestionProvider,
 } from './smart-reply-provider.interface';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 type AnthropicMessagesResponse = {
   content?: Array<{
@@ -48,7 +49,9 @@ export class SmartReplyAnthropicAdapter implements SmartReplySuggestionProvider 
     ).trim();
     if (!apiKey) {
       this.logger.warn(
-        'smart-reply-anthropic-adapter: missing SMART_REPLY_ANTHROPIC_API_KEY; skipping provider',
+        serializeStructuredLog({
+          event: 'smart_reply_anthropic_skipped_missing_api_key',
+        }),
       );
       return [];
     }
@@ -121,13 +124,19 @@ export class SmartReplyAnthropicAdapter implements SmartReplySuggestionProvider 
         input.count,
       );
       this.logger.debug(
-        `smart-reply-anthropic-adapter: received ${suggestions.length} suggestions`,
+        serializeStructuredLog({
+          event: 'smart_reply_anthropic_completed',
+          suggestions: suggestions.length,
+        }),
       );
       return suggestions;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `smart-reply-anthropic-adapter: request failed, fallback enabled message=${message}`,
+        serializeStructuredLog({
+          event: 'smart_reply_anthropic_failed_fallback',
+          error: message,
+        }),
       );
       return [];
     }

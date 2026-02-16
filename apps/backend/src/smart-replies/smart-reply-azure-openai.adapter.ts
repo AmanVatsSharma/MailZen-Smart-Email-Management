@@ -4,6 +4,7 @@ import {
   SmartReplyProviderRequest,
   SmartReplySuggestionProvider,
 } from './smart-reply-provider.interface';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 type AzureOpenAiChatCompletionResponse = {
   choices?: Array<{
@@ -66,14 +67,18 @@ export class SmartReplyAzureOpenAiAdapter implements SmartReplySuggestionProvide
     ).trim();
     if (!apiKey) {
       this.logger.warn(
-        'smart-reply-azure-openai-adapter: missing SMART_REPLY_AZURE_OPENAI_API_KEY; skipping provider',
+        serializeStructuredLog({
+          event: 'smart_reply_azure_openai_skipped_missing_api_key',
+        }),
       );
       return [];
     }
     const endpoint = this.resolveEndpoint();
     if (!endpoint) {
       this.logger.warn(
-        'smart-reply-azure-openai-adapter: endpoint/deployment env missing; skipping provider',
+        serializeStructuredLog({
+          event: 'smart_reply_azure_openai_skipped_missing_endpoint',
+        }),
       );
       return [];
     }
@@ -129,13 +134,19 @@ export class SmartReplyAzureOpenAiAdapter implements SmartReplySuggestionProvide
         input.count,
       );
       this.logger.debug(
-        `smart-reply-azure-openai-adapter: received ${suggestions.length} suggestions`,
+        serializeStructuredLog({
+          event: 'smart_reply_azure_openai_completed',
+          suggestions: suggestions.length,
+        }),
       );
       return suggestions;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `smart-reply-azure-openai-adapter: request failed, fallback enabled message=${message}`,
+        serializeStructuredLog({
+          event: 'smart_reply_azure_openai_failed_fallback',
+          error: message,
+        }),
       );
       return [];
     }

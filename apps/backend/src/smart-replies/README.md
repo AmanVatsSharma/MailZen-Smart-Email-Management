@@ -96,6 +96,38 @@ flowchart TD
   - `smart_reply_retention_autopurge_completed`
   - `smart_reply_retention_autopurge_failed`
 
+## Observability events
+
+- Smart reply service events:
+  - `smart_reply_generate_started`
+  - `smart_reply_generate_disabled`
+  - `smart_reply_generate_sensitive_blocked`
+  - `smart_reply_generate_no_suggestions`
+  - `smart_reply_generate_failed`
+  - `smart_reply_suggestions_disabled`
+  - `smart_reply_suggestions_sensitive_blocked`
+  - `smart_reply_suggestions_failed`
+  - `smart_reply_history_persisted`
+  - `smart_reply_history_persist_failed`
+- Provider router events:
+  - `smart_reply_provider_mode_invalid_fallback`
+  - `smart_reply_provider_selected`
+  - `smart_reply_provider_empty_response`
+  - `smart_reply_provider_selected_template_fallback`
+- External provider adapter events:
+  - OpenAI: `smart_reply_openai_skipped_missing_api_key`,
+    `smart_reply_openai_completed`, `smart_reply_openai_failed_fallback`
+  - Azure OpenAI: `smart_reply_azure_openai_skipped_missing_api_key`,
+    `smart_reply_azure_openai_skipped_missing_endpoint`,
+    `smart_reply_azure_openai_completed`,
+    `smart_reply_azure_openai_failed_fallback`
+  - Anthropic: `smart_reply_anthropic_skipped_missing_api_key`,
+    `smart_reply_anthropic_completed`,
+    `smart_reply_anthropic_failed_fallback`
+  - Agent platform: `smart_reply_external_completed`,
+    `smart_reply_external_failed_fallback`
+  - Template provider: `smart_reply_template_generated`
+
 ## API
 
 ### GraphQL Queries

@@ -6,6 +6,7 @@ import { SmartReplyHistory } from './entities/smart-reply-history.entity';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
 import { UpdateSmartReplySettingsInput } from './dto/update-smart-reply-settings.input';
 import { SmartReplyProviderRouter } from './smart-reply-provider.router';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 @Injectable()
 export class SmartReplyService {
@@ -34,7 +35,10 @@ export class SmartReplyService {
       const settings = await this.getSettings(userId);
       if (!settings.enabled) {
         this.logger.warn(
-          `smart-reply-service: settings disabled for userId=${userId}`,
+          serializeStructuredLog({
+            event: 'smart_reply_generate_disabled',
+            userId,
+          }),
         );
         return this.disabledReply;
       }
@@ -44,7 +48,10 @@ export class SmartReplyService {
       );
       if (this.containsSensitiveContext(normalizedConversation)) {
         this.logger.warn(
-          `smart-reply-service: sensitive context blocked userId=${userId}`,
+          serializeStructuredLog({
+            event: 'smart_reply_generate_sensitive_blocked',
+            userId,
+          }),
         );
         await this.persistHistoryRecord({
           userId,
@@ -59,7 +66,13 @@ export class SmartReplyService {
       }
 
       this.logger.log(
-        `smart-reply-service: generating reply userId=${userId} tone=${settings.defaultTone} length=${settings.defaultLength}`,
+        serializeStructuredLog({
+          event: 'smart_reply_generate_started',
+          userId,
+          tone: settings.defaultTone,
+          length: settings.defaultLength,
+          requestedSuggestions: Math.max(1, settings.maxSuggestions),
+        }),
       );
 
       const generated = await this.generateModelSuggestions(
@@ -79,7 +92,11 @@ export class SmartReplyService {
       });
       if (!first) {
         this.logger.warn(
-          `smart-reply-service: provider returned no suggestions userId=${userId}`,
+          serializeStructuredLog({
+            event: 'smart_reply_generate_no_suggestions',
+            userId,
+            source: generated.source,
+          }),
         );
         return this.safeFallbackReply;
       }
@@ -89,7 +106,11 @@ export class SmartReplyService {
       const message = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
-        `smart-reply-service: failed generation userId=${userId} message=${message}`,
+        serializeStructuredLog({
+          event: 'smart_reply_generate_failed',
+          userId,
+          error: message,
+        }),
         stack,
       );
       return this.safeFallbackReply;
@@ -104,7 +125,10 @@ export class SmartReplyService {
     const settings = await this.getSettings(userId);
     if (!settings.enabled) {
       this.logger.warn(
-        `smart-reply-service: skipped suggestions because disabled userId=${userId}`,
+        serializeStructuredLog({
+          event: 'smart_reply_suggestions_disabled',
+          userId,
+        }),
       );
       return [];
     }
@@ -114,7 +138,10 @@ export class SmartReplyService {
 
     if (this.containsSensitiveContext(normalizedConversation)) {
       this.logger.warn(
-        `smart-reply-service: blocked sensitive suggestion request userId=${userId}`,
+        serializeStructuredLog({
+          event: 'smart_reply_suggestions_sensitive_blocked',
+          userId,
+        }),
       );
       return [this.getSafetyBlockedReply()];
     }
@@ -142,7 +169,11 @@ export class SmartReplyService {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `smart-reply-service: failed suggestions userId=${userId} message=${message}`,
+        serializeStructuredLog({
+          event: 'smart_reply_suggestions_failed',
+          userId,
+          error: message,
+        }),
       );
       return [this.safeFallbackReply];
     }
@@ -231,12 +262,21 @@ export class SmartReplyService {
         createdAt: LessThan(retentionCutoff),
       });
       this.logger.debug(
-        `smart-reply-service: history persisted userId=${input.userId} source=${record.source} suggestions=${record.suggestions.length}`,
+        serializeStructuredLog({
+          event: 'smart_reply_history_persisted',
+          userId: input.userId,
+          source: record.source,
+          suggestions: record.suggestions.length,
+        }),
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `smart-reply-service: failed history persistence userId=${input.userId} message=${message}`,
+        serializeStructuredLog({
+          event: 'smart_reply_history_persist_failed',
+          userId: input.userId,
+          error: message,
+        }),
       );
     }
   }

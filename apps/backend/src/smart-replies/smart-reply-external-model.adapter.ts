@@ -4,6 +4,7 @@ import {
   SmartReplyProviderRequest,
   SmartReplySuggestionProvider,
 } from './smart-reply-provider.interface';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 @Injectable()
 export class SmartReplyExternalModelAdapter implements SmartReplySuggestionProvider {
@@ -73,13 +74,19 @@ export class SmartReplyExternalModelAdapter implements SmartReplySuggestionProvi
         .slice(0, input.count);
 
       this.logger.debug(
-        `smart-reply-external-adapter: received ${suggestions.length} suggestions`,
+        serializeStructuredLog({
+          event: 'smart_reply_external_completed',
+          suggestions: suggestions.length,
+        }),
       );
       return suggestions;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `smart-reply-external-adapter: external provider failed, fallback enabled message=${message}`,
+        serializeStructuredLog({
+          event: 'smart_reply_external_failed_fallback',
+          error: message,
+        }),
       );
       return [];
     }

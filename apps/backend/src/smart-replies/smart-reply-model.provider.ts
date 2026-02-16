@@ -3,6 +3,7 @@ import {
   SmartReplyProviderRequest,
   SmartReplySuggestionProvider,
 } from './smart-reply-provider.interface';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 export type SmartReplyTone = 'professional' | 'friendly' | 'concise' | 'formal';
 export type SmartReplyLength = 'short' | 'medium' | 'long';
@@ -53,7 +54,13 @@ export class SmartReplyModelProvider implements SmartReplySuggestionProvider {
     );
 
     this.logger.debug(
-      `smart-reply-model-provider: intent=${intent} tone=${tone} length=${length} count=${input.count}`,
+      serializeStructuredLog({
+        event: 'smart_reply_template_generated',
+        intent,
+        tone,
+        length,
+        count: input.count,
+      }),
     );
 
     const orderedTemplates = templates

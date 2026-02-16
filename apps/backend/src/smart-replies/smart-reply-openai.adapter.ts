@@ -4,6 +4,7 @@ import {
   SmartReplyProviderRequest,
   SmartReplySuggestionProvider,
 } from './smart-reply-provider.interface';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 type OpenAiChatCompletionResponse = {
   choices?: Array<{
@@ -47,7 +48,9 @@ export class SmartReplyOpenAiAdapter implements SmartReplySuggestionProvider {
     const apiKey = String(process.env.SMART_REPLY_OPENAI_API_KEY || '').trim();
     if (!apiKey) {
       this.logger.warn(
-        'smart-reply-openai-adapter: missing SMART_REPLY_OPENAI_API_KEY; skipping provider',
+        serializeStructuredLog({
+          event: 'smart_reply_openai_skipped_missing_api_key',
+        }),
       );
       return [];
     }
@@ -107,13 +110,19 @@ export class SmartReplyOpenAiAdapter implements SmartReplySuggestionProvider {
         input.count,
       );
       this.logger.debug(
-        `smart-reply-openai-adapter: received ${suggestions.length} suggestions`,
+        serializeStructuredLog({
+          event: 'smart_reply_openai_completed',
+          suggestions: suggestions.length,
+        }),
       );
       return suggestions;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `smart-reply-openai-adapter: request failed, fallback enabled message=${message}`,
+        serializeStructuredLog({
+          event: 'smart_reply_openai_failed_fallback',
+          error: message,
+        }),
       );
       return [];
     }

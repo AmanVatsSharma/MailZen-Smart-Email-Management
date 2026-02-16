@@ -5,6 +5,7 @@ import { SmartReplyExternalModelAdapter } from './smart-reply-external-model.ada
 import { SmartReplyModelProvider } from './smart-reply-model.provider';
 import { SmartReplyOpenAiAdapter } from './smart-reply-openai.adapter';
 import { SmartReplyProviderRequest } from './smart-reply-provider.interface';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 type SmartReplyProviderMode =
   | 'template'
@@ -47,7 +48,11 @@ export class SmartReplyProviderRouter {
     if (normalized === 'hybrid') return 'hybrid';
 
     this.logger.warn(
-      `smart-reply-provider-router: unknown SMART_REPLY_PROVIDER_MODE=${normalized}; falling back to hybrid`,
+      serializeStructuredLog({
+        event: 'smart_reply_provider_mode_invalid_fallback',
+        configuredMode: normalized,
+        fallbackMode: 'hybrid',
+      }),
     );
     return 'hybrid';
   }
@@ -144,7 +149,13 @@ export class SmartReplyProviderRouter {
                 : 'external';
         const fallbackUsed = index > 0;
         this.logger.debug(
-          `smart-reply-provider-router: selected source=${source} suggestions=${suggestions.length} fallbackUsed=${fallbackUsed}`,
+          serializeStructuredLog({
+            event: 'smart_reply_provider_selected',
+            provider,
+            source,
+            suggestions: suggestions.length,
+            fallbackUsed,
+          }),
         );
         return {
           suggestions,
@@ -153,7 +164,10 @@ export class SmartReplyProviderRouter {
         };
       }
       this.logger.warn(
-        `smart-reply-provider-router: provider=${provider} returned no suggestions`,
+        serializeStructuredLog({
+          event: 'smart_reply_provider_empty_response',
+          provider,
+        }),
       );
     }
 
@@ -161,7 +175,11 @@ export class SmartReplyProviderRouter {
       input.request,
     );
     this.logger.debug(
-      `smart-reply-provider-router: selected source=internal suggestions=${internalSuggestions.length} fallbackUsed=${routedProviders.length > 0}`,
+      serializeStructuredLog({
+        event: 'smart_reply_provider_selected_template_fallback',
+        suggestions: internalSuggestions.length,
+        fallbackUsed: routedProviders.length > 0,
+      }),
     );
     return {
       suggestions: internalSuggestions,
