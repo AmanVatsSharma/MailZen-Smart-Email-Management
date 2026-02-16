@@ -54,3 +54,17 @@ flowchart TD
   Cleanup --> Error[Throw delivery error]
   Dispatch -->|failure non-strict| Warn[Warn + preserve flow]
 ```
+
+## Structured observability events
+
+`PhoneService` emits structured logs for OTP lifecycle operations:
+
+- `phone_otp_send_start`
+- `phone_otp_send_delivery_completed`
+- `phone_otp_send_delivery_failed`
+- `phone_otp_verify_start`
+- `phone_otp_verify_invalid_or_expired`
+- `phone_otp_verify_code_mismatch`
+- `phone_otp_verify_completed`
+
+Phone numbers are logged as irreversible fingerprints for privacy.
