@@ -122,6 +122,9 @@ From repository root:
   --verify-retry-sleep 8 \
   --status-runtime-checks
 
+# Launch while requiring OAuth verify check (fails when OAuth keys are missing)
+./deploy/ec2/scripts/launch.sh --verify-require-oauth-check
+
 # Launch with custom ports-check target list
 ./deploy/ec2/scripts/launch.sh \
   --ports-check-ports 80,443,8100
@@ -219,6 +222,9 @@ Example:
 
 # Update while skipping optional verify checks
 ./deploy/ec2/scripts/update.sh --verify-skip-ssl-check --verify-skip-oauth-check
+
+# Update while requiring OAuth verify check (fails when OAuth keys are missing)
+./deploy/ec2/scripts/update.sh --verify-require-oauth-check
 
 # Update dry-run + runtime status checks
 ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify --status-runtime-checks

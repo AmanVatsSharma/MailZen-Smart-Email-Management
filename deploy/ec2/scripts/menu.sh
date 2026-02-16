@@ -157,6 +157,9 @@ while true; do
             echo "[mailzen-deploy][MENU][WARN] Ignoring invalid verify retry sleep value: ${launch_verify_retry_sleep}"
           fi
         fi
+        if prompt_yes_no "Require OAuth check in verify step (fail when OAuth keys are missing)" "no"; then
+          launch_args+=(--verify-require-oauth-check)
+        fi
       fi
     fi
     if [[ "${launch_setup_enabled}" == true ]]; then
@@ -390,8 +393,15 @@ while true; do
             echo "[mailzen-deploy][MENU][WARN] Ignoring invalid verify retry sleep value: ${update_verify_retry_sleep}"
           fi
         fi
+        update_verify_skip_oauth=false
         if prompt_yes_no "Skip OAuth check in verify step" "no"; then
           update_args+=(--verify-skip-oauth-check)
+          update_verify_skip_oauth=true
+        fi
+        if [[ "${update_verify_skip_oauth}" == false ]]; then
+          if prompt_yes_no "Require OAuth check in verify step (fail when OAuth keys are missing)" "no"; then
+            update_args+=(--verify-require-oauth-check)
+          fi
         fi
         if prompt_yes_no "Skip SSL check in verify step" "no"; then
           update_args+=(--verify-skip-ssl-check)

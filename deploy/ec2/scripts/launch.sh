@@ -19,6 +19,7 @@
 #   --deploy-dry-run
 #   --verify-max-retries <n>
 #   --verify-retry-sleep <n>
+#   --verify-require-oauth-check
 #   --status-runtime-checks
 #   --status-strict
 #   --status-skip-host-readiness
@@ -52,6 +53,7 @@ STATUS_SKIP_SSL_CHECK=false
 STATUS_SKIP_PORTS_CHECK=false
 VERIFY_MAX_RETRIES=""
 VERIFY_RETRY_SLEEP=""
+VERIFY_REQUIRE_OAUTH_CHECK=false
 DOMAIN_ARG=""
 ACME_EMAIL_ARG=""
 PORTS_CHECK_PORTS=""
@@ -126,6 +128,10 @@ while [[ $# -gt 0 ]]; do
     fi
     shift 2
     ;;
+  --verify-require-oauth-check)
+    VERIFY_REQUIRE_OAUTH_CHECK=true
+    shift
+    ;;
   --status-runtime-checks)
     STATUS_RUNTIME_CHECKS=true
     shift
@@ -192,7 +198,7 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --skip-setup --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --skip-verify --skip-status --setup-skip-daemon --preflight-config-only --deploy-dry-run --verify-max-retries <n> --verify-retry-sleep <n> --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...> --domain <hostname> --acme-email <email>"
+    log_error "Supported flags: --skip-setup --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --skip-verify --skip-status --setup-skip-daemon --preflight-config-only --deploy-dry-run --verify-max-retries <n> --verify-retry-sleep <n> --verify-require-oauth-check --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...> --domain <hostname> --acme-email <email>"
     exit 1
     ;;
   esac
@@ -208,10 +214,10 @@ if [[ -n "${VERIFY_RETRY_SLEEP}" ]] && { [[ ! "${VERIFY_RETRY_SLEEP}" =~ ^[0-9]+
   exit 1
 fi
 
-if [[ "${RUN_VERIFY}" == false ]] && { [[ -n "${VERIFY_MAX_RETRIES}" ]] || [[ -n "${VERIFY_RETRY_SLEEP}" ]]; }; then
+if [[ "${RUN_VERIFY}" == false ]] && { [[ -n "${VERIFY_MAX_RETRIES}" ]] || [[ -n "${VERIFY_RETRY_SLEEP}" ]] || [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; }; then
   log_warn "[LAUNCH] verify-related flags were provided while --skip-verify is enabled; verify flags will be ignored."
 fi
-if [[ "${RUN_VERIFY}" == true ]] && [[ "${DEPLOY_DRY_RUN}" == true ]] && { [[ -n "${VERIFY_MAX_RETRIES}" ]] || [[ -n "${VERIFY_RETRY_SLEEP}" ]]; }; then
+if [[ "${RUN_VERIFY}" == true ]] && [[ "${DEPLOY_DRY_RUN}" == true ]] && { [[ -n "${VERIFY_MAX_RETRIES}" ]] || [[ -n "${VERIFY_RETRY_SLEEP}" ]] || [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; }; then
   log_warn "[LAUNCH] verify-related flags were provided while --deploy-dry-run is enabled; verify step will be skipped."
 fi
 
@@ -364,6 +370,9 @@ if [[ "${RUN_VERIFY}" == true ]]; then
     fi
     if [[ -n "${VERIFY_RETRY_SLEEP}" ]]; then
       verify_args+=(--retry-sleep "${VERIFY_RETRY_SLEEP}")
+    fi
+    if [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; then
+      verify_args+=(--require-oauth-check)
     fi
     run_step "${step}" "${total_steps}" "verify deployment" "${SCRIPT_DIR}/verify.sh" "${verify_args[@]}"
     step=$((step + 1))

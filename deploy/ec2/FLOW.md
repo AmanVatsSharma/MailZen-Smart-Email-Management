@@ -66,6 +66,7 @@ flowchart TD
 
 - Always run `preflight.sh` before deploy/update.
 - Prefer `verify.sh` immediately after deploy/update.
+- Use `verify.sh --require-oauth-check` when OAuth must be enforced in smoke checks.
 - Take a fresh labeled backup before risky changes:
   - `backup-db.sh --label <change>`
 - Use label-aware recovery/scoping when needed:

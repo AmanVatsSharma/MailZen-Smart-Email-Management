@@ -239,6 +239,9 @@ For production-style EC2 deployment, use the deployment module:
   --acme-email ops@example.com \
   --setup-skip-daemon
 
+# Optional: launch while requiring OAuth smoke check in verify step
+./deploy/ec2/scripts/launch.sh --verify-require-oauth-check
+
 # Optional: launch with custom runtime ports-check targets
 ./deploy/ec2/scripts/launch.sh --ports-check-ports 80,443,8100
 
@@ -350,6 +353,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: skip OAuth smoke check if OAuth keys are intentionally unset
 ./deploy/ec2/scripts/verify.sh --skip-oauth-check
 
+# Optional: require OAuth smoke check (fail when OAuth keys are missing)
+./deploy/ec2/scripts/verify.sh --require-oauth-check
+
 # 5) Check status
 ./deploy/ec2/scripts/status.sh
 
@@ -370,6 +376,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: update with verify skip flags and runtime status checks
 ./deploy/ec2/scripts/update.sh --verify-skip-ssl-check --verify-skip-oauth-check --status-runtime-checks
+
+# Optional: update while requiring OAuth smoke check
+./deploy/ec2/scripts/update.sh --verify-require-oauth-check
 
 # Optional: update runtime status checks with custom ports-check targets
 ./deploy/ec2/scripts/update.sh --status-runtime-checks --ports-check-ports 80,443,8100

@@ -31,6 +31,7 @@ Primary flow:
   ./deploy/ec2/scripts/launch.sh --preflight-config-only --deploy-dry-run --skip-verify --skip-status
   ./deploy/ec2/scripts/launch.sh --domain mail.example.com --acme-email ops@example.com --setup-skip-daemon
   ./deploy/ec2/scripts/launch.sh --verify-max-retries 10 --verify-retry-sleep 5
+  ./deploy/ec2/scripts/launch.sh --verify-require-oauth-check
   ./deploy/ec2/scripts/launch.sh --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/launch.sh --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
   ./deploy/ec2/scripts/launch.sh --status-runtime-checks --status-skip-host-readiness --status-skip-ports-check
@@ -65,6 +66,7 @@ Operations:
   ./deploy/ec2/scripts/update.sh
   ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify --skip-status
   ./deploy/ec2/scripts/update.sh --verify-skip-oauth-check --status-runtime-checks
+  ./deploy/ec2/scripts/update.sh --verify-require-oauth-check
   ./deploy/ec2/scripts/update.sh --verify-max-retries 10 --verify-retry-sleep 5
   ./deploy/ec2/scripts/update.sh --status-runtime-checks --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/update.sh --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
