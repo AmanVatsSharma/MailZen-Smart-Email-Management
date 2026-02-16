@@ -52,6 +52,8 @@ for arg in "$@"; do
 done
 
 log_info "Running MailZen EC2 preflight checks..."
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
 require_cmd docker
 ensure_required_files_exist
 validate_core_env
