@@ -87,6 +87,7 @@ flowchart TD
   - `billing_webhook_processing_failed`
   - `billing_upgrade_intent_recorded`
   - `billing_audit_log_write_failed`
+  - `billing_retention_scheduler_audit_log_write_failed`
 - Compliance/audit actions persisted in `audit_logs`:
   - `billing_plan_selected`
   - `billing_trial_started`
@@ -94,6 +95,10 @@ flowchart TD
   - `billing_webhook_subscription_updated`
   - `billing_data_export_requested`
   - `billing_retention_purged`
+  - `billing_retention_autopurge_started`
+  - `billing_retention_autopurge_completed`
+  - `billing_retention_autopurge_failed`
+  - `billing_retention_autopurge_skipped`
 - `BillingWebhookController` structured observability events:
   - `billing_webhook_secret_missing`
   - `billing_webhook_secret_mismatch`
