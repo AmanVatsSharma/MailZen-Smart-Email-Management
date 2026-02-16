@@ -1960,7 +1960,10 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       return null;
     }
     this.logger.debug(
-      `agent-assist-memory: thread context cache hit key=${cacheKey}`,
+      serializeStructuredLog({
+        event: 'agent_assist_thread_context_cache_hit',
+        cacheKey,
+      }),
     );
     return {
       threadSummary: cached.threadSummary,

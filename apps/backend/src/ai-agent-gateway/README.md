@@ -195,6 +195,7 @@ Gateway service structured resilience/retention events:
 - `agent_action_audit_retention_purge_completed`
 - `agent_action_audit_persist_failed`
 - `agent_assist_runtime_context_resolve_failed`
+- `agent_assist_thread_context_cache_hit`
 - `agent_platform_runtime_stats_endpoint_persist_failed`
 - `agent_platform_runtime_stats_skill_persist_failed`
 - `agent_approval_redis_store_failed_fallback`
