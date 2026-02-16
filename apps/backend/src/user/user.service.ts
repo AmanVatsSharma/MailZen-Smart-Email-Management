@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -18,6 +19,10 @@ import { WorkspaceMember } from '../workspace/entities/workspace-member.entity';
 import { UserSubscription } from '../billing/entities/user-subscription.entity';
 import { BillingInvoice } from '../billing/entities/billing-invoice.entity';
 import { UserNotification } from '../notification/entities/user-notification.entity';
+import {
+  fingerprintIdentifier,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 /**
  * UserService - Handles user CRUD operations and authentication validation
@@ -25,6 +30,8 @@ import { UserNotification } from '../notification/entities/user-notification.ent
  */
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -50,7 +57,13 @@ export class UserService {
    * @returns Created user entity
    */
   async createUser(createUserInput: CreateUserInput): Promise<User> {
-    console.log('[UserService] Creating user:', createUserInput.email);
+    const emailFingerprint = fingerprintIdentifier(createUserInput.email || '');
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_create_start',
+        emailFingerprint,
+      }),
+    );
 
     const normalizedEmail = createUserInput.email.trim().toLowerCase();
     if (!normalizedEmail) {
@@ -62,7 +75,12 @@ export class UserService {
       where: { email: normalizedEmail },
     });
     if (existing) {
-      console.log('[UserService] Email already registered:', normalizedEmail);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'user_create_conflict_email_exists',
+          emailFingerprint,
+        }),
+      );
       throw new ConflictException('Email already registered');
     }
 
@@ -77,7 +95,13 @@ export class UserService {
     });
 
     const created = await this.userRepository.save(user);
-    console.log('[UserService] User created successfully:', created.id);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_create_completed',
+        userId: created.id,
+        emailFingerprint,
+      }),
+    );
 
     return created;
   }
@@ -90,7 +114,13 @@ export class UserService {
    * @returns User entity if valid, null otherwise
    */
   async validateUser(email: string, password: string): Promise<User | null> {
-    console.log('[UserService] Validating user:', email);
+    const emailFingerprint = fingerprintIdentifier(email || '');
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_validate_start',
+        emailFingerprint,
+      }),
+    );
 
     const normalizedEmail = email.trim().toLowerCase();
     const dbUser = await this.userRepository.findOne({
@@ -99,9 +129,11 @@ export class UserService {
     const now = new Date();
 
     if (!dbUser || !dbUser.password) {
-      console.log(
-        '[UserService] User not found or no password set:',
-        normalizedEmail,
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'user_validate_missing_or_passwordless',
+          emailFingerprint,
+        }),
       );
       // Audit login failure without user id
       await this.auditLogRepository.save({
@@ -113,7 +145,13 @@ export class UserService {
 
     // Check if account is locked out
     if (dbUser.lockoutUntil && dbUser.lockoutUntil > now) {
-      console.log('[UserService] Account locked until:', dbUser.lockoutUntil);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'user_validate_locked_out',
+          userId: dbUser.id,
+          lockoutUntilIso: dbUser.lockoutUntil.toISOString(),
+        }),
+      );
       await this.auditLogRepository.save({
         action: 'LOGIN_LOCKED',
         userId: dbUser.id,
@@ -125,7 +163,12 @@ export class UserService {
     // Verify password with bcrypt
     const isPasswordValid = await bcrypt.compare(password, dbUser.password);
     if (!isPasswordValid) {
-      console.log('[UserService] Invalid password for user:', dbUser.id);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'user_validate_invalid_password',
+          userId: dbUser.id,
+        }),
+      );
 
       // Track failed login attempts
       const maxAttempts = parseInt(process.env.LOGIN_MAX_ATTEMPTS || '5', 10);
@@ -146,10 +189,13 @@ export class UserService {
           now.getTime() + lockoutMinutes * 60 * 1000,
         );
         updates.failedLoginAttempts = 0;
-        console.log(
-          '[UserService] Account locked after',
-          maxAttempts,
-          'failed attempts',
+        this.logger.warn(
+          serializeStructuredLog({
+            event: 'user_validate_lockout_applied',
+            userId: dbUser.id,
+            maxAttempts,
+            lockoutMinutes,
+          }),
         );
       }
 
@@ -162,7 +208,12 @@ export class UserService {
     }
 
     // Successful login - reset failed attempts
-    console.log('[UserService] Login successful for user:', dbUser.id);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_validate_success',
+        userId: dbUser.id,
+      }),
+    );
     await this.userRepository.update(dbUser.id, {
       lastLoginAt: now,
       failedLoginAttempts: 0,
@@ -182,10 +233,20 @@ export class UserService {
    * @returns User entity
    */
   getUser = async (id: string): Promise<User> => {
-    console.log('[UserService] Fetching user by id:', id);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_get_by_id_start',
+        userId: id,
+      }),
+    );
     const dbUser = await this.userRepository.findOne({ where: { id } });
     if (!dbUser) {
-      console.log('[UserService] User not found:', id);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'user_get_by_id_missing',
+          userId: id,
+        }),
+      );
       throw new NotFoundException(`User with id ${id} not found.`);
     }
     return dbUser;
@@ -196,9 +257,18 @@ export class UserService {
    * @returns Array of user entities
    */
   async getAllUsers(): Promise<User[]> {
-    console.log('[UserService] Fetching all users');
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_list_start',
+      }),
+    );
     const users = await this.userRepository.find();
-    console.log('[UserService] Found', users.length, 'users');
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_list_completed',
+        userCount: users.length,
+      }),
+    );
     return users;
   }
 
@@ -208,7 +278,12 @@ export class UserService {
    * @returns Updated user entity
    */
   async updateUser(updateUserInput: UpdateUserInput): Promise<User> {
-    console.log('[UserService] Updating user:', updateUserInput.id);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_update_start',
+        userId: updateUserInput.id,
+      }),
+    );
 
     const updates: Partial<User> = {};
     if (updateUserInput.email) {
@@ -236,14 +311,24 @@ export class UserService {
       );
     }
 
-    console.log('[UserService] User updated successfully:', updated.id);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_update_completed',
+        userId: updated.id,
+      }),
+    );
     return updated;
   }
 
   async exportUserDataSnapshot(
     userId: string,
   ): Promise<AccountDataExportResponse> {
-    console.log('[UserService] Exporting account data snapshot for:', userId);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_data_export_start',
+        userId,
+      }),
+    );
     const user = await this.getUser(userId);
     const generatedAt = new Date();
 
@@ -368,9 +453,21 @@ export class UserService {
       })),
     };
 
-    return {
+    const response = {
       generatedAtIso: generatedAt.toISOString(),
       dataJson: JSON.stringify(payload),
     };
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_data_export_completed',
+        userId,
+        providerCount: providers.length,
+        mailboxCount: mailboxes.length,
+        workspaceMembershipCount: workspaceMemberships.length,
+        invoiceCount: invoices.length,
+        notificationCount: notifications.length,
+      }),
+    );
+    return response;
   }
 }
