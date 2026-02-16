@@ -2,7 +2,9 @@
 import { NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
+import { EmailProviderService } from '../email-integration/email-provider.service';
 import { Mailbox } from '../mailbox/entities/mailbox.entity';
+import { MailboxSyncService } from '../mailbox/mailbox-sync.service';
 import { User } from '../user/entities/user.entity';
 import { InboxService } from './inbox.service';
 
@@ -11,6 +13,12 @@ describe('InboxService', () => {
   let userRepo: jest.Mocked<Repository<User>>;
   let mailboxRepo: jest.Mocked<Repository<Mailbox>>;
   let providerRepo: jest.Mocked<Repository<EmailProvider>>;
+  let mailboxSyncService: jest.Mocked<
+    Pick<MailboxSyncService, 'pollUserMailboxes'>
+  >;
+  let emailProviderService: jest.Mocked<
+    Pick<EmailProviderService, 'syncUserProviders'>
+  >;
 
   beforeEach(() => {
     userRepo = {
@@ -26,8 +34,20 @@ describe('InboxService', () => {
       find: jest.fn(),
       update: jest.fn(),
     } as unknown as jest.Mocked<Repository<EmailProvider>>;
+    mailboxSyncService = {
+      pollUserMailboxes: jest.fn(),
+    };
+    emailProviderService = {
+      syncUserProviders: jest.fn(),
+    };
 
-    service = new InboxService(userRepo, mailboxRepo, providerRepo);
+    service = new InboxService(
+      userRepo,
+      mailboxRepo,
+      providerRepo,
+      mailboxSyncService as unknown as MailboxSyncService,
+      emailProviderService as unknown as EmailProviderService,
+    );
   });
 
   afterEach(() => {
@@ -163,5 +183,70 @@ describe('InboxService', () => {
     await expect(
       service.setActiveInbox('user-1', 'MAILBOX', 'mailbox-unknown'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('syncs mailbox and provider sources for workspace scope', async () => {
+    mailboxSyncService.pollUserMailboxes.mockResolvedValue({
+      polledMailboxes: 2,
+      skippedMailboxes: 1,
+      failedMailboxes: 0,
+      fetchedMessages: 10,
+      acceptedMessages: 8,
+      deduplicatedMessages: 2,
+      rejectedMessages: 0,
+    });
+    emailProviderService.syncUserProviders.mockResolvedValue({
+      requestedProviders: 3,
+      syncedProviders: 2,
+      failedProviders: 1,
+      skippedProviders: 0,
+      results: [],
+      executedAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    const result = await service.syncUserInboxes({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+    });
+
+    expect(mailboxSyncService.pollUserMailboxes).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+    });
+    expect(emailProviderService.syncUserProviders).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        mailboxPolledMailboxes: 2,
+        providerRequestedProviders: 3,
+        success: true,
+      }),
+    );
+  });
+
+  it('returns partial result when provider sync fails', async () => {
+    mailboxSyncService.pollUserMailboxes.mockResolvedValue({
+      polledMailboxes: 1,
+      skippedMailboxes: 0,
+      failedMailboxes: 0,
+      fetchedMessages: 1,
+      acceptedMessages: 1,
+      deduplicatedMessages: 0,
+      rejectedMessages: 0,
+    });
+    emailProviderService.syncUserProviders.mockRejectedValue(
+      new Error('provider backend unavailable'),
+    );
+
+    const result = await service.syncUserInboxes({
+      userId: 'user-1',
+      workspaceId: null,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.providerSyncError).toContain('provider backend unavailable');
+    expect(result.mailboxPolledMailboxes).toBe(1);
   });
 });

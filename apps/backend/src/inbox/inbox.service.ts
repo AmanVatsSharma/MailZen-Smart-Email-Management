@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { Mailbox } from '../mailbox/entities/mailbox.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
+import { MailboxSyncService } from '../mailbox/mailbox-sync.service';
+import { EmailProviderService } from '../email-integration/email-provider.service';
 
 /**
  * InboxService - Manages unified inbox view across mailboxes and providers
@@ -20,6 +22,8 @@ export class InboxService {
     private readonly mailboxRepository: Repository<Mailbox>,
     @InjectRepository(EmailProvider)
     private readonly providerRepository: Repository<EmailProvider>,
+    private readonly mailboxSyncService: MailboxSyncService,
+    private readonly emailProviderService: EmailProviderService,
   ) {
     // intentionally quiet in constructor to reduce startup log noise
   }
@@ -186,5 +190,81 @@ export class InboxService {
       `Set active inbox to PROVIDER ${provider.email} for user=${userId}`,
     );
     return this.listUserInboxes(userId);
+  }
+
+  async syncUserInboxes(input: {
+    userId: string;
+    workspaceId?: string | null;
+  }) {
+    const normalizedWorkspaceId =
+      String(input.workspaceId || '').trim() || null;
+    let mailboxSyncError: string | null = null;
+    let providerSyncError: string | null = null;
+
+    let mailboxResult = {
+      polledMailboxes: 0,
+      skippedMailboxes: 0,
+      failedMailboxes: 0,
+    };
+    try {
+      const summary = await this.mailboxSyncService.pollUserMailboxes({
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId,
+      });
+      mailboxResult = {
+        polledMailboxes: summary.polledMailboxes,
+        skippedMailboxes: summary.skippedMailboxes,
+        failedMailboxes: summary.failedMailboxes,
+      };
+    } catch (error: unknown) {
+      mailboxSyncError =
+        error instanceof Error
+          ? error.message.slice(0, 500)
+          : 'Mailbox sync failed';
+      this.logger.warn(
+        `sync-my-inboxes: mailbox sync failed userId=${input.userId} workspaceId=${normalizedWorkspaceId || 'none'} error=${mailboxSyncError}`,
+      );
+    }
+
+    let providerResult = {
+      requestedProviders: 0,
+      syncedProviders: 0,
+      failedProviders: 0,
+      skippedProviders: 0,
+    };
+    try {
+      const summary = await this.emailProviderService.syncUserProviders({
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId,
+      });
+      providerResult = {
+        requestedProviders: summary.requestedProviders,
+        syncedProviders: summary.syncedProviders,
+        failedProviders: summary.failedProviders,
+        skippedProviders: summary.skippedProviders,
+      };
+    } catch (error: unknown) {
+      providerSyncError =
+        error instanceof Error
+          ? error.message.slice(0, 500)
+          : 'Provider sync failed';
+      this.logger.warn(
+        `sync-my-inboxes: provider sync failed userId=${input.userId} workspaceId=${normalizedWorkspaceId || 'none'} error=${providerSyncError}`,
+      );
+    }
+
+    return {
+      mailboxPolledMailboxes: mailboxResult.polledMailboxes,
+      mailboxSkippedMailboxes: mailboxResult.skippedMailboxes,
+      mailboxFailedMailboxes: mailboxResult.failedMailboxes,
+      providerRequestedProviders: providerResult.requestedProviders,
+      providerSyncedProviders: providerResult.syncedProviders,
+      providerFailedProviders: providerResult.failedProviders,
+      providerSkippedProviders: providerResult.skippedProviders,
+      success: !mailboxSyncError && !providerSyncError,
+      mailboxSyncError,
+      providerSyncError,
+      executedAtIso: new Date().toISOString(),
+    };
   }
 }

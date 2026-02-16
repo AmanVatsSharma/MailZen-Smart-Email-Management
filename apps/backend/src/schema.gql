@@ -227,6 +227,20 @@ type Inbox {
   sourceKind: String
 }
 
+type InboxSyncRunResponse {
+  mailboxPolledMailboxes: Int!
+  mailboxSkippedMailboxes: Int!
+  mailboxFailedMailboxes: Int!
+  providerRequestedProviders: Int!
+  providerSyncedProviders: Int!
+  providerFailedProviders: Int!
+  providerSkippedProviders: Int!
+  success: Boolean!
+  mailboxSyncError: String
+  providerSyncError: String
+  executedAtIso: String!
+}
+
 type EmailAttachment {
   id: ID!
   name: String!
@@ -574,6 +588,7 @@ type Mutation {
   sendPhoneOtp(phoneNumber: String!): Boolean!
   verifyPhoneOtp(code: String!): Boolean!
   setActiveInbox(input: SetActiveInboxInput!): [Inbox!]!
+  syncMyInboxes(workspaceId: String): InboxSyncRunResponse!
   updateEmail(id: String!, input: EmailUpdateInput!): EmailThread!
   agentAssist(input: AgentAssistInput!): AgentAssistResponse!
 }

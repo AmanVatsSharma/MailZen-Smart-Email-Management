@@ -46,6 +46,6 @@ import { UserNotificationPreference } from '../notification/entities/user-notifi
     MailboxInboundRetentionScheduler,
     MailboxSyncScheduler,
   ],
-  exports: [MailboxService],
+  exports: [MailboxService, MailboxSyncService],
 })
 export class MailboxModule {}

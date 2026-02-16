@@ -11,6 +11,9 @@ Provide a single API for **multi-inbox switching**, combining:
 
 - `myInboxes: [Inbox!]!`
 - `setActiveInbox(input: SetActiveInboxInput!): [Inbox!]!`
+- `syncMyInboxes(workspaceId?: String): InboxSyncRunResponse!`
+  - triggers both mailbox pull sync + provider sync for authenticated user/workspace
+  - returns aggregate counters and partial-failure fields (`mailboxSyncError`, `providerSyncError`)
 
 `Inbox` response now includes sync telemetry fields:
 
@@ -37,6 +40,7 @@ flowchart TD
   frontend[FrontendInboxSwitcher] -->|Query myInboxes| api[GraphQL InboxResolver]
   api --> db[(PostgresTypeORM)]
   frontend -->|Mutation setActiveInbox(type,id)| api
+  frontend -->|Mutation syncMyInboxes| api
   api -->|validate_ownership| db
   api -->|persist_activeInbox| db
 ```

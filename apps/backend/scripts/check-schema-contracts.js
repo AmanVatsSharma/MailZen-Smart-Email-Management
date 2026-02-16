@@ -28,6 +28,7 @@ const requiredContracts = [
   'purgeMyMailboxInboundRetentionData',
   'syncMyMailboxPull',
   'syncMyProviders',
+  'syncMyInboxes',
   'myProviderSyncStats',
   'myWorkspaces',
   'myActiveWorkspace',

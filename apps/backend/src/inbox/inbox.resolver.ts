@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Inbox } from './entities/inbox.entity';
 import { InboxService } from './inbox.service';
 import { SetActiveInboxInput } from './dto/set-active-inbox.input';
+import { InboxSyncRunResponse } from './entities/inbox-sync-run-response.entity';
 
 interface RequestContext {
   req: {
@@ -33,5 +34,16 @@ export class InboxResolver {
       input.type,
       input.id,
     );
+  }
+
+  @Mutation(() => InboxSyncRunResponse)
+  async syncMyInboxes(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.inboxService.syncUserInboxes({
+      userId: ctx.req.user.id,
+      workspaceId,
+    });
   }
 }
