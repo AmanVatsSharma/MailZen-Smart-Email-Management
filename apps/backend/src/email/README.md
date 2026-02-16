@@ -87,6 +87,8 @@ The Email Module is a comprehensive solution for managing email operations withi
 - Track email opens and clicks
 - Support for HTML content
 - Attachment handling
+  - attachment storage cleanup warning event:
+    - `attachment_storage_delete_failed`
 - Structured observability logs in `EmailService`:
   - send lifecycle:
     - `email_send_start`

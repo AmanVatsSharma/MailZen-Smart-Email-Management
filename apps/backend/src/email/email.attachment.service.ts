@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -9,9 +9,11 @@ import { Storage } from '@google-cloud/storage';
 import { ConfigService } from '@nestjs/config';
 import { Attachment } from './entities/attachment.entity';
 import { Email } from './entities/email.entity';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 @Injectable()
 export class AttachmentService {
+  private readonly logger = new Logger(AttachmentService.name);
   private storage: Storage;
   private bucket: string;
 
@@ -101,9 +103,14 @@ export class AttachmentService {
       }
     } catch (e) {
       // Best-effort: DB delete still proceeds for MVP.
-      console.warn(
-        '[AttachmentService] Failed to delete from storage (continuing)',
-        e,
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'attachment_storage_delete_failed',
+          attachmentId: input.attachmentId,
+          userId,
+          error:
+            e instanceof Error ? e.message : 'unknown storage delete error',
+        }),
       );
     }
 
