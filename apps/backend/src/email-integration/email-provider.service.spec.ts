@@ -285,6 +285,41 @@ describe('EmailProviderService', () => {
     );
   });
 
+  it('records audit action when Outlook oauth code connect fails', async () => {
+    const originalOutlookClientId = process.env.OUTLOOK_CLIENT_ID;
+    const originalOutlookClientSecret = process.env.OUTLOOK_CLIENT_SECRET;
+    const originalOutlookProviderRedirectUri =
+      process.env.OUTLOOK_PROVIDER_REDIRECT_URI;
+    const originalOutlookRedirectUri = process.env.OUTLOOK_REDIRECT_URI;
+
+    try {
+      delete process.env.OUTLOOK_CLIENT_ID;
+      delete process.env.OUTLOOK_CLIENT_SECRET;
+      delete process.env.OUTLOOK_PROVIDER_REDIRECT_URI;
+      delete process.env.OUTLOOK_REDIRECT_URI;
+
+      await expect(
+        service.connectOutlook('oauth-code', 'user-1'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(auditLogRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user-1',
+          action: 'provider_connect_failed',
+          metadata: expect.objectContaining({
+            providerType: 'OUTLOOK',
+            source: 'oauth_code',
+          }),
+        }),
+      );
+    } finally {
+      process.env.OUTLOOK_CLIENT_ID = originalOutlookClientId;
+      process.env.OUTLOOK_CLIENT_SECRET = originalOutlookClientSecret;
+      process.env.OUTLOOK_PROVIDER_REDIRECT_URI =
+        originalOutlookProviderRedirectUri;
+      process.env.OUTLOOK_REDIRECT_URI = originalOutlookRedirectUri;
+    }
+  });
+
   it('records audit action when SMTP connect fails', async () => {
     jest
       .spyOn(service, 'configureProvider')
