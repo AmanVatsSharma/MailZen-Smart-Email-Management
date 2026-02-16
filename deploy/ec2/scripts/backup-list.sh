@@ -9,6 +9,7 @@
 #   ./deploy/ec2/scripts/backup-list.sh
 #   ./deploy/ec2/scripts/backup-list.sh --latest
 #   ./deploy/ec2/scripts/backup-list.sh --count 5
+#   ./deploy/ec2/scripts/backup-list.sh --label before-release --count 5
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -18,6 +19,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 BACKUP_DIR="${DEPLOY_DIR}/backups"
 LATEST_ONLY=false
 MAX_COUNT=""
+LABEL_FILTER=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -33,9 +35,17 @@ while [[ $# -gt 0 ]]; do
     fi
     shift 2
     ;;
+  --label)
+    LABEL_FILTER="${2:-}"
+    if [[ -z "${LABEL_FILTER}" ]]; then
+      log_error "--label requires a value."
+      exit 1
+    fi
+    shift 2
+    ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --latest --count <n>"
+    log_error "Supported flags: --latest --count <n> --label <name>"
     exit 1
     ;;
   esac
@@ -54,17 +64,30 @@ if [[ "${LATEST_ONLY}" == true ]] && [[ -z "${MAX_COUNT}" ]]; then
   MAX_COUNT="1"
 fi
 
+if [[ -n "${LABEL_FILTER}" ]] && [[ ! "${LABEL_FILTER}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  log_error "Label filter must match [A-Za-z0-9._-] (received: ${LABEL_FILTER})"
+  exit 1
+fi
+
 if [[ ! -d "${BACKUP_DIR}" ]]; then
   log_warn "Backup directory does not exist yet: ${BACKUP_DIR}"
   exit 0
 fi
 
 shopt -s nullglob
-backup_files=("${BACKUP_DIR}"/mailzen-*.sql.gz)
+if [[ -n "${LABEL_FILTER}" ]]; then
+  backup_files=("${BACKUP_DIR}/mailzen-${LABEL_FILTER}-"*.sql.gz)
+else
+  backup_files=("${BACKUP_DIR}/mailzen-"*.sql.gz)
+fi
 shopt -u nullglob
 
 if [[ "${#backup_files[@]}" -eq 0 ]]; then
-  log_warn "No backup files found in ${BACKUP_DIR}"
+  if [[ -n "${LABEL_FILTER}" ]]; then
+    log_warn "No backup files found for label '${LABEL_FILTER}' in ${BACKUP_DIR}"
+  else
+    log_warn "No backup files found in ${BACKUP_DIR}"
+  fi
   exit 0
 fi
 

@@ -9,6 +9,7 @@
 #   ./deploy/ec2/scripts/backup-prune.sh
 #   ./deploy/ec2/scripts/backup-prune.sh 20
 #   ./deploy/ec2/scripts/backup-prune.sh --keep-count 20 --dry-run
+#   ./deploy/ec2/scripts/backup-prune.sh --label before-release --keep-count 5 --dry-run
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -18,6 +19,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 KEEP_COUNT="10"
 BACKUP_DIR="${DEPLOY_DIR}/backups"
 DRY_RUN=false
+LABEL_FILTER=""
 
 if [[ $# -gt 0 ]] && [[ ! "$1" =~ ^-- ]]; then
   KEEP_COUNT="$1"
@@ -38,9 +40,17 @@ while [[ $# -gt 0 ]]; do
     DRY_RUN=true
     shift
     ;;
+  --label)
+    LABEL_FILTER="${2:-}"
+    if [[ -z "${LABEL_FILTER}" ]]; then
+      log_error "--label requires a value."
+      exit 1
+    fi
+    shift 2
+    ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: [keep-count] --keep-count <n> --dry-run"
+    log_error "Supported flags: [keep-count] --keep-count <n> --dry-run --label <name>"
     exit 1
     ;;
   esac
@@ -51,6 +61,11 @@ if [[ ! "${KEEP_COUNT}" =~ ^[0-9]+$ ]] || [[ "${KEEP_COUNT}" -lt 1 ]]; then
   exit 1
 fi
 
+if [[ -n "${LABEL_FILTER}" ]] && [[ ! "${LABEL_FILTER}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  log_error "Label filter must match [A-Za-z0-9._-] (received: ${LABEL_FILTER})"
+  exit 1
+fi
+
 if [[ ! -d "${BACKUP_DIR}" ]]; then
   log_warn "Backup directory does not exist yet: ${BACKUP_DIR}."
   log_warn "Nothing to prune."
@@ -58,11 +73,19 @@ if [[ ! -d "${BACKUP_DIR}" ]]; then
 fi
 
 shopt -s nullglob
-backup_glob=("${BACKUP_DIR}"/mailzen-*.sql.gz)
+if [[ -n "${LABEL_FILTER}" ]]; then
+  backup_glob=("${BACKUP_DIR}/mailzen-${LABEL_FILTER}-"*.sql.gz)
+else
+  backup_glob=("${BACKUP_DIR}/mailzen-"*.sql.gz)
+fi
 shopt -u nullglob
 
 if [[ "${#backup_glob[@]}" -eq 0 ]]; then
-  log_info "No backups found; nothing to prune."
+  if [[ -n "${LABEL_FILTER}" ]]; then
+    log_info "No backups found for label '${LABEL_FILTER}'; nothing to prune."
+  else
+    log_info "No backups found; nothing to prune."
+  fi
   exit 0
 fi
 

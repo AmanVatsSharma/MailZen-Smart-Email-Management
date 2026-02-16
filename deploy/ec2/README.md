@@ -302,6 +302,9 @@ Example:
 # Show latest 5 backups
 ./deploy/ec2/scripts/backup-list.sh --count 5
 
+# Show latest 5 backups for one label series
+./deploy/ec2/scripts/backup-list.sh --label before-release --count 5
+
 # Keep only latest 10 backups (default)
 ./deploy/ec2/scripts/backup-prune.sh
 
@@ -310,6 +313,9 @@ Example:
 
 # Preview backup prune without deleting files
 ./deploy/ec2/scripts/backup-prune.sh --keep-count 20 --dry-run
+
+# Preview prune for one label series
+./deploy/ec2/scripts/backup-prune.sh --label before-release --keep-count 5 --dry-run
 
 # Restore DB backup (destructive: drops and recreates DB)
 ./deploy/ec2/scripts/restore-db.sh deploy/ec2/backups/your-backup.sql.gz
