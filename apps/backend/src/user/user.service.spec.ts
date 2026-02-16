@@ -26,6 +26,7 @@ describe('UserService', () => {
       find: jest.fn(),
     } as unknown as jest.Mocked<Repository<User>>;
     auditLogRepository = {
+      create: jest.fn().mockImplementation((value) => value),
       save: jest.fn(),
     } as unknown as jest.Mocked<Repository<AuditLog>>;
     emailProviderRepository = {
@@ -151,5 +152,43 @@ describe('UserService', () => {
     expect(result.dataJson).toContain('"mailboxes"');
     expect(result.dataJson).toContain('"workspaceMemberships"');
     expect(result.dataJson).toContain('"notificationSummary"');
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'user_data_export_requested',
+      }),
+    );
+  });
+
+  it('does not fail account export when audit write fails', async () => {
+    userRepository.findOne.mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      role: 'USER',
+      isEmailVerified: true,
+      isPhoneVerified: false,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-01T00:00:00.000Z'),
+    } as User);
+    emailProviderRepository.find.mockResolvedValue([]);
+    mailboxRepository.find.mockResolvedValue([]);
+    workspaceMemberRepository.find.mockResolvedValue([]);
+    userSubscriptionRepository.findOne.mockResolvedValue(null);
+    billingInvoiceRepository.find.mockResolvedValue([]);
+    userNotificationRepository.find.mockResolvedValue([]);
+    auditLogRepository.save.mockRejectedValueOnce(
+      new Error('audit store unavailable'),
+    );
+
+    const result = await service.exportUserDataSnapshot('user-1');
+
+    expect(result.generatedAtIso).toBeTruthy();
+    expect(result.dataJson).toContain('"user"');
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'user_data_export_requested',
+      }),
+    );
   });
 });

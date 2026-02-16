@@ -62,3 +62,17 @@ flowchart TD
   - `user_data_export_start`
   - `user_data_export_completed`
 - Email inputs are logged as irreversible fingerprints to avoid exposing PII.
+
+## Compliance / Audit Trail
+
+- Uses shared `AuditLog` persistence for authentication and account lifecycle
+  events.
+- Structured warning event:
+  - `user_audit_log_write_failed`
+- Persisted audit actions:
+  - `LOGIN_FAILED`
+  - `LOGIN_LOCKED`
+  - `LOGIN_SUCCESS`
+  - `user_registered`
+  - `user_profile_updated`
+  - `user_data_export_requested`

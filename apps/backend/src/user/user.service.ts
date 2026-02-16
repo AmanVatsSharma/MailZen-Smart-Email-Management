@@ -51,6 +51,30 @@ export class UserService {
     private readonly userNotificationRepository: Repository<UserNotification>,
   ) {}
 
+  private async writeAuditLog(input: {
+    action: string;
+    userId?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepository.create({
+        action: input.action,
+        userId: input.userId,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepository.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'user_audit_log_write_failed',
+          action: input.action,
+          userId: input.userId || null,
+          error: String(error),
+        }),
+      );
+    }
+  }
+
   /**
    * Create a new user account with hashed password
    * @param createUserInput - User registration data
@@ -102,6 +126,13 @@ export class UserService {
         emailFingerprint,
       }),
     );
+    await this.writeAuditLog({
+      userId: created.id,
+      action: 'user_registered',
+      metadata: {
+        emailFingerprint,
+      },
+    });
 
     return created;
   }
@@ -136,9 +167,11 @@ export class UserService {
         }),
       );
       // Audit login failure without user id
-      await this.auditLogRepository.save({
+      await this.writeAuditLog({
         action: 'LOGIN_FAILED',
-        metadata: { email: normalizedEmail },
+        metadata: {
+          emailFingerprint,
+        },
       });
       return null;
     }
@@ -152,10 +185,12 @@ export class UserService {
           lockoutUntilIso: dbUser.lockoutUntil.toISOString(),
         }),
       );
-      await this.auditLogRepository.save({
+      await this.writeAuditLog({
         action: 'LOGIN_LOCKED',
         userId: dbUser.id,
-        metadata: { until: dbUser.lockoutUntil },
+        metadata: {
+          untilIso: dbUser.lockoutUntil.toISOString(),
+        },
       });
       return null;
     }
@@ -200,7 +235,7 @@ export class UserService {
       }
 
       await this.userRepository.update(dbUser.id, updates);
-      await this.auditLogRepository.save({
+      await this.writeAuditLog({
         action: 'LOGIN_FAILED',
         userId: dbUser.id,
       });
@@ -219,7 +254,7 @@ export class UserService {
       failedLoginAttempts: 0,
       lockoutUntil: undefined,
     });
-    await this.auditLogRepository.save({
+    await this.writeAuditLog({
       action: 'LOGIN_SUCCESS',
       userId: dbUser.id,
     });
@@ -317,6 +352,16 @@ export class UserService {
         userId: updated.id,
       }),
     );
+    await this.writeAuditLog({
+      userId: updated.id,
+      action: 'user_profile_updated',
+      metadata: {
+        changedFields: Object.keys(updates),
+        emailFingerprint: updates.email
+          ? fingerprintIdentifier(String(updates.email))
+          : null,
+      },
+    });
     return updated;
   }
 
@@ -468,6 +513,17 @@ export class UserService {
         notificationCount: notifications.length,
       }),
     );
+    await this.writeAuditLog({
+      userId,
+      action: 'user_data_export_requested',
+      metadata: {
+        providerCount: providers.length,
+        mailboxCount: mailboxes.length,
+        workspaceMembershipCount: workspaceMemberships.length,
+        invoiceCount: invoices.length,
+        notificationCount: notifications.length,
+      },
+    });
     return response;
   }
 }
