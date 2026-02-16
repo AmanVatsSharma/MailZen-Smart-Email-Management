@@ -15,10 +15,16 @@ export class MailboxSyncStateResponse {
   inboundSyncCursor?: string | null;
 
   @Field({ nullable: true })
+  inboundSyncStatus?: string | null;
+
+  @Field({ nullable: true })
   inboundSyncLastPolledAt?: Date | null;
 
   @Field({ nullable: true })
   inboundSyncLastError?: string | null;
+
+  @Field({ nullable: true })
+  inboundSyncLastErrorAt?: Date | null;
 
   @Field({ nullable: true })
   inboundSyncLeaseExpiresAt?: Date | null;

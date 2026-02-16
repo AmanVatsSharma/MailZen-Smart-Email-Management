@@ -106,9 +106,17 @@ describe('MailboxSyncService', () => {
     expect(mailboxRepo.update).toHaveBeenCalledWith(
       { id: 'mailbox-1' },
       expect.objectContaining({
+        inboundSyncStatus: 'syncing',
+      }),
+    );
+    expect(mailboxRepo.update).toHaveBeenCalledWith(
+      { id: 'mailbox-1' },
+      expect.objectContaining({
         inboundSyncCursor: 'cursor-2',
+        inboundSyncStatus: 'connected',
         inboundSyncLastPolledAt: expect.any(Date),
         inboundSyncLastError: null,
+        inboundSyncLastErrorAt: null,
       }),
     );
     expect(result).toEqual({
@@ -175,8 +183,10 @@ describe('MailboxSyncService', () => {
     expect(mailboxRepo.update).toHaveBeenCalledWith(
       { id: 'mailbox-1' },
       expect.objectContaining({
+        inboundSyncStatus: 'error',
         inboundSyncLastPolledAt: expect.any(Date),
         inboundSyncLastError: expect.stringContaining('status=504'),
+        inboundSyncLastErrorAt: expect.any(Date),
       }),
     );
     expect(notificationEventBusMock.publishSafely).toHaveBeenCalledWith(
@@ -326,7 +336,9 @@ describe('MailboxSyncService', () => {
       { id: 'mailbox-1' },
       expect.objectContaining({
         inboundSyncCursor: 'cursor-after-errors',
+        inboundSyncStatus: 'connected',
         inboundSyncLastError: null,
+        inboundSyncLastErrorAt: null,
       }),
     );
   });
@@ -400,8 +412,10 @@ describe('MailboxSyncService', () => {
         email: 'sales@mailzen.com',
         workspaceId: 'workspace-1',
         inboundSyncCursor: 'cursor-1',
+        inboundSyncStatus: 'connected',
         inboundSyncLastPolledAt: new Date('2026-02-16T00:00:00.000Z'),
         inboundSyncLastError: null,
+        inboundSyncLastErrorAt: null,
         inboundSyncLeaseExpiresAt: null,
       } as Mailbox,
     ]);
@@ -421,6 +435,7 @@ describe('MailboxSyncService', () => {
         mailboxId: 'mailbox-1',
         mailboxEmail: 'sales@mailzen.com',
         inboundSyncCursor: 'cursor-1',
+        inboundSyncStatus: 'connected',
       }),
     ]);
   });

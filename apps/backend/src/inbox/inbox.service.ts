@@ -25,6 +25,12 @@ export class InboxService {
   }
 
   private resolveMailboxSyncStatus(mailbox: Mailbox): string {
+    const normalizedSyncStatus = String(mailbox.inboundSyncStatus || '')
+      .trim()
+      .toLowerCase();
+    if (normalizedSyncStatus) {
+      return normalizedSyncStatus;
+    }
     const mailboxStatus = String(mailbox.status || '')
       .trim()
       .toUpperCase();

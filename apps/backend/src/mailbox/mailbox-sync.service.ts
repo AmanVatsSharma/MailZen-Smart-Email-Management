@@ -486,6 +486,13 @@ export class MailboxSyncService {
       throw new Error('MAILZEN_MAIL_SYNC_API_URL must be configured');
     }
 
+    await this.mailboxRepo.update(
+      { id: mailbox.id },
+      {
+        inboundSyncStatus: 'syncing',
+      },
+    );
+
     const timeoutMs = this.resolveSyncTimeoutMs();
     const batchLimit = this.resolveSyncBatchLimit();
     const cursorParamName = this.resolveCursorParamName();
@@ -555,8 +562,10 @@ export class MailboxSyncService {
         { id: mailbox.id },
         {
           inboundSyncCursor: persistedCursor,
+          inboundSyncStatus: 'connected',
           inboundSyncLastPolledAt: new Date(),
           inboundSyncLastError: null,
+          inboundSyncLastErrorAt: null,
         },
       );
       return {
@@ -573,8 +582,10 @@ export class MailboxSyncService {
       await this.mailboxRepo.update(
         { id: mailbox.id },
         {
+          inboundSyncStatus: 'error',
           inboundSyncLastPolledAt: new Date(),
           inboundSyncLastError: errorMessage.slice(0, 500),
+          inboundSyncLastErrorAt: new Date(),
         },
       );
       await this.publishSyncFailureNotification({
@@ -629,8 +640,10 @@ export class MailboxSyncService {
       mailboxEmail: string;
       workspaceId: string | null;
       inboundSyncCursor: string | null;
+      inboundSyncStatus: string | null;
       inboundSyncLastPolledAt: Date | null;
       inboundSyncLastError: string | null;
+      inboundSyncLastErrorAt: Date | null;
       inboundSyncLeaseExpiresAt: Date | null;
     }>
   > {
@@ -647,8 +660,10 @@ export class MailboxSyncService {
       mailboxEmail: mailbox.email,
       workspaceId: mailbox.workspaceId || null,
       inboundSyncCursor: mailbox.inboundSyncCursor || null,
+      inboundSyncStatus: String(mailbox.inboundSyncStatus || '').trim() || null,
       inboundSyncLastPolledAt: mailbox.inboundSyncLastPolledAt || null,
       inboundSyncLastError: mailbox.inboundSyncLastError || null,
+      inboundSyncLastErrorAt: mailbox.inboundSyncLastErrorAt || null,
       inboundSyncLeaseExpiresAt: mailbox.inboundSyncLeaseExpiresAt || null,
     }));
   }

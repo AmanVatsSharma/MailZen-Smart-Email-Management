@@ -203,10 +203,19 @@ flowchart TD
   - throws `InternalServerErrorException`
   - provisioning service attempts best-effort external mailbox deprovision rollback
 - If mailbox sync pull request fails:
-  - mailbox row stores `inboundSyncLastError` + `inboundSyncLastPolledAt`
+  - mailbox row stores:
+    - `inboundSyncStatus='error'`
+    - `inboundSyncLastError`
+    - `inboundSyncLastErrorAt`
+    - `inboundSyncLastPolledAt`
   - scheduler continues polling other mailboxes (failure isolation)
   - emits `SYNC_FAILED` notification event when error signature changes
     (prevents duplicate notification spam for repeated identical failures)
+- If mailbox sync pull request succeeds:
+  - mailbox row stores:
+    - `inboundSyncStatus='connected'`
+    - `inboundSyncLastPolledAt`
+    - clears `inboundSyncLastError` + `inboundSyncLastErrorAt`
 - Sync API pull retries:
   - transient failures (`429`, `5xx`, network timeouts/resets) use retry with backoff + jitter
   - non-retryable failures (e.g. `4xx` validation/auth issues) fail fast
@@ -272,7 +281,8 @@ flowchart TD
 - `purgeMyMailboxInboundRetentionData`
   - purges authenticated user inbound observability rows older than retention cutoff
 - `myMailboxSyncStates`
-  - lists mailbox sync cursor, last-polled timestamp, last error, and lease expiry
+  - lists mailbox sync cursor, sync lifecycle status, last-polled timestamp,
+    last error/error timestamp, and lease expiry
   - supports optional workspace filtering with strict user ownership
 - `syncMyMailboxPull`
   - manually triggers pull sync for one mailbox or all active mailboxes for authenticated user

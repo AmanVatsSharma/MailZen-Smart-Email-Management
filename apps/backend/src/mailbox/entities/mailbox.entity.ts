@@ -90,7 +90,13 @@ export class Mailbox {
   inboundSyncLastPolledAt?: Date | null;
 
   @Column({ type: 'text', nullable: true })
+  inboundSyncStatus?: string | null;
+
+  @Column({ type: 'text', nullable: true })
   inboundSyncLastError?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  inboundSyncLastErrorAt?: Date | null;
 
   @Column({ type: 'text', nullable: true })
   inboundSyncLeaseToken?: string | null;

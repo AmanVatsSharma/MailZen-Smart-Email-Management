@@ -1012,8 +1012,10 @@ type MailboxSyncStateResponse {
   mailboxEmail: String!
   workspaceId: String
   inboundSyncCursor: String
+  inboundSyncStatus: String
   inboundSyncLastPolledAt: DateTime
   inboundSyncLastError: String
+  inboundSyncLastErrorAt: DateTime
   inboundSyncLeaseExpiresAt: DateTime
 }
 

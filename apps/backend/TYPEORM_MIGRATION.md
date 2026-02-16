@@ -936,6 +936,43 @@ ORDER BY "updatedAt" DESC
 LIMIT 50;
 ```
 
+## Mailbox Inbound Sync Lifecycle State Rollout Notes (2026-02-16)
+
+New migration: `20260216061000-mailbox-inbound-sync-lifecycle-state.ts`
+
+This migration introduces:
+
+- `mailboxes.inboundSyncStatus`
+- `mailboxes.inboundSyncLastErrorAt`
+- index `IDX_mailboxes_inboundSyncStatus`
+
+These fields provide explicit mailbox sync lifecycle state telemetry
+(`syncing/connected/error`) with timestamped error observability.
+
+### Safe rollout sequence
+
+1. Deploy backend containing migration + lifecycle state updates in mailbox sync.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- mailbox/mailbox-sync.service.spec.ts mailbox/mailbox-sync.scheduler.spec.ts`
+   - `npm run build`
+
+### Staging verification SQL
+
+```sql
+SELECT
+  id,
+  email,
+  "inboundSyncStatus",
+  "inboundSyncLastPolledAt",
+  "inboundSyncLastError",
+  "inboundSyncLastErrorAt"
+FROM mailboxes
+ORDER BY "updatedAt" DESC
+LIMIT 50;
+```
+
 ## Gmail Push Watch State Rollout Notes (2026-02-16)
 
 New migration: `20260216035000-email-provider-gmail-watch-state.ts`

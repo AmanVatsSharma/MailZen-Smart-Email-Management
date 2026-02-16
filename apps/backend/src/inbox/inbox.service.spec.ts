@@ -132,8 +132,8 @@ describe('InboxService', () => {
       email: 'founder@gmail.com',
       status: 'connected',
     } as EmailProvider);
-    providerRepo.update.mockResolvedValue({} as any);
-    userRepo.update.mockResolvedValue({} as any);
+    providerRepo.update.mockResolvedValue({} as never);
+    userRepo.update.mockResolvedValue({} as never);
     mailboxRepo.find.mockResolvedValue([]);
     providerRepo.find.mockResolvedValue([]);
 

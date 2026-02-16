@@ -112,9 +112,15 @@ export class GmailSyncScheduler {
   }
 
   private normalizeSyncErrorSignature(value: unknown): string {
-    return String(value || '')
-      .trim()
-      .slice(0, 500);
+    const normalized =
+      typeof value === 'string'
+        ? value
+        : value instanceof Error
+          ? value.message
+          : value === null || value === undefined
+            ? ''
+            : JSON.stringify(value);
+    return String(normalized).trim().slice(0, 500);
   }
 
   @Cron(CronExpression.EVERY_10_MINUTES)
