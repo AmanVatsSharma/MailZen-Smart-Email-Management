@@ -19,20 +19,35 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 KEEP_COUNT="20"
 REPORT_DIR="${DEPLOY_DIR}/reports"
 DRY_RUN=false
+POSITIONAL_KEEP_COUNT=""
+POSITIONAL_KEEP_COUNT_SET=false
+KEEP_COUNT_FLAG_SET=false
+KEEP_COUNT_FLAG_VALUE=""
 
 if [[ $# -gt 0 ]] && [[ ! "$1" =~ ^-- ]]; then
   KEEP_COUNT="$1"
+  POSITIONAL_KEEP_COUNT="${KEEP_COUNT}"
+  POSITIONAL_KEEP_COUNT_SET=true
   shift
 fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --keep-count)
-    KEEP_COUNT="${2:-}"
-    if [[ -z "${KEEP_COUNT}" ]]; then
+    keep_count_arg="${2:-}"
+    if [[ -z "${keep_count_arg}" ]]; then
       log_error "--keep-count requires a value."
       exit 1
     fi
+    if [[ "${KEEP_COUNT_FLAG_SET}" == true ]] && [[ "${keep_count_arg}" != "${KEEP_COUNT_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --keep-count '${KEEP_COUNT_FLAG_VALUE}' overridden by --keep-count '${keep_count_arg}'."
+    fi
+    if [[ "${POSITIONAL_KEEP_COUNT_SET}" == true ]] && [[ "${keep_count_arg}" != "${POSITIONAL_KEEP_COUNT}" ]]; then
+      log_warn "Positional keep count '${POSITIONAL_KEEP_COUNT}' overridden by --keep-count '${keep_count_arg}'."
+    fi
+    KEEP_COUNT="${keep_count_arg}"
+    KEEP_COUNT_FLAG_SET=true
+    KEEP_COUNT_FLAG_VALUE="${keep_count_arg}"
     shift 2
     ;;
   --dry-run)
