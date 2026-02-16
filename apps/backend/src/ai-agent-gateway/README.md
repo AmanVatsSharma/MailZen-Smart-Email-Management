@@ -40,6 +40,7 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   agent action audit history.
 - Expose admin retention control:
   - `purgeAgentActionRetentionData(retentionDays?, userId?)`
+  - `purgeAgentPlatformHealthSampleRetentionData(retentionDays?)`
   - `resetAgentPlatformRuntimeStats(endpointUrl?)`
   - `resetAgentPlatformSkillRuntimeStats(skill?)`
 - Run daily retention scheduler for stale audit rows.
@@ -69,6 +70,9 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   `AI_AGENT_CREDIT_COST_INBOX=2`
 - `AI_AGENT_ALERT_LATENCY_MS` (default `1500`)
 - `AI_AGENT_ALERT_ERROR_RATE_PERCENT` (default `5`)
+- `AI_AGENT_HEALTH_SAMPLE_PERSIST_ENABLED` (default `true`)
+- `AI_AGENT_HEALTH_SAMPLE_AUTOPURGE_ENABLED` (default `true`)
+- `AI_AGENT_HEALTH_SAMPLE_RETENTION_DAYS` (default `30`, clamp `1..3650`)
 - `AI_AGENT_ACTION_AUDIT_AUTOPURGE_ENABLED` (default `true`)
 - `AI_AGENT_ACTION_AUDIT_RETENTION_DAYS` (default `365`, clamp `7..3650`)
 
@@ -110,3 +114,4 @@ flowchart TD
 - 2026-02-16: Added persistent endpoint/skill runtime metrics hydration from Postgres.
 - 2026-02-16: Added admin runtime reset mutation for per-skill health counters.
 - 2026-02-16: Added persisted health snapshot history query for AI platform trends.
+- 2026-02-16: Added health-sample retention purge mutation + daily auto-purge scheduler.

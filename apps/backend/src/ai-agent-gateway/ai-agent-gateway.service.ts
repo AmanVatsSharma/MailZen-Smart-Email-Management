@@ -21,7 +21,7 @@ import axios from 'axios';
 import { createHash, randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createClient, RedisClientType } from 'redis';
-import { MoreThanOrEqual, Repository } from 'typeorm';
+import { LessThan, MoreThanOrEqual, Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
 import { BillingService } from '../billing/billing.service';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
@@ -147,6 +147,9 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   private static readonly DEFAULT_HEALTH_HISTORY_WINDOW_HOURS = 24;
   private static readonly MIN_HEALTH_HISTORY_WINDOW_HOURS = 1;
   private static readonly MAX_HEALTH_HISTORY_WINDOW_HOURS = 24 * 30;
+  private static readonly DEFAULT_HEALTH_SAMPLE_RETENTION_DAYS = 30;
+  private static readonly MIN_HEALTH_SAMPLE_RETENTION_DAYS = 1;
+  private static readonly MAX_HEALTH_SAMPLE_RETENTION_DAYS = 3650;
   private static readonly DEFAULT_THREAD_CONTEXT_CACHE_TTL_MS = 300_000;
   private static readonly MIN_THREAD_CONTEXT_CACHE_TTL_MS = 10_000;
   private static readonly MAX_THREAD_CONTEXT_CACHE_TTL_MS = 3_600_000;
@@ -642,6 +645,34 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     }));
   }
 
+  async purgePlatformHealthSampleRetentionData(input?: {
+    retentionDays?: number | null;
+  }): Promise<{
+    deletedSamples: number;
+    retentionDays: number;
+    executedAtIso: string;
+  }> {
+    const retentionDays = this.normalizeHealthSampleRetentionDays(
+      input?.retentionDays,
+    );
+    const cutoffDate = new Date(
+      Date.now() - retentionDays * 24 * 60 * 60 * 1000,
+    );
+    const deleteResult = await this.healthSampleRepo.delete({
+      checkedAt: LessThan(cutoffDate),
+    });
+    const deletedSamples = Number(deleteResult.affected || 0);
+    const executedAtIso = new Date().toISOString();
+    this.logger.log(
+      `agent-platform-health-sample: retention purge deleted=${deletedSamples} retentionDays=${retentionDays}`,
+    );
+    return {
+      deletedSamples,
+      retentionDays,
+      executedAtIso,
+    };
+  }
+
   private normalizeHealthHistoryLimit(limit?: number | null): number {
     if (typeof limit !== 'number' || !Number.isFinite(limit)) {
       return AiAgentGatewayService.DEFAULT_HEALTH_HISTORY_LIMIT;
@@ -670,6 +701,26 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       return AiAgentGatewayService.MAX_HEALTH_HISTORY_WINDOW_HOURS;
     }
     return rounded;
+  }
+
+  private normalizeHealthSampleRetentionDays(
+    retentionDays?: number | null,
+  ): number {
+    const envValue = Number(process.env.AI_AGENT_HEALTH_SAMPLE_RETENTION_DAYS);
+    const fallback = Number.isFinite(envValue)
+      ? envValue
+      : AiAgentGatewayService.DEFAULT_HEALTH_SAMPLE_RETENTION_DAYS;
+    const candidate =
+      typeof retentionDays === 'number' && Number.isFinite(retentionDays)
+        ? Math.trunc(retentionDays)
+        : Math.trunc(fallback);
+    if (candidate < AiAgentGatewayService.MIN_HEALTH_SAMPLE_RETENTION_DAYS) {
+      return AiAgentGatewayService.MIN_HEALTH_SAMPLE_RETENTION_DAYS;
+    }
+    if (candidate > AiAgentGatewayService.MAX_HEALTH_SAMPLE_RETENTION_DAYS) {
+      return AiAgentGatewayService.MAX_HEALTH_SAMPLE_RETENTION_DAYS;
+    }
+    return candidate;
   }
 
   private normalizeStringArray(values: unknown): string[] {

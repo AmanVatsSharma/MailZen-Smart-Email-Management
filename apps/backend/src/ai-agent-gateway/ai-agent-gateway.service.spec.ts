@@ -50,6 +50,7 @@ describe('AiAgentGatewayService', () => {
   const deleteEndpointRuntimeStatsMock = jest.fn();
   const saveHealthSampleMock = jest.fn();
   const findHealthSamplesMock = jest.fn();
+  const deleteHealthSamplesMock = jest.fn();
   const findSkillRuntimeStatsMock = jest.fn();
   const upsertSkillRuntimeStatMock = jest.fn();
   const deleteSkillRuntimeStatsMock = jest.fn();
@@ -100,7 +101,11 @@ describe('AiAgentGatewayService', () => {
   const healthSampleRepo = {
     save: saveHealthSampleMock,
     find: findHealthSamplesMock,
-  } as unknown as Pick<Repository<AgentPlatformHealthSample>, 'save' | 'find'>;
+    delete: deleteHealthSamplesMock,
+  } as unknown as Pick<
+    Repository<AgentPlatformHealthSample>,
+    'save' | 'find' | 'delete'
+  >;
   const skillRuntimeStatRepo = {
     find: findSkillRuntimeStatsMock,
     upsert: upsertSkillRuntimeStatMock,
@@ -157,6 +162,7 @@ describe('AiAgentGatewayService', () => {
     deleteEndpointRuntimeStatsMock.mockResolvedValue({ affected: 0 });
     saveHealthSampleMock.mockResolvedValue({ id: 'sample-1' });
     findHealthSamplesMock.mockResolvedValue([]);
+    deleteHealthSamplesMock.mockResolvedValue({ affected: 0 });
     findSkillRuntimeStatsMock.mockResolvedValue([]);
     upsertSkillRuntimeStatMock.mockResolvedValue(undefined);
     deleteSkillRuntimeStatsMock.mockResolvedValue({ affected: 0 });
@@ -486,6 +492,28 @@ describe('AiAgentGatewayService', () => {
         alertingState: 'warn',
       }),
     ]);
+  });
+
+  it('purges persisted health samples using retention days', async () => {
+    const service = createService();
+    deleteHealthSamplesMock.mockResolvedValueOnce({ affected: 6 });
+
+    const result = await service.purgePlatformHealthSampleRetentionData({
+      retentionDays: 45,
+    });
+
+    expect(deleteHealthSamplesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        checkedAt: expect.any(Object),
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        deletedSamples: 6,
+        retentionDays: 45,
+        executedAtIso: expect.any(String),
+      }),
+    );
   });
 
   it('hydrates persisted runtime stats from database on module init', async () => {

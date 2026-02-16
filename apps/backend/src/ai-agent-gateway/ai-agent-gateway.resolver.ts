@@ -20,6 +20,7 @@ import { AgentAssistResponse } from './dto/agent-assist.response';
 import { AgentActionDataExportResponse } from './dto/agent-action-data-export.response';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
 import { AgentPlatformHealthSampleResponse } from './dto/agent-platform-health-sample.response';
+import { AgentPlatformHealthSampleRetentionPurgeResponse } from './dto/agent-platform-health-sample-retention-purge.response';
 import { AgentPlatformRuntimeResetResponse } from './dto/agent-platform-runtime-reset.response';
 import { AgentPlatformSkillRuntimeResetResponse } from './dto/agent-platform-skill-runtime-reset.response';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
@@ -143,6 +144,19 @@ export class AiAgentGatewayResolver {
   ): Promise<AgentPlatformSkillRuntimeResetResponse> {
     return this.gatewayService.resetSkillRuntimeStats({
       skill,
+    });
+  }
+
+  @Mutation(() => AgentPlatformHealthSampleRetentionPurgeResponse, {
+    description:
+      'Purge persisted AI platform health samples by retention policy',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async purgeAgentPlatformHealthSampleRetentionData(
+    @Args('retentionDays', { nullable: true }) retentionDays?: number,
+  ): Promise<AgentPlatformHealthSampleRetentionPurgeResponse> {
+    return this.gatewayService.purgePlatformHealthSampleRetentionData({
+      retentionDays,
     });
   }
 }

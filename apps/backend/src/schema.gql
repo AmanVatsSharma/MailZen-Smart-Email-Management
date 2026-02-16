@@ -601,6 +601,12 @@ type AgentPlatformSkillRuntimeResetResponse {
   resetAtIso: String!
 }
 
+type AgentPlatformHealthSampleRetentionPurgeResponse {
+  deletedSamples: Int!
+  retentionDays: Int!
+  executedAtIso: String!
+}
+
 type AgentActionAudit {
   id: ID!
   userId: String
@@ -1054,6 +1060,9 @@ extend type Mutation {
   resetAgentPlatformSkillRuntimeStats(
     skill: String
   ): AgentPlatformSkillRuntimeResetResponse!
+  purgeAgentPlatformHealthSampleRetentionData(
+    retentionDays: Int
+  ): AgentPlatformHealthSampleRetentionPurgeResponse!
   requestMyPlanUpgrade(
     targetPlanCode: String!
     note: String

@@ -18,6 +18,7 @@ import { WorkspaceMember } from '../workspace/entities/workspace-member.entity';
 import { AiAgentActionAuditRetentionScheduler } from './ai-agent-action-audit-retention.scheduler';
 import { AiAgentGatewayResolver } from './ai-agent-gateway.resolver';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
+import { AiAgentPlatformHealthSampleRetentionScheduler } from './ai-agent-platform-health-sample-retention.scheduler';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
 import { AgentPlatformEndpointRuntimeStat } from './entities/agent-platform-endpoint-runtime-stat.entity';
 import { AgentPlatformHealthSample } from './entities/agent-platform-health-sample.entity';
@@ -41,6 +42,7 @@ import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-r
     AiAgentGatewayResolver,
     AiAgentGatewayService,
     AiAgentActionAuditRetentionScheduler,
+    AiAgentPlatformHealthSampleRetentionScheduler,
   ],
   exports: [AiAgentGatewayService],
 })

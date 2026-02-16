@@ -7,6 +7,7 @@ describe('AiAgentGatewayResolver', () => {
     getPlatformHealthHistory: jest.fn(),
     resetPlatformRuntimeStats: jest.fn(),
     resetSkillRuntimeStats: jest.fn(),
+    purgePlatformHealthSampleRetentionData: jest.fn(),
     listAgentActionAuditsForUser: jest.fn(),
     exportAgentActionDataForUser: jest.fn(),
     purgeAgentActionAuditRetentionData: jest.fn(),
@@ -221,6 +222,28 @@ describe('AiAgentGatewayResolver', () => {
     );
     expect(gatewayService.resetSkillRuntimeStats).toHaveBeenCalledWith({
       skill: 'inbox',
+    });
+  });
+
+  it('forwards args to purgeAgentPlatformHealthSampleRetentionData', async () => {
+    gatewayService.purgePlatformHealthSampleRetentionData.mockResolvedValue({
+      deletedSamples: 4,
+      retentionDays: 30,
+      executedAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    const result =
+      await resolver.purgeAgentPlatformHealthSampleRetentionData(45);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        deletedSamples: 4,
+      }),
+    );
+    expect(
+      gatewayService.purgePlatformHealthSampleRetentionData,
+    ).toHaveBeenCalledWith({
+      retentionDays: 45,
     });
   });
 });
