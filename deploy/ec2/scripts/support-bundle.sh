@@ -110,6 +110,17 @@ log_bundle "Using temporary work directory: ${WORK_DIR}"
 active_env_file="${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}"
 active_compose_file="${MAILZEN_DEPLOY_COMPOSE_FILE:-${DEPLOY_DIR}/docker-compose.yml}"
 
+{
+  echo "generated_at_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "seed_env=${SEED_ENV}"
+  echo "keep_seeded_env=${KEEP_SEEDED_ENV}"
+  echo "keep_work_dir=${KEEP_WORK_DIR}"
+  echo "active_env_file=${active_env_file}"
+  echo "active_compose_file=${active_compose_file}"
+  echo "workspace_deploy_dir=${DEPLOY_DIR}"
+} >"${WORK_DIR}/bundle-manifest.txt"
+log_bundle "Captured bundle manifest: ${WORK_DIR}/bundle-manifest.txt"
+
 run_capture "self-check" "\"${SCRIPT_DIR}/self-check.sh\""
 run_capture "env-audit" "\"${SCRIPT_DIR}/env-audit.sh\""
 run_capture "preflight-config-only" "\"${SCRIPT_DIR}/preflight.sh\" --config-only"
