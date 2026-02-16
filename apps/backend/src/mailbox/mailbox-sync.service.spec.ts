@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import axios from 'axios';
 import { Repository, UpdateResult } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { MailboxInboundService } from './mailbox-inbound.service';
 import { MailboxSyncService } from './mailbox-sync.service';
 import { Mailbox } from './entities/mailbox.entity';
@@ -27,6 +28,10 @@ describe('MailboxSyncService', () => {
   const notificationRepo: jest.Mocked<Repository<UserNotification>> = {
     find: jest.fn(),
   } as unknown as jest.Mocked<Repository<UserNotification>>;
+  const auditLogRepo: jest.Mocked<Repository<AuditLog>> = {
+    create: jest.fn(),
+    save: jest.fn(),
+  } as unknown as jest.Mocked<Repository<AuditLog>>;
   const mailboxInboundServiceMock: jest.Mocked<
     Pick<MailboxInboundService, 'ingestInboundEvent'>
   > = {
@@ -56,6 +61,10 @@ describe('MailboxSyncService', () => {
     mailboxSyncRunRepo.delete.mockResolvedValue({ affected: 0 } as never);
     mailboxSyncRunRepo.find.mockResolvedValue([]);
     notificationRepo.find.mockResolvedValue([]);
+    auditLogRepo.create.mockImplementation(
+      (value: Partial<AuditLog>) => value as AuditLog,
+    );
+    auditLogRepo.save.mockResolvedValue({ id: 'audit-log-1' } as AuditLog);
     mailboxInboundServiceMock.ingestInboundEvent.mockResolvedValue({
       accepted: true,
       mailboxId: 'mailbox-1',
@@ -71,6 +80,7 @@ describe('MailboxSyncService', () => {
       mailboxRepo,
       mailboxSyncRunRepo,
       notificationRepo,
+      auditLogRepo,
       mailboxInboundServiceMock as unknown as MailboxInboundService,
       notificationEventBusMock as unknown as NotificationEventBusService,
     );
@@ -1040,6 +1050,31 @@ describe('MailboxSyncService', () => {
       expect.objectContaining({
         deletedRuns: 4,
         retentionDays: 30,
+      }),
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'mailbox_sync_run_retention_purged',
+      }),
+    );
+  });
+
+  it('does not fail retention purge when audit log write fails', async () => {
+    mailboxSyncRunRepo.delete.mockResolvedValue({ affected: 2 } as never);
+    auditLogRepo.save.mockRejectedValue(
+      new Error('audit datastore unavailable'),
+    );
+
+    await expect(
+      service.purgeMailboxSyncRunRetentionData({
+        userId: 'user-1',
+        retentionDays: 15,
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        deletedRuns: 2,
+        retentionDays: 15,
       }),
     );
   });

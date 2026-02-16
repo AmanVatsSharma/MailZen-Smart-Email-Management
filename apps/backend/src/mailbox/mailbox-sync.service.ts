@@ -9,6 +9,7 @@ import {
   MoreThanOrEqual,
   Repository,
 } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import {
   resolveCorrelationId,
   serializeStructuredLog,
@@ -78,9 +79,36 @@ export class MailboxSyncService {
     private readonly mailboxSyncRunRepo: Repository<MailboxSyncRun>,
     @InjectRepository(UserNotification)
     private readonly notificationRepo: Repository<UserNotification>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly mailboxInboundService: MailboxInboundService,
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.auditLogRepo.save(
+        this.auditLogRepo.create({
+          userId: input.userId,
+          action: input.action,
+          metadata: input.metadata || {},
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'mailbox_sync_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
+  }
 
   private resolveIntegerEnv(input: {
     rawValue: string | undefined;
@@ -1982,6 +2010,16 @@ export class MailboxSyncService {
     const deleteResult = await this.mailboxSyncRunRepo.delete(deleteCriteria);
     const deletedRuns = Number(deleteResult.affected || 0);
     const executedAtIso = new Date().toISOString();
+    if (normalizedUserId) {
+      await this.writeAuditLog({
+        userId: normalizedUserId,
+        action: 'mailbox_sync_run_retention_purged',
+        metadata: {
+          deletedRuns,
+          retentionDays,
+        },
+      });
+    }
     this.logger.log(
       serializeStructuredLog({
         event: 'mailbox_sync_run_retention_purge_completed',

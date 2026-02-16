@@ -456,6 +456,7 @@ flowchart TD
   - `mailbox_audit_log_write_failed`
 - `MailboxSyncService` emits structured pull-retry event:
   - `mailbox_sync_pull_retry_scheduled`
+  - `mailbox_sync_audit_log_write_failed`
 - `MailboxInboundService` emits structured auth fallback event:
   - `mailbox_inbound_auth_bypass_non_production`
 - Each inbound request emits structured log events (`mailbox_inbound_*`) through
@@ -463,6 +464,7 @@ flowchart TD
 - Compliance/audit actions persisted in `audit_logs`:
   - `mailbox_created`
   - `mailbox_inbound_retention_purged`
+  - `mailbox_sync_run_retention_purged`
 
 ## Inbound ingestion flow
 
