@@ -32,6 +32,7 @@ Additional deployment flowcharts:
   - `update.sh`
   - `verify.sh` (post-deploy smoke checks)
   - `dns-check.sh` (domain DNS readiness validation)
+  - `ssl-check.sh` (HTTPS certificate validity and expiry check)
   - `self-check.sh` (validate deployment script integrity)
   - `backup-db.sh` (database backup)
   - `backup-list.sh` (list available backups)
@@ -129,6 +130,9 @@ The setup script:
 
 # Validate DNS points to a specific public IP
 ./deploy/ec2/scripts/dns-check.sh --expected-ip 203.0.113.10
+
+# Validate TLS certificate visibility and expiry
+./deploy/ec2/scripts/ssl-check.sh
 
 # Validate host ports 80/443 are available
 ./deploy/ec2/scripts/ports-check.sh

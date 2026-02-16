@@ -38,13 +38,14 @@ show_menu() {
 12) Prune old backups (keep latest 10)
 13) Rollback DB using latest backup
 14) DNS readiness check
-15) Host ports check (80/443)
-16) Environment audit (redacted)
-17) Run diagnostics report (doctor)
-18) Generate support bundle
-19) Rotate app secrets
-20) Run script self-check
-21) Exit
+15) SSL certificate check
+16) Host ports check (80/443)
+17) Environment audit (redacted)
+18) Run diagnostics report (doctor)
+19) Generate support bundle
+20) Rotate app secrets
+21) Run script self-check
+22) Exit
 ===============================================================================
 MENU
 }
@@ -57,7 +58,7 @@ fi
 
 while true; do
   show_menu
-  read -r -p "Select an option [1-21]: " choice
+  read -r -p "Select an option [1-22]: " choice
 
   case "${choice}" in
   1)
@@ -103,29 +104,32 @@ while true; do
     run_step "dns-check.sh"
     ;;
   15)
-    run_step "ports-check.sh"
+    run_step "ssl-check.sh"
     ;;
   16)
-    run_step "env-audit.sh"
+    run_step "ports-check.sh"
     ;;
   17)
-    run_step "doctor.sh"
+    run_step "env-audit.sh"
     ;;
   18)
-    run_step "support-bundle.sh"
+    run_step "doctor.sh"
     ;;
   19)
-    run_step "rotate-app-secrets.sh"
+    run_step "support-bundle.sh"
     ;;
   20)
-    run_step "self-check.sh"
+    run_step "rotate-app-secrets.sh"
     ;;
   21)
+    run_step "self-check.sh"
+    ;;
+  22)
     echo "[mailzen-deploy][INFO] Exiting menu."
     exit 0
     ;;
   *)
-    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-21."
+    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-22."
     ;;
   esac
 done
