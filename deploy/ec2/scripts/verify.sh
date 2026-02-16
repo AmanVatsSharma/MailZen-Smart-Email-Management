@@ -10,7 +10,7 @@
 # Checks:
 # 1) Frontend home page over HTTPS
 # 2) GraphQL endpoint over HTTPS
-# 3) OAuth start endpoint over HTTPS
+# 3) Optional OAuth start endpoint over HTTPS
 # 4) TLS certificate health check (via ssl-check.sh)
 # 5) Optional docker compose status (when docker is available)
 # -----------------------------------------------------------------------------
@@ -23,6 +23,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MAX_RETRIES="5"
 RETRY_SLEEP_SECONDS="3"
 RUN_SSL_CHECK=true
+RUN_OAUTH_CHECK=true
+REQUIRE_OAUTH_CHECK=false
 
 # Backward compatibility for positional usage:
 #   verify.sh 10 5
@@ -49,9 +51,17 @@ while [[ $# -gt 0 ]]; do
     RUN_SSL_CHECK=false
     shift
     ;;
+  --skip-oauth-check)
+    RUN_OAUTH_CHECK=false
+    shift
+    ;;
+  --require-oauth-check)
+    REQUIRE_OAUTH_CHECK=true
+    shift
+    ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --max-retries <n> --retry-sleep <n> --skip-ssl-check"
+    log_error "Supported flags: --max-retries <n> --retry-sleep <n> --skip-ssl-check --skip-oauth-check --require-oauth-check"
     exit 1
     ;;
   esac
@@ -67,6 +77,11 @@ if [[ ! "${RETRY_SLEEP_SECONDS}" =~ ^[0-9]+$ ]] || [[ "${RETRY_SLEEP_SECONDS}" -
   exit 1
 fi
 
+if [[ "${RUN_OAUTH_CHECK}" == false ]] && [[ "${REQUIRE_OAUTH_CHECK}" == true ]]; then
+  log_error "--skip-oauth-check cannot be combined with --require-oauth-check."
+  exit 1
+fi
+
 require_cmd curl
 ensure_required_files_exist
 validate_core_env
@@ -75,6 +90,30 @@ domain="$(read_env_value "MAILZEN_DOMAIN")"
 frontend_url="https://${domain}/"
 graphql_url="https://${domain}/graphql"
 oauth_start_url="https://${domain}/auth/google/start"
+google_client_id="$(read_env_value "GOOGLE_CLIENT_ID")"
+google_client_secret="$(read_env_value "GOOGLE_CLIENT_SECRET")"
+
+oauth_configured=true
+if [[ -z "${google_client_id}" ]] || [[ -z "${google_client_secret}" ]]; then
+  oauth_configured=false
+fi
+if [[ "${oauth_configured}" == true ]]; then
+  if is_placeholder_value "${google_client_id}" || is_placeholder_value "${google_client_secret}"; then
+    oauth_configured=false
+  fi
+fi
+
+if [[ "${RUN_OAUTH_CHECK}" == true ]]; then
+  if [[ "${oauth_configured}" == false ]] && [[ "${REQUIRE_OAUTH_CHECK}" == true ]]; then
+    log_error "OAuth check required but GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET are not configured."
+    exit 1
+  fi
+  if [[ "${oauth_configured}" == false ]]; then
+    RUN_OAUTH_CHECK=false
+    log_warn "Skipping OAuth start endpoint check because Google OAuth env keys are not configured."
+    log_warn "Set GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET or use --require-oauth-check to enforce."
+  fi
+fi
 
 check_http_status() {
   local url="$1"
@@ -145,7 +184,11 @@ ssl_ok=true
 check_http_status "${frontend_url}" "frontend-home" 200 399 || frontend_ok=false
 check_http_status "${graphql_url}" "graphql-get" 200 499 || graphql_get_ok=false
 check_graphql_post || graphql_post_ok=false
-check_http_status "${oauth_start_url}" "oauth-google-start" 200 399 || oauth_ok=false
+if [[ "${RUN_OAUTH_CHECK}" == true ]]; then
+  check_http_status "${oauth_start_url}" "oauth-google-start" 200 399 || oauth_ok=false
+else
+  log_warn "OAuth start endpoint check skipped."
+fi
 if [[ "${RUN_SSL_CHECK}" == true ]]; then
   "${SCRIPT_DIR}/ssl-check.sh" --domain "${domain}" || ssl_ok=false
 else

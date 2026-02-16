@@ -201,6 +201,12 @@ Example:
 # Skip SSL certificate validation in smoke check (not recommended)
 ./deploy/ec2/scripts/verify.sh --skip-ssl-check
 
+# Skip OAuth smoke check when Google OAuth is intentionally not configured
+./deploy/ec2/scripts/verify.sh --skip-oauth-check
+
+# Require OAuth check and fail fast if OAuth env keys are missing
+./deploy/ec2/scripts/verify.sh --require-oauth-check
+
 # Validate deployment domain DNS (uses MAILZEN_DOMAIN from env)
 ./deploy/ec2/scripts/dns-check.sh
 

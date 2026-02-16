@@ -301,6 +301,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: verify with custom retries/sleep
 ./deploy/ec2/scripts/verify.sh --max-retries 10 --retry-sleep 5
 
+# Optional: skip OAuth smoke check if OAuth keys are intentionally unset
+./deploy/ec2/scripts/verify.sh --skip-oauth-check
+
 # 5) Check status
 ./deploy/ec2/scripts/status.sh
 

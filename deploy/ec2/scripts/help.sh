@@ -27,6 +27,7 @@ Primary flow:
   ./deploy/ec2/scripts/preflight.sh
   ./deploy/ec2/scripts/deploy.sh
   ./deploy/ec2/scripts/verify.sh
+  ./deploy/ec2/scripts/verify.sh --skip-oauth-check
   ./deploy/ec2/scripts/status.sh
   ./deploy/ec2/scripts/status.sh --with-runtime-checks
 
