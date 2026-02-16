@@ -233,6 +233,12 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: redacted audit of critical deploy env keys
 ./deploy/ec2/scripts/env-audit.sh
 
+# Optional: generate diagnostics report for troubleshooting
+./deploy/ec2/scripts/doctor.sh
+
+# Optional: strict diagnostics mode
+./deploy/ec2/scripts/doctor.sh --strict
+
 # 3) Build and run the stack
 ./deploy/ec2/scripts/deploy.sh
 

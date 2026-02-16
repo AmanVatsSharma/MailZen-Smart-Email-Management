@@ -24,6 +24,7 @@ scripts=(
   "dns-check.sh"
   "ports-check.sh"
   "env-audit.sh"
+  "doctor.sh"
   "self-check.sh"
   "status.sh"
   "logs.sh"

@@ -57,4 +57,5 @@ flowchart TD
 - Take a fresh `backup-db.sh` before risky changes.
 - Periodically run `backup-prune.sh` to enforce backup retention.
 - Run `env-audit.sh` whenever secrets/domains are updated.
+- Run `doctor.sh` and share report output during incident triage.
 - Use `self-check.sh` after editing deployment scripts.

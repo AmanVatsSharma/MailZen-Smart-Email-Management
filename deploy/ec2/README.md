@@ -40,8 +40,11 @@ Additional deployment flowcharts:
   - `rollback-latest.sh` (restore newest backup quickly)
   - `ports-check.sh` (check host port conflicts for 80/443)
   - `env-audit.sh` (redacted critical env audit)
+  - `doctor.sh` (generate diagnostics report for support)
 - `backups/`  
   Local backup dump directory (tracked folder; dump files ignored by git).
+- `reports/`  
+  Generated diagnostics report directory (tracked folder; report files ignored by git).
   - `status.sh`
   - `logs.sh`
   - `restart.sh`
@@ -123,6 +126,12 @@ The setup script:
 
 # Redacted audit of critical env keys
 ./deploy/ec2/scripts/env-audit.sh
+
+# Generate diagnostics report bundle
+./deploy/ec2/scripts/doctor.sh
+
+# Strict diagnostics mode (treat optional warnings as failures)
+./deploy/ec2/scripts/doctor.sh --strict
 
 # Validate deployment scripts syntax/executable state
 ./deploy/ec2/scripts/self-check.sh
