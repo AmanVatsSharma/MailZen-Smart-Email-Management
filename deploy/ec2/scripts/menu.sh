@@ -73,7 +73,7 @@ show_menu() {
 14) DNS readiness check
 15) SSL certificate check
 16) Host readiness check (disk/memory/cpu)
-17) Host ports check (80/443)
+17) Host ports check (custom ports)
 18) Environment audit (redacted)
 19) Run diagnostics report (doctor)
 20) Generate support bundle
@@ -182,7 +182,8 @@ while true; do
     run_step "host-readiness.sh"
     ;;
   17)
-    run_step "ports-check.sh"
+    ports_list="$(prompt_with_default "Ports to check (comma-separated)" "80,443")"
+    run_step "ports-check.sh" --ports "${ports_list}"
     ;;
   18)
     run_step "env-audit.sh"
