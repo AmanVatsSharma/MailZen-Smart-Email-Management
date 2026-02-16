@@ -331,6 +331,11 @@ flowchart TD
   when warning/critical thresholds are breached (with per-user cooldown suppression).
   Scheduler monitors both recently active users and users with persisted
   prior-alert state so recovered/no-data periods can clear stale alert flags.
+  Scheduler emits structured observability events:
+  `mailbox_inbound_sla_monitor_start`,
+  `mailbox_inbound_sla_alert_suppressed_by_cooldown`,
+  `mailbox_inbound_sla_alert_emitted`,
+  `mailbox_inbound_sla_monitor_user_failed`.
 - `MailboxInboundRetentionScheduler` runs daily and purges stale inbound-event
   observability rows according to retention policy env controls.
 

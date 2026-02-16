@@ -2,6 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { NotificationService } from '../notification/notification.service';
 import { UserNotificationPreference } from '../notification/entities/user-notification-preference.entity';
@@ -30,8 +34,14 @@ export class MailboxInboundSlaScheduler {
 
   @Cron('*/15 * * * *')
   async monitorMailboxInboundSla() {
+    const runCorrelationId = resolveCorrelationId(undefined);
     if (!this.isAlertsEnabledByEnv()) {
-      this.logger.log('mailbox-sla-monitor: alerts disabled by env');
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'mailbox_inbound_sla_monitor_disabled',
+          runCorrelationId,
+        }),
+      );
       return;
     }
     const windowHours = this.resolvePositiveInteger({
@@ -59,12 +69,19 @@ export class MailboxInboundSlaScheduler {
     if (!monitoredUserIds.length) return;
 
     this.logger.log(
-      `mailbox-sla-monitor: evaluating ${monitoredUserIds.length} users window=${windowHours}h cooldown=${cooldownMinutes}m`,
+      serializeStructuredLog({
+        event: 'mailbox_inbound_sla_monitor_start',
+        runCorrelationId,
+        monitoredUsers: monitoredUserIds.length,
+        windowHours,
+        cooldownMinutes,
+      }),
     );
 
     for (const userId of monitoredUserIds) {
       await this.monitorUserMailboxInboundSla({
         userId,
+        runCorrelationId,
         windowHours,
         cooldownMinutes,
       });
@@ -193,6 +210,7 @@ export class MailboxInboundSlaScheduler {
 
   private async monitorUserMailboxInboundSla(input: {
     userId: string;
+    runCorrelationId: string;
     windowHours: number;
     cooldownMinutes: number;
   }): Promise<void> {
@@ -241,7 +259,13 @@ export class MailboxInboundSlaScheduler {
 
       if (cooldownActive) {
         this.logger.log(
-          `mailbox-sla-monitor: suppressing duplicate ${normalizedStatus} alert for user=${input.userId}`,
+          serializeStructuredLog({
+            event: 'mailbox_inbound_sla_alert_suppressed_by_cooldown',
+            userId: input.userId,
+            runCorrelationId: input.runCorrelationId,
+            status: normalizedStatus,
+            cooldownMinutes: effectiveCooldownMinutes,
+          }),
         );
         return;
       }
@@ -287,12 +311,25 @@ export class MailboxInboundSlaScheduler {
         alertedAt: new Date(),
       });
       this.logger.warn(
-        `mailbox-sla-monitor: emitted ${normalizedStatus} alert for user=${input.userId}`,
+        serializeStructuredLog({
+          event: 'mailbox_inbound_sla_alert_emitted',
+          userId: input.userId,
+          runCorrelationId: input.runCorrelationId,
+          status: normalizedStatus,
+          successRatePercent: stats.successRatePercent,
+          rejectionRatePercent: stats.rejectionRatePercent,
+          totalCount: stats.totalCount,
+        }),
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `mailbox-sla-monitor: failed for user=${input.userId}: ${message}`,
+        serializeStructuredLog({
+          event: 'mailbox_inbound_sla_monitor_user_failed',
+          userId: input.userId,
+          runCorrelationId: input.runCorrelationId,
+          error: message,
+        }),
       );
     }
   }
