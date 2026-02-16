@@ -47,10 +47,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ ! "${LABEL}" =~ ^[A-Za-z0-9._-]+$ ]]; then
-  log_error "Backup label must match [A-Za-z0-9._-] (received: ${LABEL})"
-  exit 1
-fi
+assert_safe_label "Backup label" "${LABEL}" || exit 1
 
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 BACKUP_DIR="${DEPLOY_DIR}/backups"

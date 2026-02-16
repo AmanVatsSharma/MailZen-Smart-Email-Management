@@ -61,9 +61,8 @@ if [[ ! "${KEEP_COUNT}" =~ ^[0-9]+$ ]] || [[ "${KEEP_COUNT}" -lt 1 ]]; then
   exit 1
 fi
 
-if [[ -n "${LABEL_FILTER}" ]] && [[ ! "${LABEL_FILTER}" =~ ^[A-Za-z0-9._-]+$ ]]; then
-  log_error "Label filter must match [A-Za-z0-9._-] (received: ${LABEL_FILTER})"
-  exit 1
+if [[ -n "${LABEL_FILTER}" ]]; then
+  assert_safe_label "Label filter" "${LABEL_FILTER}" || exit 1
 fi
 
 if [[ ! -d "${BACKUP_DIR}" ]]; then

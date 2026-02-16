@@ -349,3 +349,18 @@ assert_known_service_name() {
   log_error "Allowed services: ${KNOWN_SERVICES[*]}"
   return 1
 }
+
+is_safe_label() {
+  local candidate="$1"
+  [[ "${candidate}" =~ ^[A-Za-z0-9._-]+$ ]]
+}
+
+assert_safe_label() {
+  local label_name="$1"
+  local label_value="$2"
+  if is_safe_label "${label_value}"; then
+    return 0
+  fi
+  log_error "${label_name} must match [A-Za-z0-9._-] (received: ${label_value})"
+  return 1
+}
