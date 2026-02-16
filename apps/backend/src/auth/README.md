@@ -123,6 +123,8 @@ Google OAuth controller (`oauth.controller.ts`) structured events:
 - `auth_google_oauth_callback_provider_error`
 - `auth_google_oauth_callback_missing_code_or_state`
 - `auth_google_oauth_callback_invalid_state`
+- `auth_google_oauth_redirect_rejected_external`
+- `auth_google_oauth_redirect_invalid`
 - `auth_google_oauth_user_created`
 - `auth_google_oauth_user_updated`
 - `auth_google_oauth_callback_failed`

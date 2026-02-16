@@ -135,12 +135,12 @@ describe('GoogleOAuthController', () => {
     };
   }
 
-  it('returns 500 on start when OAuth config is missing', async () => {
+  it('returns 500 on start when OAuth config is missing', () => {
     delete process.env.GOOGLE_CLIENT_ID;
     const { controller } = createController();
     const response = createResponse();
 
-    await controller.start(
+    controller.start(
       response as unknown as Response,
       createRequest(),
       undefined,
@@ -150,11 +150,11 @@ describe('GoogleOAuthController', () => {
     expect(response.send).toHaveBeenCalledWith('Google OAuth not configured');
   });
 
-  it('redirects to Google on start when configured', async () => {
+  it('redirects to Google on start when configured', () => {
     const { controller } = createController();
     const response = createResponse();
 
-    await controller.start(
+    controller.start(
       response as unknown as Response,
       createRequest({ requestId: 'oauth-req-1' }),
       '/settings',
@@ -278,6 +278,78 @@ describe('GoogleOAuthController', () => {
         refreshToken: 'jwt-refresh-token',
         requiresAliasSetup: true,
       }),
+    );
+  });
+
+  it('falls back to frontend success path for external redirect overrides', async () => {
+    const {
+      controller,
+      userRepo,
+      authService,
+      emailProviderService,
+      mailboxService,
+      sessionCookie,
+      auditLogRepo,
+    } = createController();
+    const response = createResponse();
+    const state = buildOAuthState('https://evil.example/phishing');
+    const oauthClient = {
+      getToken: jest.fn().mockResolvedValue({
+        tokens: {
+          id_token: 'id-token',
+          access_token: 'access-token',
+          refresh_token: 'refresh-token',
+          expiry_date: 1700000000000,
+        },
+      }),
+      verifyIdToken: jest.fn().mockResolvedValue({
+        getPayload: () => ({
+          email: 'founder@mailzen.com',
+          sub: 'google-sub-1',
+          name: 'Founder',
+          email_verified: true,
+        }),
+      }),
+    };
+    (
+      controller as unknown as {
+        oauthClient: typeof oauthClient;
+      }
+    ).oauthClient = oauthClient;
+
+    userRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    userRepo.create.mockImplementation((payload: unknown) => payload);
+    userRepo.save.mockResolvedValue({
+      id: 'user-1',
+      email: 'founder@mailzen.com',
+      name: 'Founder',
+      role: 'USER',
+      isEmailVerified: true,
+    });
+    authService.login.mockReturnValue({ accessToken: 'jwt-access-token' });
+    authService.generateRefreshToken.mockResolvedValue('jwt-refresh-token');
+    emailProviderService.connectGmailFromOAuthTokens.mockResolvedValue({
+      id: 'provider-1',
+    });
+    emailProviderService.syncProvider.mockResolvedValue(undefined);
+    mailboxService.getUserMailboxes.mockResolvedValue([{ id: 'mailbox-1' }]);
+    auditLogRepo.save.mockResolvedValue(undefined);
+
+    await controller.callback(
+      createRequest({ userAgent: 'jest', ip: '127.0.0.1' }),
+      response as unknown as Response,
+      'google-code',
+      state,
+      undefined,
+      undefined,
+    );
+
+    expect(sessionCookie.setTokenCookie).toHaveBeenCalledWith(
+      response as unknown as Response,
+      'jwt-access-token',
+    );
+    expect(response.redirectUrl).toBe(
+      'http://localhost:3000/auth/oauth-success',
     );
   });
 });

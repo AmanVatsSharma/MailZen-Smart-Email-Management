@@ -96,6 +96,53 @@ export class GoogleOAuthController {
     return process.env.FRONTEND_URL || 'http://localhost:3000';
   }
 
+  private resolveSafeFrontendRedirect(input: {
+    redirectOverride?: string;
+    frontendUrl: string;
+    fallbackPath: string;
+    requestId: string;
+  }): string {
+    const fallbackUrl = new URL(
+      input.fallbackPath,
+      input.frontendUrl,
+    ).toString();
+    const override = String(input.redirectOverride || '').trim();
+    if (!override) return fallbackUrl;
+
+    try {
+      const frontendOrigin = new URL(input.frontendUrl).origin;
+      if (override.startsWith('/')) {
+        return new URL(override, input.frontendUrl).toString();
+      }
+
+      const parsedOverrideUrl = new URL(override);
+      if (parsedOverrideUrl.origin === frontendOrigin) {
+        return parsedOverrideUrl.toString();
+      }
+
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'auth_google_oauth_redirect_rejected_external',
+          requestId: input.requestId,
+          redirectOverrideFingerprint: fingerprintIdentifier(override),
+          frontendOrigin,
+          overrideOrigin: parsedOverrideUrl.origin,
+        }),
+      );
+      return fallbackUrl;
+    } catch (error: unknown) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'auth_google_oauth_redirect_invalid',
+          requestId: input.requestId,
+          redirectOverrideFingerprint: fingerprintIdentifier(override),
+          error: this.resolveErrorMessage(error),
+        }),
+      );
+      return fallbackUrl;
+    }
+  }
+
   private resolveUserAgent(req: Request): string | undefined {
     const userAgentHeader: unknown = req.headers['user-agent'];
     if (typeof userAgentHeader === 'string') return userAgentHeader;
@@ -452,11 +499,16 @@ export class GoogleOAuthController {
       });
 
       const aliasState = await this.getAliasSetupState(dbUser.id);
-      const aliasRedirectTarget = redirectOverride || '/';
+      const aliasRedirectTarget = this.resolveSafeFrontendRedirect({
+        redirectOverride,
+        frontendUrl,
+        fallbackPath: '/auth/oauth-success',
+        requestId,
+      });
 
       const finalRedirect = aliasState.requiresAliasSetup
         ? `${frontendUrl}/auth/alias-select?redirect=${encodeURIComponent(aliasRedirectTarget)}`
-        : redirectOverride || `${frontendUrl}/auth/oauth-success`;
+        : aliasRedirectTarget;
 
       if (outMode === 'json') {
         return res.json({
