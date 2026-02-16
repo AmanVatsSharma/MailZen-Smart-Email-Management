@@ -27,6 +27,8 @@ const requiredContracts = [
   'myMailboxSyncRuns',
   'myMailboxSyncRunStats',
   'myMailboxSyncRunSeries',
+  'myMailboxSyncIncidentStats',
+  'myMailboxSyncIncidentSeries',
   'myMailboxSyncDataExport',
   'purgeMyMailboxSyncRunRetentionData',
   'myNotificationPreferences',

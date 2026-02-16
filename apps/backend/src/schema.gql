@@ -1201,6 +1201,17 @@ extend type Query {
     windowHours: Int
     bucketMinutes: Int
   ): [MailboxSyncRunTrendPointResponse!]!
+  myMailboxSyncIncidentStats(
+    mailboxId: String
+    workspaceId: String
+    windowHours: Int
+  ): MailboxSyncIncidentStatsResponse!
+  myMailboxSyncIncidentSeries(
+    mailboxId: String
+    workspaceId: String
+    windowHours: Int
+    bucketMinutes: Int
+  ): [MailboxSyncIncidentTrendPointResponse!]!
   myMailboxSyncDataExport(
     mailboxId: String
     workspaceId: String
@@ -1582,6 +1593,26 @@ type MailboxSyncRunTrendPointResponse {
   acceptedMessages: Int!
   deduplicatedMessages: Int!
   rejectedMessages: Int!
+}
+
+type MailboxSyncIncidentStatsResponse {
+  mailboxId: String
+  workspaceId: String
+  windowHours: Int!
+  totalRuns: Int!
+  incidentRuns: Int!
+  failedRuns: Int!
+  partialRuns: Int!
+  incidentRatePercent: Float!
+  lastIncidentAtIso: String
+}
+
+type MailboxSyncIncidentTrendPointResponse {
+  bucketStart: DateTime!
+  totalRuns: Int!
+  incidentRuns: Int!
+  failedRuns: Int!
+  partialRuns: Int!
 }
 
 type MailboxSyncDataExportResponse {

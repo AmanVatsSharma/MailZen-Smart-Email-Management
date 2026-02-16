@@ -1393,6 +1393,101 @@ export class MailboxSyncService {
     return series;
   }
 
+  async getMailboxSyncIncidentStatsForUser(input: {
+    userId: string;
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+  }): Promise<{
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+    windowHours: number;
+    totalRuns: number;
+    incidentRuns: number;
+    failedRuns: number;
+    partialRuns: number;
+    incidentRatePercent: number;
+    lastIncidentAtIso?: string;
+  }> {
+    const windowHours = this.normalizeSyncObservabilityWindowHours(
+      input.windowHours,
+    );
+    const scope = await this.resolveSyncObservabilityScope({
+      userId: input.userId,
+      mailboxId: input.mailboxId || null,
+      workspaceId: input.workspaceId || null,
+    });
+    const stats = await this.getMailboxSyncRunStatsForUser({
+      userId: input.userId,
+      mailboxId: scope.mailboxId,
+      workspaceId: scope.workspaceId,
+      windowHours,
+    });
+    const windowStartDate = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const incidentRows = await this.mailboxSyncRunRepo.find({
+      where: {
+        ...this.buildSyncRunWhere({
+          userId: input.userId,
+          mailboxId: scope.mailboxId,
+          workspaceId: scope.workspaceId,
+          windowStartDate,
+        }),
+        status: In(['FAILED', 'PARTIAL']),
+      },
+      order: {
+        completedAt: 'DESC',
+      },
+      take: 1,
+    });
+    const incidentRuns = stats.failedRuns + stats.partialRuns;
+    const lastIncidentAtIso = incidentRows[0]?.completedAt?.toISOString();
+    return {
+      mailboxId: stats.mailboxId,
+      workspaceId: stats.workspaceId,
+      windowHours: stats.windowHours,
+      totalRuns: stats.totalRuns,
+      incidentRuns,
+      failedRuns: stats.failedRuns,
+      partialRuns: stats.partialRuns,
+      incidentRatePercent:
+        stats.totalRuns > 0
+          ? Number(((incidentRuns / stats.totalRuns) * 100).toFixed(2))
+          : 0,
+      lastIncidentAtIso,
+    };
+  }
+
+  async getMailboxSyncIncidentSeriesForUser(input: {
+    userId: string;
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<
+    Array<{
+      bucketStart: Date;
+      totalRuns: number;
+      incidentRuns: number;
+      failedRuns: number;
+      partialRuns: number;
+    }>
+  > {
+    const series = await this.getMailboxSyncRunSeriesForUser({
+      userId: input.userId,
+      mailboxId: input.mailboxId || null,
+      workspaceId: input.workspaceId || null,
+      windowHours: input.windowHours ?? null,
+      bucketMinutes: input.bucketMinutes ?? null,
+    });
+    return series.map((point) => ({
+      bucketStart: point.bucketStart,
+      totalRuns: point.totalRuns,
+      incidentRuns: point.failedRuns + point.partialRuns,
+      failedRuns: point.failedRuns,
+      partialRuns: point.partialRuns,
+    }));
+  }
+
   async exportMailboxSyncDataForUser(input: {
     userId: string;
     mailboxId?: string | null;

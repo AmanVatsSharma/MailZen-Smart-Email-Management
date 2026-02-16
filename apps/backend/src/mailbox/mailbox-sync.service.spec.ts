@@ -723,6 +723,82 @@ describe('MailboxSyncService', () => {
     expect(payload.runs[0]?.id).toBe('run-1');
   });
 
+  it('returns mailbox sync incident stats for user', async () => {
+    mailboxSyncRunRepo.find
+      .mockResolvedValueOnce([
+        {
+          id: 'run-1',
+          mailboxId: 'mailbox-1',
+          triggerSource: 'SCHEDULER',
+          status: 'SUCCESS',
+          fetchedMessages: 3,
+          acceptedMessages: 3,
+          deduplicatedMessages: 0,
+          rejectedMessages: 0,
+          durationMs: 100,
+          completedAt: new Date('2026-02-16T01:00:00.000Z'),
+        } as MailboxSyncRun,
+        {
+          id: 'run-2',
+          mailboxId: 'mailbox-1',
+          triggerSource: 'SCHEDULER',
+          status: 'FAILED',
+          fetchedMessages: 2,
+          acceptedMessages: 1,
+          deduplicatedMessages: 0,
+          rejectedMessages: 1,
+          durationMs: 120,
+          completedAt: new Date('2026-02-16T00:30:00.000Z'),
+        } as MailboxSyncRun,
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'run-2',
+          mailboxId: 'mailbox-1',
+          status: 'FAILED',
+          completedAt: new Date('2026-02-16T00:30:00.000Z'),
+        } as MailboxSyncRun,
+      ]);
+
+    const stats = await service.getMailboxSyncIncidentStatsForUser({
+      userId: 'user-1',
+      windowHours: 24,
+    });
+
+    expect(stats.totalRuns).toBe(2);
+    expect(stats.incidentRuns).toBe(1);
+    expect(stats.failedRuns).toBe(1);
+    expect(stats.partialRuns).toBe(0);
+    expect(stats.incidentRatePercent).toBe(50);
+    expect(stats.lastIncidentAtIso).toBe('2026-02-16T00:30:00.000Z');
+  });
+
+  it('returns mailbox sync incident series for user', async () => {
+    mailboxSyncRunRepo.find.mockResolvedValue([
+      {
+        id: 'run-1',
+        mailboxId: 'mailbox-1',
+        status: 'FAILED',
+        fetchedMessages: 2,
+        acceptedMessages: 1,
+        deduplicatedMessages: 0,
+        rejectedMessages: 1,
+        completedAt: new Date(),
+      } as MailboxSyncRun,
+    ]);
+
+    const series = await service.getMailboxSyncIncidentSeriesForUser({
+      userId: 'user-1',
+      windowHours: 1,
+      bucketMinutes: 60,
+    });
+
+    const populated = series.find((point) => point.totalRuns > 0);
+    expect(populated).toBeDefined();
+    expect(populated?.incidentRuns).toBe(1);
+    expect(populated?.failedRuns).toBe(1);
+  });
+
   it('purges mailbox sync run retention rows for a scoped user', async () => {
     mailboxSyncRunRepo.delete.mockResolvedValue({ affected: 4 } as never);
 

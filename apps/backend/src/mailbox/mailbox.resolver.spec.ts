@@ -23,6 +23,8 @@ describe('MailboxResolver', () => {
     getMailboxSyncRunStatsForUser: jest.fn(),
     getMailboxSyncRunSeriesForUser: jest.fn(),
     exportMailboxSyncDataForUser: jest.fn(),
+    getMailboxSyncIncidentStatsForUser: jest.fn(),
+    getMailboxSyncIncidentSeriesForUser: jest.fn(),
     purgeMailboxSyncRunRetentionData: jest.fn(),
   };
 
@@ -433,6 +435,72 @@ describe('MailboxResolver', () => {
       retentionDays: 90,
     });
     expect(result.deletedRuns).toBe(7);
+  });
+
+  it('returns mailbox sync incident stats for current user', async () => {
+    mailboxSyncServiceMock.getMailboxSyncIncidentStatsForUser.mockResolvedValue(
+      {
+        mailboxId: 'mailbox-1',
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        totalRuns: 20,
+        incidentRuns: 4,
+        failedRuns: 2,
+        partialRuns: 2,
+        incidentRatePercent: 20,
+        lastIncidentAtIso: '2026-02-16T00:45:00.000Z',
+      },
+    );
+
+    const result = await resolver.myMailboxSyncIncidentStats(
+      ctx as any,
+      'mailbox-1',
+      'workspace-1',
+      24,
+    );
+
+    expect(
+      mailboxSyncServiceMock.getMailboxSyncIncidentStatsForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+    });
+    expect(result.incidentRuns).toBe(4);
+  });
+
+  it('returns mailbox sync incident trend series for current user', async () => {
+    mailboxSyncServiceMock.getMailboxSyncIncidentSeriesForUser.mockResolvedValue(
+      [
+        {
+          bucketStart: new Date('2026-02-16T00:00:00.000Z'),
+          totalRuns: 3,
+          incidentRuns: 1,
+          failedRuns: 1,
+          partialRuns: 0,
+        },
+      ],
+    );
+
+    const result = await resolver.myMailboxSyncIncidentSeries(
+      ctx as any,
+      'mailbox-1',
+      'workspace-1',
+      24,
+      60,
+    );
+
+    expect(
+      mailboxSyncServiceMock.getMailboxSyncIncidentSeriesForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+    expect(result[0]?.incidentRuns).toBe(1);
   });
 
   it('triggers mailbox pull sync for current user', async () => {

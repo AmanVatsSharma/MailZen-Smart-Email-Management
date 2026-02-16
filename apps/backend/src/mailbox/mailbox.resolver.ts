@@ -12,6 +12,10 @@ import {
 import { MailboxInboundRetentionPurgeResponse } from './dto/mailbox-inbound-retention-purge.response';
 import { MailboxSyncDataExportResponse } from './dto/mailbox-sync-data-export.response';
 import {
+  MailboxSyncIncidentStatsResponse,
+  MailboxSyncIncidentTrendPointResponse,
+} from './dto/mailbox-sync-incident.response';
+import {
   MailboxSyncRunObservabilityResponse,
   MailboxSyncRunStatsResponse,
   MailboxSyncRunTrendPointResponse,
@@ -228,6 +232,41 @@ export class MailboxResolver {
       mailboxId: mailboxId || null,
       workspaceId: workspaceId || null,
       limit: limit ?? null,
+      windowHours: windowHours ?? null,
+      bucketMinutes: bucketMinutes ?? null,
+    });
+  }
+
+  @Query(() => MailboxSyncIncidentStatsResponse)
+  async myMailboxSyncIncidentStats(
+    @Context() ctx: RequestContext,
+    @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+  ): Promise<MailboxSyncIncidentStatsResponse> {
+    return this.mailboxSyncService.getMailboxSyncIncidentStatsForUser({
+      userId: ctx.req.user.id,
+      mailboxId: mailboxId || null,
+      workspaceId: workspaceId || null,
+      windowHours: windowHours ?? null,
+    });
+  }
+
+  @Query(() => [MailboxSyncIncidentTrendPointResponse])
+  async myMailboxSyncIncidentSeries(
+    @Context() ctx: RequestContext,
+    @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<MailboxSyncIncidentTrendPointResponse[]> {
+    return this.mailboxSyncService.getMailboxSyncIncidentSeriesForUser({
+      userId: ctx.req.user.id,
+      mailboxId: mailboxId || null,
+      workspaceId: workspaceId || null,
       windowHours: windowHours ?? null,
       bucketMinutes: bucketMinutes ?? null,
     });
