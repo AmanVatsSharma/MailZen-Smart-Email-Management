@@ -14,7 +14,7 @@ flowchart TD
   EnvOK -- yes --> HostReady[host-readiness.sh]
   HostReady --> DnsCheck[dns-check.sh]
   DnsCheck --> SslCheck[ssl-check.sh]
-  SslCheck --> PortsCheck[ports-check.sh]
+  SslCheck --> PortsCheck[ports-check.sh or ports-check.sh --ports 80,443,8100]
   PortsCheck --> Preflight[preflight.sh]
   Preflight --> ComposeConfig{compose config ok?}
   ComposeConfig -- no --> FixConfig[Fix env or compose file]
@@ -33,12 +33,12 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  UpdateStart[Operator runs update.sh] --> Preflight[preflight.sh]
+  UpdateStart[Operator runs update.sh] --> Preflight[preflight.sh (optional runtime checks + ports-check-ports)]
   Preflight --> DeployPull[deploy.sh --pull --force-recreate]
   DeployPull --> VerifyGate{verify enabled?}
   VerifyGate -- yes --> Verify[verify.sh]
-  Verify --> Status[status.sh]
-  VerifyGate -- no --> Status[status.sh]
+  Verify --> Status[status.sh (optional --with-runtime-checks --ports-check-ports ...)]
+  VerifyGate -- no --> Status[status.sh (optional --with-runtime-checks --ports-check-ports ...)]
   Status --> UpdateDone[Update complete]
 ```
 
@@ -81,6 +81,10 @@ flowchart TD
 - Run `env-audit.sh` whenever secrets/domains are updated.
 - Run `doctor.sh` and share report output during incident triage.
 - Run `support-bundle.sh` to package diagnostics for escalation/support.
+- Use custom ports checks in environments with additional exposed listeners:
+  - `ports-check.sh --ports 80,443,8100`
+  - `preflight.sh --with-runtime-checks --ports-check-ports 80,443,8100`
+  - `status.sh --with-runtime-checks --ports-check-ports 80,443,8100`
 - Use `rotate-app-secrets.sh --keys <k1,k2> --dry-run` before live secret
   rotations.
 - Use seeded diagnostics for CI/offline validation:
