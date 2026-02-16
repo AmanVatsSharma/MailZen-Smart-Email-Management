@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 import { UserNotification } from './entities/user-notification.entity';
 import { NotificationService } from './notification.service';
 
@@ -27,7 +28,12 @@ export class NotificationEventBusService {
       return await this.publish(event);
     } catch (error: unknown) {
       this.logger.warn(
-        `notification-event-bus: failed to publish event type=${event.type} userId=${event.userId}: ${error instanceof Error ? error.message : String(error)}`,
+        serializeStructuredLog({
+          event: 'notification_event_bus_publish_failed',
+          userId: event.userId,
+          notificationType: event.type,
+          error: error instanceof Error ? error.message : String(error),
+        }),
       );
       return null;
     }

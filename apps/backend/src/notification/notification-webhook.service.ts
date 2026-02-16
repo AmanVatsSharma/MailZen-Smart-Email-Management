@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { createHmac } from 'crypto';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 import { UserNotification } from './entities/user-notification.entity';
 
 type NotificationWebhookEventPayload = {
@@ -103,12 +104,30 @@ export class NotificationWebhookService {
           error instanceof Error ? error.message : String(error);
         if (isLastAttempt) {
           this.logger.warn(
-            `notification-webhook: failed dispatch event=${payload.eventType} attempts=${attempt + 1} error=${errorMessage}`,
+            serializeStructuredLog({
+              event: 'notification_webhook_dispatch_failed',
+              eventType: payload.eventType,
+              attempts: attempt + 1,
+              retries,
+              timeoutMs,
+              authConfigured: Boolean(token),
+              signingEnabled: Boolean(signature),
+              error: errorMessage,
+            }),
           );
           return;
         }
         this.logger.warn(
-          `notification-webhook: retry dispatch event=${payload.eventType} attempt=${attempt + 1} error=${errorMessage}`,
+          serializeStructuredLog({
+            event: 'notification_webhook_dispatch_retry',
+            eventType: payload.eventType,
+            attempt: attempt + 1,
+            retries,
+            timeoutMs,
+            authConfigured: Boolean(token),
+            signingEnabled: Boolean(signature),
+            error: errorMessage,
+          }),
         );
         await this.sleep((attempt + 1) * 250);
       }

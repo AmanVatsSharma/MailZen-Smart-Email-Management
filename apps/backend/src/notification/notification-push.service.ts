@@ -2,6 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as webpush from 'web-push';
 import { IsNull, Repository } from 'typeorm';
+import {
+  fingerprintIdentifier,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 import { NotificationPushSubscription } from './entities/notification-push-subscription.entity';
 import { UserNotification } from './entities/user-notification.entity';
 
@@ -89,7 +93,19 @@ export class NotificationPushService {
       }
       await this.subscriptionRepo.save(input.subscription);
       this.logger.warn(
-        `notification-push: delivery failed userId=${input.subscription.userId} status=${statusCode || 'unknown'} endpoint=${this.compactEndpoint(input.subscription.endpoint)} disabled=${shouldDisable} error=${errorMessage}`,
+        serializeStructuredLog({
+          event: 'notification_push_delivery_failed',
+          userId: input.subscription.userId,
+          workspaceId: input.subscription.workspaceId || null,
+          statusCode: statusCode || null,
+          endpointFingerprint: fingerprintIdentifier(
+            input.subscription.endpoint,
+          ),
+          disabled: shouldDisable,
+          failureCount: input.subscription.failureCount,
+          maxFailuresBeforeDisable,
+          error: errorMessage,
+        }),
       );
     }
   }
@@ -135,12 +151,6 @@ export class NotificationPushService {
     return null;
   }
 
-  private compactEndpoint(endpoint: string): string {
-    const normalized = String(endpoint || '').trim();
-    if (normalized.length <= 18) return normalized;
-    return `${normalized.slice(0, 12)}...${normalized.slice(-6)}`;
-  }
-
   private configureWebPush(input: {
     publicKey: string;
     privateKey: string;
@@ -175,7 +185,11 @@ export class NotificationPushService {
     ).trim();
     if (!publicKey || !privateKey) {
       this.logger.warn(
-        'notification-push: missing VAPID keys, push delivery skipped',
+        serializeStructuredLog({
+          event: 'notification_push_vapid_keys_missing',
+          hasPublicKey: Boolean(publicKey),
+          hasPrivateKey: Boolean(privateKey),
+        }),
       );
       return null;
     }

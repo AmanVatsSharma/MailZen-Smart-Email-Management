@@ -11,6 +11,7 @@ import {
 import { Observable, interval, map, merge } from 'rxjs';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 import { NotificationService } from './notification.service';
 
 type AuthenticatedRequest = Request & {
@@ -36,7 +37,11 @@ export class NotificationStreamController {
       throw new UnauthorizedException('Missing authenticated user');
     }
     this.logger.log(
-      `notification-stream: connected user=${userId} workspace=${workspaceId || 'all'}`,
+      serializeStructuredLog({
+        event: 'notification_stream_connected',
+        userId,
+        workspaceId: workspaceId || null,
+      }),
     );
     const notificationEvents$ = this.notificationService
       .observeRealtimeEvents({

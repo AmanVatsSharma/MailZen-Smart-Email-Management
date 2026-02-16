@@ -63,6 +63,8 @@ Provide a persistent notification foundation for user-visible product events
   - when `workspaceId` is provided, stream includes both:
     - matching workspace events
     - global events (`workspaceId = null`)
+  - stream connection observability event:
+    - `notification_stream_connected`
 
 ## Webhook channel
 
@@ -78,6 +80,11 @@ Webhook event types:
 
 - `NOTIFICATION_CREATED`
 - `NOTIFICATIONS_MARKED_READ`
+
+Webhook dispatch observability events:
+
+- `notification_webhook_dispatch_retry`
+- `notification_webhook_dispatch_failed`
 
 Webhook requests include:
 
@@ -145,6 +152,11 @@ Delivery behavior:
 - repeated failures increment `failureCount`; stale endpoints (404/410) are disabled
 - successful deliveries reset failure counters and update `lastDeliveredAt`
 
+Push channel observability events:
+
+- `notification_push_vapid_keys_missing`
+- `notification_push_delivery_failed`
+
 ## Initial event producers
 
 - `GmailSyncScheduler` publishes `SYNC_FAILED` domain events through
@@ -171,6 +183,8 @@ Delivery behavior:
 - `NotificationDigestScheduler` emits digest emails (mailer channel) for unread events
 - `NotificationWebhookService` emits external webhook callbacks for notification lifecycle events
 - `NotificationPushService` emits web-push messages for notification-created events
+- `NotificationEventBusService` structured resilience event:
+  - `notification_event_bus_publish_failed`
 - Emission respects stored user preferences:
   - `inAppEnabled`
   - `syncFailureEnabled` (gates `SYNC_FAILED` + `SYNC_RECOVERED` + `MAILBOX_SYNC_INCIDENT_ALERT`)
