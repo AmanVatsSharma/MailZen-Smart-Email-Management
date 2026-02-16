@@ -147,7 +147,23 @@ export class GmailSyncScheduler {
       }
 
       const syncResult = await this.syncProviderWithRetry({ provider: p });
-      if (syncResult.success) continue;
+      if (syncResult.success) {
+        if (String(p.lastSyncError || '').trim()) {
+          await this.notificationEventBus.publishSafely({
+            userId: p.userId,
+            type: 'SYNC_RECOVERED',
+            title: 'Gmail sync recovered',
+            message:
+              'MailZen has recovered Gmail synchronization for your account.',
+            metadata: {
+              providerId: p.id,
+              providerType: 'GMAIL',
+              workspaceId: p.workspaceId || null,
+            },
+          });
+        }
+        continue;
+      }
 
       try {
         const message =

@@ -145,7 +145,23 @@ export class OutlookSyncScheduler {
       }
 
       const syncResult = await this.syncProviderWithRetry({ provider });
-      if (syncResult.success) continue;
+      if (syncResult.success) {
+        if (String(provider.lastSyncError || '').trim()) {
+          await this.notificationEventBus.publishSafely({
+            userId: provider.userId,
+            type: 'SYNC_RECOVERED',
+            title: 'Outlook sync recovered',
+            message:
+              'MailZen has recovered Outlook synchronization for your account.',
+            metadata: {
+              providerId: provider.id,
+              providerType: 'OUTLOOK',
+              workspaceId: provider.workspaceId || null,
+            },
+          });
+        }
+        continue;
+      }
 
       try {
         const message =

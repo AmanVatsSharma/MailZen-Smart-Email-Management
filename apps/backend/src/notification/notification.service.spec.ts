@@ -293,6 +293,37 @@ describe('NotificationService', () => {
     );
   });
 
+  it('applies sync failure preference gate to sync recovered events', async () => {
+    const preferences = {
+      ...basePreference,
+      syncFailureEnabled: false,
+    } as UserNotificationPreference;
+    preferenceRepo.findOne.mockResolvedValue(preferences);
+    notificationRepo.create.mockImplementation(
+      (value: Partial<UserNotification>) =>
+        ({
+          id: 'notif-sync-recovered-ignored',
+          ...value,
+        }) as UserNotification,
+    );
+    notificationRepo.save.mockImplementation((value: UserNotification) =>
+      Promise.resolve(value),
+    );
+
+    const result = await service.createNotification({
+      userId: 'user-1',
+      type: 'SYNC_RECOVERED',
+      title: 'Gmail sync recovered',
+      message: 'sync recovered',
+      metadata: { providerId: 'provider-1' },
+    });
+
+    expect(result.isRead).toBe(true);
+    expect(result.metadata).toEqual(
+      expect.objectContaining({ ignoredByPreference: true }),
+    );
+  });
+
   it('marks notifications as read', async () => {
     notificationRepo.findOne.mockResolvedValue({
       id: 'notif-1',

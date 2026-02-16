@@ -152,6 +152,33 @@ describe('GmailSyncScheduler', () => {
     expect(notificationEventBus.publishSafely).not.toHaveBeenCalled();
   });
 
+  it('emits sync recovered event when provider had prior sync error', async () => {
+    providerRepo.find.mockResolvedValue([
+      {
+        id: 'provider-1',
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        lastSyncError: 'previous outage',
+      } as EmailProvider,
+    ]);
+    gmailSync.syncGmailProvider.mockResolvedValue({ imported: 1 } as never);
+    notificationEventBus.publishSafely.mockResolvedValue(null);
+
+    await scheduler.syncActiveGmailProviders();
+
+    expect(notificationEventBus.publishSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        type: 'SYNC_RECOVERED',
+        metadata: expect.objectContaining({
+          providerId: 'provider-1',
+          providerType: 'GMAIL',
+          workspaceId: 'workspace-1',
+        }),
+      }),
+    );
+  });
+
   it('refreshes push watches when topic is configured', async () => {
     process.env.GMAIL_PUSH_TOPIC_NAME = 'projects/mailzen/topics/gmail-push';
     providerRepo.find.mockResolvedValue([

@@ -335,6 +335,33 @@ export class MailboxSyncService {
     });
   }
 
+  private async publishSyncRecoveredNotification(input: {
+    mailbox: Mailbox;
+  }): Promise<void> {
+    const userId = String(input.mailbox.userId || '').trim();
+    if (!userId) return;
+    const hadPriorSyncError =
+      String(input.mailbox.inboundSyncLastError || '').trim() ||
+      String(input.mailbox.inboundSyncStatus || '')
+        .trim()
+        .toLowerCase() === 'error';
+    if (!hadPriorSyncError) return;
+
+    await this.notificationEventBus.publishSafely({
+      userId,
+      type: 'SYNC_RECOVERED',
+      title: 'Mailbox sync recovered',
+      message:
+        'MailZen has recovered synchronization for your @mailzen.com mailbox.',
+      metadata: {
+        mailboxId: input.mailbox.id,
+        mailboxEmail: input.mailbox.email,
+        workspaceId: input.mailbox.workspaceId || null,
+        providerType: 'MAILBOX',
+      },
+    });
+  }
+
   private isRetryablePullError(error: unknown): boolean {
     if (!axios.isAxiosError(error)) return false;
     const status = Number(error.response?.status || 0);
@@ -568,6 +595,9 @@ export class MailboxSyncService {
           inboundSyncLastErrorAt: null,
         },
       );
+      await this.publishSyncRecoveredNotification({
+        mailbox,
+      });
       return {
         mailboxId: mailbox.id,
         mailboxEmail: mailbox.email,

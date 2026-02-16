@@ -35,6 +35,7 @@ label metadata into `ExternalEmailLabel`, similar to Gmail sync.
 - jitter (`OUTLOOK_SYNC_SCHEDULER_JITTER_MS`) to smooth burst traffic
 - failure notifications include `attempts` and short error context
 - duplicate failure notification suppression when error signature is unchanged
+- emits `SYNC_RECOVERED` when Outlook sync succeeds after prior provider error
 - sync lifecycle telemetry:
   - success updates `lastSyncedAt`
   - failures persist `lastSyncError` and `lastSyncErrorAt`

@@ -162,6 +162,42 @@ describe('MailboxSyncService', () => {
     expect(result.rejectedMessages).toBe(0);
   });
 
+  it('emits sync recovered event when mailbox had prior sync error', async () => {
+    mockedAxios.get.mockResolvedValue({
+      data: {
+        messages: [
+          {
+            from: 'lead@example.com',
+            subject: 'Recovered message',
+            textBody: 'Recovered body',
+            messageId: '<recovered-1@example.com>',
+          },
+        ],
+        nextCursor: 'cursor-recovered',
+      },
+    } as never);
+
+    const result = await service.pollMailbox({
+      id: 'mailbox-1',
+      email: 'sales@mailzen.com',
+      userId: 'user-1',
+      inboundSyncStatus: 'error',
+      inboundSyncLastError: 'previous outage',
+    } as Mailbox);
+
+    expect(result.acceptedMessages).toBe(1);
+    expect(notificationEventBusMock.publishSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        type: 'SYNC_RECOVERED',
+        metadata: expect.objectContaining({
+          mailboxId: 'mailbox-1',
+          providerType: 'MAILBOX',
+        }),
+      }),
+    );
+  });
+
   it('records mailbox sync error when pull fails', async () => {
     process.env.MAILZEN_MAIL_SYNC_RETRIES = '0';
     mockedAxios.get.mockRejectedValue({

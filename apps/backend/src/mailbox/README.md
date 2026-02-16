@@ -216,6 +216,7 @@ flowchart TD
     - `inboundSyncStatus='connected'`
     - `inboundSyncLastPolledAt`
     - clears `inboundSyncLastError` + `inboundSyncLastErrorAt`
+  - emits `SYNC_RECOVERED` event when mailbox had prior sync error state
 - Sync API pull retries:
   - transient failures (`429`, `5xx`, network timeouts/resets) use retry with backoff + jitter
   - non-retryable failures (e.g. `4xx` validation/auth issues) fail fast

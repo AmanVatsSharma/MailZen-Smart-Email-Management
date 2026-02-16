@@ -278,7 +278,10 @@ export class NotificationService {
     preference: UserNotificationPreference,
     input: CreateNotificationInput,
   ): string | null {
-    if (input.type === 'SYNC_FAILED' && !preference.syncFailureEnabled) {
+    if (
+      ['SYNC_FAILED', 'SYNC_RECOVERED'].includes(input.type) &&
+      !preference.syncFailureEnabled
+    ) {
       return 'syncFailureEnabled';
     }
     if (

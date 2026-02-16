@@ -129,11 +129,14 @@ Delivery behavior:
 - `GmailSyncScheduler` publishes `SYNC_FAILED` domain events through
   `NotificationEventBusService` on cron sync failure
   - duplicate notifications are suppressed when error signature is unchanged
+  - publishes `SYNC_RECOVERED` when sync succeeds after prior failure
 - `OutlookSyncScheduler` publishes `SYNC_FAILED` domain events through
   `NotificationEventBusService` on cron sync failure
   - duplicate notifications are suppressed when error signature is unchanged
+  - publishes `SYNC_RECOVERED` when sync succeeds after prior failure
 - `MailboxSyncService` publishes `SYNC_FAILED` domain events through
   `NotificationEventBusService` when mailbox pull-sync failures change error signature
+  - publishes `SYNC_RECOVERED` when mailbox sync succeeds after prior mailbox error
 - `AiAgentGatewayService` publishes `AGENT_ACTION_REQUIRED` domain events for
   follow-up reminders
 - `MailboxInboundSlaScheduler` publishes `MAILBOX_INBOUND_SLA_ALERT` domain
@@ -146,7 +149,7 @@ Delivery behavior:
 - `NotificationPushService` emits web-push messages for notification-created events
 - Emission respects stored user preferences:
   - `inAppEnabled`
-  - `syncFailureEnabled`
+  - `syncFailureEnabled` (gates `SYNC_FAILED` + `SYNC_RECOVERED`)
   - `mailboxInboundAcceptedEnabled`
   - `mailboxInboundDeduplicatedEnabled`
   - `mailboxInboundRejectedEnabled`
