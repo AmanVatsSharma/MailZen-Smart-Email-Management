@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { InternalServerErrorException } from '@nestjs/common';
 import axios from 'axios';
 import { Repository } from 'typeorm';
@@ -23,6 +24,14 @@ describe('MailServerService', () => {
     process.env.SECRETS_KEY = 'abcdefghijklmnopqrstuvwxyz123456';
     delete process.env.MAILZEN_MAIL_ADMIN_API_URL;
     delete process.env.MAILZEN_MAIL_ADMIN_API_TOKEN;
+    delete process.env.MAILZEN_MAIL_ADMIN_PROVIDER;
+    delete process.env.MAILZEN_MAIL_ADMIN_API_RETRIES;
+    delete process.env.MAILZEN_MAIL_ADMIN_API_RETRY_BACKOFF_MS;
+    delete process.env.MAILZEN_MAIL_ADMIN_API_RETRY_JITTER_MS;
+    delete process.env.MAILZEN_MAIL_ADMIN_API_TOKEN_HEADER;
+    mockedAxios.isAxiosError.mockImplementation((value: unknown) =>
+      Boolean((value as { isAxiosError?: boolean } | null)?.isAxiosError),
+    );
   });
 
   afterAll(() => {
@@ -66,7 +75,14 @@ describe('MailServerService', () => {
 
   it('fails provisioning when external API call fails', async () => {
     process.env.MAILZEN_MAIL_ADMIN_API_URL = 'https://mail-admin.local';
-    mockedAxios.post.mockRejectedValue(new Error('network failure'));
+    mockedAxios.post.mockRejectedValue({
+      isAxiosError: true,
+      message: 'network failure',
+      response: {
+        status: 503,
+      },
+      code: 'ECONNABORTED',
+    });
     mailboxRepo.update.mockResolvedValue({ affected: 1 });
     const service = new MailServerService(
       mailboxRepo as unknown as Repository<Mailbox>,
@@ -76,5 +92,70 @@ describe('MailServerService', () => {
       InternalServerErrorException,
     );
     expect(mailboxRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('retries recoverable external provisioning failures and succeeds', async () => {
+    process.env.MAILZEN_MAIL_ADMIN_API_URL = 'https://mail-admin.local';
+    process.env.MAILZEN_MAIL_ADMIN_API_RETRIES = '2';
+    process.env.MAILZEN_MAIL_ADMIN_API_RETRY_BACKOFF_MS = '1';
+    process.env.MAILZEN_MAIL_ADMIN_API_RETRY_JITTER_MS = '0';
+    mockedAxios.post
+      .mockRejectedValueOnce({
+        isAxiosError: true,
+        message: 'gateway timeout',
+        response: {
+          status: 504,
+        },
+      })
+      .mockResolvedValueOnce({ data: { ok: true } } as never);
+    mailboxRepo.update.mockResolvedValue({ affected: 1 });
+    const service = new MailServerService(
+      mailboxRepo as unknown as Repository<Mailbox>,
+    );
+
+    await service.provisionMailbox('user-1', 'sales');
+
+    expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+    expect(mailboxRepo.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats already-existing mailbox response as idempotent success', async () => {
+    process.env.MAILZEN_MAIL_ADMIN_API_URL = 'https://mail-admin.local';
+    mockedAxios.post.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: { message: 'Mailbox already exists' },
+      },
+    });
+    mailboxRepo.update.mockResolvedValue({ affected: 1 });
+    const service = new MailServerService(
+      mailboxRepo as unknown as Repository<Mailbox>,
+    );
+
+    await expect(service.provisionMailbox('user-1', 'sales')).resolves.toBe(
+      undefined,
+    );
+    expect(mailboxRepo.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('attempts external rollback when credential persistence fails', async () => {
+    process.env.MAILZEN_MAIL_ADMIN_API_URL = 'https://mail-admin.local';
+    mockedAxios.post.mockResolvedValue({ data: { ok: true } } as never);
+    mockedAxios.delete.mockResolvedValue({ data: { ok: true } } as never);
+    mailboxRepo.update.mockResolvedValue({ affected: 0 });
+    const service = new MailServerService(
+      mailboxRepo as unknown as Repository<Mailbox>,
+    );
+
+    await expect(service.provisionMailbox('user-1', 'sales')).rejects.toThrow(
+      InternalServerErrorException,
+    );
+    expect(mockedAxios.delete).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /^https:\/\/mail-admin\.local\/mailboxes\/sales%40mailzen\.com$/,
+      ),
+      expect.any(Object),
+    );
   });
 });

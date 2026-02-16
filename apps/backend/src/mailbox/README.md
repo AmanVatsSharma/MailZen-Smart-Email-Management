@@ -22,6 +22,11 @@ This module covers:
 - `mail-server.service.ts`
   - generates mailbox password
   - optionally calls external admin API (`MAILZEN_MAIL_ADMIN_API_URL`)
+  - supports provider adapters (`GENERIC`, `MAILCOW`, `MAILU`)
+  - applies retry/backoff/jitter for recoverable admin API failures
+  - sends deterministic idempotency key header for safe replays
+  - treats provider duplicate/conflict responses as idempotent success
+  - performs best-effort external rollback if local credential persistence fails
   - encrypts password using provider-secrets keyring rotation support
   - stores SMTP/IMAP connection fields on mailbox row
 - `mailbox.resolver.ts`
@@ -56,11 +61,19 @@ flowchart TD
   Service --> DB1[(mailboxes insert)]
   Service --> Provision[MailServerService.provisionMailbox]
   Provision --> API{MAILZEN_MAIL_ADMIN_API_URL configured?}
-  API -->|yes| AdminAPI[POST /mailboxes admin API]
+  API -->|yes| AdminAPI[POST provider endpoint + idempotency key]
+  AdminAPI --> Retry{Recoverable failure?}
+  Retry -->|yes| Backoff[Retry with backoff + jitter]
+  Backoff --> AdminAPI
+  Retry -->|no| Fail[Raise provisioning error]
+  Fail --> Rollback[MailboxService deletes inserted mailbox row]
   API -->|no| Skip[Local dev fallback mode]
   Provision --> Encrypt[Encrypt generated password with active keyring key]
   Encrypt --> DB2[(mailboxes update creds + hosts)]
-  DB2 --> Done[Mailbox ready]
+  DB2 --> PersistFail{Row updated?}
+  PersistFail -->|no| ExtRollback[Best-effort external deprovision]
+  ExtRollback --> Error[Raise persistence failure]
+  PersistFail -->|yes| Done[Mailbox ready]
 ```
 
 ## Environment variables
@@ -77,10 +90,19 @@ flowchart TD
 
 ### Optional external mailbox provisioning
 - `MAILZEN_MAIL_ADMIN_API_URL`
-  - when set, service calls `${MAILZEN_MAIL_ADMIN_API_URL}/mailboxes`
+  - when set, service calls provider-specific mailbox provisioning endpoint
 - `MAILZEN_MAIL_ADMIN_API_TOKEN`
   - optional bearer token for admin API
 - `MAILZEN_MAIL_ADMIN_API_TIMEOUT_MS` (default `5000`)
+- `MAILZEN_MAIL_ADMIN_API_TOKEN_HEADER` (default `authorization`)
+  - supports `authorization` or `x-api-key` auth header mapping
+- `MAILZEN_MAIL_ADMIN_PROVIDER` (default `GENERIC`)
+  - supported values: `GENERIC`, `MAILCOW`, `MAILU`
+- `MAILZEN_MAIL_ADMIN_API_RETRIES` (default `2`)
+- `MAILZEN_MAIL_ADMIN_API_RETRY_BACKOFF_MS` (default `300`)
+- `MAILZEN_MAIL_ADMIN_API_RETRY_JITTER_MS` (default `150`)
+- `MAILZEN_MAIL_ADMIN_MAILCOW_QUOTA_MB` (default `51200`)
+  - used when provider is `MAILCOW` to set mailbox quota at create time
 
 ### Inbound webhook authentication
 - `MAILZEN_INBOUND_WEBHOOK_TOKEN`
@@ -130,8 +152,12 @@ flowchart TD
 - If external admin API is configured and provisioning call fails:
   - throws `InternalServerErrorException`
   - mailbox credential persistence is skipped
+- If mailbox row exists but provisioning fails during `createMailbox`:
+  - mailbox service performs compensation by deleting the just-created mailbox row
+  - prevents alias namespace from being polluted by partially provisioned rows
 - If mailbox row update fails (`affected=0`):
   - throws `InternalServerErrorException`
+  - provisioning service attempts best-effort external mailbox deprovision rollback
 - If keyring/secret encryption config is missing or invalid:
   - production: mailbox provisioning throws `InternalServerErrorException`
   - non-production: utility fallback key is used only for local development

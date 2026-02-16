@@ -7,6 +7,7 @@ describe('MailboxService', () => {
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    delete: jest.fn(),
     find: jest.fn(),
     count: jest.fn(),
   };
@@ -64,6 +65,7 @@ describe('MailboxService', () => {
     delete process.env.MAILZEN_INBOUND_SLA_WARNING_REJECTION_PERCENT;
     delete process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT;
     mailboxRepo.count.mockResolvedValue(0);
+    mailboxRepo.delete.mockResolvedValue({ affected: 1 });
     notificationPreferenceRepo.findOne.mockResolvedValue(null);
     mailboxInboundEventRepo.find.mockResolvedValue([]);
     mailboxInboundEventRepo.findOne.mockResolvedValue(null);
@@ -157,6 +159,27 @@ describe('MailboxService', () => {
     );
     expect(mailServer.provisionMailbox).toHaveBeenCalledWith('user-1', 'sales');
     expect(result).toEqual({ id: 'mailbox-1', email: 'sales@mailzen.com' });
+  });
+
+  it('rolls back mailbox row when provisioning fails', async () => {
+    userRepo.findOne.mockResolvedValue({ id: 'user-1' });
+    mailboxRepo.findOne.mockResolvedValue(null);
+    mailboxRepo.create.mockImplementation((data) => data);
+    mailboxRepo.save.mockResolvedValue({
+      id: 'mailbox-rollback-1',
+      email: 'sales@mailzen.com',
+    });
+    mailServer.provisionMailbox.mockRejectedValue(
+      new Error('external provisioning failed'),
+    );
+
+    await expect(service.createMailbox('user-1', 'sales')).rejects.toThrow(
+      'external provisioning failed',
+    );
+    expect(mailboxRepo.delete).toHaveBeenCalledWith({
+      id: 'mailbox-rollback-1',
+      userId: 'user-1',
+    });
   });
 
   it('returns mailbox inbound events with mailbox email mapping', async () => {

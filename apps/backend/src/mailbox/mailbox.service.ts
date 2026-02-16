@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -41,6 +42,7 @@ export class MailboxService {
   private static readonly DEFAULT_SLA_TARGET_SUCCESS_PERCENT = 99;
   private static readonly DEFAULT_SLA_WARNING_REJECTION_PERCENT = 1;
   private static readonly DEFAULT_SLA_CRITICAL_REJECTION_PERCENT = 5;
+  private readonly logger = new Logger(MailboxService.name);
 
   constructor(
     @InjectRepository(Mailbox)
@@ -138,7 +140,17 @@ export class MailboxService {
       }),
     );
     // Provision on self-hosted server
-    await this.mailServer.provisionMailbox(userId, localPart);
+    try {
+      await this.mailServer.provisionMailbox(userId, localPart);
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Mailbox provisioning failed for mailboxId=${created.id} email=${email}: ${errorMessage}; rolling back mailbox row`,
+      );
+      await this.mailboxRepo.delete({ id: created.id, userId });
+      throw error;
+    }
     return { email: created.email, id: created.id };
   }
 
