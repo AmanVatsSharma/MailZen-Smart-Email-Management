@@ -28,6 +28,7 @@ cat <<HELP
 Primary flow:
   ./deploy/ec2/scripts/launch.sh
   ./deploy/ec2/scripts/launch.sh --preflight-config-only --deploy-dry-run --skip-verify
+  ./deploy/ec2/scripts/launch.sh --preflight-config-only --deploy-dry-run --skip-verify --skip-status
   ./deploy/ec2/scripts/launch.sh --domain mail.example.com --acme-email ops@example.com --setup-skip-daemon
   ./deploy/ec2/scripts/launch.sh --verify-max-retries 10 --verify-retry-sleep 5
   ./deploy/ec2/scripts/launch.sh --ports-check-ports 80,443,8100

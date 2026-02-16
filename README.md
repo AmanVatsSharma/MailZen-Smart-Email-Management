@@ -225,6 +225,14 @@ For production-style EC2 deployment, use the deployment module:
   --deploy-dry-run \
   --skip-verify
 
+# Optional: config-only + dry-run launch without final status step
+./deploy/ec2/scripts/launch.sh \
+  --skip-setup \
+  --preflight-config-only \
+  --deploy-dry-run \
+  --skip-verify \
+  --skip-status
+
 # Optional: launch with explicit setup inputs
 ./deploy/ec2/scripts/launch.sh \
   --domain mail.example.com \

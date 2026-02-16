@@ -109,6 +109,7 @@ while true; do
     launch_status_runtime_enabled=false
     launch_status_skip_ports=false
     launch_deploy_dry_run=false
+    launch_status_enabled=true
     if prompt_yes_no "Skip setup step" "no"; then
       launch_args+=(--skip-setup)
     fi
@@ -167,25 +168,31 @@ while true; do
     if [[ -n "${launch_acme_email}" ]]; then
       launch_args+=(--acme-email "${launch_acme_email}")
     fi
-    if prompt_yes_no "Enable runtime checks in final status step" "no"; then
-      launch_status_runtime_enabled=true
-      launch_args+=(--status-runtime-checks)
-      if prompt_yes_no "Skip host readiness inside status runtime checks" "no"; then
-        launch_args+=(--status-skip-host-readiness)
-      fi
-      if prompt_yes_no "Skip DNS check inside status runtime checks" "yes"; then
-        launch_args+=(--status-skip-dns-check)
-      fi
-      if prompt_yes_no "Skip SSL check inside status runtime checks" "yes"; then
-        launch_args+=(--status-skip-ssl-check)
-      fi
-      if prompt_yes_no "Skip ports check inside status runtime checks" "no"; then
-        launch_args+=(--status-skip-ports-check)
-        launch_status_skip_ports=true
-      fi
+    if ! prompt_yes_no "Run final status step after launch" "yes"; then
+      launch_status_enabled=false
+      launch_args+=(--skip-status)
     fi
-    if prompt_yes_no "Enable strict status mode (fail when daemon unavailable)" "no"; then
-      launch_args+=(--status-strict)
+    if [[ "${launch_status_enabled}" == true ]]; then
+      if prompt_yes_no "Enable runtime checks in final status step" "no"; then
+        launch_status_runtime_enabled=true
+        launch_args+=(--status-runtime-checks)
+        if prompt_yes_no "Skip host readiness inside status runtime checks" "no"; then
+          launch_args+=(--status-skip-host-readiness)
+        fi
+        if prompt_yes_no "Skip DNS check inside status runtime checks" "yes"; then
+          launch_args+=(--status-skip-dns-check)
+        fi
+        if prompt_yes_no "Skip SSL check inside status runtime checks" "yes"; then
+          launch_args+=(--status-skip-ssl-check)
+        fi
+        if prompt_yes_no "Skip ports check inside status runtime checks" "no"; then
+          launch_args+=(--status-skip-ports-check)
+          launch_status_skip_ports=true
+        fi
+      fi
+      if prompt_yes_no "Enable strict status mode (fail when daemon unavailable)" "no"; then
+        launch_args+=(--status-strict)
+      fi
     fi
     if [[ "${launch_direct_ports_enabled}" == true ]] || { [[ "${launch_status_runtime_enabled}" == true ]] && [[ "${launch_status_skip_ports}" == false ]]; }; then
       launch_ports="$(prompt_with_default "Custom ports-check targets for launch flow (blank = default)" "")"

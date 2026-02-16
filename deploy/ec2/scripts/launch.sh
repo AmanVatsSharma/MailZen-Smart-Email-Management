@@ -13,6 +13,7 @@
 #   --skip-ssl-check
 #   --skip-ports-check
 #   --skip-verify
+#   --skip-status
 #   --setup-skip-daemon
 #   --preflight-config-only
 #   --deploy-dry-run
@@ -39,6 +40,7 @@ RUN_DNS_CHECK=true
 RUN_SSL_CHECK=true
 RUN_PORTS_CHECK=true
 RUN_VERIFY=true
+RUN_STATUS=true
 SETUP_SKIP_DAEMON=false
 PREFLIGHT_CONFIG_ONLY=false
 DEPLOY_DRY_RUN=false
@@ -90,6 +92,10 @@ while [[ $# -gt 0 ]]; do
     ;;
   --skip-verify)
     RUN_VERIFY=false
+    shift
+    ;;
+  --skip-status)
+    RUN_STATUS=false
     shift
     ;;
   --setup-skip-daemon)
@@ -186,7 +192,7 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --skip-setup --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --skip-verify --setup-skip-daemon --preflight-config-only --deploy-dry-run --verify-max-retries <n> --verify-retry-sleep <n> --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...> --domain <hostname> --acme-email <email>"
+    log_error "Supported flags: --skip-setup --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --skip-verify --skip-status --setup-skip-daemon --preflight-config-only --deploy-dry-run --verify-max-retries <n> --verify-retry-sleep <n> --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...> --domain <hostname> --acme-email <email>"
     exit 1
     ;;
   esac
@@ -231,28 +237,38 @@ fi
 if [[ "${RUN_VERIFY}" == false ]]; then
   log_info "[LAUNCH] verify step skipped by --skip-verify"
 fi
-if [[ "${STATUS_RUNTIME_CHECKS}" == false ]] &&
+if [[ "${RUN_STATUS}" == false ]]; then
+  log_info "[LAUNCH] status step skipped by --skip-status"
+fi
+if [[ "${RUN_STATUS}" == false ]] &&
+  { [[ "${STATUS_RUNTIME_CHECKS}" == true ]] || [[ "${STATUS_STRICT}" == true ]] || [[ "${STATUS_SKIP_HOST_READINESS}" == true ]] || [[ "${STATUS_SKIP_DNS_CHECK}" == true ]] || [[ "${STATUS_SKIP_SSL_CHECK}" == true ]] || [[ "${STATUS_SKIP_PORTS_CHECK}" == true ]]; }; then
+  log_warn "[LAUNCH] status-related flags were provided while --skip-status is enabled; status flags will be ignored."
+fi
+if [[ "${RUN_STATUS}" == true ]] && [[ "${STATUS_RUNTIME_CHECKS}" == false ]] &&
   { [[ "${STATUS_SKIP_HOST_READINESS}" == true ]] || [[ "${STATUS_SKIP_DNS_CHECK}" == true ]] || [[ "${STATUS_SKIP_SSL_CHECK}" == true ]] || [[ "${STATUS_SKIP_PORTS_CHECK}" == true ]]; }; then
   log_warn "[LAUNCH] status runtime skip flags were provided without --status-runtime-checks; skip flags will be ignored."
 fi
 status_ports_check_enabled=false
-if [[ "${STATUS_RUNTIME_CHECKS}" == true ]] && [[ "${RUN_PORTS_CHECK}" == true ]] && [[ "${STATUS_SKIP_PORTS_CHECK}" == false ]]; then
+if [[ "${RUN_STATUS}" == true ]] && [[ "${STATUS_RUNTIME_CHECKS}" == true ]] && [[ "${RUN_PORTS_CHECK}" == true ]] && [[ "${STATUS_SKIP_PORTS_CHECK}" == false ]]; then
   status_ports_check_enabled=true
 fi
-if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${RUN_PORTS_CHECK}" == false ]] && [[ "${STATUS_RUNTIME_CHECKS}" == false ]]; then
+if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${RUN_PORTS_CHECK}" == false ]] && [[ "${RUN_STATUS}" == false ]]; then
+  log_warn "[LAUNCH] --ports-check-ports has no effect when both direct ports check and status step are skipped."
+fi
+if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${RUN_PORTS_CHECK}" == false ]] && [[ "${RUN_STATUS}" == true ]] && [[ "${STATUS_RUNTIME_CHECKS}" == false ]]; then
   log_warn "[LAUNCH] --ports-check-ports has no effect when both direct ports check and status runtime checks are disabled."
 fi
-if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${RUN_PORTS_CHECK}" == false ]] && [[ "${status_ports_check_enabled}" == false ]]; then
+if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${RUN_STATUS}" == true ]] && [[ "${RUN_PORTS_CHECK}" == false ]] && [[ "${status_ports_check_enabled}" == false ]]; then
   log_warn "[LAUNCH] --ports-check-ports has no effect because ports checks are skipped in both direct and status runtime paths."
 fi
-if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${RUN_PORTS_CHECK}" == true ]] && [[ "${status_ports_check_enabled}" == false ]]; then
+if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${RUN_STATUS}" == true ]] && [[ "${RUN_PORTS_CHECK}" == true ]] && [[ "${status_ports_check_enabled}" == false ]]; then
   log_warn "[LAUNCH] --ports-check-ports has no effect in the status runtime path when --status-skip-ports-check is enabled."
 fi
 
 log_info "[LAUNCH] active env file: $(get_env_file)"
 log_info "[LAUNCH] active compose file: $(get_compose_file)"
 
-total_steps=3 # preflight + deploy + status
+total_steps=2 # preflight + deploy
 if [[ "${RUN_SETUP}" == true ]]; then
   total_steps=$((total_steps + 1))
 fi
@@ -269,6 +285,9 @@ if [[ "${RUN_PORTS_CHECK}" == true ]]; then
   total_steps=$((total_steps + 1))
 fi
 if [[ "${RUN_VERIFY}" == true ]] && [[ "${DEPLOY_DRY_RUN}" == false ]]; then
+  total_steps=$((total_steps + 1))
+fi
+if [[ "${RUN_STATUS}" == true ]]; then
   total_steps=$((total_steps + 1))
 fi
 
@@ -343,28 +362,30 @@ if [[ "${RUN_VERIFY}" == true ]]; then
 fi
 
 status_args=()
-if [[ "${STATUS_RUNTIME_CHECKS}" == true ]]; then
-  status_args+=(--with-runtime-checks)
-  if [[ "${RUN_HOST_READINESS}" == false ]] || [[ "${STATUS_SKIP_HOST_READINESS}" == true ]]; then
-    status_args+=(--skip-host-readiness)
+if [[ "${RUN_STATUS}" == true ]]; then
+  if [[ "${STATUS_RUNTIME_CHECKS}" == true ]]; then
+    status_args+=(--with-runtime-checks)
+    if [[ "${RUN_HOST_READINESS}" == false ]] || [[ "${STATUS_SKIP_HOST_READINESS}" == true ]]; then
+      status_args+=(--skip-host-readiness)
+    fi
+    if [[ "${RUN_DNS_CHECK}" == false ]] || [[ "${STATUS_SKIP_DNS_CHECK}" == true ]]; then
+      status_args+=(--skip-dns-check)
+    fi
+    if [[ "${RUN_SSL_CHECK}" == false ]] || [[ "${STATUS_SKIP_SSL_CHECK}" == true ]]; then
+      status_args+=(--skip-ssl-check)
+    fi
+    if [[ "${RUN_PORTS_CHECK}" == false ]] || [[ "${STATUS_SKIP_PORTS_CHECK}" == true ]]; then
+      status_args+=(--skip-ports-check)
+    fi
+    if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+      status_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
+    fi
   fi
-  if [[ "${RUN_DNS_CHECK}" == false ]] || [[ "${STATUS_SKIP_DNS_CHECK}" == true ]]; then
-    status_args+=(--skip-dns-check)
+  if [[ "${STATUS_STRICT}" == true ]]; then
+    status_args+=(--strict)
   fi
-  if [[ "${RUN_SSL_CHECK}" == false ]] || [[ "${STATUS_SKIP_SSL_CHECK}" == true ]]; then
-    status_args+=(--skip-ssl-check)
-  fi
-  if [[ "${RUN_PORTS_CHECK}" == false ]] || [[ "${STATUS_SKIP_PORTS_CHECK}" == true ]]; then
-    status_args+=(--skip-ports-check)
-  fi
-  if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
-    status_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
-  fi
+  run_step "${step}" "${total_steps}" "show status" "${SCRIPT_DIR}/status.sh" "${status_args[@]}"
 fi
-if [[ "${STATUS_STRICT}" == true ]]; then
-  status_args+=(--strict)
-fi
-run_step "${step}" "${total_steps}" "show status" "${SCRIPT_DIR}/status.sh" "${status_args[@]}"
 
 echo
 echo "[mailzen-deploy][LAUNCH] MailZen launch pipeline completed successfully."

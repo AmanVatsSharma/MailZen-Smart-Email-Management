@@ -101,6 +101,14 @@ From repository root:
   --deploy-dry-run \
   --skip-verify
 
+# Config-only + dry-run launch without final status step
+./deploy/ec2/scripts/launch.sh \
+  --skip-setup \
+  --preflight-config-only \
+  --deploy-dry-run \
+  --skip-verify \
+  --skip-status
+
 # Launch with custom verify retries and runtime status checks
 ./deploy/ec2/scripts/launch.sh \
   --verify-max-retries 10 \

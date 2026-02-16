@@ -25,8 +25,10 @@ flowchart TD
   VerifyOK -- no --> Logs[logs.sh + status.sh troubleshooting]
   Logs --> FixAndRedeploy[update.sh or deploy.sh --force-recreate]
   FixAndRedeploy --> Verify
-  VerifyOK -- yes --> Status[status.sh]
+  VerifyOK -- yes --> StatusGate{status step enabled?}
+  StatusGate -- yes --> Status[status.sh]
   Status --> Done[Deployment complete]
+  StatusGate -- no --> Done
 ```
 
 ## 2) Update flow
