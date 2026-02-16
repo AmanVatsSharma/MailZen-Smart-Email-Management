@@ -41,6 +41,7 @@ Provide a persistent notification foundation for user-visible product events
 - `myUnreadNotificationCount(workspaceId?)` → unread badge count (workspace + global scope)
 - `myNotificationPreferences` → get per-user notification channel settings
 - `myNotificationDataExport(limit?)` → export notification history/preferences JSON
+- `userNotificationDataExport(userId, limit?)` → admin export of target user notification history/preferences JSON
 - `myNotificationPushSubscriptions(workspaceId?)` → list user push subscriptions
 - `markNotificationRead(id)` → marks one notification as read
 - `markMyNotificationsRead(workspaceId?, sinceHours?, types?)` → marks matching
@@ -161,6 +162,8 @@ Notification service observability events:
 
 - `notification_audit_log_write_failed`
 - `notification_retention_scheduler_audit_log_write_failed`
+- `notification_data_export_admin_start`
+- `notification_data_export_admin_completed`
 
 Compliance/audit actions persisted in `audit_logs`:
 
@@ -170,6 +173,7 @@ Compliance/audit actions persisted in `audit_logs`:
 - `notification_marked_read`
 - `notification_bulk_marked_read`
 - `notification_data_export_requested`
+- `notification_data_export_requested_by_admin`
 - `notification_mailbox_inbound_sla_state_updated`
 - `notification_mailbox_inbound_sla_export_requested`
 - `notification_retention_purged`

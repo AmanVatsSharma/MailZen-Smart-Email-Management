@@ -188,6 +188,23 @@ export class NotificationResolver {
     });
   }
 
+  @Query(() => NotificationDataExportResponse, {
+    description:
+      'Admin export of target user notification preferences/history for legal/compliance requests',
+  })
+  @UseGuards(AdminGuard)
+  async userNotificationDataExport(
+    @Args('userId') userId: string,
+    @Context() ctx: RequestContext,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+  ) {
+    return this.notificationService.exportNotificationDataForAdmin({
+      targetUserId: userId,
+      actorUserId: ctx.req.user.id,
+      limit,
+    });
+  }
+
   @Mutation(() => UserNotification, {
     description: 'Mark a notification as read',
   })

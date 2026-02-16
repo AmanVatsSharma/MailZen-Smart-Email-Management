@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-argument */
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { AuditLog } from '../auth/entities/audit-log.entity';
 import { NotificationPushSubscription } from './entities/notification-push-subscription.entity';
@@ -533,6 +533,82 @@ describe('NotificationService', () => {
         action: 'notification_data_export_requested',
       }),
     );
+  });
+
+  it('exports notification data snapshot for admin legal/compliance portability', async () => {
+    preferenceRepo.findOne.mockResolvedValue({
+      ...basePreference,
+      userId: 'user-2',
+      pushEnabled: true,
+    } as UserNotificationPreference);
+    notificationRepo.find.mockResolvedValue([
+      {
+        id: 'notif-export-2',
+        userId: 'user-2',
+        workspaceId: null,
+        type: 'SYNC_FAILED',
+        title: 'Sync failed',
+        message: 'Provider failed',
+        isRead: false,
+        createdAt: new Date('2026-02-16T00:00:00.000Z'),
+        updatedAt: new Date('2026-02-16T00:00:00.000Z'),
+      } as unknown as UserNotification,
+    ]);
+    pushSubscriptionRepo.find.mockResolvedValue([]);
+
+    const result = await service.exportNotificationDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      limit: 80,
+    });
+
+    expect(result.generatedAtIso).toBeTruthy();
+    expect(result.dataJson).toContain('"notifications"');
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+        action: 'notification_data_export_requested',
+      }),
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'notification_data_export_requested_by_admin',
+        metadata: expect.objectContaining({
+          targetUserId: 'user-2',
+        }),
+      }),
+    );
+  });
+
+  it('does not fail admin notification export when admin audit write fails', async () => {
+    preferenceRepo.findOne.mockResolvedValue({
+      ...basePreference,
+      userId: 'user-2',
+    } as UserNotificationPreference);
+    notificationRepo.find.mockResolvedValue([]);
+    pushSubscriptionRepo.find.mockResolvedValue([]);
+    auditLogRepo.save
+      .mockResolvedValueOnce({ id: 'audit-log-1' } as AuditLog)
+      .mockRejectedValueOnce(new Error('audit store unavailable'));
+
+    const result = await service.exportNotificationDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      limit: 40,
+    });
+
+    expect(result.generatedAtIso).toBeTruthy();
+    expect(result.dataJson).toContain('"notificationSummary"');
+  });
+
+  it('rejects admin notification export when actor user id is missing', async () => {
+    await expect(
+      service.exportNotificationDataForAdmin({
+        targetUserId: 'user-2',
+        actorUserId: '',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('purges expired read notifications and disabled push subscriptions', async () => {

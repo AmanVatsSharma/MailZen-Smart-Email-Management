@@ -896,6 +896,50 @@ export class NotificationService {
     };
   }
 
+  async exportNotificationDataForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+    limit?: number;
+  }): Promise<NotificationDataExportResponse> {
+    const targetUserId = String(input.targetUserId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!targetUserId) {
+      throw new BadRequestException('Target user id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'notification_data_export_admin_start',
+        actorUserId,
+        targetUserId,
+      }),
+    );
+    const exportPayload = await this.exportNotificationData({
+      userId: targetUserId,
+      limit: input.limit,
+    });
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'notification_data_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        generatedAtIso: exportPayload.generatedAtIso,
+        selfRequested: actorUserId === targetUserId,
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'notification_data_export_admin_completed',
+        actorUserId,
+        targetUserId,
+      }),
+    );
+    return exportPayload;
+  }
+
   async purgeNotificationRetentionData(
     input: {
       notificationRetentionDays?: number;

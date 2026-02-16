@@ -14,6 +14,7 @@ describe('NotificationResolver', () => {
     getOrCreatePreferences: jest.fn(),
     listPushSubscriptionsForUser: jest.fn(),
     exportNotificationData: jest.fn(),
+    exportNotificationDataForAdmin: jest.fn(),
     markNotificationRead: jest.fn(),
     registerPushSubscription: jest.fn(),
     unregisterPushSubscription: jest.fn(),
@@ -255,6 +256,27 @@ describe('NotificationResolver', () => {
       userId: 'user-1',
       limit: 120,
     });
+  });
+
+  it('forwards admin notification data export query payload', async () => {
+    notificationService.exportNotificationDataForAdmin.mockResolvedValue({
+      generatedAtIso: '2026-02-16T01:00:00.000Z',
+      dataJson: '{"notifications":[]}',
+    });
+
+    await resolver.userNotificationDataExport(
+      'user-2',
+      context as never,
+      80,
+    );
+
+    expect(notificationService.exportNotificationDataForAdmin).toHaveBeenCalledWith(
+      {
+        targetUserId: 'user-2',
+        actorUserId: 'user-1',
+        limit: 80,
+      },
+    );
   });
 
   it('forwards push registration mutation payload', async () => {
