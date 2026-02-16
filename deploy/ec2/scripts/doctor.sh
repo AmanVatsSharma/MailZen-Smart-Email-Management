@@ -74,8 +74,10 @@ run_check() {
 run_check "script-self-check" "\"${SCRIPT_DIR}/self-check.sh\""
 run_check "env-audit-redacted" "\"${SCRIPT_DIR}/env-audit.sh\""
 run_check "dns-check" "\"${SCRIPT_DIR}/dns-check.sh\"" false
+run_check "ssl-check" "\"${SCRIPT_DIR}/ssl-check.sh\"" false
 run_check "ports-check" "\"${SCRIPT_DIR}/ports-check.sh\""
 run_check "preflight-config-only" "\"${SCRIPT_DIR}/preflight.sh\" --config-only"
+run_check "pipeline-check" "\"${SCRIPT_DIR}/pipeline-check.sh\""
 run_check "docker-client-version" "docker --version"
 run_check "docker-compose-version" "docker compose version"
 run_check "docker-daemon-info" "docker info" false

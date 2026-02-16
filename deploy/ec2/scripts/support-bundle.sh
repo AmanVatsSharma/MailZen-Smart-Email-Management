@@ -10,8 +10,10 @@
 # - redacted env-audit output
 # - preflight config-only output
 # - dns-check output (best-effort)
+# - ssl-check output (best-effort)
 # - ports-check output
 # - doctor output (best-effort)
+# - pipeline-check output
 # - docker compose status/log snapshots when daemon is reachable
 #
 # Usage:
@@ -49,8 +51,10 @@ run_capture "self-check" "\"${SCRIPT_DIR}/self-check.sh\""
 run_capture "env-audit" "\"${SCRIPT_DIR}/env-audit.sh\""
 run_capture "preflight-config-only" "\"${SCRIPT_DIR}/preflight.sh\" --config-only"
 run_capture "dns-check" "\"${SCRIPT_DIR}/dns-check.sh\""
+run_capture "ssl-check" "\"${SCRIPT_DIR}/ssl-check.sh\""
 run_capture "ports-check" "\"${SCRIPT_DIR}/ports-check.sh\""
 run_capture "doctor" "\"${SCRIPT_DIR}/doctor.sh\""
+run_capture "pipeline-check" "\"${SCRIPT_DIR}/pipeline-check.sh\""
 
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   run_capture "docker-info" "docker info"
