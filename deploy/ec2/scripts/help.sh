@@ -60,6 +60,7 @@ Backup and recovery:
 
 Diagnostics:
   ./deploy/ec2/scripts/doctor.sh
+  ./deploy/ec2/scripts/doctor.sh --seed-env
   ./deploy/ec2/scripts/support-bundle.sh
   ./deploy/ec2/scripts/pipeline-check.sh
   ./deploy/ec2/scripts/pipeline-check.sh --seed-env

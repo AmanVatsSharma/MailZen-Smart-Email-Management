@@ -234,6 +234,12 @@ Example:
 # Generate diagnostics report bundle
 ./deploy/ec2/scripts/doctor.sh
 
+# Fail diagnostics when optional checks fail
+./deploy/ec2/scripts/doctor.sh --strict
+
+# Run diagnostics with a temporary seeded env (CI-friendly)
+./deploy/ec2/scripts/doctor.sh --seed-env
+
 # Strict diagnostics mode (treat optional warnings as failures)
 ./deploy/ec2/scripts/doctor.sh --strict
 

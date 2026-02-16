@@ -267,6 +267,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: generate diagnostics report for troubleshooting
 ./deploy/ec2/scripts/doctor.sh
 
+# Optional: CI-friendly diagnostics with seeded temporary env
+./deploy/ec2/scripts/doctor.sh --seed-env
+
 # Optional: strict diagnostics mode
 ./deploy/ec2/scripts/doctor.sh --strict
 
