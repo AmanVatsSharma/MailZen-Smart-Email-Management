@@ -21,11 +21,14 @@ type OutlookWebhookPayload = {
   providerId?: string;
   emailAddress?: string;
   userPrincipalName?: string;
+  clientState?: string;
   value?: Array<{
     providerId?: string;
+    clientState?: string;
     emailAddress?: string;
     userPrincipalName?: string;
     resourceData?: {
+      clientState?: string;
       emailAddress?: string;
       userPrincipalName?: string;
     };
@@ -122,6 +125,103 @@ export class OutlookSyncWebhookController {
     return null;
   }
 
+  private resolveClientStateSecret(): string | null {
+    const configuredSecret = String(
+      process.env.OUTLOOK_PUSH_CLIENT_STATE_SECRET || '',
+    )
+      .trim()
+      .toLowerCase();
+    if (!configuredSecret) return null;
+    return configuredSecret;
+  }
+
+  private resolveClientStates(payload: OutlookWebhookPayload): string[] {
+    const states = new Set<string>();
+    const addCandidate = (value: string | undefined) => {
+      const normalizedValue = String(value || '').trim();
+      if (!normalizedValue) return;
+      states.add(normalizedValue);
+    };
+    addCandidate(payload.clientState);
+    for (const event of payload.value || []) {
+      addCandidate(event.clientState);
+      addCandidate(event.resourceData?.clientState);
+    }
+    return Array.from(states);
+  }
+
+  private resolveKnownProviderIds(input: {
+    queryProviderId?: string;
+    resolvedProviderId?: string | null;
+    payload: OutlookWebhookPayload;
+  }): string[] {
+    const providerIds = new Set<string>();
+    const addProviderId = (value: string | null | undefined) => {
+      const normalizedValue = String(value || '').trim();
+      if (!normalizedValue) return;
+      providerIds.add(normalizedValue);
+    };
+    addProviderId(input.queryProviderId);
+    addProviderId(input.resolvedProviderId);
+    addProviderId(input.payload.providerId);
+    for (const event of input.payload.value || []) {
+      addProviderId(event.providerId);
+    }
+    return Array.from(providerIds);
+  }
+
+  private assertWebhookClientState(input: {
+    requestId: string;
+    payload: OutlookWebhookPayload;
+    queryProviderId?: string;
+    resolvedProviderId?: string | null;
+  }): void {
+    const expectedSecret = this.resolveClientStateSecret();
+    if (!expectedSecret) return;
+
+    const clientStates = this.resolveClientStates(input.payload);
+    if (!clientStates.length) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'outlook_push_webhook_client_state_missing',
+          requestId: input.requestId,
+          providerId: input.resolvedProviderId || null,
+        }),
+      );
+      throw new UnauthorizedException(
+        'Invalid Outlook push webhook client state',
+      );
+    }
+
+    const knownProviderIds = this.resolveKnownProviderIds({
+      queryProviderId: input.queryProviderId,
+      resolvedProviderId: input.resolvedProviderId,
+      payload: input.payload,
+    });
+    const hasMatchingState = knownProviderIds.length
+      ? knownProviderIds.some((providerId) =>
+          clientStates.includes(`${providerId}:${expectedSecret}`),
+        )
+      : clientStates.some((clientState) =>
+          clientState.endsWith(`:${expectedSecret}`),
+        );
+    if (hasMatchingState) return;
+
+    this.logger.warn(
+      serializeStructuredLog({
+        event: 'outlook_push_webhook_client_state_mismatch',
+        requestId: input.requestId,
+        providerId: input.resolvedProviderId || null,
+        knownProviderCount: knownProviderIds.length,
+        providedClientStateCount: clientStates.length,
+        firstClientStateFingerprint: fingerprintIdentifier(clientStates[0]),
+      }),
+    );
+    throw new UnauthorizedException(
+      'Invalid Outlook push webhook client state',
+    );
+  }
+
   @Post('push')
   @HttpCode(202)
   async handlePushWebhook(
@@ -142,6 +242,12 @@ export class OutlookSyncWebhookController {
         'Outlook push payload must include providerId or emailAddress',
       );
     }
+    this.assertWebhookClientState({
+      requestId,
+      payload: body,
+      queryProviderId: providerId,
+      resolvedProviderId,
+    });
 
     const result = await this.outlookSyncService.processPushNotification({
       providerId: resolvedProviderId,

@@ -13,18 +13,27 @@ describe('OutlookSyncWebhookController', () => {
     outlookSyncServiceMock as unknown as OutlookSyncService,
   );
   const originalTokenEnv = process.env.OUTLOOK_PUSH_WEBHOOK_TOKEN;
+  const originalClientStateSecretEnv =
+    process.env.OUTLOOK_PUSH_CLIENT_STATE_SECRET;
 
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.OUTLOOK_PUSH_WEBHOOK_TOKEN;
+    delete process.env.OUTLOOK_PUSH_CLIENT_STATE_SECRET;
   });
 
   afterAll(() => {
     if (typeof originalTokenEnv === 'string') {
       process.env.OUTLOOK_PUSH_WEBHOOK_TOKEN = originalTokenEnv;
-      return;
+    } else {
+      delete process.env.OUTLOOK_PUSH_WEBHOOK_TOKEN;
     }
-    delete process.env.OUTLOOK_PUSH_WEBHOOK_TOKEN;
+    if (typeof originalClientStateSecretEnv === 'string') {
+      process.env.OUTLOOK_PUSH_CLIENT_STATE_SECRET =
+        originalClientStateSecretEnv;
+    } else {
+      delete process.env.OUTLOOK_PUSH_CLIENT_STATE_SECRET;
+    }
   });
 
   it('uses providerId query parameter and dispatches push processing', async () => {
@@ -123,6 +132,70 @@ describe('OutlookSyncWebhookController', () => {
         'secret-12344',
         undefined,
         'request-6',
+      ),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(processPushNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it('accepts webhook when clientState matches provider and configured secret', async () => {
+    process.env.OUTLOOK_PUSH_CLIENT_STATE_SECRET = 'state-secret';
+    processPushNotificationMock.mockResolvedValue({
+      processedProviders: 1,
+      skippedProviders: 0,
+    });
+
+    const result = await controller.handlePushWebhook(
+      {
+        providerId: 'provider-1',
+        value: [
+          {
+            providerId: 'provider-1',
+            clientState: 'provider-1:state-secret',
+          },
+        ],
+      },
+      undefined,
+      undefined,
+      'request-7',
+    );
+
+    expect(result.accepted).toBe(true);
+    expect(processPushNotificationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects webhook when clientState is missing while secret is configured', async () => {
+    process.env.OUTLOOK_PUSH_CLIENT_STATE_SECRET = 'state-secret';
+
+    await expect(
+      controller.handlePushWebhook(
+        {
+          providerId: 'provider-1',
+        },
+        undefined,
+        undefined,
+        'request-8',
+      ),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(processPushNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects webhook when clientState secret mismatches configured value', async () => {
+    process.env.OUTLOOK_PUSH_CLIENT_STATE_SECRET = 'state-secret';
+
+    await expect(
+      controller.handlePushWebhook(
+        {
+          providerId: 'provider-1',
+          value: [
+            {
+              providerId: 'provider-1',
+              clientState: 'provider-1:wrong-secret',
+            },
+          ],
+        },
+        undefined,
+        undefined,
+        'request-9',
       ),
     ).rejects.toThrow(UnauthorizedException);
     expect(processPushNotificationMock).not.toHaveBeenCalled();

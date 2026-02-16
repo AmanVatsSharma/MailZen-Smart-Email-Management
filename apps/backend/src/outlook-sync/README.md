@@ -105,9 +105,14 @@ Used during refresh token exchange when access tokens expire.
   - `POST /outlook-sync/webhooks/push`
   - accepts `providerId` (query/body) or `emailAddress`/`userPrincipalName` payload hints
   - triggers lease-guarded sync for matching active Outlook providers
+  - when `OUTLOOK_PUSH_CLIENT_STATE_SECRET` is configured, incoming webhook
+    payload `clientState` values must match expected signed provider-state
+    values
   - structured webhook events:
     - `outlook_push_webhook_secret_missing`
     - `outlook_push_webhook_secret_mismatch`
+    - `outlook_push_webhook_client_state_missing`
+    - `outlook_push_webhook_client_state_mismatch`
     - `outlook_push_webhook_processed`
 - Push subscription lifecycle:
   - Sync flow best-effort ensures Graph subscription exists/renews when `OUTLOOK_PUSH_NOTIFICATION_URL` is configured
