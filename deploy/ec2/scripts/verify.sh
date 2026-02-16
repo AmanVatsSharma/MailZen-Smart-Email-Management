@@ -25,34 +25,64 @@ RETRY_SLEEP_SECONDS="3"
 RUN_SSL_CHECK=true
 RUN_OAUTH_CHECK=true
 REQUIRE_OAUTH_CHECK=false
+POSITIONAL_MAX_RETRIES_SET=false
+POSITIONAL_RETRY_SLEEP_SET=false
+POSITIONAL_MAX_RETRIES_VALUE=""
+POSITIONAL_RETRY_SLEEP_VALUE=""
+MAX_RETRIES_FLAG_SET=false
+RETRY_SLEEP_FLAG_SET=false
+MAX_RETRIES_FLAG_VALUE=""
+RETRY_SLEEP_FLAG_VALUE=""
 
 # Backward compatibility for positional usage:
 #   verify.sh 10 5
 if [[ $# -ge 1 ]] && [[ "${1}" =~ ^[0-9]+$ ]]; then
   MAX_RETRIES="${1}"
+  POSITIONAL_MAX_RETRIES_SET=true
+  POSITIONAL_MAX_RETRIES_VALUE="${1}"
   shift
 fi
 if [[ $# -ge 1 ]] && [[ "${1}" =~ ^[0-9]+$ ]]; then
   RETRY_SLEEP_SECONDS="${1}"
+  POSITIONAL_RETRY_SLEEP_SET=true
+  POSITIONAL_RETRY_SLEEP_VALUE="${1}"
   shift
 fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --max-retries)
-    MAX_RETRIES="${2:-}"
-    if [[ -z "${MAX_RETRIES}" ]]; then
+    max_retries_arg="${2:-}"
+    if [[ -z "${max_retries_arg}" ]]; then
       log_error "--max-retries requires a value."
       exit 1
     fi
+    if [[ "${MAX_RETRIES_FLAG_SET}" == true ]] && [[ "${max_retries_arg}" != "${MAX_RETRIES_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --max-retries '${MAX_RETRIES_FLAG_VALUE}' overridden by --max-retries '${max_retries_arg}'."
+    fi
+    if [[ "${POSITIONAL_MAX_RETRIES_SET}" == true ]] && [[ "${max_retries_arg}" != "${POSITIONAL_MAX_RETRIES_VALUE}" ]]; then
+      log_warn "Positional max retries '${POSITIONAL_MAX_RETRIES_VALUE}' overridden by --max-retries '${max_retries_arg}'."
+    fi
+    MAX_RETRIES="${max_retries_arg}"
+    MAX_RETRIES_FLAG_SET=true
+    MAX_RETRIES_FLAG_VALUE="${max_retries_arg}"
     shift 2
     ;;
   --retry-sleep)
-    RETRY_SLEEP_SECONDS="${2:-}"
-    if [[ -z "${RETRY_SLEEP_SECONDS}" ]]; then
+    retry_sleep_arg="${2:-}"
+    if [[ -z "${retry_sleep_arg}" ]]; then
       log_error "--retry-sleep requires a value."
       exit 1
     fi
+    if [[ "${RETRY_SLEEP_FLAG_SET}" == true ]] && [[ "${retry_sleep_arg}" != "${RETRY_SLEEP_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --retry-sleep '${RETRY_SLEEP_FLAG_VALUE}' overridden by --retry-sleep '${retry_sleep_arg}'."
+    fi
+    if [[ "${POSITIONAL_RETRY_SLEEP_SET}" == true ]] && [[ "${retry_sleep_arg}" != "${POSITIONAL_RETRY_SLEEP_VALUE}" ]]; then
+      log_warn "Positional retry sleep '${POSITIONAL_RETRY_SLEEP_VALUE}' overridden by --retry-sleep '${retry_sleep_arg}'."
+    fi
+    RETRY_SLEEP_SECONDS="${retry_sleep_arg}"
+    RETRY_SLEEP_FLAG_SET=true
+    RETRY_SLEEP_FLAG_VALUE="${retry_sleep_arg}"
     shift 2
     ;;
   --skip-ssl-check)
