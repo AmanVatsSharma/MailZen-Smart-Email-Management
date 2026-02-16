@@ -20,6 +20,18 @@ The Organization module follows a clean architecture pattern with the following 
 - **DTOs**: Data Transfer Objects for input validation
 - **Entity**: GraphQL object type representing a label
 
+## Flow
+
+```mermaid
+flowchart TD
+  Client[Authenticated GraphQL client] --> Resolver[LabelResolver]
+  Resolver --> Service[LabelService]
+  Service --> Repo[(email_labels)]
+  Repo --> Service
+  Service --> Resolver
+  Resolver --> Client
+```
+
 ## API
 
 ### GraphQL Queries

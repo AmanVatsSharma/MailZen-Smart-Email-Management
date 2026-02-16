@@ -22,6 +22,18 @@ The Contacts module follows a clean architecture pattern with the following comp
 - **Entity**: GraphQL object type representing a contact
 - **TypeORM Integration**: Database access for storing contact data
 
+## Flow
+
+```mermaid
+flowchart TD
+  Client[Authenticated GraphQL client] --> Resolver[ContactResolver]
+  Resolver --> Service[ContactService]
+  Service --> Repo[(contacts)]
+  Repo --> Service
+  Service --> Resolver
+  Resolver --> Client
+```
+
 ## API
 
 ### GraphQL Queries

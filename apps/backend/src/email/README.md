@@ -6,6 +6,19 @@ The Email Module is a comprehensive solution for managing email operations withi
 
 ## Core Components
 
+## Flow
+
+```mermaid
+flowchart TD
+  Resolver[Email GraphQL resolvers] --> Service[EmailService]
+  Service --> ProviderRepo[(email_providers)]
+  Service --> EmailRepo[(emails)]
+  Service --> AnalyticsRepo[(email_analytics)]
+  Service --> Transport[Provider transport / SMTP OAuth]
+  Service --> Track[Open + click tracking]
+  Track --> AnalyticsRepo
+```
+
 ### Services
 
 1. **EmailService**

@@ -113,6 +113,10 @@ jobs:
         working-directory: apps/backend
         run: npm run check:no-console-usage
 
+      - name: Backend docs flowchart contract check
+        working-directory: apps/backend
+        run: npm run check:doc:flowcharts
+
       - name: Frontend lint
         working-directory: apps/frontend
         run: npm run lint
