@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { Mailbox } from '../mailbox/entities/mailbox.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
@@ -23,6 +24,7 @@ describe('BillingService', () => {
   let mailboxRepo: jest.Mocked<Repository<Mailbox>>;
   let workspaceRepo: jest.Mocked<Repository<Workspace>>;
   let workspaceMemberRepo: jest.Mocked<Repository<WorkspaceMember>>;
+  let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
   let notificationEventBus: jest.Mocked<
     Pick<NotificationEventBusService, 'publishSafely'>
   >;
@@ -94,6 +96,10 @@ describe('BillingService', () => {
     workspaceMemberRepo = {
       count: jest.fn(),
     } as unknown as jest.Mocked<Repository<WorkspaceMember>>;
+    auditLogRepo = {
+      create: jest.fn(),
+      save: jest.fn(),
+    } as unknown as jest.Mocked<Repository<AuditLog>>;
     notificationEventBus = {
       publishSafely: jest.fn(),
     };
@@ -105,6 +111,10 @@ describe('BillingService', () => {
     workspaceRepo.find.mockResolvedValue([]);
     workspaceRepo.findOne.mockResolvedValue(null);
     workspaceMemberRepo.count.mockResolvedValue(1);
+    auditLogRepo.create.mockImplementation(
+      (value: Partial<AuditLog>) => value as AuditLog,
+    );
+    auditLogRepo.save.mockResolvedValue({ id: 'audit-log-1' } as AuditLog);
 
     service = new BillingService(
       planRepo,
@@ -116,6 +126,7 @@ describe('BillingService', () => {
       mailboxRepo,
       workspaceRepo,
       workspaceMemberRepo,
+      auditLogRepo,
       notificationEventBus as unknown as NotificationEventBusService,
     );
   });
@@ -198,6 +209,12 @@ describe('BillingService', () => {
     expect(result.planCode).toBe('PRO');
     expect(subscriptionRepo.save).toHaveBeenCalled();
     expect(invoiceRepo.save).toHaveBeenCalled();
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'billing_plan_selected',
+      }),
+    );
   });
 
   it('records upgrade intent notification', async () => {
@@ -235,6 +252,12 @@ describe('BillingService', () => {
     );
     expect(result.success).toBe(true);
     expect(result.targetPlanCode).toBe('BUSINESS');
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'billing_upgrade_intent_requested',
+      }),
+    );
   });
 
   it('returns AI credit balance for current period', async () => {
@@ -594,6 +617,12 @@ describe('BillingService', () => {
         type: 'BILLING_TRIAL_STARTED',
       }),
     );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'billing_trial_started',
+      }),
+    );
   });
 
   it('ingests paid webhook events and marks them processed', async () => {
@@ -653,6 +682,12 @@ describe('BillingService', () => {
         isTrial: false,
       }),
     );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'billing_webhook_subscription_updated',
+      }),
+    );
   });
 
   it('returns existing webhook when external event already processed', async () => {
@@ -672,5 +707,33 @@ describe('BillingService', () => {
 
     expect(result.id).toBe('evt-existing');
     expect(webhookRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('does not fail billing workflows when audit log writes fail', async () => {
+    planRepo.count.mockResolvedValue(1);
+    planRepo.findOne.mockResolvedValue({
+      id: 'plan-1',
+      code: 'PRO',
+      isActive: true,
+      priceMonthlyCents: 1900,
+      currency: 'USD',
+    } as BillingPlan);
+    subscriptionRepo.findOne.mockResolvedValue({
+      id: 'sub-1',
+      userId: 'user-1',
+      planCode: 'FREE',
+      status: 'active',
+      startedAt: new Date('2026-01-01T00:00:00.000Z'),
+      cancelAtPeriodEnd: false,
+      endsAt: null,
+    } as UserSubscription);
+    subscriptionRepo.save.mockImplementation((value: UserSubscription) =>
+      Promise.resolve(value),
+    );
+    auditLogRepo.save.mockRejectedValue(new Error('audit store unavailable'));
+
+    await expect(service.selectPlan('user-1', 'pro')).resolves.toMatchObject({
+      planCode: 'PRO',
+    });
   });
 });

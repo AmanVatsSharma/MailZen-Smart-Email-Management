@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { Mailbox } from '../mailbox/entities/mailbox.entity';
 import { BillingRetentionScheduler } from './billing-retention.scheduler';
@@ -27,6 +28,7 @@ import { Workspace } from '../workspace/entities/workspace.entity';
       Mailbox,
       Workspace,
       WorkspaceMember,
+      AuditLog,
     ]),
     NotificationModule,
   ],

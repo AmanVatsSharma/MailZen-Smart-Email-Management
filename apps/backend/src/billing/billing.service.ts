@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { Mailbox } from '../mailbox/entities/mailbox.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
@@ -55,8 +56,35 @@ export class BillingService {
     private readonly workspaceRepo: Repository<Workspace>,
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepo: Repository<WorkspaceMember>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.auditLogRepo.save(
+        this.auditLogRepo.create({
+          userId: input.userId,
+          action: input.action,
+          metadata: input.metadata || {},
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'billing_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
 
   private resolveCurrentPeriodStartIso(referenceDate = new Date()): string {
     const year = referenceDate.getUTCFullYear();
@@ -289,6 +317,16 @@ export class BillingService {
         },
       });
     }
+    await this.writeAuditLog({
+      userId,
+      action: 'billing_plan_selected',
+      metadata: {
+        previousPlanCode,
+        selectedPlanCode: normalizedPlanCode,
+        priceMonthlyCents: targetPlan.priceMonthlyCents,
+        currency: targetPlan.currency || 'USD',
+      },
+    });
 
     return updatedSubscription;
   }
@@ -856,6 +894,15 @@ export class BillingService {
         trialEndsAtIso: trialEndsAt.toISOString(),
       }),
     );
+    await this.writeAuditLog({
+      userId,
+      action: 'billing_trial_started',
+      metadata: {
+        planCode: targetPlan.code,
+        trialDays: boundedTrialDays,
+        trialEndsAtIso: trialEndsAt.toISOString(),
+      },
+    });
     return savedSubscription;
   }
 
@@ -928,6 +975,17 @@ export class BillingService {
       subscription.trialEndsAt = null;
       subscription.planCode = normalizedPlanCode;
       await this.userSubscriptionRepo.save(subscription);
+      await this.writeAuditLog({
+        userId,
+        action: 'billing_webhook_subscription_updated',
+        metadata: {
+          provider: input.provider,
+          eventType: normalizedEventType,
+          planCode: normalizedPlanCode,
+          status: 'active',
+          cancelAtPeriodEnd: false,
+        },
+      });
       return;
     }
 
@@ -949,6 +1007,17 @@ export class BillingService {
         lastPaymentFailureAtIso: new Date().toISOString(),
       };
       await this.userSubscriptionRepo.save(subscription);
+      await this.writeAuditLog({
+        userId,
+        action: 'billing_webhook_subscription_updated',
+        metadata: {
+          provider: input.provider,
+          eventType: normalizedEventType,
+          planCode: subscription.planCode,
+          status: subscription.status,
+          cancelAtPeriodEnd: true,
+        },
+      });
       return;
     }
 
@@ -957,6 +1026,17 @@ export class BillingService {
       subscription.endsAt = new Date();
       subscription.cancelAtPeriodEnd = false;
       await this.userSubscriptionRepo.save(subscription);
+      await this.writeAuditLog({
+        userId,
+        action: 'billing_webhook_subscription_updated',
+        metadata: {
+          provider: input.provider,
+          eventType: normalizedEventType,
+          planCode: subscription.planCode,
+          status: 'canceled',
+          cancelAtPeriodEnd: false,
+        },
+      });
     }
   }
 
@@ -1082,6 +1162,15 @@ export class BillingService {
         hasNote: Boolean(normalizedNote),
       }),
     );
+    await this.writeAuditLog({
+      userId,
+      action: 'billing_upgrade_intent_requested',
+      metadata: {
+        currentPlanCode: subscription.planCode,
+        targetPlanCode: normalizedTargetPlanCode,
+        hasNote: Boolean(normalizedNote),
+      },
+    });
 
     return {
       success: true,
