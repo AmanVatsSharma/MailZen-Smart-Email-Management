@@ -6,6 +6,12 @@ describe('dispatchSmsOtp', () => {
     provider: process.env.MAILZEN_SMS_PROVIDER,
     webhookUrl: process.env.MAILZEN_SMS_WEBHOOK_URL,
     webhookToken: process.env.MAILZEN_SMS_WEBHOOK_TOKEN,
+    twilioSid: process.env.MAILZEN_SMS_TWILIO_ACCOUNT_SID,
+    twilioToken: process.env.MAILZEN_SMS_TWILIO_AUTH_TOKEN,
+    twilioFrom: process.env.MAILZEN_SMS_TWILIO_FROM_NUMBER,
+    twilioBaseUrl: process.env.MAILZEN_SMS_TWILIO_API_BASE_URL,
+    twilioTimeoutMs: process.env.MAILZEN_SMS_TWILIO_TIMEOUT_MS,
+    twilioStatusCallbackUrl: process.env.MAILZEN_SMS_TWILIO_STATUS_CALLBACK_URL,
     strict: process.env.MAILZEN_SMS_STRICT_DELIVERY,
     nodeEnv: process.env.NODE_ENV,
   };
@@ -15,6 +21,12 @@ describe('dispatchSmsOtp', () => {
     delete process.env.MAILZEN_SMS_PROVIDER;
     delete process.env.MAILZEN_SMS_WEBHOOK_URL;
     delete process.env.MAILZEN_SMS_WEBHOOK_TOKEN;
+    delete process.env.MAILZEN_SMS_TWILIO_ACCOUNT_SID;
+    delete process.env.MAILZEN_SMS_TWILIO_AUTH_TOKEN;
+    delete process.env.MAILZEN_SMS_TWILIO_FROM_NUMBER;
+    delete process.env.MAILZEN_SMS_TWILIO_API_BASE_URL;
+    delete process.env.MAILZEN_SMS_TWILIO_TIMEOUT_MS;
+    delete process.env.MAILZEN_SMS_TWILIO_STATUS_CALLBACK_URL;
     delete process.env.MAILZEN_SMS_STRICT_DELIVERY;
     process.env.NODE_ENV = 'test';
   });
@@ -34,6 +46,37 @@ describe('dispatchSmsOtp', () => {
       process.env.MAILZEN_SMS_WEBHOOK_TOKEN = envBackup.webhookToken;
     } else {
       delete process.env.MAILZEN_SMS_WEBHOOK_TOKEN;
+    }
+    if (typeof envBackup.twilioSid === 'string') {
+      process.env.MAILZEN_SMS_TWILIO_ACCOUNT_SID = envBackup.twilioSid;
+    } else {
+      delete process.env.MAILZEN_SMS_TWILIO_ACCOUNT_SID;
+    }
+    if (typeof envBackup.twilioToken === 'string') {
+      process.env.MAILZEN_SMS_TWILIO_AUTH_TOKEN = envBackup.twilioToken;
+    } else {
+      delete process.env.MAILZEN_SMS_TWILIO_AUTH_TOKEN;
+    }
+    if (typeof envBackup.twilioFrom === 'string') {
+      process.env.MAILZEN_SMS_TWILIO_FROM_NUMBER = envBackup.twilioFrom;
+    } else {
+      delete process.env.MAILZEN_SMS_TWILIO_FROM_NUMBER;
+    }
+    if (typeof envBackup.twilioBaseUrl === 'string') {
+      process.env.MAILZEN_SMS_TWILIO_API_BASE_URL = envBackup.twilioBaseUrl;
+    } else {
+      delete process.env.MAILZEN_SMS_TWILIO_API_BASE_URL;
+    }
+    if (typeof envBackup.twilioTimeoutMs === 'string') {
+      process.env.MAILZEN_SMS_TWILIO_TIMEOUT_MS = envBackup.twilioTimeoutMs;
+    } else {
+      delete process.env.MAILZEN_SMS_TWILIO_TIMEOUT_MS;
+    }
+    if (typeof envBackup.twilioStatusCallbackUrl === 'string') {
+      process.env.MAILZEN_SMS_TWILIO_STATUS_CALLBACK_URL =
+        envBackup.twilioStatusCallbackUrl;
+    } else {
+      delete process.env.MAILZEN_SMS_TWILIO_STATUS_CALLBACK_URL;
     }
     if (typeof envBackup.strict === 'string') {
       process.env.MAILZEN_SMS_STRICT_DELIVERY = envBackup.strict;
@@ -97,6 +140,43 @@ describe('dispatchSmsOtp', () => {
     );
   });
 
+  it('dispatches twilio request when provider is TWILIO', async () => {
+    process.env.MAILZEN_SMS_PROVIDER = 'TWILIO';
+    process.env.MAILZEN_SMS_TWILIO_ACCOUNT_SID = 'AC123';
+    process.env.MAILZEN_SMS_TWILIO_AUTH_TOKEN = 'token-abc';
+    process.env.MAILZEN_SMS_TWILIO_FROM_NUMBER = '+15551110000';
+    process.env.MAILZEN_SMS_TWILIO_API_BASE_URL = 'https://api.twilio.test';
+    process.env.MAILZEN_SMS_TWILIO_STATUS_CALLBACK_URL =
+      'https://mailzen.test/sms/status';
+    const fetchSpy: jest.SpiedFunction<typeof fetch> = jest.spyOn(
+      global,
+      'fetch',
+    );
+    fetchSpy.mockResolvedValue({ ok: true, status: 201 } as Response);
+
+    const result = await dispatchSmsOtp({
+      phoneNumber: '+15550000000',
+      code: '987654',
+      purpose: 'PHONE_VERIFY_OTP',
+    });
+
+    expect(result).toEqual({
+      delivered: true,
+      provider: 'TWILIO',
+    });
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://api.twilio.test/2010-04-01/Accounts/AC123/Messages.json',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          authorization: expect.stringMatching(/^Basic\s+/),
+          'content-type': 'application/x-www-form-urlencoded',
+        }),
+        body: expect.stringContaining('To=%2B15550000000'),
+      }),
+    );
+  });
+
   it('throws in strict mode when webhook delivery fails', async () => {
     process.env.MAILZEN_SMS_PROVIDER = 'WEBHOOK';
     process.env.MAILZEN_SMS_WEBHOOK_URL = 'https://sms.mailzen.test/send';
@@ -131,5 +211,28 @@ describe('dispatchSmsOtp', () => {
     expect(result.delivered).toBe(false);
     expect(result.provider).toBe('WEBHOOK');
     expect(result.failureReason).toContain('status 500');
+  });
+
+  it('returns non-delivered response for twilio failures in non-strict mode', async () => {
+    process.env.MAILZEN_SMS_PROVIDER = 'TWILIO';
+    process.env.MAILZEN_SMS_STRICT_DELIVERY = 'false';
+    process.env.MAILZEN_SMS_TWILIO_ACCOUNT_SID = 'AC123';
+    process.env.MAILZEN_SMS_TWILIO_AUTH_TOKEN = 'token-abc';
+    process.env.MAILZEN_SMS_TWILIO_FROM_NUMBER = '+15551110000';
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 503,
+      text: () => Promise.resolve('down'),
+    } as Response);
+
+    const result = await dispatchSmsOtp({
+      phoneNumber: '+15550000000',
+      code: '999999',
+      purpose: 'SIGNUP_OTP',
+    });
+
+    expect(result.delivered).toBe(false);
+    expect(result.provider).toBe('TWILIO');
+    expect(result.failureReason).toContain('status 503');
   });
 });

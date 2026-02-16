@@ -22,13 +22,22 @@ Provide OTP-driven phone verification flows for authenticated users and phone-fi
 ## Environment variables
 
 - `MAILZEN_SMS_PROVIDER` (default `CONSOLE`)
-  - supported: `CONSOLE`, `WEBHOOK`, `DISABLED`
+  - supported: `CONSOLE`, `WEBHOOK`, `TWILIO`, `DISABLED`
 - `MAILZEN_SMS_STRICT_DELIVERY` (default `true` in production, otherwise `false`)
   - when `true`, SMS delivery failures reject the OTP mutation
 - `MAILZEN_SMS_WEBHOOK_URL`
   - required when `MAILZEN_SMS_PROVIDER=WEBHOOK`
 - `MAILZEN_SMS_WEBHOOK_TOKEN` (optional bearer token)
 - `MAILZEN_SMS_WEBHOOK_TIMEOUT_MS` (default `5000`)
+- `MAILZEN_SMS_TWILIO_ACCOUNT_SID`
+  - required when `MAILZEN_SMS_PROVIDER=TWILIO`
+- `MAILZEN_SMS_TWILIO_AUTH_TOKEN`
+  - required when `MAILZEN_SMS_PROVIDER=TWILIO`
+- `MAILZEN_SMS_TWILIO_FROM_NUMBER`
+  - required when `MAILZEN_SMS_PROVIDER=TWILIO`
+- `MAILZEN_SMS_TWILIO_API_BASE_URL` (default `https://api.twilio.com`)
+- `MAILZEN_SMS_TWILIO_TIMEOUT_MS` (default `5000`)
+- `MAILZEN_SMS_TWILIO_STATUS_CALLBACK_URL` (optional Twilio delivery callback)
 
 ## OTP delivery flow
 

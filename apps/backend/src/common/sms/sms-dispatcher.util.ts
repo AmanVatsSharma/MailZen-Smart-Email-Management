@@ -83,6 +83,74 @@ async function dispatchViaWebhook(
   }
 }
 
+async function dispatchViaTwilio(
+  input: SmsDispatchInput,
+): Promise<SmsDispatchResult> {
+  const accountSid = String(
+    process.env.MAILZEN_SMS_TWILIO_ACCOUNT_SID || '',
+  ).trim();
+  const authToken = String(
+    process.env.MAILZEN_SMS_TWILIO_AUTH_TOKEN || '',
+  ).trim();
+  const fromNumber = String(
+    process.env.MAILZEN_SMS_TWILIO_FROM_NUMBER || '',
+  ).trim();
+  if (!accountSid || !authToken || !fromNumber) {
+    throw new Error(
+      'MAILZEN_SMS_TWILIO_ACCOUNT_SID, MAILZEN_SMS_TWILIO_AUTH_TOKEN, and MAILZEN_SMS_TWILIO_FROM_NUMBER are required when MAILZEN_SMS_PROVIDER=TWILIO',
+    );
+  }
+  const baseUrl = String(
+    process.env.MAILZEN_SMS_TWILIO_API_BASE_URL || 'https://api.twilio.com',
+  )
+    .trim()
+    .replace(/\/+$/, '');
+  const timeoutMs = resolveInteger({
+    rawValue: process.env.MAILZEN_SMS_TWILIO_TIMEOUT_MS,
+    fallbackValue: 5000,
+    minimumValue: 1000,
+    maximumValue: 30000,
+  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const endpoint = `${baseUrl}/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages.json`;
+  const statusCallbackUrl = String(
+    process.env.MAILZEN_SMS_TWILIO_STATUS_CALLBACK_URL || '',
+  ).trim();
+  const body = new URLSearchParams({
+    To: input.phoneNumber,
+    From: fromNumber,
+    Body: `MailZen verification code (${input.purpose}): ${input.code}`,
+  });
+  if (statusCallbackUrl) {
+    body.set('StatusCallback', statusCallbackUrl);
+  }
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      body: body.toString(),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const failurePayload = (await response.text()).slice(0, 200);
+      throw new Error(
+        `Twilio SMS responded with status ${response.status} payload=${failurePayload}`,
+      );
+    }
+    return {
+      delivered: true,
+      provider: 'TWILIO',
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function dispatchViaConsole(input: SmsDispatchInput): SmsDispatchResult {
   console.log(
     `[SmsDispatcher] OTP (${input.purpose}) for ${input.phoneNumber}: ${input.code}`,
@@ -109,6 +177,9 @@ export async function dispatchSmsOtp(
   try {
     if (provider === 'WEBHOOK') {
       return await dispatchViaWebhook(input);
+    }
+    if (provider === 'TWILIO') {
+      return await dispatchViaTwilio(input);
     }
     if (provider === 'DISABLED') {
       return {
