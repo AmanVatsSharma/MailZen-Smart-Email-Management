@@ -108,6 +108,7 @@ while true; do
     launch_direct_ports_enabled=true
     launch_status_runtime_enabled=false
     launch_status_skip_ports=false
+    launch_deploy_dry_run=false
     if prompt_yes_no "Skip setup step" "no"; then
       launch_args+=(--skip-setup)
     fi
@@ -129,24 +130,29 @@ while true; do
     fi
     if prompt_yes_no "Run deploy in dry-run mode" "no"; then
       launch_args+=(--deploy-dry-run)
+      launch_deploy_dry_run=true
     fi
     if prompt_yes_no "Skip verify step" "no"; then
       launch_args+=(--skip-verify)
     else
-      launch_verify_max_retries="$(prompt_with_default "Verify max retries (blank = default)" "")"
-      if [[ -n "${launch_verify_max_retries}" ]]; then
-        if [[ "${launch_verify_max_retries}" =~ ^[0-9]+$ ]] && [[ "${launch_verify_max_retries}" -gt 0 ]]; then
-          launch_args+=(--verify-max-retries "${launch_verify_max_retries}")
-        else
-          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid verify max retries value: ${launch_verify_max_retries}"
+      if [[ "${launch_deploy_dry_run}" == true ]]; then
+        echo "[mailzen-deploy][MENU][INFO] Verify step will be skipped because deploy dry-run is enabled."
+      else
+        launch_verify_max_retries="$(prompt_with_default "Verify max retries (blank = default)" "")"
+        if [[ -n "${launch_verify_max_retries}" ]]; then
+          if [[ "${launch_verify_max_retries}" =~ ^[0-9]+$ ]] && [[ "${launch_verify_max_retries}" -gt 0 ]]; then
+            launch_args+=(--verify-max-retries "${launch_verify_max_retries}")
+          else
+            echo "[mailzen-deploy][MENU][WARN] Ignoring invalid verify max retries value: ${launch_verify_max_retries}"
+          fi
         fi
-      fi
-      launch_verify_retry_sleep="$(prompt_with_default "Verify retry sleep seconds (blank = default)" "")"
-      if [[ -n "${launch_verify_retry_sleep}" ]]; then
-        if [[ "${launch_verify_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${launch_verify_retry_sleep}" -gt 0 ]]; then
-          launch_args+=(--verify-retry-sleep "${launch_verify_retry_sleep}")
-        else
-          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid verify retry sleep value: ${launch_verify_retry_sleep}"
+        launch_verify_retry_sleep="$(prompt_with_default "Verify retry sleep seconds (blank = default)" "")"
+        if [[ -n "${launch_verify_retry_sleep}" ]]; then
+          if [[ "${launch_verify_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${launch_verify_retry_sleep}" -gt 0 ]]; then
+            launch_args+=(--verify-retry-sleep "${launch_verify_retry_sleep}")
+          else
+            echo "[mailzen-deploy][MENU][WARN] Ignoring invalid verify retry sleep value: ${launch_verify_retry_sleep}"
+          fi
         fi
       fi
     fi
@@ -260,37 +266,43 @@ while true; do
   9)
     update_args=()
     update_status_skip_ports=false
+    update_deploy_dry_run=false
     if prompt_yes_no "Run preflight in config-only mode" "no"; then
       update_args+=(--preflight-config-only)
     fi
     if prompt_yes_no "Run deploy in dry-run mode" "no"; then
       update_args+=(--deploy-dry-run)
+      update_deploy_dry_run=true
     fi
 
     if prompt_yes_no "Skip verify step" "no"; then
       update_args+=(--skip-verify)
     else
-      update_verify_max_retries="$(prompt_with_default "Verify max retries (blank = default)" "")"
-      if [[ -n "${update_verify_max_retries}" ]]; then
-        if [[ "${update_verify_max_retries}" =~ ^[0-9]+$ ]] && [[ "${update_verify_max_retries}" -gt 0 ]]; then
-          update_args+=(--verify-max-retries "${update_verify_max_retries}")
-        else
-          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid verify max retries value: ${update_verify_max_retries}"
+      if [[ "${update_deploy_dry_run}" == true ]]; then
+        echo "[mailzen-deploy][MENU][INFO] Verify step will be skipped because deploy dry-run is enabled."
+      else
+        update_verify_max_retries="$(prompt_with_default "Verify max retries (blank = default)" "")"
+        if [[ -n "${update_verify_max_retries}" ]]; then
+          if [[ "${update_verify_max_retries}" =~ ^[0-9]+$ ]] && [[ "${update_verify_max_retries}" -gt 0 ]]; then
+            update_args+=(--verify-max-retries "${update_verify_max_retries}")
+          else
+            echo "[mailzen-deploy][MENU][WARN] Ignoring invalid verify max retries value: ${update_verify_max_retries}"
+          fi
         fi
-      fi
-      update_verify_retry_sleep="$(prompt_with_default "Verify retry sleep seconds (blank = default)" "")"
-      if [[ -n "${update_verify_retry_sleep}" ]]; then
-        if [[ "${update_verify_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${update_verify_retry_sleep}" -gt 0 ]]; then
-          update_args+=(--verify-retry-sleep "${update_verify_retry_sleep}")
-        else
-          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid verify retry sleep value: ${update_verify_retry_sleep}"
+        update_verify_retry_sleep="$(prompt_with_default "Verify retry sleep seconds (blank = default)" "")"
+        if [[ -n "${update_verify_retry_sleep}" ]]; then
+          if [[ "${update_verify_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${update_verify_retry_sleep}" -gt 0 ]]; then
+            update_args+=(--verify-retry-sleep "${update_verify_retry_sleep}")
+          else
+            echo "[mailzen-deploy][MENU][WARN] Ignoring invalid verify retry sleep value: ${update_verify_retry_sleep}"
+          fi
         fi
-      fi
-      if prompt_yes_no "Skip OAuth check in verify step" "no"; then
-        update_args+=(--verify-skip-oauth-check)
-      fi
-      if prompt_yes_no "Skip SSL check in verify step" "no"; then
-        update_args+=(--verify-skip-ssl-check)
+        if prompt_yes_no "Skip OAuth check in verify step" "no"; then
+          update_args+=(--verify-skip-oauth-check)
+        fi
+        if prompt_yes_no "Skip SSL check in verify step" "no"; then
+          update_args+=(--verify-skip-ssl-check)
+        fi
       fi
     fi
 
