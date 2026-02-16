@@ -99,6 +99,14 @@ Digest tuning env vars:
 - `MAILZEN_NOTIFICATION_DIGEST_MAX_USERS_PER_RUN` (default `250`)
 - `MAILZEN_NOTIFICATION_DIGEST_MAX_ITEMS` (default `8`)
 
+Digest scheduler structured observability events:
+
+- `notification_digest_run_start`
+- `notification_digest_run_completed`
+- `notification_digest_user_skipped`
+- `notification_digest_user_sent`
+- `notification_digest_user_failed`
+
 ## Retention controls
 
 - `NotificationRetentionScheduler` runs daily at 03:00 server time.
@@ -111,6 +119,13 @@ Retention env vars:
 - `MAILZEN_NOTIFICATION_RETENTION_AUTOPURGE_ENABLED` (default `true`)
 - `MAILZEN_NOTIFICATION_RETENTION_DAYS` (default `180`)
 - `MAILZEN_NOTIFICATION_PUSH_RETENTION_DAYS` (default `90`)
+
+Retention scheduler structured observability events:
+
+- `notification_retention_autopurge_disabled`
+- `notification_retention_autopurge_start`
+- `notification_retention_autopurge_completed`
+- `notification_retention_autopurge_failed`
 
 ## Web push channel
 

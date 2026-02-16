@@ -6,6 +6,12 @@ import { MoreThanOrEqual, Repository } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
 import { UserNotification } from './entities/user-notification.entity';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
+
+type NotificationDigestSendStatus = 'sent' | 'skipped' | 'failed';
 
 @Injectable()
 export class NotificationDigestScheduler {
@@ -26,6 +32,7 @@ export class NotificationDigestScheduler {
 
   @Cron('0 * * * *')
   async sendUnreadDigestEmails() {
+    const runCorrelationId = resolveCorrelationId(undefined);
     const windowHours = this.resolvePositiveInteger({
       rawValue: process.env.MAILZEN_NOTIFICATION_DIGEST_WINDOW_HOURS,
       fallbackValue: NotificationDigestScheduler.DEFAULT_WINDOW_HOURS,
@@ -44,37 +51,103 @@ export class NotificationDigestScheduler {
       minimumValue: 1,
       maximumValue: 50,
     });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'notification_digest_run_start',
+        runCorrelationId,
+        windowHours,
+        maxUsersPerRun,
+        maxItemsPerDigest,
+      }),
+    );
     const preferences = await this.preferenceRepo.find({
       where: { emailEnabled: true, notificationDigestEnabled: true },
       order: { updatedAt: 'DESC' },
       take: maxUsersPerRun,
     });
-    if (!preferences.length) return;
+    if (!preferences.length) {
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'notification_digest_run_completed',
+          runCorrelationId,
+          windowHours,
+          maxUsersPerRun,
+          maxItemsPerDigest,
+          totalCandidates: 0,
+          sentDigests: 0,
+          skippedDigests: 0,
+          failedDigests: 0,
+        }),
+      );
+      return;
+    }
 
-    this.logger.log(
-      `notification-digest: evaluating ${preferences.length} users window=${windowHours}h items=${maxItemsPerDigest}`,
-    );
+    let sentDigests = 0;
+    let skippedDigests = 0;
+    let failedDigests = 0;
 
     for (const preference of preferences) {
-      await this.sendDigestForPreference({
+      const status = await this.sendDigestForPreference({
         preference,
         windowHours,
         maxItemsPerDigest,
+        runCorrelationId,
       });
+      if (status === 'sent') {
+        sentDigests += 1;
+      } else if (status === 'failed') {
+        failedDigests += 1;
+      } else {
+        skippedDigests += 1;
+      }
     }
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'notification_digest_run_completed',
+        runCorrelationId,
+        windowHours,
+        maxUsersPerRun,
+        maxItemsPerDigest,
+        totalCandidates: preferences.length,
+        sentDigests,
+        skippedDigests,
+        failedDigests,
+      }),
+    );
   }
 
   private async sendDigestForPreference(input: {
     preference: UserNotificationPreference;
     windowHours: number;
     maxItemsPerDigest: number;
-  }): Promise<void> {
+    runCorrelationId: string;
+  }): Promise<NotificationDigestSendStatus> {
     const userId = String(input.preference.userId || '').trim();
-    if (!userId) return;
+    if (!userId) {
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'notification_digest_user_skipped',
+          runCorrelationId: input.runCorrelationId,
+          reason: 'missing-user-id',
+        }),
+      );
+      return 'skipped';
+    }
     const user = await this.userRepo.findOne({
       where: { id: userId },
     });
-    if (!user?.email) return;
+    if (!user?.email) {
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'notification_digest_user_skipped',
+          runCorrelationId: input.runCorrelationId,
+          userId,
+          reason: 'missing-user-email',
+        }),
+      );
+      return 'skipped';
+    }
 
     const windowStart = this.resolveDigestWindowStart({
       lastSentAt: input.preference.notificationDigestLastSentAt || null,
@@ -90,7 +163,17 @@ export class NotificationDigestScheduler {
       order: { createdAt: 'DESC' },
       take: input.maxItemsPerDigest,
     });
-    if (!unreadNotifications.length) return;
+    if (!unreadNotifications.length) {
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'notification_digest_user_skipped',
+          runCorrelationId: input.runCorrelationId,
+          userId,
+          reason: 'no-unread-notifications',
+        }),
+      );
+      return 'skipped';
+    }
 
     const unreadTotalCount = await this.notificationRepo.count({
       where: unreadWhereClause,
@@ -109,12 +192,29 @@ export class NotificationDigestScheduler {
       input.preference.notificationDigestLastSentAt = new Date();
       await this.preferenceRepo.save(input.preference);
       this.logger.log(
-        `notification-digest: sent digest userId=${userId} unread=${unreadTotalCount}`,
+        serializeStructuredLog({
+          event: 'notification_digest_user_sent',
+          runCorrelationId: input.runCorrelationId,
+          userId,
+          unreadTotalCount,
+          sampledNotifications: unreadNotifications.length,
+          windowStartIso: windowStart.toISOString(),
+        }),
       );
+      return 'sent';
     } catch (error: unknown) {
       this.logger.warn(
-        `notification-digest: failed digest userId=${userId}: ${error instanceof Error ? error.message : String(error)}`,
+        serializeStructuredLog({
+          event: 'notification_digest_user_failed',
+          runCorrelationId: input.runCorrelationId,
+          userId,
+          unreadTotalCount,
+          sampledNotifications: unreadNotifications.length,
+          error:
+            error instanceof Error ? error.message : 'unknown digest failure',
+        }),
       );
+      return 'failed';
     }
   }
 

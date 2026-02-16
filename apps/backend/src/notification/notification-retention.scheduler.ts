@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { NotificationService } from './notification.service';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 @Injectable()
 export class NotificationRetentionScheduler {
@@ -19,20 +23,46 @@ export class NotificationRetentionScheduler {
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async purgeRetentionData(): Promise<void> {
+    const runCorrelationId = resolveCorrelationId(undefined);
     if (!this.isAutoPurgeEnabled()) {
-      this.logger.log('notification-retention: auto-purge disabled by env');
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'notification_retention_autopurge_disabled',
+          runCorrelationId,
+        }),
+      );
       return;
     }
 
     try {
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'notification_retention_autopurge_start',
+          runCorrelationId,
+        }),
+      );
       const result =
         await this.notificationService.purgeNotificationRetentionData({});
       this.logger.log(
-        `notification-retention: purged notifications=${result.notificationsDeleted} pushSubscriptions=${result.pushSubscriptionsDeleted} notificationDays=${result.notificationRetentionDays} disabledPushDays=${result.disabledPushRetentionDays}`,
+        serializeStructuredLog({
+          event: 'notification_retention_autopurge_completed',
+          runCorrelationId,
+          notificationsDeleted: result.notificationsDeleted,
+          pushSubscriptionsDeleted: result.pushSubscriptionsDeleted,
+          notificationRetentionDays: result.notificationRetentionDays,
+          disabledPushRetentionDays: result.disabledPushRetentionDays,
+          executedAtIso: result.executedAtIso,
+        }),
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown error';
-      this.logger.warn(`notification-retention: purge failed: ${message}`);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'notification_retention_autopurge_failed',
+          runCorrelationId,
+          error: message,
+        }),
+      );
     }
   }
 }
