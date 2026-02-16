@@ -540,11 +540,17 @@ while true; do
     if [[ "${rotate_keys}" != "all" ]]; then
       rotate_args+=(--keys "${rotate_keys}")
     fi
+    rotate_dry_run=false
     if prompt_yes_no "Run secret rotation in dry-run mode" "yes"; then
+      rotate_dry_run=true
       rotate_args+=(--dry-run)
     fi
-    if prompt_yes_no "Bypass confirmation prompt with --yes" "no"; then
-      rotate_args+=(--yes)
+    if [[ "${rotate_dry_run}" == false ]]; then
+      if prompt_yes_no "Bypass confirmation prompt with --yes" "no"; then
+        rotate_args+=(--yes)
+      fi
+    else
+      echo "[mailzen-deploy][MENU][INFO] Skipping --yes prompt because dry-run mode is enabled."
     fi
     run_step "rotate-app-secrets.sh" "${rotate_args[@]}"
     ;;
