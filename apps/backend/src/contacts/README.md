@@ -187,3 +187,15 @@ export class Contact {
 - TypeORM
 - GraphQL
 - Class Validator 
+
+## Observability (structured events)
+
+- `ContactService` emits resilient audit warning event:
+  - `contact_audit_log_write_failed`
+
+## Compliance / Audit Trail
+
+- Persisted audit actions:
+  - `contact_created`
+  - `contact_updated`
+  - `contact_deleted`
