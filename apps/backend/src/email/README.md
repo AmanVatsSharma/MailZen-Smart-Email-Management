@@ -352,6 +352,8 @@ The Email Module requires the following environment variables:
   - `email_audit_log_write_failed`
 - `MailService` emits resilient audit warning event:
   - `mail_service_audit_log_write_failed`
+- `EmailSchedulerService` emits resilient audit warning event:
+  - `email_scheduler_audit_log_write_failed`
 
 ## Compliance / Audit Trail
 
@@ -370,6 +372,12 @@ The Email Module requires the following environment variables:
   - `email_template_deleted`
   - `email_template_sent`
   - `email_template_send_failed`
+  - `email_schedule_created`
+  - `email_schedule_creation_failed`
+  - `email_schedule_cancelled`
+  - `email_schedule_cancel_failed`
+  - `email_schedule_dispatched`
+  - `email_schedule_dispatch_failed`
   - `attachment_uploaded`
   - `attachment_deleted`
   - `email_marked_read`
