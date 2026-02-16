@@ -63,6 +63,9 @@ if [[ "${SEED_ENV}" == true ]]; then
   seed_env_file
 fi
 
+echo "[mailzen-deploy][PIPELINE-CHECK] Active env file: ${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}"
+echo "[mailzen-deploy][PIPELINE-CHECK] Active compose file: ${MAILZEN_DEPLOY_COMPOSE_FILE:-${DEPLOY_DIR}/docker-compose.yml}"
+
 "${SCRIPT_DIR}/self-check.sh"
 "${SCRIPT_DIR}/env-audit.sh"
 "${SCRIPT_DIR}/preflight.sh" --config-only
