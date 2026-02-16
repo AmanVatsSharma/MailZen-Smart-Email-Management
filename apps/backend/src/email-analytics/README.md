@@ -38,3 +38,9 @@ flowchart TD
   - `email_analytics_create_completed`
   - `email_analytics_list_start`
   - `email_analytics_list_completed`
+  - `email_analytics_audit_log_write_failed`
+
+## Compliance / Audit Trail
+
+- Persisted audit actions:
+  - `email_analytics_upserted`
