@@ -213,6 +213,12 @@ For production-style EC2 deployment, use the deployment module:
 # Non-interactive launch when env is already configured
 ./deploy/ec2/scripts/launch.sh --skip-setup
 
+# Optional: launch with explicit setup inputs
+./deploy/ec2/scripts/launch.sh \
+  --domain mail.example.com \
+  --acme-email ops@example.com \
+  --setup-skip-daemon
+
 # Optional: interactive menu for non-technical operators
 ./deploy/ec2/scripts/menu.sh
 

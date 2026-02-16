@@ -85,6 +85,12 @@ From repository root:
 # Non-interactive launch if env already configured
 ./deploy/ec2/scripts/launch.sh --skip-setup
 
+# Launch with explicit domain/email and skip daemon check during setup
+./deploy/ec2/scripts/launch.sh \
+  --domain mail.example.com \
+  --acme-email ops@example.com \
+  --setup-skip-daemon
+
 # Optional (Ubuntu EC2 only): install Docker + Compose
 sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
@@ -104,6 +110,23 @@ The setup script:
 4. Derives URL config (`FRONTEND_URL`, OAuth callbacks,
    `NEXT_PUBLIC_GRAPHQL_ENDPOINT`).
 5. Auto-generates strong secrets when placeholders are still present.
+
+Useful setup flags:
+
+- `--domain <hostname>`
+- `--acme-email <email>`
+- `--non-interactive`
+- `--skip-daemon` (skip docker daemon reachability check)
+
+Example:
+
+```bash
+./deploy/ec2/scripts/setup.sh \
+  --domain mail.example.com \
+  --acme-email ops@example.com \
+  --non-interactive \
+  --skip-daemon
+```
 
 ## Day-2 operations
 

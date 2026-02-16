@@ -9,11 +9,22 @@
 # 3) Prompt for key deployment values (domain + ACME email)
 # 4) Derive dependent URLs and secure defaults
 # 5) Generate strong secrets when placeholders are detected
+#
+# Optional flags:
+#   --domain <hostname>
+#   --acme-email <email>
+#   --non-interactive
+#   --skip-daemon
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+
+DOMAIN_ARG=""
+ACME_EMAIL_ARG=""
+NON_INTERACTIVE=false
+SKIP_DAEMON=false
 
 prompt_value() {
   local key="$1"
@@ -45,6 +56,14 @@ assert_domain_format() {
   fi
   if [[ ! "${domain}" =~ ^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
     log_error "Domain format seems invalid: '${domain}'"
+    exit 1
+  fi
+}
+
+assert_email_format() {
+  local email="$1"
+  if [[ ! "${email}" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]]; then
+    log_error "ACME email format seems invalid: '${email}'"
     exit 1
   fi
 }
@@ -87,6 +106,48 @@ ensure_password_if_placeholder() {
   log_info "Generated strong password for ${key}."
 }
 
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --non-interactive)
+    NON_INTERACTIVE=true
+    shift
+    ;;
+  --skip-daemon)
+    SKIP_DAEMON=true
+    shift
+    ;;
+  --domain)
+    DOMAIN_ARG="${2:-}"
+    if [[ -z "${DOMAIN_ARG}" ]]; then
+      log_error "--domain requires a value."
+      exit 1
+    fi
+    shift 2
+    ;;
+  --acme-email)
+    ACME_EMAIL_ARG="${2:-}"
+    if [[ -z "${ACME_EMAIL_ARG}" ]]; then
+      log_error "--acme-email requires a value."
+      exit 1
+    fi
+    shift 2
+    ;;
+  --domain=*)
+    DOMAIN_ARG="${1#*=}"
+    shift
+    ;;
+  --acme-email=*)
+    ACME_EMAIL_ARG="${1#*=}"
+    shift
+    ;;
+  *)
+    log_error "Unknown argument: $1"
+    log_error "Supported flags: --domain <hostname> --acme-email <email> --non-interactive --skip-daemon"
+    exit 1
+    ;;
+  esac
+done
+
 log_info "Starting MailZen EC2 setup..."
 require_cmd docker
 
@@ -95,9 +156,14 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! docker info >/dev/null 2>&1; then
-  log_error "Docker daemon is not reachable. Start Docker and retry."
-  exit 1
+if [[ "${SKIP_DAEMON}" == false ]]; then
+  if ! docker info >/dev/null 2>&1; then
+    log_error "Docker daemon is not reachable. Start Docker and retry."
+    log_error "Tip: use --skip-daemon to continue setup when only env preparation is needed."
+    exit 1
+  fi
+else
+  log_warn "Skipping docker daemon connectivity check (--skip-daemon)."
 fi
 
 ensure_env_file_from_template
@@ -105,12 +171,21 @@ ensure_env_file_from_template
 existing_domain="$(read_env_value "MAILZEN_DOMAIN")"
 existing_email="$(read_env_value "ACME_EMAIL")"
 
-domain="$(prompt_value "MAILZEN_DOMAIN" "Enter your public domain (example: mail.example.com)" "${existing_domain:-mail.example.com}")"
-acme_email="$(prompt_value "ACME_EMAIL" "Enter your SSL certificate email" "${existing_email:-admin@example.com}")"
+if [[ "${NON_INTERACTIVE}" == true ]] || [[ ! -t 0 ]]; then
+  domain="${DOMAIN_ARG:-${existing_domain:-mail.example.com}}"
+  acme_email="${ACME_EMAIL_ARG:-${existing_email:-admin@example.com}}"
+  log_info "Using non-interactive setup values."
+else
+  domain_default="${DOMAIN_ARG:-${existing_domain:-mail.example.com}}"
+  acme_default="${ACME_EMAIL_ARG:-${existing_email:-admin@example.com}}"
+  domain="$(prompt_value "MAILZEN_DOMAIN" "Enter your public domain (example: mail.example.com)" "${domain_default}")"
+  acme_email="$(prompt_value "ACME_EMAIL" "Enter your SSL certificate email" "${acme_default}")"
+fi
 
 assert_non_empty "MAILZEN_DOMAIN" "${domain}"
 assert_non_empty "ACME_EMAIL" "${acme_email}"
 assert_domain_format "${domain}"
+assert_email_format "${acme_email}"
 
 frontend_url="https://${domain}"
 graphql_url="${frontend_url}/graphql"
