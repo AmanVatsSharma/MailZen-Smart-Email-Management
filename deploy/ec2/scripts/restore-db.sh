@@ -68,6 +68,8 @@ require_cmd docker
 require_cmd gzip
 ensure_required_files_exist
 validate_core_env
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
 
 if ! gzip -t "${BACKUP_FILE}" >/dev/null 2>&1; then
   log_error "Backup archive integrity check failed (gzip -t): ${BACKUP_FILE}"

@@ -54,8 +54,11 @@ BACKUP_DIR="${DEPLOY_DIR}/backups"
 BACKUP_FILE="${BACKUP_DIR}/mailzen-${LABEL}-${TIMESTAMP}.sql.gz"
 
 require_cmd docker
+require_cmd gzip
 ensure_required_files_exist
 validate_core_env
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
 
 mkdir -p "${BACKUP_DIR}"
 
@@ -78,6 +81,12 @@ fi
 
 if ! compose exec -T postgres pg_dump -U "${db_user}" "${db_name}" | gzip >"${BACKUP_FILE}"; then
   log_error "Backup failed. Removing partial backup file."
+  rm -f "${BACKUP_FILE}"
+  exit 1
+fi
+
+if ! gzip -t "${BACKUP_FILE}" >/dev/null 2>&1; then
+  log_error "Backup archive integrity check failed (gzip -t). Removing file: ${BACKUP_FILE}"
   rm -f "${BACKUP_FILE}"
   exit 1
 fi

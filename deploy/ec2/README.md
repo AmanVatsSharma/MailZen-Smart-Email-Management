@@ -289,6 +289,7 @@ Example:
 
 # Create DB backup
 ./deploy/ec2/scripts/backup-db.sh
+# (script validates generated gzip archive integrity before success)
 
 # Create DB backup with label
 ./deploy/ec2/scripts/backup-db.sh before-release
