@@ -28,6 +28,10 @@ type InboundAuthInput = {
   sourceIp?: string;
 };
 
+type InboundIngestOptions = {
+  skipAuth?: boolean;
+};
+
 type MailboxInboundIngestResult = {
   accepted: boolean;
   mailboxId: string;
@@ -462,6 +466,7 @@ export class MailboxInboundService {
   async ingestInboundEvent(
     input: MailboxInboundWebhookInput,
     auth: InboundAuthInput,
+    options: InboundIngestOptions = {},
   ): Promise<MailboxInboundIngestResult> {
     const startedAtMs = Date.now();
     const requestId = resolveCorrelationId(auth.requestIdHeader);
@@ -475,8 +480,12 @@ export class MailboxInboundService {
     let deduplicated = false;
 
     try {
-      this.assertWebhookAuth(auth);
-      signatureValidated = this.assertWebhookSignature(auth, input);
+      if (!options.skipAuth) {
+        this.assertWebhookAuth(auth);
+        signatureValidated = this.assertWebhookSignature(auth, input);
+      } else {
+        signatureValidated = true;
+      }
       this.assertInboundBody(input);
 
       const mailbox = await this.mailboxRepo.findOne({

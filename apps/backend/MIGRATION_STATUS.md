@@ -55,6 +55,8 @@
   - `20260216041000-email-provider-outlook-push-subscription-state.ts`
 - Added email mailbox-source linkage migration:
   - `20260216043000-email-mailbox-source-link.ts`
+- Added mailbox inbound sync state migration:
+  - `20260216045000-mailbox-inbound-sync-state.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

@@ -855,6 +855,49 @@ ORDER BY "createdAt" DESC
 LIMIT 50;
 ```
 
+## Mailbox Inbound Sync State Rollout Notes (2026-02-16)
+
+New migration: `20260216045000-mailbox-inbound-sync-state.ts`
+
+This migration introduces:
+
+- `mailboxes.inboundSyncCursor`
+- `mailboxes.inboundSyncLastPolledAt`
+- `mailboxes.inboundSyncLastError`
+- index `IDX_mailboxes_inboundSyncLastPolledAt`
+
+These fields support scheduler-driven mailbox pull ingestion observability and
+incremental cursor continuity.
+
+### Safe rollout sequence
+
+1. Deploy backend containing migration + mailbox sync scheduler/service updates.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Configure mailbox sync env vars where pull ingestion is enabled:
+   - `MAILZEN_MAILBOX_SYNC_ENABLED`
+   - `MAILZEN_MAIL_SYNC_API_URL`
+   - `MAILZEN_MAIL_SYNC_API_TOKEN`
+   - `MAILZEN_MAIL_SYNC_BATCH_LIMIT`
+   - `MAILZEN_MAIL_SYNC_MAX_MAILBOXES_PER_RUN`
+5. Run smoke checks:
+   - `npm run test -- mailbox/mailbox-sync.service.spec.ts mailbox/mailbox-sync.scheduler.spec.ts mailbox/mailbox-inbound.service.spec.ts`
+   - `npm run build`
+
+### Staging verification SQL
+
+```sql
+SELECT
+  id,
+  email,
+  "inboundSyncCursor",
+  "inboundSyncLastPolledAt",
+  "inboundSyncLastError"
+FROM mailboxes
+ORDER BY "updatedAt" DESC
+LIMIT 50;
+```
+
 ## Gmail Push Watch State Rollout Notes (2026-02-16)
 
 New migration: `20260216035000-email-provider-gmail-watch-state.ts`

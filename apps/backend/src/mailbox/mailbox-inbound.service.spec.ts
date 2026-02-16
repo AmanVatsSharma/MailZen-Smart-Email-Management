@@ -185,6 +185,58 @@ describe('MailboxInboundService', () => {
     expect(notificationEventBus.publishSafely).not.toHaveBeenCalled();
   });
 
+  it('accepts trusted internal ingest when auth is skipped', async () => {
+    mailboxRepo.findOne.mockResolvedValue({
+      id: 'mailbox-1',
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      email: 'sales@mailzen.com',
+      usedBytes: '120',
+      status: 'ACTIVE',
+      quotaLimitMb: 51200,
+    } as Mailbox);
+    emailRepo.findOne.mockResolvedValue(null);
+    emailRepo.create.mockImplementation((payload) => payload as Email);
+    emailRepo.save.mockResolvedValue({
+      id: 'email-1',
+      userId: 'user-1',
+      mailboxId: 'mailbox-1',
+      subject: 'Internal sync lead',
+      body: '<p>Hello</p>',
+      from: 'lead@example.com',
+      to: ['sales@mailzen.com'],
+      status: 'NEW',
+    } as Email);
+    mailboxRepo.update.mockResolvedValue({ affected: 1 } as UpdateResult);
+    notificationEventBus.publishSafely.mockResolvedValue(null);
+
+    const result = await service.ingestInboundEvent(
+      {
+        mailboxEmail: 'sales@mailzen.com',
+        from: 'lead@example.com',
+        subject: 'Internal sync lead',
+        htmlBody: '<p>Hello</p>',
+        messageId: '<trusted-1@example.com>',
+      },
+      {
+        inboundTokenHeader: 'wrong-token',
+      },
+      {
+        skipAuth: true,
+      },
+    );
+
+    expect(result.accepted).toBe(true);
+    expect(notificationEventBus.publishSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          inboundStatus: 'ACCEPTED',
+          mailboxId: 'mailbox-1',
+        }),
+      }),
+    );
+  });
+
   it('rejects inbound payload when mailbox is suspended', async () => {
     mailboxRepo.findOne.mockResolvedValue({
       id: 'mailbox-1',

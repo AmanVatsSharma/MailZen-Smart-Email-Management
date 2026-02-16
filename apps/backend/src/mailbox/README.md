@@ -52,6 +52,14 @@ This module covers:
   - emits `MAILBOX_INBOUND` notification metadata context with `inboundStatus`
     (`ACCEPTED`/`DEDUPLICATED`/`REJECTED`)
   - derives thread key from `inReplyTo` / `messageId` for unified inbox mailbox threading
+- `mailbox-sync.service.ts`
+  - polls optional mailbox-sync API endpoint for each active mailbox
+  - converts pulled messages into trusted inbound ingest calls (`skipAuth=true`)
+  - persists mailbox sync cursor/error state on mailbox row
+  - tracks accepted/deduplicated/rejected counters per poll run
+- `mailbox-sync.scheduler.ts`
+  - cron (`*/10 * * * *`) for active mailbox polling
+  - env-gated via `MAILZEN_MAILBOX_SYNC_ENABLED`
 
 ## Provisioning flow
 
@@ -104,6 +112,23 @@ flowchart TD
 - `MAILZEN_MAIL_ADMIN_API_RETRY_JITTER_MS` (default `150`)
 - `MAILZEN_MAIL_ADMIN_MAILCOW_QUOTA_MB` (default `51200`)
   - used when provider is `MAILCOW` to set mailbox quota at create time
+
+### Optional mailbox pull sync pipeline
+- `MAILZEN_MAILBOX_SYNC_ENABLED` (default `false`)
+  - enables scheduler-driven mailbox polling
+- `MAILZEN_MAIL_SYNC_API_URL`
+  - base URL for mailbox sync API used for pull ingestion
+  - expected endpoint shape:
+    - `GET {MAILZEN_MAIL_SYNC_API_URL}/mailboxes/{mailboxEmail}/messages`
+- `MAILZEN_MAIL_SYNC_API_TOKEN`
+  - optional token for sync API authentication
+- `MAILZEN_MAIL_SYNC_API_TOKEN_HEADER` (default `authorization`)
+  - supports `authorization` or `x-api-key`
+- `MAILZEN_MAIL_SYNC_TIMEOUT_MS` (default `5000`)
+- `MAILZEN_MAIL_SYNC_BATCH_LIMIT` (default `25`)
+- `MAILZEN_MAIL_SYNC_MAX_MAILBOXES_PER_RUN` (default `250`)
+- `MAILZEN_MAIL_SYNC_CURSOR_PARAM` (default `cursor`)
+  - request query param used for incremental cursor progression
 
 ### Inbound webhook authentication
 - `MAILZEN_INBOUND_WEBHOOK_TOKEN`
@@ -159,6 +184,12 @@ flowchart TD
 - If mailbox row update fails (`affected=0`):
   - throws `InternalServerErrorException`
   - provisioning service attempts best-effort external mailbox deprovision rollback
+- If mailbox sync pull request fails:
+  - mailbox row stores `inboundSyncLastError` + `inboundSyncLastPolledAt`
+  - scheduler continues polling other mailboxes (failure isolation)
+- If mailbox sync ingest of a pulled message fails:
+  - current mailbox poll run fails fast (cursor is not advanced)
+  - safe retries rely on idempotent inbound dedupe (`mailboxId + messageId`)
 - If keyring/secret encryption config is missing or invalid:
   - production: mailbox provisioning throws `InternalServerErrorException`
   - non-production: utility fallback key is used only for local development
@@ -237,6 +268,22 @@ sequenceDiagram
   SVC->>EventBus: publishSafely(type=MAILBOX_INBOUND)
   SVC-->>API: accepted + emailId/mailboxId
   API-->>MailInfra: 202 Accepted
+```
+
+## Mailbox pull sync flow
+
+```mermaid
+flowchart TD
+  Cron[MailboxSyncScheduler] --> Enabled{MAILZEN_MAILBOX_SYNC_ENABLED?}
+  Enabled -->|no| Skip[Skip run]
+  Enabled -->|yes| Poll[MailboxSyncService.pollActiveMailboxes]
+  Poll --> List[Find active mailboxes]
+  List --> Pull[GET /mailboxes/{email}/messages?cursor=...]
+  Pull --> Ingest[MailboxInboundService.ingestInboundEvent skipAuth]
+  Ingest --> Persist[Persist emails + dedupe + events + notifications]
+  Persist --> Cursor[Update mailbox inboundSyncCursor]
+  Pull --> Error[Persist inboundSyncLastError]
+  Error --> Next[Continue with next mailbox]
 ```
 
 ## Operational runbook: signed webhook test (curl)

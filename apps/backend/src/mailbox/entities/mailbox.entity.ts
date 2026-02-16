@@ -83,6 +83,15 @@ export class Mailbox {
   @Column({ nullable: true })
   passwordIv?: string;
 
+  @Column({ type: 'text', nullable: true })
+  inboundSyncCursor?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  inboundSyncLastPolledAt?: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  inboundSyncLastError?: string | null;
+
   @Field()
   @CreateDateColumn()
   createdAt: Date;
