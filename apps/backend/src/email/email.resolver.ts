@@ -79,10 +79,15 @@ export class EmailResolver {
   }
 
   @Mutation(() => SendRealEmailResponse)
+  @UseGuards(JwtAuthGuard)
   async sendRealEmail(
     @Args('createEmailInput') createEmailInput: CreateEmailInput,
+    @Context() context: { req: { user: { id: string } } },
   ): Promise<SendRealEmailResponse> {
-    const result = await this.mailService.sendRealEmail(createEmailInput);
+    const result = await this.mailService.sendRealEmail(
+      createEmailInput,
+      context.req.user.id,
+    );
     return {
       messageId: result.messageId,
       accepted: result.accepted,

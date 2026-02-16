@@ -52,4 +52,40 @@ describe('EmailResolver', () => {
       }),
     );
   });
+
+  it('forwards authenticated user id when sending real email', async () => {
+    mailService.sendRealEmail.mockResolvedValue({
+      messageId: 'msg-1',
+      accepted: ['one@mailzen.com'],
+      rejected: [],
+    });
+
+    const result = await resolver.sendRealEmail(
+      {
+        senderId: 'sender-1',
+        subject: 'Hello',
+        body: 'Body',
+        recipientIds: ['one@mailzen.com'],
+      } as never,
+      {
+        req: {
+          user: {
+            id: 'user-2',
+          },
+        },
+      } as never,
+    );
+
+    expect(mailService.sendRealEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        senderId: 'sender-1',
+      }),
+      'user-2',
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        messageId: 'msg-1',
+      }),
+    );
+  });
 });

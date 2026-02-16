@@ -350,6 +350,8 @@ The Email Module requires the following environment variables:
   - `attachment_audit_log_write_failed`
 - `EmailService` emits resilient audit warning event:
   - `email_audit_log_write_failed`
+- `MailService` emits resilient audit warning event:
+  - `mail_service_audit_log_write_failed`
 
 ## Compliance / Audit Trail
 
@@ -365,6 +367,8 @@ The Email Module requires the following environment variables:
   - `attachment_uploaded`
   - `attachment_deleted`
   - `email_marked_read`
+  - `real_email_sent`
+  - `real_email_send_failed`
 
 ## Best Practices
 
