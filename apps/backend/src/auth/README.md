@@ -113,6 +113,8 @@ Web sessions are persisted with an HttpOnly `token` cookie.
   - `jwt_auth_guard_token_validation_failed`
 - abuse protection diagnostics:
   - `auth_abuse_limit_exceeded`
+- module bootstrap config diagnostics:
+  - `auth_module_jwt_expiration_invalid`
 
 PII-sensitive identifiers such as phone numbers are logged as irreversible
 fingerprints, not raw values.

@@ -87,13 +87,25 @@ async function assertAgentPlatformReadiness(): Promise<void> {
           : {}),
       },
     });
-    bootstrapLogger.log(`AI platform reachable during startup at ${healthUrl}`);
+    bootstrapLogger.log(
+      serializeStructuredLog({
+        event: 'bootstrap_ai_platform_ready',
+        healthUrl,
+      }),
+    );
   } catch (error) {
     const message = `AI platform readiness check failed at ${healthUrl}: ${String(
       error,
     )}`;
     if (required) throw new Error(message);
-    bootstrapLogger.warn(message);
+    bootstrapLogger.warn(
+      serializeStructuredLog({
+        event: 'bootstrap_ai_platform_readiness_failed',
+        healthUrl,
+        required,
+        error: String(error),
+      }),
+    );
   }
 }
 

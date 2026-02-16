@@ -16,6 +16,7 @@ import { EmailProviderModule } from '../email-integration/email-provider.module'
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AdminGuard } from './guards/admin.guard';
 import { AuthAbuseProtectionService } from './auth-abuse-protection.service';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 const authModuleLogger = new Logger('AuthModule');
 
@@ -36,7 +37,11 @@ function getJwtExpiresInSeconds(): number {
   if (Number.isFinite(asNumber) && asNumber > 0) return Math.floor(asNumber);
 
   authModuleLogger.warn(
-    `Invalid JWT_EXPIRATION='${raw}'. Expected a positive number (seconds). Falling back to 86400.`,
+    serializeStructuredLog({
+      event: 'auth_module_jwt_expiration_invalid',
+      rawJwtExpiration: raw,
+      fallbackSeconds: 60 * 60 * 24,
+    }),
   );
   return 60 * 60 * 24;
 }

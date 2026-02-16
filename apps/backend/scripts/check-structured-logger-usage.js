@@ -7,6 +7,9 @@
  */
 const { spawnSync } = require('child_process');
 
+const loggerCallPrefixPattern =
+  '(?:\\bthis\\.|\\blogger\\.|\\b[A-Za-z_$][\\w$]*[Ll]ogger\\.)';
+
 function runRipgrep(commandArgs) {
   return spawnSync('rg', commandArgs, {
     cwd: process.cwd(),
@@ -17,7 +20,7 @@ function runRipgrep(commandArgs) {
 const loggerLiteralPatternResult = runRipgrep([
   '--line-number',
   '--multiline',
-  'logger\\.(log|warn|error|debug)\\(\\s*[`"\']',
+  `${loggerCallPrefixPattern}(log|warn|error|debug)\\(\\s*[\\\`"']`,
   'src',
   '--glob',
   '*.ts',
@@ -43,7 +46,7 @@ if (![0, 1].includes(loggerLiteralPatternResult.status || 0)) {
 const loggerJsonStringifyResult = runRipgrep([
   '--line-number',
   '--multiline',
-  'logger\\.(log|warn|error|debug)\\(\\s*JSON\\.stringify\\(',
+  `${loggerCallPrefixPattern}(log|warn|error|debug)\\(\\s*JSON\\.stringify\\(`,
   'src',
   '--glob',
   '*.ts',
