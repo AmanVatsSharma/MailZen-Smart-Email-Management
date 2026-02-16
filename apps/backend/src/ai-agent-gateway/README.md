@@ -56,6 +56,10 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - `resetAgentPlatformRuntimeStats(endpointUrl?)`
   - `resetAgentPlatformSkillRuntimeStats(skill?)`
 - Run daily retention scheduler for stale audit rows.
+- Run 15-minute AI platform health anomaly scheduler that:
+  - compares current trend summary with historical baseline window.
+  - detects warn/critical states and anomaly deviations.
+  - emits `AI_AGENT_PLATFORM_HEALTH_ALERT` notifications to admin users / configured recipients.
 - Include current-period AI credit balance (`aiCreditsMonthlyLimit`,
   `aiCreditsUsed`, `aiCreditsRemaining`) in authenticated `agentAssist` responses.
 - Include platform execution diagnostics in `agentAssist` responses:
@@ -87,6 +91,16 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - `AI_AGENT_HEALTH_SAMPLE_RETENTION_DAYS` (default `30`, clamp `1..3650`)
 - `AI_AGENT_ACTION_AUDIT_AUTOPURGE_ENABLED` (default `true`)
 - `AI_AGENT_ACTION_AUDIT_RETENTION_DAYS` (default `365`, clamp `7..3650`)
+- `AI_AGENT_HEALTH_ALERTS_ENABLED` (default `true`)
+- `AI_AGENT_HEALTH_ALERT_WINDOW_HOURS` (default `6`, clamp `1..336`)
+- `AI_AGENT_HEALTH_ALERT_BASELINE_WINDOW_HOURS` (default `72`, clamp `window..2160`)
+- `AI_AGENT_HEALTH_ALERT_COOLDOWN_MINUTES` (default `60`, clamp `1..10080`)
+- `AI_AGENT_HEALTH_ALERT_MIN_SAMPLE_COUNT` (default `4`, clamp `1..1000`)
+- `AI_AGENT_HEALTH_ALERT_ANOMALY_MULTIPLIER` (default `2.0`, clamp `1.1..10`)
+- `AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_ERROR_RATE_DELTA_PERCENT` (default `1`, clamp `0..100`)
+- `AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_LATENCY_DELTA_MS` (default `150`, clamp `0..60000`)
+- `AI_AGENT_HEALTH_ALERT_SCAN_ADMIN_USERS` (default `true`)
+- `AI_AGENT_HEALTH_ALERT_RECIPIENT_USER_IDS` (optional CSV user IDs)
 
 ## Retention flow
 
@@ -98,6 +112,22 @@ flowchart TD
   Service --> DB[(agent_action_audits)]
   Service --> Logs[Structured retention logs]
   Admin[Admin GraphQL mutation] --> Service
+```
+
+## Health alerting flow
+
+```mermaid
+flowchart TD
+  Cron[Every 15 minutes] --> Toggle{Alerts enabled?}
+  Toggle -->|no| Stop[Skip]
+  Toggle -->|yes| Current[Load current trend summary]
+  Current --> Baseline[Load baseline trend summary]
+  Baseline --> Assess{Warn/Critical or anomaly?}
+  Assess -->|no| Healthy[No alert emitted]
+  Assess -->|yes| Recipients[Resolve recipients]
+  Recipients --> Cooldown{Per-user cooldown active?}
+  Cooldown -->|yes| Suppress[Suppress duplicate]
+  Cooldown -->|no| Emit[Publish AI_AGENT_PLATFORM_HEALTH_ALERT]
 ```
 
 ## Changelog
@@ -132,3 +162,4 @@ flowchart TD
 - 2026-02-16: Added bucketed health trend series query for observability dashboards.
 - 2026-02-16: Added warn/critical incident stats + trend series queries for AI platform health.
 - 2026-02-16: Added warn/critical incident analytics data export query.
+- 2026-02-16: Added trend-baseline anomaly alert scheduler with admin notification emission.

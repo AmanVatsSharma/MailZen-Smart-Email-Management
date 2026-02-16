@@ -54,6 +54,7 @@ jobs:
           ai-agent-gateway/ai-agent-gateway.service.spec.ts
           ai-agent-gateway/ai-agent-gateway.resolver.spec.ts
           ai-agent-gateway/ai-agent-action-audit-retention.scheduler.spec.ts
+          ai-agent-gateway/ai-agent-platform-health-alert.scheduler.spec.ts
           ai-agent-gateway/ai-agent-platform-health-sample-retention.scheduler.spec.ts
           common/provider-secrets.util.spec.ts
           common/sms/sms-dispatcher.util.spec.ts
