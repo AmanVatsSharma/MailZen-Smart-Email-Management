@@ -144,6 +144,10 @@ if [[ "${RUN_VERIFY}" == false ]] &&
   { [[ "${VERIFY_SKIP_SSL_CHECK}" == true ]] || [[ "${VERIFY_SKIP_OAUTH_CHECK}" == true ]] || [[ -n "${VERIFY_MAX_RETRIES}" ]] || [[ -n "${VERIFY_RETRY_SLEEP}" ]]; }; then
   log_warn "Verify-related flags were provided while --skip-verify is enabled; verify flags will be ignored."
 fi
+if [[ "${RUN_VERIFY}" == true ]] && [[ "${DEPLOY_DRY_RUN}" == true ]] &&
+  { [[ "${VERIFY_SKIP_SSL_CHECK}" == true ]] || [[ "${VERIFY_SKIP_OAUTH_CHECK}" == true ]] || [[ -n "${VERIFY_MAX_RETRIES}" ]] || [[ -n "${VERIFY_RETRY_SLEEP}" ]]; }; then
+  log_warn "Verify-related flags were provided while --deploy-dry-run is enabled; verify flags will be ignored."
+fi
 if [[ "${RUN_STATUS}" == false ]] &&
   { [[ "${STATUS_RUNTIME_CHECKS}" == true ]] || [[ "${STATUS_STRICT}" == true ]] || [[ "${STATUS_SKIP_HOST_READINESS}" == true ]] || [[ "${STATUS_SKIP_DNS_CHECK}" == true ]] || [[ "${STATUS_SKIP_SSL_CHECK}" == true ]] || [[ "${STATUS_SKIP_PORTS_CHECK}" == true ]] || [[ -n "${PORTS_CHECK_PORTS}" ]]; }; then
   log_warn "Status-related flags were provided while --skip-status is enabled; status flags will be ignored."
