@@ -1,0 +1,157 @@
+name: mailzen-ec2
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mailzen-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: mailzen-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ai-agent-platform:
+    build:
+      context: ../..
+      dockerfile: services/ai-agent-platform/Dockerfile
+    container_name: mailzen-ai-agent-platform
+    restart: unless-stopped
+    env_file:
+      - ./.env.ec2
+    environment:
+      AGENT_PLATFORM_INBOUND_API_KEY: ${AI_AGENT_PLATFORM_KEY}
+      AGENT_PLATFORM_SERVICE_NAME: ai-agent-platform
+      AGENT_PLATFORM_API_VERSION: v1
+    expose:
+      - "8100"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import sys, urllib.request; status=urllib.request.urlopen('http://127.0.0.1:8100/health', timeout=3).getcode(); sys.exit(0 if 200 <= status < 400 else 1)",
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: apps/backend/Dockerfile
+    container_name: mailzen-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-agent-platform:
+        condition: service_healthy
+    env_file:
+      - ./.env.ec2
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      FRONTEND_URL: https://${MAILZEN_DOMAIN}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      AI_AGENT_PLATFORM_URL: http://ai-agent-platform:8100
+      AI_AGENT_PLATFORM_REQUIRED: "false"
+      MAILZEN_SESSION_COOKIE_SECURE: "true"
+      MAILZEN_SESSION_COOKIE_SAMESITE: lax
+    expose:
+      - "4000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:4000/graphql', (res) => process.exit(res.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1));",
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 8
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_GRAPHQL_ENDPOINT: ${NEXT_PUBLIC_GRAPHQL_ENDPOINT}
+        NEXT_PUBLIC_AUTH_ENABLED: ${NEXT_PUBLIC_AUTH_ENABLED}
+        NEXT_PUBLIC_ENABLE_EMAIL_WARMUP: ${NEXT_PUBLIC_ENABLE_EMAIL_WARMUP}
+        NEXT_PUBLIC_ENABLE_SMART_REPLIES: ${NEXT_PUBLIC_ENABLE_SMART_REPLIES}
+        NEXT_PUBLIC_ENABLE_EMAIL_TRACKING: ${NEXT_PUBLIC_ENABLE_EMAIL_TRACKING}
+        NEXT_PUBLIC_DEFAULT_THEME: ${NEXT_PUBLIC_DEFAULT_THEME}
+    container_name: mailzen-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    env_file:
+      - ./.env.ec2
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    expose:
+      - "3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3000/', (res) => process.exit(res.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1));",
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 8
+
+  caddy:
+    image: caddy:2.9-alpine
+    container_name: mailzen-caddy
+    restart: unless-stopped
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    env_file:
+      - ./.env.ec2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:

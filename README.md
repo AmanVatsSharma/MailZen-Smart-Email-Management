@@ -194,3 +194,37 @@ ENABLE_EMAIL_TRACKING=true
   - `GOOGLE_REDIRECT_URI`
 
 Without these, the server still boots; the Google OAuth endpoints will report “not configured”.
+
+## EC2 deployment (Domain + HTTPS + Docker)
+
+For production-style EC2 deployment, use the deployment module:
+
+- `deploy/ec2/docker-compose.yml`
+- `deploy/ec2/Caddyfile` (automatic HTTPS termination)
+- `deploy/ec2/scripts/*` (operator-friendly setup/deploy/ops scripts)
+
+### Quick start
+
+```bash
+# 1) Prepare production env safely
+./deploy/ec2/scripts/setup.sh
+
+# 2) Build and run the stack
+./deploy/ec2/scripts/deploy.sh
+
+# 3) Check status
+./deploy/ec2/scripts/status.sh
+```
+
+This stack includes by default:
+
+- frontend
+- backend
+- ai-agent-platform
+- postgres
+- redis
+- caddy (reverse proxy + TLS)
+
+For full steps, flowchart, and troubleshooting, see:
+
+- `deploy/ec2/README.md`

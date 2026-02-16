@@ -1,0 +1,51 @@
+# ------------------------------
+# Git and editor metadata
+# ------------------------------
+.git
+.gitignore
+.github
+.cursor
+.idea
+.vscode
+
+# ------------------------------
+# Node / Nx build artifacts
+# ------------------------------
+**/node_modules
+**/.nx
+**/.next
+**/dist
+**/build
+**/coverage
+**/.cache
+**/*.tsbuildinfo
+
+# ------------------------------
+# Python artifacts
+# ------------------------------
+**/.venv
+**/__pycache__
+**/*.pyc
+
+# ------------------------------
+# Environment and local secrets
+# ------------------------------
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+
+# ------------------------------
+# Runtime logs and dumps
+# ------------------------------
+**/logs
+**/*.log
+**/npm-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+
+# ------------------------------
+# OS junk
+# ------------------------------
+**/.DS_Store
+**/Thumbs.db
