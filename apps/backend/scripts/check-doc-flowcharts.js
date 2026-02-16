@@ -8,33 +8,16 @@ const path = require('path');
 
 const projectRoot = path.resolve(__dirname, '..');
 
-const requiredReadmes = [
-  'src/auth/README.md',
-  'src/common/README.md',
-  'src/common/sms/README.md',
-  'src/phone/README.md',
-  'src/user/README.md',
-  'src/database/README.md',
-  'src/ai-agent-gateway/README.md',
-  'src/smart-replies/README.md',
-  'src/billing/README.md',
-  'src/mailbox/README.md',
-  'src/notification/README.md',
-  'src/email-integration/README.md',
-  'src/outlook-sync/README.md',
-  'src/gmail-sync/README.md',
-  'src/workspace/README.md',
-  'src/inbox/README.md',
-  'src/unified-inbox/README.md',
-  'src/feature/README.md',
-  'src/contacts/README.md',
-  'src/organization/README.md',
-  'src/email/README.md',
-  'src/email-analytics/README.md',
-  'src/scheduled-email/README.md',
-  'src/template/README.md',
-  'src/question/README.md',
-];
+const srcRoot = path.join(projectRoot, 'src');
+const requiredNestedReadmes = ['src/common/sms/README.md'];
+
+function resolveRequiredReadmes() {
+  const topLevelDirectories = fs
+    .readdirSync(srcRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => `src/${entry.name}/README.md`);
+  return [...topLevelDirectories, ...requiredNestedReadmes];
+}
 
 function fail(message) {
   console.error(`[doc-flowchart-check] ${message}`);
@@ -42,6 +25,7 @@ function fail(message) {
 }
 
 function run() {
+  const requiredReadmes = resolveRequiredReadmes();
   const missingFiles = [];
   const missingFlowcharts = [];
 
