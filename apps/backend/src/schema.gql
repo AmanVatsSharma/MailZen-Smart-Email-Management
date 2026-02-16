@@ -538,6 +538,7 @@ type AgentPlatformHealthResponse {
   configuredServiceUrls: [String!]!
   probedServiceUrls: [String!]!
   endpointStats: [AgentPlatformEndpointStatResponse!]!
+  skillStats: [AgentPlatformSkillStatResponse!]!
   latencyMs: Float!
   checkedAtIso: String!
   requestCount: Int!
@@ -556,6 +557,17 @@ type AgentPlatformEndpointStatResponse {
   failureCount: Int!
   lastSuccessAtIso: String
   lastFailureAtIso: String
+}
+
+type AgentPlatformSkillStatResponse {
+  skill: String!
+  totalRequests: Int!
+  failedRequests: Int!
+  timeoutFailures: Int!
+  avgLatencyMs: Float!
+  lastLatencyMs: Float!
+  errorRatePercent: Float!
+  lastErrorAtIso: String
 }
 
 type AgentPlatformRuntimeResetResponse {

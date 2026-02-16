@@ -343,6 +343,7 @@ describe('AiAgentGatewayService', () => {
     expect(health.status).toBe('down');
     expect(health.probedServiceUrls).toEqual(['http://localhost:8100']);
     expect(health.configuredServiceUrls).toEqual(['http://localhost:8100']);
+    expect(health.skillStats).toEqual([]);
     expect(health.endpointStats).toEqual([
       expect.objectContaining({
         endpointUrl: 'http://localhost:8100',
@@ -666,6 +667,49 @@ describe('AiAgentGatewayService', () => {
       'http://secondary-agent.local',
     ]);
     expect(health.probedServiceUrls).toEqual(['http://primary-agent.local']);
+  });
+
+  it('includes per-skill runtime stats in platform health snapshot', async () => {
+    const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'auth',
+        assistantText: 'Use forgot password.',
+        intent: 'forgot_password',
+        confidence: 0.9,
+        suggestedActions: [],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+    mockedAxios.get.mockResolvedValueOnce({
+      data: {
+        status: 'ok',
+      },
+    } as any);
+
+    await service.assist({
+      skill: 'auth',
+      messages: [{ role: 'user', content: 'help me login' }],
+      context: { surface: 'auth-login', locale: 'en-IN' },
+      allowedActions: ['auth.open_login'],
+      executeRequestedAction: false,
+    });
+
+    const health = await service.getPlatformHealth();
+
+    expect(health.skillStats).toEqual([
+      expect.objectContaining({
+        skill: 'auth',
+        totalRequests: 1,
+        failedRequests: 0,
+        timeoutFailures: 0,
+        lastLatencyMs: expect.any(Number),
+        avgLatencyMs: expect.any(Number),
+        errorRatePercent: 0,
+      }),
+    ]);
   });
 
   it('executes inbox summary action when suggested and requested', async () => {

@@ -29,6 +29,7 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - Provide `agentPlatformHealth` GraphQL probe with gateway metrics snapshot.
   - includes `configuredServiceUrls`, `probedServiceUrls`, and per-endpoint
     runtime counters via `endpointStats` for failover diagnostics.
+  - includes per-skill runtime counters via `skillStats` for traffic/error analysis.
 - Expose `myAgentActionAudits(limit?)` query for authenticated audit review.
 - Expose `myAgentActionDataExport(limit?)` for authenticated JSON export of
   agent action audit history.

@@ -124,6 +124,15 @@ interface EndpointRuntimeStats {
   lastFailureAtIso?: string;
 }
 
+interface SkillRuntimeStats {
+  totalRequests: number;
+  failedRequests: number;
+  timeoutFailures: number;
+  totalLatencyMs: number;
+  lastLatencyMs: number;
+  lastErrorAtIso?: string;
+}
+
 @Injectable()
 export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AiAgentGatewayService.name);
@@ -158,6 +167,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     string,
     EndpointRuntimeStats
   >();
+  private readonly skillRuntimeStats = new Map<string, SkillRuntimeStats>();
   private readonly metrics: GatewayMetrics = {
     totalRequests: 0,
     failedRequests: 0,
@@ -255,6 +265,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     this.fallbackPendingApprovals.clear();
     this.threadContextCache.clear();
     this.endpointRuntimeStats.clear();
+    this.skillRuntimeStats.clear();
     if (!this.redisClient || !this.redisConnected) return;
     await this.redisClient.quit();
   }
@@ -374,7 +385,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       throw error;
     } finally {
       const latencyMs = Date.now() - startedAtMs;
-      this.recordGatewayMetrics(latencyMs, failed, timeoutFailure);
+      this.recordGatewayMetrics(skill, latencyMs, failed, timeoutFailure);
       this.logAssistCompletion(
         requestId,
         skill,
@@ -416,6 +427,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     let serviceUrl = platformBaseUrls[0] || this.getPlatformBaseUrl();
     const probedServiceUrls: string[] = [];
     const endpointStats = this.buildEndpointStatsSnapshot(platformBaseUrls);
+    const skillStats = this.buildSkillStatsSnapshot();
     const thresholdLatencyMs = this.getLatencyWarnThresholdMs();
     const thresholdErrorRate = this.getErrorRateWarnPercent();
     const requestCount = this.metrics.totalRequests;
@@ -483,6 +495,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       configuredServiceUrls: platformBaseUrls,
       probedServiceUrls,
       endpointStats,
+      skillStats,
       latencyMs,
       checkedAtIso,
       requestCount,
@@ -1273,6 +1286,36 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       });
     }
     return stats;
+  }
+
+  private buildSkillStatsSnapshot(): Array<{
+    skill: string;
+    totalRequests: number;
+    failedRequests: number;
+    timeoutFailures: number;
+    avgLatencyMs: number;
+    lastLatencyMs: number;
+    errorRatePercent: number;
+    lastErrorAtIso?: string;
+  }> {
+    return Array.from(this.skillRuntimeStats.entries())
+      .map(([skill, stats]) => ({
+        skill,
+        totalRequests: stats.totalRequests,
+        failedRequests: stats.failedRequests,
+        timeoutFailures: stats.timeoutFailures,
+        avgLatencyMs:
+          stats.totalRequests > 0
+            ? stats.totalLatencyMs / stats.totalRequests
+            : 0,
+        lastLatencyMs: stats.lastLatencyMs,
+        errorRatePercent:
+          stats.totalRequests > 0
+            ? (stats.failedRequests / stats.totalRequests) * 100
+            : 0,
+        lastErrorAtIso: stats.lastErrorAtIso,
+      }))
+      .sort((left, right) => right.totalRequests - left.totalRequests);
   }
 
   private getPlatformTimeoutMs(): number {
@@ -2360,20 +2403,39 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   }
 
   private recordGatewayMetrics(
+    skill: string,
     latencyMs: number,
     failed: boolean,
     timeoutFailure: boolean,
   ): void {
+    const normalizedSkill = String(skill || 'unknown').trim() || 'unknown';
     this.metrics.totalRequests += 1;
     this.metrics.totalLatencyMs += latencyMs;
     this.metrics.lastLatencyMs = latencyMs;
+    const currentSkillStats = this.skillRuntimeStats.get(normalizedSkill) || {
+      totalRequests: 0,
+      failedRequests: 0,
+      timeoutFailures: 0,
+      totalLatencyMs: 0,
+      lastLatencyMs: 0,
+    };
+    const updatedSkillStats: SkillRuntimeStats = {
+      ...currentSkillStats,
+      totalRequests: currentSkillStats.totalRequests + 1,
+      totalLatencyMs: currentSkillStats.totalLatencyMs + latencyMs,
+      lastLatencyMs: latencyMs,
+    };
     if (failed) {
       this.metrics.failedRequests += 1;
       this.metrics.lastErrorAtIso = new Date().toISOString();
+      updatedSkillStats.failedRequests += 1;
+      updatedSkillStats.lastErrorAtIso = this.metrics.lastErrorAtIso;
     }
     if (timeoutFailure) {
       this.metrics.timeoutFailures += 1;
+      updatedSkillStats.timeoutFailures += 1;
     }
+    this.skillRuntimeStats.set(normalizedSkill, updatedSkillStats);
   }
 
   private logAssistCompletion(

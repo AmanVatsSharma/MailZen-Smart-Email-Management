@@ -51,6 +51,18 @@ describe('AiAgentGatewayResolver', () => {
           lastFailureAtIso: '2026-02-15T00:00:00.000Z',
         },
       ],
+      skillStats: [
+        {
+          skill: 'auth',
+          totalRequests: 10,
+          failedRequests: 1,
+          timeoutFailures: 0,
+          avgLatencyMs: 20,
+          lastLatencyMs: 12,
+          errorRatePercent: 10,
+          lastErrorAtIso: '2026-02-15T00:00:00.000Z',
+        },
+      ],
       latencyMs: 12,
       checkedAtIso: '2026-02-16T00:00:00.000Z',
       requestCount: 10,
@@ -71,6 +83,11 @@ describe('AiAgentGatewayResolver', () => {
         endpointStats: [
           expect.objectContaining({
             endpointUrl: 'http://localhost:8100',
+          }),
+        ],
+        skillStats: [
+          expect.objectContaining({
+            skill: 'auth',
           }),
         ],
       }),
