@@ -59,12 +59,12 @@ show_menu() {
 =========================== MailZen EC2 Operator Menu ==========================
 1) One-command launch (fully guided)
 2) Bootstrap Docker on Ubuntu (run with sudo)
-3) Setup environment (.env.ec2)
+3) Setup environment (.env.ec2, guided overrides)
 4) Preflight checks (prompt runtime + skip options)
-5) Deploy stack
-6) Verify deployment (smoke checks)
+5) Deploy stack (guided flags)
+6) Verify deployment (guided checks)
 7) Show status (prompt runtime/strict/skip options)
-8) Show logs (all services)
+8) Show logs (guided filters)
 9) Update stack (fully guided)
 10) Backup database
 11) List backups (optional latest/count filters)
@@ -206,7 +206,22 @@ while true; do
     run_step "bootstrap-ubuntu.sh"
     ;;
   3)
-    run_step "setup.sh"
+    setup_args=()
+    if prompt_yes_no "Run setup in non-interactive mode" "no"; then
+      setup_args+=(--non-interactive)
+    fi
+    if prompt_yes_no "Skip docker daemon check during setup" "no"; then
+      setup_args+=(--skip-daemon)
+    fi
+    setup_domain="$(prompt_with_default "Setup domain override (blank = keep current/template default)" "")"
+    if [[ -n "${setup_domain}" ]]; then
+      setup_args+=(--domain "${setup_domain}")
+    fi
+    setup_acme_email="$(prompt_with_default "Setup ACME email override (blank = keep current/template default)" "")"
+    if [[ -n "${setup_acme_email}" ]]; then
+      setup_args+=(--acme-email "${setup_acme_email}")
+    fi
+    run_step "setup.sh" "${setup_args[@]}"
     ;;
   4)
     preflight_args=()
@@ -234,10 +249,56 @@ while true; do
     run_step "preflight.sh" "${preflight_args[@]}"
     ;;
   5)
-    run_step "deploy.sh"
+    deploy_args=()
+    if prompt_yes_no "Skip image build (--no-build)" "no"; then
+      deploy_args+=(--no-build)
+    fi
+    if prompt_yes_no "Always pull newer base images (--pull)" "no"; then
+      deploy_args+=(--pull)
+    fi
+    if prompt_yes_no "Force recreate containers (--force-recreate)" "no"; then
+      deploy_args+=(--force-recreate)
+    fi
+    if prompt_yes_no "Run deploy in dry-run mode" "no"; then
+      deploy_args+=(--dry-run)
+    fi
+    if prompt_yes_no "Validate compose config only (--config-only)" "no"; then
+      deploy_args+=(--config-only)
+    fi
+    run_step "deploy.sh" "${deploy_args[@]}"
     ;;
   6)
-    run_step "verify.sh"
+    verify_args=()
+    verify_retries="$(prompt_with_default "Verify max retries (blank = default)" "")"
+    if [[ -n "${verify_retries}" ]]; then
+      if [[ "${verify_retries}" =~ ^[0-9]+$ ]] && [[ "${verify_retries}" -gt 0 ]]; then
+        verify_args+=(--max-retries "${verify_retries}")
+      else
+        echo "[mailzen-deploy][MENU][WARN] Ignoring invalid max retries value: ${verify_retries}"
+      fi
+    fi
+    verify_retry_sleep="$(prompt_with_default "Verify retry sleep seconds (blank = default)" "")"
+    if [[ -n "${verify_retry_sleep}" ]]; then
+      if [[ "${verify_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${verify_retry_sleep}" -gt 0 ]]; then
+        verify_args+=(--retry-sleep "${verify_retry_sleep}")
+      else
+        echo "[mailzen-deploy][MENU][WARN] Ignoring invalid retry sleep value: ${verify_retry_sleep}"
+      fi
+    fi
+    verify_skip_oauth=false
+    if prompt_yes_no "Skip OAuth endpoint check" "no"; then
+      verify_skip_oauth=true
+      verify_args+=(--skip-oauth-check)
+    fi
+    if [[ "${verify_skip_oauth}" == false ]]; then
+      if prompt_yes_no "Require OAuth check (fail when OAuth keys are missing)" "no"; then
+        verify_args+=(--require-oauth-check)
+      fi
+    fi
+    if prompt_yes_no "Skip SSL certificate check" "no"; then
+      verify_args+=(--skip-ssl-check)
+    fi
+    run_step "verify.sh" "${verify_args[@]}"
     ;;
   7)
     status_args=()
@@ -268,7 +329,26 @@ while true; do
     run_step "status.sh" "${status_args[@]}"
     ;;
   8)
-    run_step "logs.sh"
+    logs_args=()
+    logs_service="$(prompt_with_default "Service name filter (blank = all services)" "")"
+    if [[ -n "${logs_service}" ]]; then
+      logs_args+=(--service "${logs_service}")
+    fi
+    logs_tail="$(prompt_with_default "Tail lines" "200")"
+    if [[ "${logs_tail}" =~ ^[0-9]+$ ]] && [[ "${logs_tail}" -gt 0 ]]; then
+      logs_args+=(--tail "${logs_tail}")
+    else
+      echo "[mailzen-deploy][MENU][WARN] Invalid tail value '${logs_tail}'. Using default 200."
+      logs_args+=(--tail "200")
+    fi
+    logs_since="$(prompt_with_default "Since window (blank = no filter, examples: 30m,2h)" "")"
+    if [[ -n "${logs_since}" ]]; then
+      logs_args+=(--since "${logs_since}")
+    fi
+    if ! prompt_yes_no "Follow logs continuously" "yes"; then
+      logs_args+=(--no-follow)
+    fi
+    run_step "logs.sh" "${logs_args[@]}"
     ;;
   9)
     update_args=()
