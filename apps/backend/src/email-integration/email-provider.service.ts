@@ -17,6 +17,7 @@ import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
 import { BillingService } from '../billing/billing.service';
 import { GmailSyncService } from '../gmail-sync/gmail-sync.service';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { OutlookSyncService } from '../outlook-sync/outlook-sync.service';
 import { WorkspaceService } from '../workspace/workspace.service';
 import {
@@ -68,6 +69,7 @@ export class EmailProviderService {
     private readonly workspaceService: WorkspaceService,
     private readonly gmailSyncService: GmailSyncService,
     private readonly outlookSyncService: OutlookSyncService,
+    private readonly notificationEventBus: NotificationEventBusService,
   ) {
     this.providerSecretsKeyring = resolveProviderSecretsKeyring();
 
@@ -411,6 +413,9 @@ export class EmailProviderService {
       where: { id: providerId, userId },
     });
     if (!provider) throw new NotFoundException('Provider not found');
+    const previousErrorSignature = this.normalizeSyncErrorSignature(
+      provider.lastSyncError,
+    );
     await this.providerRepository.update(providerId, {
       status: 'syncing',
       lastSyncError: null,
@@ -450,21 +455,66 @@ export class EmailProviderService {
           lastSyncErrorAt: null,
         });
       }
+      if (previousErrorSignature) {
+        await this.notificationEventBus.publishSafely({
+          userId,
+          type: 'SYNC_RECOVERED',
+          title: `${provider.type} sync recovered`,
+          message:
+            'MailZen has recovered synchronization for your provider connection.',
+          metadata: {
+            providerId,
+            providerType: provider.type,
+            workspaceId: provider.workspaceId || null,
+            triggerSource: 'MANUAL',
+          },
+        });
+      }
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : 'Provider sync failed';
+      const normalizedErrorMessage = this.normalizeSyncErrorSignature(message);
       this.logger.warn(
         `provider-sync: providerId=${providerId} type=${provider.type} failed error=${message}`,
       );
       await this.providerRepository.update(providerId, {
         status: 'error',
         syncLeaseExpiresAt: null,
-        lastSyncError: message.slice(0, 500),
+        lastSyncError: normalizedErrorMessage,
         lastSyncErrorAt: new Date(),
       });
+      if (normalizedErrorMessage !== previousErrorSignature) {
+        await this.notificationEventBus.publishSafely({
+          userId,
+          type: 'SYNC_FAILED',
+          title: `${provider.type} sync failed`,
+          message:
+            'MailZen failed to sync your provider connection. We will retry automatically.',
+          metadata: {
+            providerId,
+            providerType: provider.type,
+            workspaceId: provider.workspaceId || null,
+            attempts: 1,
+            error: normalizedErrorMessage.slice(0, 240),
+            triggerSource: 'MANUAL',
+          },
+        });
+      }
     }
 
     return this.getProviderUi(providerId, userId);
+  }
+
+  private normalizeSyncErrorSignature(value: unknown): string {
+    const normalized =
+      typeof value === 'string'
+        ? value
+        : value instanceof Error
+          ? value.message
+          : value === null || value === undefined
+            ? ''
+            : JSON.stringify(value);
+    return String(normalized).trim().slice(0, 500);
   }
 
   async syncUserProviders(input: {

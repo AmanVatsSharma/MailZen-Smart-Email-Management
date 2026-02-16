@@ -12,6 +12,7 @@ import { createTransport } from 'nodemailer';
 import { Repository } from 'typeorm';
 import { BillingService } from '../billing/billing.service';
 import { GmailSyncService } from '../gmail-sync/gmail-sync.service';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { UserNotification } from '../notification/entities/user-notification.entity';
 import { OutlookSyncService } from '../outlook-sync/outlook-sync.service';
 import { WorkspaceService } from '../workspace/workspace.service';
@@ -67,6 +68,9 @@ describe('EmailProviderService', () => {
       },
     ]),
   };
+  const notificationEventBusMock = {
+    publishSafely: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
@@ -97,6 +101,10 @@ describe('EmailProviderService', () => {
         { provide: WorkspaceService, useValue: workspaceServiceMock },
         { provide: GmailSyncService, useValue: gmailSyncServiceMock },
         { provide: OutlookSyncService, useValue: outlookSyncServiceMock },
+        {
+          provide: NotificationEventBusService,
+          useValue: notificationEventBusMock,
+        },
       ],
     }).compile();
 
@@ -302,6 +310,34 @@ describe('EmailProviderService', () => {
     expect(providerUi.status).toBe('connected');
   });
 
+  it('emits sync recovered notification when manual sync succeeds after prior error', async () => {
+    providerRepository.findOne
+      .mockResolvedValueOnce({
+        id: 'provider-1',
+        type: 'GMAIL',
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        lastSyncError: 'token expired',
+      } as EmailProvider)
+      .mockResolvedValueOnce({
+        id: 'provider-1',
+        type: 'GMAIL',
+        userId: 'user-1',
+        email: 'founder@gmail.com',
+        status: 'connected',
+      } as EmailProvider);
+    gmailSyncServiceMock.syncGmailProvider.mockResolvedValue({ imported: 1 });
+
+    await service.syncProvider('provider-1', 'user-1');
+
+    expect(notificationEventBusMock.publishSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        type: 'SYNC_RECOVERED',
+      }),
+    );
+  });
+
   it('marks provider sync as error when smtp validation fails', async () => {
     providerRepository.findOne
       .mockResolvedValueOnce({
@@ -344,6 +380,44 @@ describe('EmailProviderService', () => {
     );
     expect(providerUi.status).toBe('error');
     expect(providerUi.lastSyncError).toBe('SMTP connection failed');
+    expect(notificationEventBusMock.publishSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        type: 'SYNC_FAILED',
+      }),
+    );
+  });
+
+  it('suppresses duplicate sync failed notification when error is unchanged', async () => {
+    providerRepository.findOne
+      .mockResolvedValueOnce({
+        id: 'provider-1',
+        type: 'CUSTOM_SMTP',
+        userId: 'user-1',
+        lastSyncError: 'SMTP connection failed',
+      } as EmailProvider)
+      .mockResolvedValueOnce({
+        id: 'provider-1',
+        type: 'CUSTOM_SMTP',
+        userId: 'user-1',
+        email: 'ops@example.com',
+        status: 'error',
+        lastSyncError: 'SMTP connection failed',
+      } as EmailProvider)
+      .mockResolvedValueOnce({
+        id: 'provider-1',
+        type: 'CUSTOM_SMTP',
+        userId: 'user-1',
+      } as EmailProvider);
+    jest.spyOn(service, 'validateProvider').mockResolvedValue({
+      valid: false,
+      message: 'SMTP connection failed',
+    });
+    providerRepository.update.mockResolvedValue({} as any);
+
+    await service.syncProvider('provider-1', 'user-1');
+
+    expect(notificationEventBusMock.publishSafely).toHaveBeenCalledTimes(0);
   });
 
   it('runs batch provider sync and aggregates success/failure counters', async () => {

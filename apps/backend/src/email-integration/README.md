@@ -102,6 +102,8 @@ Frontend-facing (matches `apps/frontend/lib/providers/provider-utils.ts`):
   - Outlook providers: triggers real Microsoft Graph sync through `OutlookSyncService`
   - SMTP providers: validates SMTP connectivity and updates sync status/error telemetry
   - Errors are persisted as provider state (`status=error`, `lastSyncError`, `lastSyncErrorAt`) for support/debug visibility
+  - manual sync failures/recoveries emit `SYNC_FAILED`/`SYNC_RECOVERED`
+    notifications with `triggerSource=MANUAL` metadata for audit parity with schedulers
 - `syncMyProviders(workspaceId?: String, providerId?: String): ProviderSyncRunResponse!`
   - batch/manual provider sync trigger for authenticated user
   - optional `providerId` scopes to a single owned provider
