@@ -3,6 +3,7 @@ import { WorkspaceResolver } from './workspace.resolver';
 describe('WorkspaceResolver', () => {
   const workspaceServiceMock = {
     exportWorkspaceData: jest.fn(),
+    exportWorkspaceDataForAdmin: jest.fn(),
     listPendingWorkspaceInvitations: jest.fn(),
     respondToWorkspaceInvitation: jest.fn(),
     updateWorkspaceMemberRole: jest.fn(),
@@ -45,6 +46,26 @@ describe('WorkspaceResolver', () => {
       workspaceId: 'workspace-1',
       userId: 'user-1',
     });
+  });
+
+  it('forwards admin workspace data export query to workspace service', async () => {
+    workspaceServiceMock.exportWorkspaceDataForAdmin.mockResolvedValue({
+      generatedAtIso: '2026-02-16T00:30:00.000Z',
+      dataJson: '{"workspace":{"id":"workspace-1"}}',
+    });
+
+    const result = await resolver.workspaceDataExportAsAdmin(
+      'workspace-1',
+      context as any,
+    );
+
+    expect(result.generatedAtIso).toBe('2026-02-16T00:30:00.000Z');
+    expect(workspaceServiceMock.exportWorkspaceDataForAdmin).toHaveBeenCalledWith(
+      {
+        workspaceId: 'workspace-1',
+        actorUserId: 'user-1',
+      },
+    );
   });
 
   it('forwards invitation response mutation to workspace service', async () => {

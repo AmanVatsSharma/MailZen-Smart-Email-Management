@@ -407,6 +407,80 @@ describe('WorkspaceService', () => {
     );
   });
 
+  it('exports workspace membership snapshot for admin legal request', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: 'admin-1',
+      email: 'admin@mailzen.com',
+      role: 'ADMIN',
+    } as User);
+    workspaceRepo.findOne.mockResolvedValue({
+      id: 'workspace-1',
+      ownerUserId: 'user-1',
+      name: 'Sales Team',
+      slug: 'sales-team',
+      isPersonal: false,
+      createdAt: new Date('2026-02-16T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-16T00:00:00.000Z'),
+    } as Workspace);
+    workspaceMemberRepo.find.mockResolvedValue([
+      {
+        id: 'member-owner-1',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        email: 'owner@mailzen.com',
+        role: 'OWNER',
+        status: 'active',
+        invitedByUserId: 'user-1',
+        createdAt: new Date('2026-02-16T00:00:00.000Z'),
+        updatedAt: new Date('2026-02-16T00:00:00.000Z'),
+      } as WorkspaceMember,
+    ]);
+    userRepo.find.mockResolvedValue([
+      {
+        id: 'user-1',
+        email: 'owner@mailzen.com',
+        name: 'Owner',
+        activeWorkspaceId: 'workspace-1',
+      } as User,
+    ]);
+
+    const result = await service.exportWorkspaceDataForAdmin({
+      workspaceId: 'workspace-1',
+      actorUserId: 'admin-1',
+    });
+    const parsedPayload = JSON.parse(result.dataJson) as {
+      requester: { userId: string; role: string };
+      members: Array<{ role: string }>;
+    };
+
+    expect(parsedPayload.requester).toMatchObject({
+      userId: 'admin-1',
+      role: 'ADMIN',
+    });
+    expect(parsedPayload.members).toHaveLength(1);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'workspace_data_export_requested_by_admin',
+        userId: 'admin-1',
+      }),
+    );
+  });
+
+  it('rejects admin workspace export when actor is not admin', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-2',
+      email: 'member@mailzen.com',
+      role: 'USER',
+    } as User);
+
+    await expect(
+      service.exportWorkspaceDataForAdmin({
+        workspaceId: 'workspace-1',
+        actorUserId: 'user-2',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('rejects invitation response when email does not match user', async () => {
     userRepo.findOne.mockResolvedValue({
       id: 'user-1',

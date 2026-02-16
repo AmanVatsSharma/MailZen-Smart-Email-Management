@@ -20,6 +20,7 @@ organization features.
 - `myWorkspaces`: list workspaces for authenticated user
 - `myActiveWorkspace`: current active workspace for authenticated user
 - `myWorkspaceDataExport(workspaceId)`: export workspace + membership snapshot JSON
+- `workspaceDataExportAsAdmin(workspaceId)` (admin): export target workspace snapshot for legal requests
 - `createWorkspace(name)`: create team workspace
 - `setActiveWorkspace(workspaceId)`: persist active workspace
 - `workspaceMembers(workspaceId)`: list members for workspace
@@ -54,6 +55,7 @@ Workspace mutation flows now persist `audit_logs` entries for:
 - `workspace_member_removed`
 - `workspace_active_set`
 - `workspace_data_export_requested`
+- `workspace_data_export_requested_by_admin`
 
 ## Flow
 

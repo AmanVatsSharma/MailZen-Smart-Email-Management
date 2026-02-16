@@ -1,5 +1,6 @@
 import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
+import { AdminGuard } from '../auth/guards/admin.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { WorkspaceMember } from './entities/workspace-member.entity';
 import { Workspace } from './entities/workspace.entity';
@@ -45,6 +46,21 @@ export class WorkspaceResolver {
     return this.workspaceService.exportWorkspaceData({
       workspaceId,
       userId: context.req.user.id,
+    });
+  }
+
+  @Query(() => WorkspaceDataExportResponse, {
+    description:
+      'Admin export of workspace metadata/memberships for legal/compliance workflows',
+  })
+  @UseGuards(AdminGuard)
+  async workspaceDataExportAsAdmin(
+    @Args('workspaceId') workspaceId: string,
+    @Context() context: RequestContext,
+  ) {
+    return this.workspaceService.exportWorkspaceDataForAdmin({
+      workspaceId,
+      actorUserId: context.req.user.id,
     });
   }
 

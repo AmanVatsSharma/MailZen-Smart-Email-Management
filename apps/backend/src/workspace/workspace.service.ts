@@ -265,23 +265,17 @@ export class WorkspaceService {
     });
   }
 
-  async exportWorkspaceData(input: {
-    workspaceId: string;
-    userId: string;
-  }): Promise<WorkspaceDataExportResponse> {
-    const membership = await this.assertWorkspaceAccess(
-      input.workspaceId,
-      input.userId,
-    );
-    const workspace = await this.workspaceRepo.findOne({
-      where: { id: input.workspaceId },
-    });
-    if (!workspace) {
-      throw new NotFoundException('Workspace not found');
-    }
-
+  private async buildWorkspaceDataExportPayload(input: {
+    workspace: Workspace;
+    requesterUserId: string;
+    requesterRole: string;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+    memberCount: number;
+  }> {
     const members = await this.workspaceMemberRepo.find({
-      where: { workspaceId: input.workspaceId },
+      where: { workspaceId: input.workspace.id },
       order: { createdAt: 'ASC' },
     });
     const memberUserIds = members
@@ -294,21 +288,22 @@ export class WorkspaceService {
       : [];
     const userById = new Map(memberUsers.map((user) => [user.id, user]));
     const generatedAt = new Date();
+    const generatedAtIso = generatedAt.toISOString();
 
     const payload = {
-      generatedAtIso: generatedAt.toISOString(),
+      generatedAtIso,
       workspace: {
-        id: workspace.id,
-        ownerUserId: workspace.ownerUserId,
-        name: workspace.name,
-        slug: workspace.slug,
-        isPersonal: workspace.isPersonal,
-        createdAtIso: workspace.createdAt.toISOString(),
-        updatedAtIso: workspace.updatedAt.toISOString(),
+        id: input.workspace.id,
+        ownerUserId: input.workspace.ownerUserId,
+        name: input.workspace.name,
+        slug: input.workspace.slug,
+        isPersonal: input.workspace.isPersonal,
+        createdAtIso: input.workspace.createdAt.toISOString(),
+        updatedAtIso: input.workspace.updatedAt.toISOString(),
       },
       requester: {
-        userId: input.userId,
-        role: membership.role,
+        userId: input.requesterUserId,
+        role: input.requesterRole,
       },
       members: members.map((member) => {
         const user = member.userId ? userById.get(member.userId) : undefined;
@@ -332,19 +327,93 @@ export class WorkspaceService {
         };
       }),
     };
+    return {
+      generatedAtIso,
+      dataJson: JSON.stringify(payload),
+      memberCount: members.length,
+    };
+  }
+
+  async exportWorkspaceData(input: {
+    workspaceId: string;
+    userId: string;
+  }): Promise<WorkspaceDataExportResponse> {
+    const membership = await this.assertWorkspaceAccess(
+      input.workspaceId,
+      input.userId,
+    );
+    const workspace = await this.workspaceRepo.findOne({
+      where: { id: input.workspaceId },
+    });
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found');
+    }
+    const exportPayload = await this.buildWorkspaceDataExportPayload({
+      workspace,
+      requesterUserId: input.userId,
+      requesterRole: membership.role,
+    });
     await this.writeAuditLog({
       userId: input.userId,
       action: 'workspace_data_export_requested',
       metadata: {
         workspaceId: workspace.id,
-        memberCount: members.length,
-        generatedAtIso: generatedAt.toISOString(),
+        memberCount: exportPayload.memberCount,
+        generatedAtIso: exportPayload.generatedAtIso,
       },
     });
 
     return {
-      generatedAtIso: generatedAt.toISOString(),
-      dataJson: JSON.stringify(payload),
+      generatedAtIso: exportPayload.generatedAtIso,
+      dataJson: exportPayload.dataJson,
+    };
+  }
+
+  async exportWorkspaceDataForAdmin(input: {
+    workspaceId: string;
+    actorUserId: string;
+  }): Promise<WorkspaceDataExportResponse> {
+    const workspaceId = String(input.workspaceId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!workspaceId) {
+      throw new BadRequestException('Workspace id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+
+    const actor = await this.userRepo.findOne({
+      where: { id: actorUserId },
+    });
+    if (!actor || actor.role !== 'ADMIN') {
+      throw new ForbiddenException(
+        'Only admins can export workspace data for legal/compliance review',
+      );
+    }
+
+    const workspace = await this.workspaceRepo.findOne({
+      where: { id: workspaceId },
+    });
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found');
+    }
+    const exportPayload = await this.buildWorkspaceDataExportPayload({
+      workspace,
+      requesterUserId: actorUserId,
+      requesterRole: 'ADMIN',
+    });
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'workspace_data_export_requested_by_admin',
+      metadata: {
+        workspaceId: workspace.id,
+        memberCount: exportPayload.memberCount,
+        generatedAtIso: exportPayload.generatedAtIso,
+      },
+    });
+    return {
+      generatedAtIso: exportPayload.generatedAtIso,
+      dataJson: exportPayload.dataJson,
     };
   }
 
