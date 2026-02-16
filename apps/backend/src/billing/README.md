@@ -76,6 +76,16 @@ flowchart TD
   invoice and webhook event storage.
 - Trial workflow supports 1-30 day trials for paid plans and publishes
   `BILLING_TRIAL_STARTED` notification events.
+- `BillingService` structured observability events:
+  - `billing_plan_catalog_seed_start`
+  - `billing_default_subscription_create_start`
+  - `billing_plan_switch_start`
+  - `billing_ai_credits_exhausted`
+  - `billing_retention_purge_completed`
+  - `billing_trial_started`
+  - `billing_webhook_event_ignored`
+  - `billing_webhook_processing_failed`
+  - `billing_upgrade_intent_recorded`
 - Retention controls:
   - Daily auto-purge via `BillingRetentionScheduler`
   - Configurable windows:

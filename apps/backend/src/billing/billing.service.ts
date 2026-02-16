@@ -20,6 +20,7 @@ import { BillingWebhookEvent } from './entities/billing-webhook-event.entity';
 import { BillingUpgradeIntentResponse } from './dto/billing-upgrade-intent.response';
 import { UserAiCreditUsage } from './entities/user-ai-credit-usage.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 export type BillingEntitlements = {
   planCode: string;
@@ -188,8 +189,13 @@ export class BillingService {
     const existingPlansCount = await this.billingPlanRepo.count();
     if (existingPlansCount > 0) return;
 
-    this.logger.log('billing-service: seeding default plan catalog');
     const plans = this.getDefaultPlans();
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'billing_plan_catalog_seed_start',
+        planCount: plans.length,
+      }),
+    );
     await this.billingPlanRepo.save(this.billingPlanRepo.create(plans));
   }
 
@@ -210,7 +216,11 @@ export class BillingService {
     if (existing) return existing;
 
     this.logger.log(
-      `billing-service: creating default FREE subscription userId=${userId}`,
+      serializeStructuredLog({
+        event: 'billing_default_subscription_create_start',
+        userId,
+        planCode: 'FREE',
+      }),
     );
     const created = this.userSubscriptionRepo.create({
       userId,
@@ -248,7 +258,12 @@ export class BillingService {
 
     const previousPlanCode = current.planCode;
     this.logger.log(
-      `billing-service: userId=${userId} switching plan ${current.planCode} -> ${normalizedPlanCode}`,
+      serializeStructuredLog({
+        event: 'billing_plan_switch_start',
+        userId,
+        fromPlanCode: current.planCode,
+        toPlanCode: normalizedPlanCode,
+      }),
     );
     current.planCode = normalizedPlanCode;
     current.startedAt = new Date();
@@ -543,7 +558,13 @@ export class BillingService {
 
     if (!allowed) {
       this.logger.warn(
-        `billing-service: ai credits exhausted userId=${input.userId} used=${balance.usedCredits} limit=${balance.monthlyLimit}`,
+        serializeStructuredLog({
+          event: 'billing_ai_credits_exhausted',
+          userId: input.userId,
+          usedCredits: balance.usedCredits,
+          monthlyLimit: balance.monthlyLimit,
+          requestedCredits: normalizedCredits,
+        }),
       );
     }
 
@@ -738,7 +759,14 @@ export class BillingService {
     const executedAtIso = now.toISOString();
 
     this.logger.log(
-      `billing-service: retention purge webhookDeleted=${webhookEventsDeleted} aiUsageDeleted=${aiUsageRowsDeleted} webhookDays=${webhookRetentionDays} aiUsageMonths=${aiUsageRetentionMonths}`,
+      serializeStructuredLog({
+        event: 'billing_retention_purge_completed',
+        webhookEventsDeleted,
+        aiUsageRowsDeleted,
+        webhookRetentionDays,
+        aiUsageRetentionMonths,
+        executedAtIso,
+      }),
     );
 
     return {
@@ -820,7 +848,13 @@ export class BillingService {
     });
 
     this.logger.log(
-      `billing-service: started trial userId=${userId} plan=${targetPlan.code} days=${boundedTrialDays}`,
+      serializeStructuredLog({
+        event: 'billing_trial_started',
+        userId,
+        planCode: targetPlan.code,
+        trialDays: boundedTrialDays,
+        trialEndsAtIso: trialEndsAt.toISOString(),
+      }),
     );
     return savedSubscription;
   }
@@ -845,7 +879,11 @@ export class BillingService {
     ]);
     if (!supportedEventTypes.has(normalizedEventType)) {
       this.logger.log(
-        `billing-service: webhook ignored provider=${input.provider} eventType=${normalizedEventType}`,
+        serializeStructuredLog({
+          event: 'billing_webhook_event_ignored',
+          provider: input.provider,
+          eventType: normalizedEventType,
+        }),
       );
       return;
     }
@@ -976,7 +1014,13 @@ export class BillingService {
         'Billing webhook processing failed',
       );
       this.logger.warn(
-        `billing-service: webhook processing failed provider=${provider} eventType=${eventType} externalEventId=${externalEventId} error=${event.errorMessage}`,
+        serializeStructuredLog({
+          event: 'billing_webhook_processing_failed',
+          provider,
+          eventType,
+          externalEventId,
+          error: event.errorMessage,
+        }),
       );
     }
 
@@ -1030,7 +1074,13 @@ export class BillingService {
     });
 
     this.logger.log(
-      `billing-service: recorded upgrade intent userId=${userId} from=${subscription.planCode} to=${normalizedTargetPlanCode}`,
+      serializeStructuredLog({
+        event: 'billing_upgrade_intent_recorded',
+        userId,
+        currentPlanCode: subscription.planCode,
+        targetPlanCode: normalizedTargetPlanCode,
+        hasNote: Boolean(normalizedNote),
+      }),
     );
 
     return {
