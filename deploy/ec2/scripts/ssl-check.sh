@@ -52,7 +52,11 @@ log_info "Active compose file: $(get_compose_file)"
 
 log_info "Checking TLS certificate for domain: ${DOMAIN}"
 
-cert_text="$(echo | openssl s_client -servername "${DOMAIN}" -connect "${DOMAIN}:443" 2>/dev/null | openssl x509 -noout -subject -issuer -dates || true)"
+cert_text="$(
+  echo |
+    openssl s_client -servername "${DOMAIN}" -connect "${DOMAIN}:443" 2>/dev/null |
+    openssl x509 -noout -subject -issuer -dates 2>/dev/null || true
+)"
 if [[ -z "${cert_text}" ]]; then
   log_error "Unable to read certificate from ${DOMAIN}:443"
   exit 1
