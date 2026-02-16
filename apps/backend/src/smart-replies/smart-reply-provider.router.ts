@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { SmartReplyAnthropicAdapter } from './smart-reply-anthropic.adapter';
 import { SmartReplyExternalModelAdapter } from './smart-reply-external-model.adapter';
 import { SmartReplyModelProvider } from './smart-reply-model.provider';
 import { SmartReplyOpenAiAdapter } from './smart-reply-openai.adapter';
@@ -8,9 +9,10 @@ type SmartReplyProviderMode =
   | 'template'
   | 'agent_platform'
   | 'openai'
+  | 'anthropic'
   | 'hybrid';
 
-type RoutedProvider = 'openai' | 'external';
+type RoutedProvider = 'openai' | 'anthropic' | 'external';
 
 @Injectable()
 export class SmartReplyProviderRouter {
@@ -19,6 +21,7 @@ export class SmartReplyProviderRouter {
   constructor(
     private readonly templateProvider: SmartReplyModelProvider,
     private readonly openAiProvider: SmartReplyOpenAiAdapter,
+    private readonly anthropicProvider: SmartReplyAnthropicAdapter,
     private readonly externalProvider: SmartReplyExternalModelAdapter,
   ) {}
 
@@ -29,6 +32,7 @@ export class SmartReplyProviderRouter {
     if (normalized === 'template') return 'template';
     if (normalized === 'agent_platform') return 'agent_platform';
     if (normalized === 'openai') return 'openai';
+    if (normalized === 'anthropic') return 'anthropic';
     if (normalized === 'hybrid') return 'hybrid';
 
     this.logger.warn(
@@ -44,6 +48,21 @@ export class SmartReplyProviderRouter {
     return ['accurate', 'advanced'].includes(normalized);
   }
 
+  private resolveHybridProviderPriority(): RoutedProvider[] {
+    const normalizedPrimary = String(
+      process.env.SMART_REPLY_HYBRID_PRIMARY || 'openai',
+    )
+      .trim()
+      .toLowerCase();
+    if (normalizedPrimary === 'anthropic') {
+      return ['anthropic', 'openai', 'external'];
+    }
+    if (normalizedPrimary === 'agent_platform') {
+      return ['external', 'openai', 'anthropic'];
+    }
+    return ['openai', 'anthropic', 'external'];
+  }
+
   private shouldTryExternalProvider(input: {
     aiModel?: string | null;
   }): RoutedProvider[] {
@@ -51,8 +70,9 @@ export class SmartReplyProviderRouter {
     if (mode === 'template') return [];
     if (mode === 'agent_platform') return ['external'];
     if (mode === 'openai') return ['openai'];
+    if (mode === 'anthropic') return ['anthropic'];
     if (!this.shouldPreferExternalByModel(input.aiModel)) return [];
-    return ['openai', 'external'];
+    return this.resolveHybridProviderPriority();
   }
 
   private async runProvider(
@@ -62,6 +82,9 @@ export class SmartReplyProviderRouter {
     if (provider === 'openai') {
       return this.openAiProvider.generateSuggestions(request);
     }
+    if (provider === 'anthropic') {
+      return this.anthropicProvider.generateSuggestions(request);
+    }
     return this.externalProvider.generateSuggestions(request);
   }
 
@@ -70,7 +93,7 @@ export class SmartReplyProviderRouter {
     request: SmartReplyProviderRequest;
   }): Promise<{
     suggestions: string[];
-    source: 'external' | 'internal' | 'openai';
+    source: 'external' | 'internal' | 'openai' | 'anthropic';
     fallbackUsed: boolean;
   }> {
     const routedProviders = this.shouldTryExternalProvider({
@@ -80,7 +103,12 @@ export class SmartReplyProviderRouter {
       const provider = routedProviders[index];
       const suggestions = await this.runProvider(provider, input.request);
       if (suggestions.length) {
-        const source = provider === 'openai' ? 'openai' : 'external';
+        const source =
+          provider === 'openai'
+            ? 'openai'
+            : provider === 'anthropic'
+              ? 'anthropic'
+              : 'external';
         const fallbackUsed = index > 0;
         this.logger.debug(
           `smart-reply-provider-router: selected source=${source} suggestions=${suggestions.length} fallbackUsed=${fallbackUsed}`,

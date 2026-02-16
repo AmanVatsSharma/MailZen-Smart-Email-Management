@@ -20,6 +20,7 @@ The Smart Replies module follows a clean architecture pattern with the following
 - **SmartReplyService**: Core business logic for generating replies
 - **SmartReplyModelProvider**: Deterministic model-provider abstraction used by service
 - **SmartReplyOpenAiAdapter**: Optional OpenAI chat-completions adapter
+- **SmartReplyAnthropicAdapter**: Optional Anthropic messages adapter
 - **SmartReplyExternalModelAdapter**: Optional external LLM adapter with safe fallback
 - **SmartReplyProviderRouter**: Configurable provider interface/router selecting
   template vs external generation strategy
@@ -40,10 +41,14 @@ flowchart TD
   Safety -->|yes| SafeReply[Return safe security response]
   Safety -->|no| ProviderRouter[SmartReplyProviderRouter]
   ProviderRouter -->|openai path| OpenAIAdapter[SmartReplyOpenAiAdapter]
+  ProviderRouter -->|anthropic path| AnthropicAdapter[SmartReplyAnthropicAdapter]
   ProviderRouter -->|external path| ExternalAdapter[SmartReplyExternalModelAdapter]
   ProviderRouter -->|template path| ModelProvider[SmartReplyModelProvider]
+  OpenAIAdapter -->|fallback| AnthropicAdapter
+  AnthropicAdapter -->|fallback| ExternalAdapter
   OpenAIAdapter -->|fallback| ExternalAdapter
   OpenAIAdapter --> Suggestions[Normalized suggestion list]
+  AnthropicAdapter --> Suggestions[Normalized suggestion list]
   ExternalAdapter -->|fallback| ModelProvider
   ExternalAdapter --> Suggestions[Normalized suggestion list]
   ModelProvider --> Suggestions
@@ -62,7 +67,14 @@ flowchart TD
 - `SMART_REPLY_OPENAI_MODEL` (default `gpt-4o-mini`)
 - `SMART_REPLY_OPENAI_BASE_URL` (default `https://api.openai.com/v1`)
 - `SMART_REPLY_OPENAI_TIMEOUT_MS` (default `4500`)
-- `SMART_REPLY_PROVIDER_MODE` (`hybrid|template|agent_platform|openai`, default `hybrid`)
+- `SMART_REPLY_USE_ANTHROPIC` (`true/false`, default `false`)
+- `SMART_REPLY_ANTHROPIC_API_KEY` (required when `SMART_REPLY_USE_ANTHROPIC=true`)
+- `SMART_REPLY_ANTHROPIC_MODEL` (default `claude-3-5-haiku-latest`)
+- `SMART_REPLY_ANTHROPIC_BASE_URL` (default `https://api.anthropic.com/v1`)
+- `SMART_REPLY_ANTHROPIC_TIMEOUT_MS` (default `4500`)
+- `SMART_REPLY_ANTHROPIC_MAX_TOKENS` (default `320`)
+- `SMART_REPLY_HYBRID_PRIMARY` (`openai|anthropic|agent_platform`, default `openai`)
+- `SMART_REPLY_PROVIDER_MODE` (`hybrid|template|agent_platform|openai|anthropic`, default `hybrid`)
 - `SMART_REPLY_EXTERNAL_TIMEOUT_MS` (default `3000`)
 - `MAILZEN_SMART_REPLY_HISTORY_AUTOPURGE_ENABLED` (`true/false`, default `true`)
 - `MAILZEN_SMART_REPLY_HISTORY_RETENTION_DAYS` (default `365`, clamped `1..3650`)
@@ -195,7 +207,7 @@ export class EmailService {
 
 ## Future Enhancements
 
-- Additional LLM adapters (Anthropic/Azure OpenAI) behind provider interface
+- Additional LLM adapters (Azure OpenAI / self-hosted models) behind provider interface
 - User feedback mechanism to improve reply quality
 - Personalization based on user communication style
 - Multi-language support

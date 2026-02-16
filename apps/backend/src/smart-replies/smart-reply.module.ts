@@ -8,6 +8,7 @@ import { SmartReplyHistory } from './entities/smart-reply-history.entity';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
 import { SmartReplyModelProvider } from './smart-reply-model.provider';
 import { SmartReplyProviderRouter } from './smart-reply-provider.router';
+import { SmartReplyAnthropicAdapter } from './smart-reply-anthropic.adapter';
 import { SmartReplyOpenAiAdapter } from './smart-reply-openai.adapter';
 
 @Module({
@@ -18,6 +19,7 @@ import { SmartReplyOpenAiAdapter } from './smart-reply-openai.adapter';
     SmartReplyRetentionScheduler,
     SmartReplyModelProvider,
     SmartReplyOpenAiAdapter,
+    SmartReplyAnthropicAdapter,
     SmartReplyExternalModelAdapter,
     SmartReplyProviderRouter,
   ],
