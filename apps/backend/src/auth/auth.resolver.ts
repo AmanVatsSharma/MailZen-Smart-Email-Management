@@ -225,10 +225,13 @@ export class AuthResolver {
       'PASSWORD_RESET',
     );
     const hashed = await bcrypt.hash(input.newPassword, 12);
-    await this.userRepo.update({ id: userId }, {
-      password: hashed,
-      passwordUpdatedAt: new Date(),
-    } as any);
+    await this.userRepo.update(
+      { id: userId },
+      {
+        password: hashed,
+        passwordUpdatedAt: new Date(),
+      },
+    );
     return true;
   }
 
@@ -238,9 +241,12 @@ export class AuthResolver {
       input.token,
       'EMAIL_VERIFY',
     );
-    await this.userRepo.update({ id: userId }, {
-      isEmailVerified: true,
-    } as any);
+    await this.userRepo.update(
+      { id: userId },
+      {
+        isEmailVerified: true,
+      },
+    );
     return true;
   }
 
