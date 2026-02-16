@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { AuditLog } from '../auth/entities/audit-log.entity';
@@ -442,6 +442,50 @@ export class SmartReplyService {
       generatedAtIso,
       dataJson,
     };
+  }
+
+  async exportSmartReplyDataForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+    limit?: number;
+  }): Promise<{ generatedAtIso: string; dataJson: string }> {
+    const targetUserId = String(input.targetUserId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!targetUserId) {
+      throw new BadRequestException('Target user id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'smart_reply_data_export_admin_start',
+        actorUserId,
+        targetUserId,
+      }),
+    );
+    const exportPayload = await this.exportSmartReplyData(
+      targetUserId,
+      input.limit,
+    );
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'smart_reply_data_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        generatedAtIso: exportPayload.generatedAtIso,
+        selfRequested: actorUserId === targetUserId,
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'smart_reply_data_export_admin_completed',
+        actorUserId,
+        targetUserId,
+      }),
+    );
+    return exportPayload;
   }
 
   getProviderHealthSummary(): {

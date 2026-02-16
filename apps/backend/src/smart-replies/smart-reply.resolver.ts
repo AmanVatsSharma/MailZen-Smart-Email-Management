@@ -1,5 +1,6 @@
 import { Resolver, Query, Args, Int, Context, Mutation } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
+import { AdminGuard } from '../common/guards/admin.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { SmartReplyService } from './smart-reply.service';
 import { SmartReplyDataExportResponse } from './entities/smart-reply-data-export.response';
@@ -101,6 +102,23 @@ export class SmartReplyResolver {
       context.req.user.id,
       limit,
     );
+  }
+
+  @Query(() => SmartReplyDataExportResponse, {
+    description:
+      'Admin export smart reply settings/history for target user legal/compliance workflows',
+  })
+  @UseGuards(AdminGuard)
+  async userSmartReplyDataExport(
+    @Args('userId') userId: string,
+    @Args('limit', { type: () => Int, defaultValue: 200 }) limit: number,
+    @Context() context: RequestContext,
+  ): Promise<SmartReplyDataExportResponse> {
+    return this.smartReplyService.exportSmartReplyDataForAdmin({
+      targetUserId: userId,
+      actorUserId: context.req.user.id,
+      limit,
+    });
   }
 
   @Query(() => SmartReplyProviderHealthResponse, {

@@ -111,6 +111,8 @@ flowchart TD
   - `smart_reply_history_persist_failed`
   - `smart_reply_audit_log_write_failed`
   - `smart_reply_retention_scheduler_audit_log_write_failed`
+  - `smart_reply_data_export_admin_start`
+  - `smart_reply_data_export_admin_completed`
 - Provider router events:
   - `smart_reply_provider_mode_invalid_fallback`
   - `smart_reply_provider_selected`
@@ -137,6 +139,7 @@ flowchart TD
   - `smart_reply_settings_updated`
   - `smart_reply_history_purged`
   - `smart_reply_data_export_requested`
+  - `smart_reply_data_export_requested_by_admin`
   - `smart_reply_retention_autopurge_started`
   - `smart_reply_retention_autopurge_completed`
   - `smart_reply_retention_autopurge_failed`
@@ -216,6 +219,19 @@ query {
 ```
 
 Returns a JSON snapshot containing settings, retention policy, and recent history rows.
+
+#### User Smart Reply Data Export (Admin)
+
+```graphql
+query {
+  userSmartReplyDataExport(userId: "user-123", limit: 200) {
+    generatedAtIso
+    dataJson
+  }
+}
+```
+
+Returns a target-user JSON snapshot for admin legal/compliance requests.
 
 #### My Smart Reply Provider Health
 

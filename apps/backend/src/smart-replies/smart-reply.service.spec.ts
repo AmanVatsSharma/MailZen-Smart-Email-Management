@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { BadRequestException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DeleteResult, Repository } from 'typeorm';
@@ -418,6 +419,94 @@ describe('SmartReplyService', () => {
         action: 'smart_reply_data_export_requested',
       }),
     );
+  });
+
+  it('exports smart reply settings/history payload for admin legal request', async () => {
+    settingsRepo.findOne.mockResolvedValue({
+      id: 'settings-2',
+      userId: 'user-2',
+      enabled: true,
+      defaultTone: 'professional',
+      defaultLength: 'medium',
+      aiModel: 'balanced',
+      includeSignature: true,
+      personalization: 80,
+      creativityLevel: 45,
+      maxSuggestions: 3,
+      customInstructions: 'Keep it concise',
+      keepHistory: true,
+      historyLength: 30,
+    } as SmartReplySettings);
+    historyRepo.find.mockResolvedValue([]);
+
+    const result = await service.exportSmartReplyDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      limit: 250,
+    });
+    const parsedPayload: unknown = JSON.parse(result.dataJson);
+    const payload = parsedPayload as {
+      settings: { keepHistory: boolean };
+      history: unknown[];
+    };
+
+    expect(payload.settings.keepHistory).toBe(true);
+    expect(payload.history).toEqual([]);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+        action: 'smart_reply_data_export_requested',
+      }),
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'smart_reply_data_export_requested_by_admin',
+        metadata: expect.objectContaining({
+          targetUserId: 'user-2',
+        }),
+      }),
+    );
+  });
+
+  it('does not fail admin smart reply export when admin audit write fails', async () => {
+    settingsRepo.findOne.mockResolvedValue({
+      id: 'settings-2',
+      userId: 'user-2',
+      enabled: true,
+      defaultTone: 'professional',
+      defaultLength: 'medium',
+      aiModel: 'balanced',
+      includeSignature: true,
+      personalization: 80,
+      creativityLevel: 45,
+      maxSuggestions: 3,
+      customInstructions: 'Keep it concise',
+      keepHistory: true,
+      historyLength: 30,
+    } as SmartReplySettings);
+    historyRepo.find.mockResolvedValue([]);
+    auditLogRepo.save
+      .mockResolvedValueOnce({} as AuditLog)
+      .mockRejectedValueOnce(new Error('audit unavailable'));
+
+    const result = await service.exportSmartReplyDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      limit: 10,
+    });
+
+    expect(result.generatedAtIso).toBeTruthy();
+    expect(result.dataJson).toContain('"settings"');
+  });
+
+  it('rejects admin smart reply export when actor user id is missing', async () => {
+    await expect(
+      service.exportSmartReplyDataForAdmin({
+        targetUserId: 'user-2',
+        actorUserId: '',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('does not fail when audit log writes fail', async () => {

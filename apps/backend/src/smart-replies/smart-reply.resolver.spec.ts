@@ -40,6 +40,10 @@ describe('SmartReplyResolver', () => {
       generatedAtIso: '2026-02-16T00:00:00.000Z',
       dataJson: '{"ok":true}',
     }),
+    exportSmartReplyDataForAdmin: jest.fn().mockResolvedValue({
+      generatedAtIso: '2026-02-16T00:30:00.000Z',
+      dataJson: '{"ok":true}',
+    }),
     getProviderHealthSummary: jest.fn().mockResolvedValue({
       mode: 'hybrid',
       hybridPrimary: 'openai',
@@ -195,6 +199,26 @@ describe('SmartReplyResolver', () => {
         'user-1',
         150,
       );
+    });
+
+    it('should export smart reply data for target user as admin', async () => {
+      const context = { req: { user: { id: 'admin-1' } } };
+
+      await expect(
+        resolver.userSmartReplyDataExport('user-2', 120, context as any),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          generatedAtIso: '2026-02-16T00:30:00.000Z',
+          dataJson: '{"ok":true}',
+        }),
+      );
+      expect(
+        mockSmartReplyService.exportSmartReplyDataForAdmin,
+      ).toHaveBeenCalledWith({
+        targetUserId: 'user-2',
+        actorUserId: 'admin-1',
+        limit: 120,
+      });
     });
 
     it('should return provider health summary', async () => {
