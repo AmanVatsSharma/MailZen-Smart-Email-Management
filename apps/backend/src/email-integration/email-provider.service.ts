@@ -56,6 +56,8 @@ export class EmailProviderService {
   private static readonly DEFAULT_PROVIDER_SYNC_ALERT_HISTORY_LIMIT = 100;
   private static readonly MIN_PROVIDER_SYNC_ALERT_HISTORY_LIMIT = 1;
   private static readonly MAX_PROVIDER_SYNC_ALERT_HISTORY_LIMIT = 500;
+  private static readonly PROVIDER_SECRET_V2_PREFIX = 'enc:v2:';
+  private static readonly PROVIDER_SECRET_V1_PREFIX = 'enc:v1:';
   private readonly googleOAuth2Client: OAuth2Client;
   private readonly providerSecretsKeyring: ProviderSecretsKeyring;
   private readonly smtpConnectionPool: SmtpConnectionPool = {};
@@ -108,6 +110,96 @@ export class EmailProviderService {
     return decryptProviderSecret(secret, this.providerSecretsKeyring);
   }
 
+  private resolveEncryptedSecretKeyId(secret: string): string | null {
+    if (!secret.startsWith(EmailProviderService.PROVIDER_SECRET_V2_PREFIX)) {
+      return null;
+    }
+    const payload = secret.slice(
+      EmailProviderService.PROVIDER_SECRET_V2_PREFIX.length,
+    );
+    const [keyId] = payload.split(':');
+    const normalizedKeyId = String(keyId || '').trim();
+    return normalizedKeyId || null;
+  }
+
+  private resolveSecretFieldSource(secret: string): string {
+    if (secret.startsWith(EmailProviderService.PROVIDER_SECRET_V1_PREFIX)) {
+      return 'enc:v1';
+    }
+    if (secret.startsWith(EmailProviderService.PROVIDER_SECRET_V2_PREFIX)) {
+      const keyId = this.resolveEncryptedSecretKeyId(secret);
+      return keyId ? `enc:v2:${keyId}` : 'enc:v2:unknown';
+    }
+    return 'plaintext';
+  }
+
+  private async persistRotatedSecretField(
+    providerId: string,
+    field: 'accessToken' | 'refreshToken' | 'password',
+    encryptedSecret: string,
+  ): Promise<void> {
+    if (field === 'accessToken') {
+      await this.providerRepository.update(providerId, {
+        accessToken: encryptedSecret,
+      });
+      return;
+    }
+    if (field === 'refreshToken') {
+      await this.providerRepository.update(providerId, {
+        refreshToken: encryptedSecret,
+      });
+      return;
+    }
+    await this.providerRepository.update(providerId, {
+      password: encryptedSecret,
+    });
+  }
+
+  private async rotateProviderSecretFieldIfNeeded(
+    provider: EmailProvider,
+    field: 'accessToken' | 'refreshToken' | 'password',
+  ): Promise<void> {
+    const secret = provider[field];
+    if (!secret) return;
+
+    const encryptedKeyId = this.resolveEncryptedSecretKeyId(secret);
+    const alreadyEncryptedWithActiveKey =
+      encryptedKeyId === this.providerSecretsKeyring.activeKeyId;
+    if (alreadyEncryptedWithActiveKey) return;
+
+    const sourceEncoding = this.resolveSecretFieldSource(secret);
+    const decryptedSecret = this.decryptSecretIfPresent(secret);
+    if (!decryptedSecret) return;
+
+    const rotatedSecret = encryptProviderSecret(
+      decryptedSecret,
+      this.providerSecretsKeyring,
+    );
+    if (rotatedSecret === secret) return;
+
+    await this.persistRotatedSecretField(provider.id, field, rotatedSecret);
+    provider[field] = rotatedSecret;
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'provider_secret_rotated_to_active_key',
+        providerId: provider.id,
+        userId: provider.userId,
+        field,
+        sourceEncoding,
+        activeKeyId: this.providerSecretsKeyring.activeKeyId,
+      }),
+    );
+  }
+
+  private async rotateProviderSecretsIfNeeded(
+    provider: EmailProvider,
+    fields: Array<'accessToken' | 'refreshToken' | 'password'>,
+  ): Promise<void> {
+    for (const field of fields) {
+      await this.rotateProviderSecretFieldIfNeeded(provider, field);
+    }
+  }
+
   /**
    * Returns a valid access token for OAuth providers.
    * If token is near expiry, refreshes it.
@@ -123,6 +215,10 @@ export class EmailProviderService {
     });
     if (!provider) throw new NotFoundException('Provider not found');
     if (!['GMAIL', 'OUTLOOK'].includes(provider.type)) return null;
+    await this.rotateProviderSecretsIfNeeded(provider, [
+      'accessToken',
+      'refreshToken',
+    ]);
 
     // Refresh if expiring soon (within 5 minutes)
     if (provider.tokenExpiry) {
@@ -1267,12 +1363,14 @@ export class EmailProviderService {
     const normalizedWindowHours = this.normalizeSyncStatsWindowHours(
       input.windowHours,
     );
-    const notifications = await this.listProviderSyncIncidentAlertNotifications({
-      userId: input.userId,
-      workspaceId: normalizedWorkspaceId || null,
-      windowHours: normalizedWindowHours,
-      order: 'ASC',
-    });
+    const notifications = await this.listProviderSyncIncidentAlertNotifications(
+      {
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId || null,
+        windowHours: normalizedWindowHours,
+        order: 'ASC',
+      },
+    );
     let warningAlerts = 0;
     let criticalAlerts = 0;
     for (const notification of notifications) {
@@ -1311,12 +1409,14 @@ export class EmailProviderService {
     );
     const normalizedBucketMinutes =
       this.normalizeProviderSyncAlertBucketMinutes(input.bucketMinutes);
-    const notifications = await this.listProviderSyncIncidentAlertNotifications({
-      userId: input.userId,
-      workspaceId: input.workspaceId,
-      windowHours: normalizedWindowHours,
-      order: 'ASC',
-    });
+    const notifications = await this.listProviderSyncIncidentAlertNotifications(
+      {
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+        windowHours: normalizedWindowHours,
+        order: 'ASC',
+      },
+    );
     const bucketSizeMs = normalizedBucketMinutes * 60 * 1000;
     const nowMs = Date.now();
     const windowStartDate = new Date(
@@ -1390,13 +1490,15 @@ export class EmailProviderService {
     const normalizedLimit = this.normalizeProviderSyncAlertHistoryLimit(
       input.limit,
     );
-    const notifications = await this.listProviderSyncIncidentAlertNotifications({
-      userId: input.userId,
-      workspaceId: input.workspaceId,
-      windowHours: input.windowHours,
-      order: 'DESC',
-      limit: normalizedLimit,
-    });
+    const notifications = await this.listProviderSyncIncidentAlertNotifications(
+      {
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+        windowHours: input.windowHours,
+        order: 'DESC',
+        limit: normalizedLimit,
+      },
+    );
     return notifications.map((notification) => ({
       notificationId: notification.id,
       workspaceId: notification.workspaceId || null,
@@ -1956,6 +2058,18 @@ export class EmailProviderService {
     }
 
     // If not in cache, check if we need to refresh OAuth token
+    if (['GMAIL', 'OUTLOOK'].includes(provider.type)) {
+      await this.rotateProviderSecretsIfNeeded(provider as EmailProvider, [
+        'accessToken',
+        'refreshToken',
+      ]);
+    }
+    if (provider.type === 'CUSTOM_SMTP') {
+      await this.rotateProviderSecretsIfNeeded(provider as EmailProvider, [
+        'password',
+      ]);
+    }
+
     if (['GMAIL', 'OUTLOOK'].includes(provider.type) && provider.tokenExpiry) {
       const now = new Date();
       const expiry = new Date(provider.tokenExpiry);
@@ -2037,6 +2151,9 @@ export class EmailProviderService {
 
   private async refreshOAuthToken(provider: any) {
     try {
+      await this.rotateProviderSecretsIfNeeded(provider as EmailProvider, [
+        'refreshToken',
+      ]);
       const decryptedRefreshToken = this.decryptSecretIfPresent(
         provider.refreshToken,
       );

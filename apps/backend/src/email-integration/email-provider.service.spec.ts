@@ -16,6 +16,10 @@ import { NotificationEventBusService } from '../notification/notification-event-
 import { UserNotification } from '../notification/entities/user-notification.entity';
 import { OutlookSyncService } from '../outlook-sync/outlook-sync.service';
 import { WorkspaceService } from '../workspace/workspace.service';
+import {
+  encryptProviderSecret,
+  ProviderSecretsKeyring,
+} from '../common/provider-secrets.util';
 import { EmailProviderInput } from './dto/email-provider.input';
 import { EmailProvider } from './entities/email-provider.entity';
 import { EmailProviderService } from './email-provider.service';
@@ -40,6 +44,10 @@ jest.mock('google-auth-library', () => ({
 }));
 
 describe('EmailProviderService', () => {
+  const envBackup = {
+    providerSecretsKeyring: process.env.PROVIDER_SECRETS_KEYRING,
+    providerSecretsActiveKeyId: process.env.PROVIDER_SECRETS_ACTIVE_KEY_ID,
+  };
   let service: EmailProviderService;
   let providerRepository: jest.Mocked<Repository<EmailProvider>>;
   let notificationRepository: jest.Mocked<Repository<UserNotification>>;
@@ -73,6 +81,11 @@ describe('EmailProviderService', () => {
   };
 
   beforeEach(async () => {
+    process.env.PROVIDER_SECRETS_KEYRING = [
+      'k-old:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      'k-new:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    ].join(',');
+    process.env.PROVIDER_SECRETS_ACTIVE_KEY_ID = 'k-new';
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     jest.spyOn(global, 'setInterval').mockImplementation((() => 0) as any);
 
@@ -115,6 +128,9 @@ describe('EmailProviderService', () => {
   });
 
   afterEach(() => {
+    process.env.PROVIDER_SECRETS_KEYRING = envBackup.providerSecretsKeyring;
+    process.env.PROVIDER_SECRETS_ACTIVE_KEY_ID =
+      envBackup.providerSecretsActiveKeyId;
     jest.clearAllMocks();
     jest.restoreAllMocks();
   });
@@ -280,6 +296,71 @@ describe('EmailProviderService', () => {
         host: 'smtp.example.com',
         port: 587,
         pool: true,
+      }),
+    );
+  });
+
+  it('rotates stale OAuth secrets to active key during token fetch', async () => {
+    const oldKeyring: ProviderSecretsKeyring = {
+      activeKeyId: 'k-old',
+      activeKey: Buffer.from('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'utf8'),
+      keysById: new Map([
+        ['k-old', Buffer.from('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'utf8')],
+      ]),
+    };
+    const provider = {
+      id: 'provider-rotation',
+      type: 'GMAIL',
+      userId: 'user-1',
+      accessToken: encryptProviderSecret('legacy-access', oldKeyring),
+      refreshToken: encryptProviderSecret('legacy-refresh', oldKeyring),
+    } as EmailProvider;
+    providerRepository.findOne
+      .mockResolvedValueOnce(provider)
+      .mockResolvedValueOnce(provider);
+
+    const token = await service.getValidAccessToken(
+      'provider-rotation',
+      'user-1',
+    );
+
+    expect(token).toBe('legacy-access');
+    expect(providerRepository.update).toHaveBeenCalledWith(
+      'provider-rotation',
+      expect.objectContaining({
+        accessToken: expect.stringMatching(/^enc:v2:k-new:/),
+      }),
+    );
+    expect(providerRepository.update).toHaveBeenCalledWith(
+      'provider-rotation',
+      expect.objectContaining({
+        refreshToken: expect.stringMatching(/^enc:v2:k-new:/),
+      }),
+    );
+  });
+
+  it('rotates plaintext SMTP password before transporter creation', async () => {
+    await service.getTransporter({
+      id: 'provider-plain-secret',
+      type: 'CUSTOM_SMTP',
+      userId: 'user-1',
+      email: 'ops@example.com',
+      host: 'smtp.example.com',
+      port: 587,
+      password: 'plaintext-password',
+    } as EmailProvider);
+
+    expect(providerRepository.update).toHaveBeenCalledWith(
+      'provider-plain-secret',
+      expect.objectContaining({
+        password: expect.stringMatching(/^enc:v2:k-new:/),
+      }),
+    );
+    expect(createTransport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        auth: expect.objectContaining({
+          pass: 'plaintext-password',
+        }),
       }),
     );
   });

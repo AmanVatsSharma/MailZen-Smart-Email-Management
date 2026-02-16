@@ -390,8 +390,20 @@ The module provides detailed error responses with appropriate HTTP status codes:
   - `PROVIDER_SECRETS_KEYRING`
   - `PROVIDER_SECRETS_ACTIVE_KEY_ID`
     while maintaining backward compatibility for legacy `enc:v1` encrypted rows.
+- Runtime lazy-rotation rewrites stale/plaintext provider secrets to the active
+  key on read paths (`getValidAccessToken`, `getTransporter`, OAuth refresh).
+  Structured event: `provider_secret_rotated_to_active_key`.
 - All endpoints are protected with JWT authentication
 - User-based access control ensures users can only access their own providers
+
+## Credential rotation runbook
+
+1. Add a new key entry to `PROVIDER_SECRETS_KEYRING` while keeping old entries.
+2. Set `PROVIDER_SECRETS_ACTIVE_KEY_ID` to the new key id.
+3. Roll restart backend instances.
+4. Monitor logs for `provider_secret_rotated_to_active_key`.
+5. After all active provider rows have rotated, remove retired key ids from
+   `PROVIDER_SECRETS_KEYRING`.
 
 ## Integration with Other Modules
 

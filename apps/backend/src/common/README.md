@@ -136,3 +136,12 @@ Provider/mailbox secret encryption supports keyring-based rotation:
   - legacy `enc:v1` payloads
   - key-id tagged `enc:v2` payloads
   across all configured keys in the keyring.
+- read paths in `EmailProviderService` lazily rewrite stale/plaintext secrets to
+  the active key and emit `provider_secret_rotated_to_active_key`.
+
+Rotation runbook:
+1. Add new key to `PROVIDER_SECRETS_KEYRING` (keep old keys temporarily).
+2. Switch `PROVIDER_SECRETS_ACTIVE_KEY_ID` to the new key.
+3. Roll restart backend.
+4. Watch logs for `provider_secret_rotated_to_active_key`.
+5. Remove old keys after rotation coverage is complete.
