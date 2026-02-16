@@ -25,6 +25,8 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 AUTO_CONFIRM=false
 DRY_RUN=false
 KEYS_RAW=""
+KEYS_FLAG_SET=false
+KEYS_FLAG_VALUE=""
 SUPPORTED_KEYS=(
   JWT_SECRET
   OAUTH_STATE_SECRET
@@ -43,11 +45,17 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --keys)
-    KEYS_RAW="${2:-}"
-    if [[ -z "${KEYS_RAW}" ]]; then
+    keys_arg="${2:-}"
+    if [[ -z "${keys_arg}" ]]; then
       log_error "--keys requires a comma-separated value."
       exit 1
     fi
+    if [[ "${KEYS_FLAG_SET}" == true ]] && [[ "${keys_arg}" != "${KEYS_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --keys '${KEYS_FLAG_VALUE}' overridden by --keys '${keys_arg}'."
+    fi
+    KEYS_RAW="${keys_arg}"
+    KEYS_FLAG_SET=true
+    KEYS_FLAG_VALUE="${keys_arg}"
     shift 2
     ;;
   *)
@@ -57,6 +65,10 @@ while [[ $# -gt 0 ]]; do
     ;;
   esac
 done
+
+if [[ "${DRY_RUN}" == true ]] && [[ "${AUTO_CONFIRM}" == true ]]; then
+  log_warn "--yes has no effect in --dry-run mode."
+fi
 
 if [[ -n "${KEYS_RAW}" ]]; then
   TARGET_KEYS=()
