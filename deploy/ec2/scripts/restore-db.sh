@@ -49,6 +49,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ "${DRY_RUN}" == true ]] && [[ "${ASSUME_YES}" == true ]]; then
+  log_warn "--yes has no effect in --dry-run mode."
+fi
+
 if [[ -z "${BACKUP_FILE}" ]]; then
   log_error "Usage: ./deploy/ec2/scripts/restore-db.sh [--yes] [--dry-run] <backup-file.sql.gz>"
   exit 1

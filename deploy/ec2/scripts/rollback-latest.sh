@@ -21,6 +21,8 @@ RESTORE_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/restore-db.sh"
 ASSUME_YES=false
 DRY_RUN=false
 LABEL_FILTER=""
+LABEL_FLAG_SET=false
+LABEL_FLAG_VALUE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -33,11 +35,17 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --label)
-    LABEL_FILTER="${2:-}"
-    if [[ -z "${LABEL_FILTER}" ]]; then
+    label_arg="${2:-}"
+    if [[ -z "${label_arg}" ]]; then
       log_error "--label requires a value."
       exit 1
     fi
+    if [[ "${LABEL_FLAG_SET}" == true ]] && [[ "${label_arg}" != "${LABEL_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --label '${LABEL_FLAG_VALUE}' overridden by --label '${label_arg}'."
+    fi
+    LABEL_FILTER="${label_arg}"
+    LABEL_FLAG_SET=true
+    LABEL_FLAG_VALUE="${label_arg}"
     shift 2
     ;;
   *)
@@ -47,6 +55,10 @@ while [[ $# -gt 0 ]]; do
     ;;
   esac
 done
+
+if [[ "${DRY_RUN}" == true ]] && [[ "${ASSUME_YES}" == true ]]; then
+  log_warn "--yes has no effect in --dry-run mode."
+fi
 
 log_info "Active env file: $(get_env_file)"
 log_info "Active compose file: $(get_compose_file)"
