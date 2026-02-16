@@ -75,18 +75,18 @@ show_menu() {
 16) Host readiness check (disk/memory/cpu)
 17) Host ports check (custom ports)
 18) Environment audit (redacted)
-19) Run diagnostics report (doctor)
-20) Generate support bundle
+19) Run diagnostics report (doctor, optional custom ports)
+20) Generate support bundle (optional custom ports)
 21) Rotate app secrets (prompt keys/dry-run)
-22) Run pipeline check (config-only)
+22) Run pipeline check (config-only, optional custom ports)
 23) Prune old diagnostics reports (keep latest 20)
 24) Show command help
 25) Run script self-check
 26) Launch config-only dry-run validation
 27) Verify deployment (skip oauth + ssl checks)
-28) Run diagnostics report (doctor, seeded env)
-29) Generate support bundle (seeded env)
-30) Run pipeline check (seeded env)
+28) Run diagnostics report (doctor, seeded env, optional custom ports)
+29) Generate support bundle (seeded env, optional custom ports)
+30) Run pipeline check (seeded env, optional custom ports)
 31) Exit
 ===============================================================================
 MENU
@@ -204,10 +204,20 @@ while true; do
     run_step "env-audit.sh"
     ;;
   19)
-    run_step "doctor.sh"
+    doctor_args=()
+    doctor_ports="$(prompt_with_default "Custom ports-check targets for diagnostics (blank = default)" "")"
+    if [[ -n "${doctor_ports}" ]]; then
+      doctor_args+=(--ports-check-ports "${doctor_ports}")
+    fi
+    run_step "doctor.sh" "${doctor_args[@]}"
     ;;
   20)
-    run_step "support-bundle.sh"
+    support_bundle_args=()
+    support_ports="$(prompt_with_default "Custom ports-check targets for support bundle (blank = default)" "")"
+    if [[ -n "${support_ports}" ]]; then
+      support_bundle_args+=(--ports-check-ports "${support_ports}")
+    fi
+    run_step "support-bundle.sh" "${support_bundle_args[@]}"
     ;;
   21)
     rotate_args=()
@@ -224,7 +234,12 @@ while true; do
     run_step "rotate-app-secrets.sh" "${rotate_args[@]}"
     ;;
   22)
-    run_step "pipeline-check.sh"
+    pipeline_check_args=()
+    pipeline_ports="$(prompt_with_default "Custom ports-check targets for pipeline check (blank = default)" "")"
+    if [[ -n "${pipeline_ports}" ]]; then
+      pipeline_check_args+=(--ports-check-ports "${pipeline_ports}")
+    fi
+    run_step "pipeline-check.sh" "${pipeline_check_args[@]}"
     ;;
   23)
     reports_keep_count="$(prompt_with_default "Keep latest report artifacts count" "20")"
@@ -247,13 +262,28 @@ while true; do
     run_step "verify.sh" --skip-oauth-check --skip-ssl-check
     ;;
   28)
-    run_step "doctor.sh" --seed-env
+    doctor_seeded_args=(--seed-env)
+    doctor_seeded_ports="$(prompt_with_default "Custom ports-check targets for seeded diagnostics (blank = default)" "")"
+    if [[ -n "${doctor_seeded_ports}" ]]; then
+      doctor_seeded_args+=(--ports-check-ports "${doctor_seeded_ports}")
+    fi
+    run_step "doctor.sh" "${doctor_seeded_args[@]}"
     ;;
   29)
-    run_step "support-bundle.sh" --seed-env
+    support_seeded_args=(--seed-env)
+    support_seeded_ports="$(prompt_with_default "Custom ports-check targets for seeded support bundle (blank = default)" "")"
+    if [[ -n "${support_seeded_ports}" ]]; then
+      support_seeded_args+=(--ports-check-ports "${support_seeded_ports}")
+    fi
+    run_step "support-bundle.sh" "${support_seeded_args[@]}"
     ;;
   30)
-    run_step "pipeline-check.sh" --seed-env
+    pipeline_seeded_args=(--seed-env)
+    pipeline_seeded_ports="$(prompt_with_default "Custom ports-check targets for seeded pipeline check (blank = default)" "")"
+    if [[ -n "${pipeline_seeded_ports}" ]]; then
+      pipeline_seeded_args+=(--ports-check-ports "${pipeline_seeded_ports}")
+    fi
+    run_step "pipeline-check.sh" "${pipeline_seeded_args[@]}"
     ;;
   31)
     echo "[mailzen-deploy][INFO] Exiting menu."
