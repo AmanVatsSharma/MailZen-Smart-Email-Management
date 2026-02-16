@@ -11,9 +11,9 @@ DEPLOY_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # Advanced override hooks:
 # - MAILZEN_DEPLOY_ENV_FILE: custom env file path (useful for CI seeded checks)
 # - MAILZEN_DEPLOY_COMPOSE_FILE: custom compose file path
-COMPOSE_FILE="${MAILZEN_DEPLOY_COMPOSE_FILE:-${DEPLOY_DIR}/docker-compose.yml}"
+COMPOSE_FILE="${DEPLOY_DIR}/docker-compose.yml"
 ENV_TEMPLATE_FILE="${DEPLOY_DIR}/.env.ec2.example"
-ENV_FILE="${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}"
+ENV_FILE="${DEPLOY_DIR}/.env.ec2"
 KNOWN_SERVICES=(
   caddy
   frontend
@@ -22,6 +22,14 @@ KNOWN_SERVICES=(
   postgres
   redis
 )
+
+get_compose_file() {
+  echo "${MAILZEN_DEPLOY_COMPOSE_FILE:-${COMPOSE_FILE}}"
+}
+
+get_env_file() {
+  echo "${MAILZEN_DEPLOY_ENV_FILE:-${ENV_FILE}}"
+}
 
 log_info() {
   echo "[mailzen-deploy][INFO] $*"
@@ -44,33 +52,41 @@ require_cmd() {
 }
 
 ensure_required_files_exist() {
-  if [[ ! -f "${COMPOSE_FILE}" ]]; then
-    log_error "Compose file not found: ${COMPOSE_FILE}"
+  local active_compose_file
+  active_compose_file="$(get_compose_file)"
+  local active_env_file
+  active_env_file="$(get_env_file)"
+
+  if [[ ! -f "${active_compose_file}" ]]; then
+    log_error "Compose file not found: ${active_compose_file}"
     exit 1
   fi
-  if [[ ! -f "${ENV_FILE}" ]]; then
-    log_error "Environment file not found: ${ENV_FILE}"
+  if [[ ! -f "${active_env_file}" ]]; then
+    log_error "Environment file not found: ${active_env_file}"
     log_error "Run setup first: ./deploy/ec2/scripts/setup.sh"
     exit 1
   fi
 }
 
 ensure_env_file_from_template() {
-  if [[ -f "${ENV_FILE}" ]]; then
-    log_info "Using existing env file: ${ENV_FILE}"
+  local active_env_file
+  active_env_file="$(get_env_file)"
+
+  if [[ -f "${active_env_file}" ]]; then
+    log_info "Using existing env file: ${active_env_file}"
     return
   fi
   if [[ ! -f "${ENV_TEMPLATE_FILE}" ]]; then
     log_error "Env template missing: ${ENV_TEMPLATE_FILE}"
     exit 1
   fi
-  cp "${ENV_TEMPLATE_FILE}" "${ENV_FILE}"
-  log_info "Created env file from template: ${ENV_FILE}"
+  cp "${ENV_TEMPLATE_FILE}" "${active_env_file}"
+  log_info "Created env file from template: ${active_env_file}"
 }
 
 read_env_value() {
   local key="$1"
-  local file="${2:-${ENV_FILE}}"
+  local file="${2:-$(get_env_file)}"
   if [[ ! -f "${file}" ]]; then
     echo ""
     return
@@ -83,7 +99,7 @@ read_env_value() {
 upsert_env_value() {
   local key="$1"
   local value="$2"
-  local file="${3:-${ENV_FILE}}"
+  local file="${3:-$(get_env_file)}"
   local escaped_value
   escaped_value="$(printf '%s' "${value}" | sed -e 's/[\/&]/\\&/g')"
 
@@ -141,14 +157,20 @@ create_seeded_env_file() {
 }
 
 compose() {
-  docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" "$@"
+  local active_env_file
+  active_env_file="$(get_env_file)"
+  local active_compose_file
+  active_compose_file="$(get_compose_file)"
+  docker compose --env-file "${active_env_file}" -f "${active_compose_file}" "$@"
 }
 
 print_service_urls() {
   local domain
+  local active_env_file
+  active_env_file="$(get_env_file)"
   domain="$(read_env_value "MAILZEN_DOMAIN")"
   if [[ -z "${domain}" ]]; then
-    log_warn "MAILZEN_DOMAIN is empty in ${ENV_FILE}"
+    log_warn "MAILZEN_DOMAIN is empty in ${active_env_file}"
     return
   fi
   log_info "Frontend URL: https://${domain}"
@@ -170,9 +192,11 @@ is_placeholder_value() {
 assert_env_key_present() {
   local key="$1"
   local value
+  local active_env_file
+  active_env_file="$(get_env_file)"
   value="$(read_env_value "${key}")"
   if [[ -z "${value}" ]]; then
-    log_error "Missing required env key '${key}' in ${ENV_FILE}"
+    log_error "Missing required env key '${key}' in ${active_env_file}"
     return 1
   fi
   return 0

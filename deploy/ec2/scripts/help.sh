@@ -11,7 +11,8 @@ set -Eeuo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 domain="your-domain.example.com"
-if [[ -f "${ENV_FILE}" ]]; then
+active_env_file="$(get_env_file)"
+if [[ -f "${active_env_file}" ]]; then
   candidate_domain="$(read_env_value "MAILZEN_DOMAIN")"
   if [[ -n "${candidate_domain}" ]]; then
     domain="${candidate_domain}"

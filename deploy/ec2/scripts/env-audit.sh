@@ -12,6 +12,7 @@ set -Eeuo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 ensure_required_files_exist
+active_env_file="$(get_env_file)"
 
 critical_keys=(
   "MAILZEN_DOMAIN"
@@ -70,7 +71,7 @@ print_key_status() {
   fi
 }
 
-echo "[mailzen-deploy][ENV-AUDIT] Auditing critical environment keys (${ENV_FILE})"
+echo "[mailzen-deploy][ENV-AUDIT] Auditing critical environment keys (${active_env_file})"
 for key in "${critical_keys[@]}"; do
   print_key_status "${key}"
 done

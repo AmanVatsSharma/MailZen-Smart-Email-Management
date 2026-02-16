@@ -238,7 +238,7 @@ if [[ -z "${provider_keyring}" ]] || [[ "${provider_keyring}" == *"replace_with"
 fi
 
 log_info "Setup complete."
-log_info "Env file ready: ${ENV_FILE}"
+log_info "Env file ready: $(get_env_file)"
 validate_core_env
 print_service_urls
 log_info "Next step: ./deploy/ec2/scripts/deploy.sh"

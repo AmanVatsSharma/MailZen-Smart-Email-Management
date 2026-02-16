@@ -70,6 +70,6 @@ fi
 "${SCRIPT_DIR}/ports-check.sh"
 
 echo "[mailzen-deploy][PIPELINE-CHECK] rendering compose config..."
-docker compose --env-file "${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}" -f "${DEPLOY_DIR}/docker-compose.yml" config >/dev/null
+compose config >/dev/null
 
 echo "[mailzen-deploy][PIPELINE-CHECK] PASS"

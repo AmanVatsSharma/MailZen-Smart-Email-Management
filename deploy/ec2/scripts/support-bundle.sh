@@ -107,6 +107,8 @@ if [[ "${SEED_ENV}" == true ]]; then
 fi
 
 log_bundle "Using temporary work directory: ${WORK_DIR}"
+active_env_file="${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}"
+active_compose_file="${MAILZEN_DEPLOY_COMPOSE_FILE:-${DEPLOY_DIR}/docker-compose.yml}"
 
 run_capture "self-check" "\"${SCRIPT_DIR}/self-check.sh\""
 run_capture "env-audit" "\"${SCRIPT_DIR}/env-audit.sh\""
@@ -134,14 +136,14 @@ run_capture "status" "\"${SCRIPT_DIR}/status.sh\""
 
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   run_capture "docker-info" "docker info"
-  run_capture "compose-ps" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" ps"
-  run_capture "compose-config" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" config"
-  run_capture "logs-caddy" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 caddy"
-  run_capture "logs-frontend" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 frontend"
-  run_capture "logs-backend" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 backend"
-  run_capture "logs-ai-agent-platform" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 ai-agent-platform"
-  run_capture "logs-postgres" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 postgres"
-  run_capture "logs-redis" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" logs --tail 200 redis"
+  run_capture "compose-ps" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" ps"
+  run_capture "compose-config" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" config"
+  run_capture "logs-caddy" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" logs --tail 200 caddy"
+  run_capture "logs-frontend" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" logs --tail 200 frontend"
+  run_capture "logs-backend" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" logs --tail 200 backend"
+  run_capture "logs-ai-agent-platform" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" logs --tail 200 ai-agent-platform"
+  run_capture "logs-postgres" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" logs --tail 200 postgres"
+  run_capture "logs-redis" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" logs --tail 200 redis"
 else
   log_bundle "Docker daemon unavailable; skipping compose-specific captures."
 fi

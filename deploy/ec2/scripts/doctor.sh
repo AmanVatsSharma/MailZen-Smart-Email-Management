@@ -110,6 +110,9 @@ if [[ "${SEED_ENV}" == true ]]; then
   seed_env_file
 fi
 
+active_env_file="${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}"
+active_compose_file="${MAILZEN_DEPLOY_COMPOSE_FILE:-${DEPLOY_DIR}/docker-compose.yml}"
+
 run_check "script-self-check" "\"${SCRIPT_DIR}/self-check.sh\""
 run_check "env-audit-redacted" "\"${SCRIPT_DIR}/env-audit.sh\""
 run_check "dns-check" "\"${SCRIPT_DIR}/dns-check.sh\"" false
@@ -121,7 +124,7 @@ run_check "pipeline-check" "\"${SCRIPT_DIR}/pipeline-check.sh\""
 run_check "docker-client-version" "docker --version"
 run_check "docker-compose-version" "docker compose version"
 run_check "docker-daemon-info" "docker info" false
-run_check "compose-config-render" "docker compose --env-file \"${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}\" -f \"${DEPLOY_DIR}/docker-compose.yml\" config"
+run_check "compose-config-render" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" config"
 
 append_header "doctor-summary"
 if [[ "${overall_failure_count}" -eq 0 ]]; then
