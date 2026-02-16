@@ -1253,6 +1253,7 @@ extend type Query {
   myMailboxInboundSlaIncidentStats(workspaceId: String, windowHours: Int): MailboxInboundSlaIncidentStatsResponse!
   myMailboxInboundSlaIncidentSeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [MailboxInboundSlaIncidentTrendPointResponse!]!
   myMailboxInboundSlaIncidentDataExport(workspaceId: String, windowHours: Int, bucketMinutes: Int): MailboxInboundSlaIncidentDataExportResponse!
+  myMailboxInboundSlaIncidentAlertConfig: MailboxInboundSlaIncidentAlertConfigResponse!
   myUnreadNotificationCount(workspaceId: String): Int!
   myNotificationPreferences: UserNotificationPreference!
   myNotificationPushSubscriptions(workspaceId: String): [NotificationPushSubscription!]!
@@ -1783,6 +1784,20 @@ type MailboxInboundSlaIncidentTrendPointResponse {
 type MailboxInboundSlaIncidentDataExportResponse {
   generatedAtIso: String!
   dataJson: String!
+}
+
+type MailboxInboundSlaIncidentAlertConfigResponse {
+  alertsEnabled: Boolean!
+  targetSuccessPercent: Float!
+  warningRejectedPercent: Float!
+  criticalRejectedPercent: Float!
+  cooldownMinutes: Int!
+  incidentWindowHoursDefault: Int!
+  incidentBucketMinutesDefault: Int!
+  schedulerWindowHours: Int!
+  schedulerCooldownMinutes: Int!
+  schedulerMaxUsersPerRun: Int!
+  evaluatedAtIso: String!
 }
 
 type UserNotificationPreference {

@@ -6,6 +6,7 @@ import { NotificationDataExportResponse } from './dto/notification-data-export.r
 import { NotificationRetentionPurgeResponse } from './dto/notification-retention-purge.response';
 import { RegisterNotificationPushSubscriptionInput } from './dto/register-notification-push-subscription.input';
 import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
+import { MailboxInboundSlaIncidentAlertConfigResponse } from './dto/mailbox-inbound-sla-incident-alert-config.response';
 import { MailboxInboundSlaIncidentDataExportResponse } from './dto/mailbox-inbound-sla-incident-data-export.response';
 import {
   MailboxInboundSlaIncidentStatsResponse,
@@ -119,6 +120,16 @@ export class NotificationResolver {
       workspaceId,
       windowHours,
       bucketMinutes,
+    });
+  }
+
+  @Query(() => MailboxInboundSlaIncidentAlertConfigResponse, {
+    description:
+      'Resolved mailbox inbound SLA alert and threshold config for current user',
+  })
+  async myMailboxInboundSlaIncidentAlertConfig(@Context() ctx: RequestContext) {
+    return this.notificationService.getMailboxInboundSlaIncidentAlertConfig({
+      userId: ctx.req.user.id,
     });
   }
 

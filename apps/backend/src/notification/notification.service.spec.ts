@@ -802,6 +802,37 @@ describe('NotificationService', () => {
     expect(payload.series[0]?.totalCount).toBe(2);
   });
 
+  it('returns mailbox inbound SLA incident alert config snapshot', async () => {
+    preferenceRepo.findOne.mockResolvedValue({
+      ...basePreference,
+      mailboxInboundSlaAlertsEnabled: false,
+      mailboxInboundSlaTargetSuccessPercent: 98.5,
+      mailboxInboundSlaWarningRejectedPercent: 2,
+      mailboxInboundSlaCriticalRejectedPercent: 6,
+      mailboxInboundSlaAlertCooldownMinutes: 45,
+    } as UserNotificationPreference);
+    process.env.MAILZEN_INBOUND_SLA_ALERT_WINDOW_HOURS = '36';
+    process.env.MAILZEN_INBOUND_SLA_ALERT_COOLDOWN_MINUTES = '75';
+    process.env.MAILZEN_INBOUND_SLA_ALERT_MAX_USERS_PER_RUN = '250';
+
+    const config = await service.getMailboxInboundSlaIncidentAlertConfig({
+      userId: 'user-1',
+    });
+
+    expect(config).toEqual(
+      expect.objectContaining({
+        alertsEnabled: false,
+        targetSuccessPercent: 98.5,
+        warningRejectedPercent: 2,
+        criticalRejectedPercent: 6,
+        cooldownMinutes: 45,
+        schedulerWindowHours: 36,
+        schedulerCooldownMinutes: 75,
+        schedulerMaxUsersPerRun: 250,
+      }),
+    );
+  });
+
   it('counts unread notifications scoped to workspace plus global rows', async () => {
     notificationRepo.count.mockResolvedValue(3);
 

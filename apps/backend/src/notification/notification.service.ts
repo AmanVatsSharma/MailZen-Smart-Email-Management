@@ -1036,6 +1036,59 @@ export class NotificationService {
     };
   }
 
+  async getMailboxInboundSlaIncidentAlertConfig(input: {
+    userId: string;
+  }): Promise<{
+    alertsEnabled: boolean;
+    targetSuccessPercent: number;
+    warningRejectedPercent: number;
+    criticalRejectedPercent: number;
+    cooldownMinutes: number;
+    incidentWindowHoursDefault: number;
+    incidentBucketMinutesDefault: number;
+    schedulerWindowHours: number;
+    schedulerCooldownMinutes: number;
+    schedulerMaxUsersPerRun: number;
+    evaluatedAtIso: string;
+  }> {
+    const preferences = await this.getOrCreatePreferences(input.userId);
+    const incidentWindowHoursDefault = this.normalizeIncidentWindowHours(null);
+    const incidentBucketMinutesDefault =
+      this.normalizeIncidentBucketMinutes(null);
+    const schedulerWindowHours = this.normalizePositiveInteger({
+      rawValue: process.env.MAILZEN_INBOUND_SLA_ALERT_WINDOW_HOURS,
+      fallbackValue:
+        NotificationService.DEFAULT_MAILBOX_INBOUND_INCIDENT_WINDOW_HOURS,
+      minimumValue: 1,
+      maximumValue: 168,
+    });
+    const schedulerCooldownMinutes = this.normalizeCooldownMinutes(
+      process.env.MAILZEN_INBOUND_SLA_ALERT_COOLDOWN_MINUTES,
+      NotificationService.DEFAULT_MAILBOX_INBOUND_SLA_ALERT_COOLDOWN_MINUTES,
+    );
+    const schedulerMaxUsersPerRun = this.normalizePositiveInteger({
+      rawValue: process.env.MAILZEN_INBOUND_SLA_ALERT_MAX_USERS_PER_RUN,
+      fallbackValue: 500,
+      minimumValue: 1,
+      maximumValue: 5000,
+    });
+    return {
+      alertsEnabled: preferences.mailboxInboundSlaAlertsEnabled,
+      targetSuccessPercent: preferences.mailboxInboundSlaTargetSuccessPercent,
+      warningRejectedPercent:
+        preferences.mailboxInboundSlaWarningRejectedPercent,
+      criticalRejectedPercent:
+        preferences.mailboxInboundSlaCriticalRejectedPercent,
+      cooldownMinutes: preferences.mailboxInboundSlaAlertCooldownMinutes,
+      incidentWindowHoursDefault,
+      incidentBucketMinutesDefault,
+      schedulerWindowHours,
+      schedulerCooldownMinutes,
+      schedulerMaxUsersPerRun,
+      evaluatedAtIso: new Date().toISOString(),
+    };
+  }
+
   async updateMailboxInboundSlaAlertState(input: {
     userId: string;
     status: MailboxInboundSlaStatus | null;
@@ -1080,6 +1133,21 @@ export class NotificationService {
     ) {
       return NotificationService.MAX_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES;
     }
+    return candidate;
+  }
+
+  private normalizePositiveInteger(input: {
+    rawValue?: string | number | null;
+    fallbackValue: number;
+    minimumValue: number;
+    maximumValue: number;
+  }): number {
+    const numericValue = Number(input.rawValue);
+    const candidate = Number.isFinite(numericValue)
+      ? Math.floor(numericValue)
+      : input.fallbackValue;
+    if (candidate < input.minimumValue) return input.minimumValue;
+    if (candidate > input.maximumValue) return input.maximumValue;
     return candidate;
   }
 
