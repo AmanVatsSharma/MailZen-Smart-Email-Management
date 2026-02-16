@@ -402,7 +402,7 @@ export class GoogleOAuthController {
       }
 
       const email = payload.email.toLowerCase();
-      const emailFingerprint = fingerprintIdentifier(email);
+      const accountFingerprint = fingerprintIdentifier(email);
       const googleSub = payload.sub;
       const name = payload.name || payload.given_name || null;
       const emailVerified = !!payload.email_verified;
@@ -432,7 +432,7 @@ export class GoogleOAuthController {
             event: 'auth_google_oauth_user_created',
             requestId,
             userId: dbUser.id,
-            emailFingerprint,
+            accountFingerprint,
           }),
         );
       } else {
@@ -466,7 +466,7 @@ export class GoogleOAuthController {
             event: 'auth_google_oauth_user_updated',
             requestId,
             userId: dbUser.id,
-            emailFingerprint,
+            accountFingerprint,
           }),
         );
       }
@@ -475,7 +475,7 @@ export class GoogleOAuthController {
         this.auditLogRepo.create({
           action: 'OAUTH_GOOGLE_SUCCESS',
           userId: dbUser.id,
-          metadata: { emailFingerprint, requestId },
+          metadata: { accountFingerprint, requestId },
           ip: req.ip,
           userAgent: this.resolveUserAgent(req),
         }),
