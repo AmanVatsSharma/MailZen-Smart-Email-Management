@@ -1314,6 +1314,77 @@ export class NotificationService {
     };
   }
 
+  async exportMailboxInboundSlaIncidentDataForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+    limit?: number | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const targetUserId = String(input.targetUserId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!targetUserId) {
+      throw new BadRequestException('Target user id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+    const normalizedWorkspaceId =
+      String(input.workspaceId || '').trim() || null;
+    const windowHours = this.normalizeIncidentWindowHours(input.windowHours);
+    const bucketMinutes = this.normalizeIncidentBucketMinutes(
+      input.bucketMinutes,
+    );
+    const limit = this.normalizeIncidentAlertLimit(input.limit);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'notification_mailbox_inbound_sla_export_admin_start',
+        actorUserId,
+        targetUserId,
+        workspaceId: normalizedWorkspaceId,
+        windowHours,
+        bucketMinutes,
+        limit,
+      }),
+    );
+    const exportPayload = await this.exportMailboxInboundSlaIncidentData({
+      userId: targetUserId,
+      workspaceId: normalizedWorkspaceId,
+      windowHours,
+      bucketMinutes,
+      limit,
+    });
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'notification_mailbox_inbound_sla_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        workspaceId: normalizedWorkspaceId,
+        windowHours,
+        bucketMinutes,
+        limit,
+        generatedAtIso: exportPayload.generatedAtIso,
+        selfRequested: actorUserId === targetUserId,
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'notification_mailbox_inbound_sla_export_admin_completed',
+        actorUserId,
+        targetUserId,
+        workspaceId: normalizedWorkspaceId,
+        windowHours,
+        bucketMinutes,
+        limit,
+      }),
+    );
+    return exportPayload;
+  }
+
   async getMailboxInboundSlaIncidentAlertConfig(input: {
     userId: string;
   }): Promise<{

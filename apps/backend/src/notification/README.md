@@ -36,6 +36,8 @@ Provide a persistent notification foundation for user-visible product events
   list recent SLA alert notification rows with attached incident metadata
 - `myMailboxInboundSlaIncidentDataExport(workspaceId?, windowHours?, bucketMinutes?, limit?)` →
   export SLA alert incident stats + trend as JSON payload
+- `userMailboxInboundSlaIncidentDataExport(userId, workspaceId?, windowHours?, bucketMinutes?, limit?)` →
+  admin export of target user SLA alert incident stats + trend as JSON payload
 - `myMailboxInboundSlaIncidentAlertConfig` → resolved per-user SLA thresholds +
   scheduler alert settings snapshot (including global env gate state)
 - `myUnreadNotificationCount(workspaceId?)` → unread badge count (workspace + global scope)
@@ -164,6 +166,8 @@ Notification service observability events:
 - `notification_retention_scheduler_audit_log_write_failed`
 - `notification_data_export_admin_start`
 - `notification_data_export_admin_completed`
+- `notification_mailbox_inbound_sla_export_admin_start`
+- `notification_mailbox_inbound_sla_export_admin_completed`
 
 Compliance/audit actions persisted in `audit_logs`:
 
@@ -176,6 +180,7 @@ Compliance/audit actions persisted in `audit_logs`:
 - `notification_data_export_requested_by_admin`
 - `notification_mailbox_inbound_sla_state_updated`
 - `notification_mailbox_inbound_sla_export_requested`
+- `notification_mailbox_inbound_sla_export_requested_by_admin`
 - `notification_retention_purged`
 - `notification_retention_autopurge_started`
 - `notification_retention_autopurge_completed`

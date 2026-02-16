@@ -1006,6 +1006,98 @@ describe('NotificationService', () => {
     );
   });
 
+  it('exports mailbox inbound SLA incident analytics payload for admin legal workflows', async () => {
+    const statsSpy = jest
+      .spyOn(service, 'getMailboxInboundSlaIncidentStats')
+      .mockResolvedValue({
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        totalCount: 2,
+        warningCount: 1,
+        criticalCount: 1,
+        lastAlertAt: new Date('2026-02-16T01:00:00.000Z'),
+      });
+    const seriesSpy = jest
+      .spyOn(service, 'getMailboxInboundSlaIncidentSeries')
+      .mockResolvedValue([]);
+    const alertsSpy = jest
+      .spyOn(service, 'getMailboxInboundSlaIncidentAlerts')
+      .mockResolvedValue([]);
+
+    const exported = await service.exportMailboxInboundSlaIncidentDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+      limit: 40,
+    });
+
+    expect(statsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+      }),
+    );
+    expect(seriesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+      }),
+    );
+    expect(alertsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+      }),
+    );
+    expect(exported.dataJson).toContain('"stats"');
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'notification_mailbox_inbound_sla_export_requested_by_admin',
+        metadata: expect.objectContaining({
+          targetUserId: 'user-2',
+        }),
+      }),
+    );
+  });
+
+  it('does not fail admin mailbox inbound SLA export when admin audit write fails', async () => {
+    jest.spyOn(service, 'getMailboxInboundSlaIncidentStats').mockResolvedValue({
+      workspaceId: null,
+      windowHours: 24,
+      totalCount: 0,
+      warningCount: 0,
+      criticalCount: 0,
+      lastAlertAt: null,
+    });
+    jest.spyOn(service, 'getMailboxInboundSlaIncidentSeries').mockResolvedValue(
+      [],
+    );
+    jest.spyOn(service, 'getMailboxInboundSlaIncidentAlerts').mockResolvedValue(
+      [],
+    );
+    auditLogRepo.save
+      .mockResolvedValueOnce({ id: 'audit-log-1' } as AuditLog)
+      .mockRejectedValueOnce(new Error('audit store unavailable'));
+
+    const exported = await service.exportMailboxInboundSlaIncidentDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      limit: 20,
+    });
+
+    expect(exported.generatedAtIso).toBeTruthy();
+    expect(exported.dataJson).toContain('"stats"');
+  });
+
+  it('rejects admin mailbox inbound SLA export when actor user id is missing', async () => {
+    await expect(
+      service.exportMailboxInboundSlaIncidentDataForAdmin({
+        targetUserId: 'user-2',
+        actorUserId: '',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('lists mailbox inbound SLA incident alert notifications', async () => {
     notificationRepo.find.mockResolvedValue([
       {

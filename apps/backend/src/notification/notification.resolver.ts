@@ -126,6 +126,33 @@ export class NotificationResolver {
     });
   }
 
+  @Query(() => MailboxInboundSlaIncidentDataExportResponse, {
+    description:
+      'Admin export mailbox inbound SLA incident analytics for target user as JSON payload',
+  })
+  @UseGuards(AdminGuard)
+  async userMailboxInboundSlaIncidentDataExport(
+    @Args('userId') userId: string,
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes: number,
+    @Args('limit', { type: () => Int, nullable: true }) limit: number,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.notificationService.exportMailboxInboundSlaIncidentDataForAdmin(
+      {
+        targetUserId: userId,
+        actorUserId: ctx.req.user.id,
+        workspaceId,
+        windowHours,
+        bucketMinutes,
+        limit,
+      },
+    );
+  }
+
   @Query(() => MailboxInboundSlaIncidentAlertConfigResponse, {
     description:
       'Resolved mailbox inbound SLA alert and threshold config for current user',
