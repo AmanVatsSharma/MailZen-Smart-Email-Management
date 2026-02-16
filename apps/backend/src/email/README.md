@@ -338,6 +338,22 @@ The Email Module requires the following environment variables:
 - `class-validator`: Input validation
 - `typeorm`: Database ORM
 
+## Observability (structured events)
+
+- `EmailFilterService` emits resilient audit warning event:
+  - `email_filter_audit_log_write_failed`
+- `EmailWarmupService` emits resilient audit warning event:
+  - `email_warmup_audit_log_write_failed`
+
+## Compliance / Audit Trail
+
+- Persisted audit actions:
+  - `email_filter_created`
+  - `email_filter_deleted`
+  - `email_warmup_started`
+  - `email_warmup_resumed`
+  - `email_warmup_paused`
+
 ## Best Practices
 
 1. **Error Handling**: All services include comprehensive error handling with detailed logging.

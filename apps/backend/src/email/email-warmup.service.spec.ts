@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { EmailService } from './email.service';
 import { EmailWarmupService } from './email.email-warmup.service';
@@ -12,6 +13,7 @@ describe('EmailWarmupService', () => {
   let service: EmailWarmupService;
   let emailProviderRepo: jest.Mocked<Repository<EmailProvider>>;
   let emailWarmupRepo: jest.Mocked<Repository<EmailWarmup>>;
+  let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
 
   const providerId = 'provider-1';
   const userId = 'user-1';
@@ -45,6 +47,10 @@ describe('EmailWarmupService', () => {
       update: jest.fn(),
       createQueryBuilder: jest.fn(),
     } as unknown as jest.Mocked<Repository<WarmupActivity>>;
+    const auditRepoMock = {
+      create: jest.fn((payload: unknown) => payload as AuditLog),
+      save: jest.fn().mockResolvedValue({} as AuditLog),
+    } as unknown as jest.Mocked<Repository<AuditLog>>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -65,12 +71,17 @@ describe('EmailWarmupService', () => {
           provide: getRepositoryToken(WarmupActivity),
           useValue: activityRepoMock,
         },
+        {
+          provide: getRepositoryToken(AuditLog),
+          useValue: auditRepoMock,
+        },
       ],
     }).compile();
 
     service = module.get<EmailWarmupService>(EmailWarmupService);
     emailProviderRepo = module.get(getRepositoryToken(EmailProvider));
     emailWarmupRepo = module.get(getRepositoryToken(EmailWarmup));
+    auditLogRepo = module.get(getRepositoryToken(AuditLog));
   });
 
   afterEach(() => {
@@ -93,6 +104,12 @@ describe('EmailWarmupService', () => {
       relations: ['warmup'],
     });
     expect(emailWarmupRepo.save).toHaveBeenCalledWith(warmup);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId,
+        action: 'email_warmup_started',
+      }),
+    );
     expect(result).toEqual(warmup);
   });
 
@@ -117,6 +134,12 @@ describe('EmailWarmupService', () => {
       { id: warmup.id },
       { status: 'PAUSED' },
     );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId,
+        action: 'email_warmup_paused',
+      }),
+    );
     expect(result?.status).toBe('PAUSED');
   });
 
@@ -132,5 +155,50 @@ describe('EmailWarmupService', () => {
     await expect(
       service.pauseWarmup({ providerId } as any, userId),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('resumes paused warmup and records audit action', async () => {
+    emailProviderRepo.findOne.mockResolvedValue({
+      id: providerId,
+      userId,
+      warmup: {
+        id: warmup.id,
+        status: 'PAUSED',
+      },
+    } as any);
+    emailWarmupRepo.update.mockResolvedValue({} as any);
+    emailWarmupRepo.findOne.mockResolvedValue({
+      ...warmup,
+      status: 'ACTIVE',
+    } as any);
+
+    const result = await service.startWarmup({ providerId } as any, userId);
+
+    expect(emailWarmupRepo.update).toHaveBeenCalledWith(
+      { id: warmup.id },
+      { status: 'ACTIVE' },
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId,
+        action: 'email_warmup_resumed',
+      }),
+    );
+    expect(result?.status).toBe('ACTIVE');
+  });
+
+  it('continues warmup start when audit persistence fails', async () => {
+    emailProviderRepo.findOne.mockResolvedValue({
+      id: providerId,
+      userId,
+      warmup: null,
+    } as any);
+    emailWarmupRepo.create.mockReturnValue(warmup);
+    emailWarmupRepo.save.mockResolvedValue(warmup);
+    auditLogRepo.save.mockRejectedValueOnce(new Error('audit unavailable'));
+
+    const result = await service.startWarmup({ providerId } as any, userId);
+
+    expect(result).toEqual(warmup);
   });
 });

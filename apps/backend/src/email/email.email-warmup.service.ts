@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailService } from './email.service';
 import { StartWarmupInput, PauseWarmupInput } from './dto/warmup.input';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -101,7 +102,33 @@ export class EmailWarmupService {
     private readonly emailWarmupRepo: Repository<EmailWarmup>,
     @InjectRepository(WarmupActivity)
     private readonly warmupActivityRepo: Repository<WarmupActivity>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'email_warmup_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: this.resolveErrorMessage(error),
+        }),
+      );
+    }
+  }
 
   private resolveErrorMessage(error: unknown): string {
     if (error instanceof Error && error.message) return error.message;
@@ -157,9 +184,18 @@ export class EmailWarmupService {
               warmupId: provider.warmup.id,
             }),
           );
-          return this.emailWarmupRepo.findOne({
+          const resumedWarmup = await this.emailWarmupRepo.findOne({
             where: { id: provider.warmup.id },
           });
+          await this.writeAuditLog({
+            userId,
+            action: 'email_warmup_resumed',
+            metadata: {
+              providerId: input.providerId,
+              warmupId: provider.warmup.id,
+            },
+          });
+          return resumedWarmup;
         }
         throw new Error('Warm-up process already exists for this provider');
       }
@@ -200,6 +236,19 @@ export class EmailWarmupService {
           status: warmupRecord.status,
         }),
       );
+      await this.writeAuditLog({
+        userId,
+        action: 'email_warmup_started',
+        metadata: {
+          providerId: input.providerId,
+          warmupId: warmupRecord.id,
+          status: warmupRecord.status,
+          dailyIncrement,
+          maxDailyEmails,
+          minimumInterval,
+          targetOpenRate,
+        },
+      });
       return warmupRecord;
     } catch (error: unknown) {
       this.logger.error(
@@ -255,7 +304,18 @@ export class EmailWarmupService {
           warmupId: warmup.id,
         }),
       );
-      return this.emailWarmupRepo.findOne({ where: { id: warmup.id } });
+      const pausedWarmup = await this.emailWarmupRepo.findOne({
+        where: { id: warmup.id },
+      });
+      await this.writeAuditLog({
+        userId,
+        action: 'email_warmup_paused',
+        metadata: {
+          providerId: input.providerId,
+          warmupId: warmup.id,
+        },
+      });
+      return pausedWarmup;
     } catch (error: unknown) {
       this.logger.error(
         serializeStructuredLog({

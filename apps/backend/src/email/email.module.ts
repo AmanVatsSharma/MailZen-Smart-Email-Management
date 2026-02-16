@@ -32,6 +32,7 @@ import { ConfigModule } from '@nestjs/config';
 import { MailService } from './mail.service';
 import { User } from '../user/entities/user.entity';
 import { Template } from '../template/entities/template.entity';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 
 /**
  * EmailModule - Email sending, tracking, and management
@@ -52,6 +53,7 @@ import { Template } from '../template/entities/template.entity';
       WarmupActivity,
       User,
       Template,
+      AuditLog,
     ]),
     ConfigModule,
     EmailProviderModule,
