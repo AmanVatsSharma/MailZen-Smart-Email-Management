@@ -218,10 +218,13 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # 3) Build and run the stack
 ./deploy/ec2/scripts/deploy.sh
 
-# 4) Check status
+# 4) Verify URLs and core endpoints
+./deploy/ec2/scripts/verify.sh
+
+# 5) Check status
 ./deploy/ec2/scripts/status.sh
 
-# 5) Future updates
+# 6) Future updates
 ./deploy/ec2/scripts/update.sh
 ```
 

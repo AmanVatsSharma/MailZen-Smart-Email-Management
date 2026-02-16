@@ -24,6 +24,7 @@ on an EC2 instance using Docker Compose, a public domain, and HTTPS.
   - `preflight.sh`
   - `deploy.sh`
   - `update.sh`
+  - `verify.sh` (post-deploy smoke checks)
   - `status.sh`
   - `logs.sh`
   - `restart.sh`
@@ -53,6 +54,7 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 ./deploy/ec2/scripts/setup.sh
 ./deploy/ec2/scripts/preflight.sh
 ./deploy/ec2/scripts/deploy.sh
+./deploy/ec2/scripts/verify.sh
 ```
 
 The setup script:
@@ -77,6 +79,12 @@ The setup script:
 
 # Pull updates and recreate all services
 ./deploy/ec2/scripts/update.sh
+
+# Run post-deploy smoke checks (default retries: 5, sleep: 3s)
+./deploy/ec2/scripts/verify.sh
+
+# Custom retries/sleep
+./deploy/ec2/scripts/verify.sh 10 5
 
 # Logs (all services)
 ./deploy/ec2/scripts/logs.sh
