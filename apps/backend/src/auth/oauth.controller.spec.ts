@@ -185,6 +185,26 @@ describe('GoogleOAuthController', () => {
     );
   });
 
+  it('continues callback provider error redirect when audit write fails', async () => {
+    const { controller, auditLogRepo } = createController();
+    const response = createResponse();
+    auditLogRepo.save.mockRejectedValueOnce(new Error('audit unavailable'));
+
+    await controller.callback(
+      createRequest(),
+      response as unknown as Response,
+      undefined,
+      undefined,
+      'access_denied',
+      'redirect',
+    );
+
+    expect(auditLogRepo.save).toHaveBeenCalledTimes(1);
+    expect(response.redirectUrl).toBe(
+      'http://localhost:3000/auth/login?error=access_denied',
+    );
+  });
+
   it('handles callback missing code/state', async () => {
     const { controller, auditLogRepo } = createController();
     const response = createResponse();

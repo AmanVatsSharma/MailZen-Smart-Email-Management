@@ -132,6 +132,7 @@ Google OAuth controller (`oauth.controller.ts`) structured events:
 - `auth_google_oauth_user_created`
 - `auth_google_oauth_user_updated`
 - `auth_google_oauth_callback_failed`
+- `auth_google_oauth_audit_log_write_failed`
 - provider auto-connect diagnostics:
   - `auth_google_oauth_provider_autoconnect_skipped_missing_access_token`
   - `auth_google_oauth_provider_autoconnect_conflict_resolve_failed`
@@ -150,6 +151,8 @@ Google OAuth controller (`oauth.controller.ts`) structured events:
   - `auth_verification_token_consumed`
   - `auth_signup_otp_requested`
   - `auth_signup_otp_verified`
+  - `OAUTH_GOOGLE_SUCCESS`
+  - `OAUTH_GOOGLE_FAILED`
 
 ## Google OAuth flow (hardened)
 

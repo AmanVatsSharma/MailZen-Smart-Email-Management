@@ -155,6 +155,33 @@ export class GoogleOAuthController {
     return undefined;
   }
 
+  private async writeAuditLog(input: {
+    action: string;
+    userId?: string;
+    metadata?: Record<string, unknown>;
+    req: Request;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        action: input.action,
+        userId: input.userId,
+        metadata: input.metadata,
+        ip: input.req.ip,
+        userAgent: this.resolveUserAgent(input.req),
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'auth_google_oauth_audit_log_write_failed',
+          action: input.action,
+          userId: input.userId || null,
+          error: this.resolveErrorMessage(error),
+        }),
+      );
+    }
+  }
+
   private async getAliasSetupState(userId: string): Promise<{
     hasMailzenAlias: boolean;
     requiresAliasSetup: boolean;
@@ -317,14 +344,11 @@ export class GoogleOAuthController {
           error,
         }),
       );
-      await this.auditLogRepo.save(
-        this.auditLogRepo.create({
-          action: 'OAUTH_GOOGLE_FAILED',
-          metadata: { reason: 'provider_error', error, requestId },
-          ip: req.ip,
-          userAgent: this.resolveUserAgent(req),
-        }),
-      );
+      await this.writeAuditLog({
+        action: 'OAUTH_GOOGLE_FAILED',
+        metadata: { reason: 'provider_error', error, requestId },
+        req,
+      });
       if (outMode === 'json') return res.status(401).json({ ok: false, error });
       return res.redirect(
         `${frontendUrl}/auth/login?error=${encodeURIComponent(error)}`,
@@ -340,14 +364,11 @@ export class GoogleOAuthController {
           hasState: Boolean(state),
         }),
       );
-      await this.auditLogRepo.save(
-        this.auditLogRepo.create({
-          action: 'OAUTH_GOOGLE_FAILED',
-          metadata: { reason: 'missing_code_or_state', requestId },
-          ip: req.ip,
-          userAgent: this.resolveUserAgent(req),
-        }),
-      );
+      await this.writeAuditLog({
+        action: 'OAUTH_GOOGLE_FAILED',
+        metadata: { reason: 'missing_code_or_state', requestId },
+        req,
+      });
       if (outMode === 'json')
         return res.status(400).json({ ok: false, error: 'Missing code/state' });
       return res.redirect(
@@ -367,14 +388,11 @@ export class GoogleOAuthController {
           error: this.resolveErrorMessage(error),
         }),
       );
-      await this.auditLogRepo.save(
-        this.auditLogRepo.create({
-          action: 'OAUTH_GOOGLE_FAILED',
-          metadata: { reason: 'invalid_state', requestId },
-          ip: req.ip,
-          userAgent: this.resolveUserAgent(req),
-        }),
-      );
+      await this.writeAuditLog({
+        action: 'OAUTH_GOOGLE_FAILED',
+        metadata: { reason: 'invalid_state', requestId },
+        req,
+      });
       if (outMode === 'json')
         return res.status(401).json({ ok: false, error: 'Invalid state' });
       return res.redirect(
@@ -471,15 +489,12 @@ export class GoogleOAuthController {
         );
       }
 
-      await this.auditLogRepo.save(
-        this.auditLogRepo.create({
-          action: 'OAUTH_GOOGLE_SUCCESS',
-          userId: dbUser.id,
-          metadata: { accountFingerprint, requestId },
-          ip: req.ip,
-          userAgent: this.resolveUserAgent(req),
-        }),
-      );
+      await this.writeAuditLog({
+        action: 'OAUTH_GOOGLE_SUCCESS',
+        userId: dbUser.id,
+        metadata: { accountFingerprint, requestId },
+        req,
+      });
 
       const { accessToken } = this.authService.login(dbUser);
       const refreshToken = await this.authService.generateRefreshToken(
@@ -530,17 +545,14 @@ export class GoogleOAuthController {
         }),
         this.resolveErrorStack(error),
       );
-      await this.auditLogRepo.save(
-        this.auditLogRepo.create({
-          action: 'OAUTH_GOOGLE_FAILED',
-          metadata: {
-            reason: this.resolveErrorMessage(error) || 'unknown',
-            requestId,
-          },
-          ip: req.ip,
-          userAgent: this.resolveUserAgent(req),
-        }),
-      );
+      await this.writeAuditLog({
+        action: 'OAUTH_GOOGLE_FAILED',
+        metadata: {
+          reason: this.resolveErrorMessage(error) || 'unknown',
+          requestId,
+        },
+        req,
+      });
       if (outMode === 'json')
         return res.status(500).json({ ok: false, error: 'OAuth login failed' });
       return res.redirect(
