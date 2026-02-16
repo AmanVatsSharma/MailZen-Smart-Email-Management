@@ -68,8 +68,16 @@ flowchart TD
 - `phone_otp_verify_attempts_exceeded`
 - `phone_otp_verify_code_mismatch`
 - `phone_otp_verify_completed`
+- `phone_audit_log_write_failed`
 
 Phone numbers are logged as irreversible fingerprints for privacy.
+
+## Compliance / Audit Trail
+
+- Uses shared `AuditLog` persistence for OTP lifecycle security actions.
+- Persisted audit actions:
+  - `phone_otp_requested`
+  - `phone_otp_verified`
 
 ## Abuse protection
 

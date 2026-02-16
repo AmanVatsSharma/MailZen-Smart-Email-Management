@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { addMinutes, isAfter } from 'date-fns';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { PhoneVerification } from './entities/phone-verification.entity';
 import { User } from '../user/entities/user.entity';
 import { dispatchSmsOtp } from '../common/sms/sms-dispatcher.util';
@@ -23,7 +24,33 @@ export class PhoneService {
     private readonly phoneVerificationRepo: Repository<PhoneVerification>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'phone_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
 
   private resolvePhoneOtpMaxAttempts(): number {
     const parsed = Number(process.env.MAILZEN_PHONE_OTP_MAX_ATTEMPTS || '5');
@@ -51,6 +78,15 @@ export class PhoneService {
         expiresAt: addMinutes(new Date(), 10),
       }),
     );
+    await this.writeAuditLog({
+      userId,
+      action: 'phone_otp_requested',
+      metadata: {
+        phoneFingerprint,
+        phoneVerificationId: savedRecord.id,
+        expiresAtIso: savedRecord.expiresAt.toISOString(),
+      },
+    });
 
     try {
       const deliveryResult = await dispatchSmsOtp({
@@ -160,6 +196,14 @@ export class PhoneService {
         phoneVerificationId: record.id,
       }),
     );
+    await this.writeAuditLog({
+      userId,
+      action: 'phone_otp_verified',
+      metadata: {
+        phoneFingerprint,
+        phoneVerificationId: record.id,
+      },
+    });
     return true;
   }
 }
