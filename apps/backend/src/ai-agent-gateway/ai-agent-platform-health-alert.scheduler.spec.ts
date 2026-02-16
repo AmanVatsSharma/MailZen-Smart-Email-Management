@@ -292,4 +292,36 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     expect(nonEmptyBucket.totalCount).toBeGreaterThan(0);
     expect(nonEmptyBucket.uniqueRecipients).toBeGreaterThanOrEqual(1);
   });
+
+  it('exports alert delivery analytics payload with stats and series', async () => {
+    const now = Date.now();
+    notificationRepo.find
+      .mockResolvedValueOnce([
+        {
+          userId: 'admin-1',
+          createdAt: new Date(now - 25 * 60 * 1000),
+          metadata: { alertSeverity: 'WARNING' },
+        },
+      ] as unknown as UserNotification[])
+      .mockResolvedValueOnce([
+        {
+          userId: 'admin-1',
+          createdAt: new Date(now - 25 * 60 * 1000),
+          metadata: { alertSeverity: 'WARNING' },
+        },
+      ] as unknown as UserNotification[]);
+
+    const result = await scheduler.exportAlertDeliveryData({
+      windowHours: 1,
+      bucketMinutes: 15,
+    });
+    const payload = JSON.parse(result.dataJson) as {
+      stats: { totalCount: number };
+      series: Array<{ totalCount: number }>;
+    };
+
+    expect(payload.stats.totalCount).toBe(1);
+    expect(payload.series.length).toBeGreaterThan(0);
+    expect(payload.series.some((point) => point.totalCount > 0)).toBe(true);
+  });
 });

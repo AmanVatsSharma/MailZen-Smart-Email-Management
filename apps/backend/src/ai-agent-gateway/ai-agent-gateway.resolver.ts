@@ -20,6 +20,7 @@ import { AgentAssistInput } from './dto/agent-assist.input';
 import { AgentAssistResponse } from './dto/agent-assist.response';
 import { AgentActionDataExportResponse } from './dto/agent-action-data-export.response';
 import { AgentPlatformHealthAlertCheckResponse } from './dto/agent-platform-health-alert-check.response';
+import { AgentPlatformHealthAlertDeliveryDataExportResponse } from './dto/agent-platform-health-alert-delivery-data-export.response';
 import {
   AgentPlatformHealthAlertDeliveryStatsResponse,
   AgentPlatformHealthAlertDeliveryTrendPointResponse,
@@ -215,6 +216,23 @@ export class AiAgentGatewayResolver {
     bucketMinutes?: number,
   ): Promise<AgentPlatformHealthAlertDeliveryTrendPointResponse[]> {
     return this.healthAlertScheduler.getAlertDeliverySeries({
+      windowHours,
+      bucketMinutes,
+    });
+  }
+
+  @Query(() => AgentPlatformHealthAlertDeliveryDataExportResponse, {
+    description:
+      'Export AI platform health alert delivery analytics as JSON payload',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async agentPlatformHealthAlertDeliveryDataExport(
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<AgentPlatformHealthAlertDeliveryDataExportResponse> {
+    return this.healthAlertScheduler.exportAlertDeliveryData({
       windowHours,
       bucketMinutes,
     });

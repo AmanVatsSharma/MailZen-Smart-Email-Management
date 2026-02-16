@@ -401,6 +401,41 @@ export class AiAgentPlatformHealthAlertScheduler {
     return series;
   }
 
+  async exportAlertDeliveryData(input?: {
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const windowHours = this.normalizeAlertDeliveryWindowHours(
+      input?.windowHours,
+    );
+    const bucketMinutes = this.normalizeAlertDeliveryBucketMinutes(
+      input?.bucketMinutes,
+    );
+    const [stats, series] = await Promise.all([
+      this.getAlertDeliveryStats({
+        windowHours,
+      }),
+      this.getAlertDeliverySeries({
+        windowHours,
+        bucketMinutes,
+      }),
+    ]);
+    const generatedAtIso = new Date().toISOString();
+    return {
+      generatedAtIso,
+      dataJson: JSON.stringify({
+        generatedAtIso,
+        windowHours,
+        bucketMinutes,
+        stats,
+        series,
+      }),
+    };
+  }
+
   private isAlertsEnabled(): boolean {
     const normalized = String(
       process.env.AI_AGENT_HEALTH_ALERTS_ENABLED || 'true',
