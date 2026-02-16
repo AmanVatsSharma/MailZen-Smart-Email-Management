@@ -111,7 +111,19 @@ export class MailServerService {
     });
   }
 
-  private resolveMailcowQuotaMb(): number {
+  private resolveMailcowQuotaMb(overrideQuotaMb?: number | null): number {
+    const override =
+      typeof overrideQuotaMb === 'number' && Number.isFinite(overrideQuotaMb)
+        ? Math.floor(overrideQuotaMb)
+        : null;
+    if (override && override > 0) {
+      return this.resolveIntegerEnv({
+        rawValue: String(override),
+        fallbackValue: 51_200,
+        minimumValue: 512,
+        maximumValue: 1_000_000,
+      });
+    }
     return this.resolveIntegerEnv({
       rawValue: process.env.MAILZEN_MAIL_ADMIN_MAILCOW_QUOTA_MB,
       fallbackValue: 51_200,
@@ -178,13 +190,14 @@ export class MailServerService {
     localPart: string;
     domain: string;
     generatedPassword: string;
+    quotaLimitMb?: number | null;
   }): Record<string, unknown> {
     if (input.provider === 'MAILCOW') {
       return {
         local_part: input.localPart,
         domain: input.domain,
         name: input.localPart,
-        quota: this.resolveMailcowQuotaMb(),
+        quota: this.resolveMailcowQuotaMb(input.quotaLimitMb),
         active: '1',
         password: input.generatedPassword,
         password2: input.generatedPassword,
@@ -265,6 +278,7 @@ export class MailServerService {
     localPart: string;
     domain: string;
     generatedPassword: string;
+    quotaLimitMb?: number | null;
   }): Promise<void> {
     const adminApiUrl = process.env.MAILZEN_MAIL_ADMIN_API_URL?.trim();
     if (!adminApiUrl) {
@@ -291,6 +305,7 @@ export class MailServerService {
       localPart: input.localPart,
       domain: input.domain,
       generatedPassword: input.generatedPassword,
+      quotaLimitMb: input.quotaLimitMb,
     });
     const headers = {
       'content-type': 'application/json',
@@ -409,7 +424,11 @@ export class MailServerService {
   }
 
   // Provision a mailbox on a self-hosted stack and store encrypted IMAP/SMTP credentials.
-  async provisionMailbox(userId: string, localPart: string): Promise<void> {
+  async provisionMailbox(
+    userId: string,
+    localPart: string,
+    quotaLimitMb?: number,
+  ): Promise<void> {
     const password = crypto.randomBytes(16).toString('base64url');
     const mailboxEmail = `${localPart}@${MailServerService.MAILZEN_DOMAIN}`;
 
@@ -418,6 +437,7 @@ export class MailServerService {
       localPart,
       domain: MailServerService.MAILZEN_DOMAIN,
       generatedPassword: password,
+      quotaLimitMb,
     });
 
     const encryptedPassword = encryptProviderSecret(

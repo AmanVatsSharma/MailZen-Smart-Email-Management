@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { createHmac } from 'crypto';
 import { InsertResult, Repository, UpdateResult } from 'typeorm';
+import { BillingService } from '../billing/billing.service';
 import { Email } from '../email/entities/email.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
@@ -21,6 +22,7 @@ describe('MailboxInboundService', () => {
   let notificationEventBus: jest.Mocked<
     Pick<NotificationEventBusService, 'publishSafely'>
   >;
+  let billingService: jest.Mocked<Pick<BillingService, 'getEntitlements'>>;
   const envBackup = {
     inboundToken: process.env.MAILZEN_INBOUND_WEBHOOK_TOKEN,
     signingKey: process.env.MAILZEN_INBOUND_WEBHOOK_SIGNING_KEY,
@@ -48,12 +50,23 @@ describe('MailboxInboundService', () => {
     notificationEventBus = {
       publishSafely: jest.fn(),
     };
+    billingService = {
+      getEntitlements: jest.fn().mockResolvedValue({
+        planCode: 'PRO',
+        providerLimit: 5,
+        mailboxLimit: 5,
+        workspaceLimit: 5,
+        aiCreditsPerMonth: 500,
+        mailboxStorageLimitMb: 51200,
+      }),
+    };
 
     service = new MailboxInboundService(
       mailboxRepo,
       emailRepo,
       mailboxInboundEventRepo,
       notificationEventBus as unknown as NotificationEventBusService,
+      billingService as unknown as BillingService,
     );
 
     emailRepo.findOne.mockResolvedValue(null);
@@ -326,6 +339,51 @@ describe('MailboxInboundService', () => {
         mailboxId: 'mailbox-1',
         userId: 'user-1',
         messageId: '<quota-exceeded@example.com>',
+        status: 'REJECTED',
+      }),
+      ['mailboxId', 'messageId'],
+    );
+  });
+
+  it('rejects inbound payload when entitlement mailbox storage limit is exceeded', async () => {
+    billingService.getEntitlements.mockResolvedValue({
+      planCode: 'FREE',
+      providerLimit: 1,
+      mailboxLimit: 1,
+      workspaceLimit: 1,
+      aiCreditsPerMonth: 50,
+      mailboxStorageLimitMb: 1,
+    });
+    mailboxRepo.findOne.mockResolvedValue({
+      id: 'mailbox-1',
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      email: 'sales@mailzen.com',
+      usedBytes: (1n * 1024n * 1024n - 1n).toString(),
+      status: 'ACTIVE',
+      quotaLimitMb: 51200,
+    } as Mailbox);
+    emailRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.ingestInboundEvent(
+        {
+          mailboxEmail: 'sales@mailzen.com',
+          from: 'lead@example.com',
+          subject: 'New lead',
+          textBody: 'Message that exceeds entitled storage',
+          messageId: '<entitlement-quota-exceeded@example.com>',
+          sizeBytes: '2048',
+        },
+        { inboundTokenHeader: 'test-inbound-token' },
+      ),
+    ).rejects.toThrow(BadRequestException);
+    expect(emailRepo.save).not.toHaveBeenCalled();
+    expect(mailboxInboundEventRepo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mailboxId: 'mailbox-1',
+        userId: 'user-1',
+        messageId: '<entitlement-quota-exceeded@example.com>',
         status: 'REJECTED',
       }),
       ['mailboxId', 'messageId'],

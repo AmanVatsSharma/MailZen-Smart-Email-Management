@@ -17,6 +17,15 @@ import { BillingUpgradeIntentResponse } from './dto/billing-upgrade-intent.respo
 import { UserAiCreditUsage } from './entities/user-ai-credit-usage.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
 
+export type BillingEntitlements = {
+  planCode: string;
+  providerLimit: number;
+  mailboxLimit: number;
+  workspaceLimit: number;
+  aiCreditsPerMonth: number;
+  mailboxStorageLimitMb: number;
+};
+
 @Injectable()
 export class BillingService {
   private readonly logger = new Logger(BillingService.name);
@@ -119,6 +128,7 @@ export class BillingService {
         mailboxLimit: 1,
         workspaceLimit: 1,
         aiCreditsPerMonth: 50,
+        mailboxStorageLimitMb: 2048,
         isActive: true,
       },
       {
@@ -130,6 +140,7 @@ export class BillingService {
         mailboxLimit: 5,
         workspaceLimit: 5,
         aiCreditsPerMonth: 500,
+        mailboxStorageLimitMb: 10240,
         isActive: true,
       },
       {
@@ -141,6 +152,7 @@ export class BillingService {
         mailboxLimit: 25,
         workspaceLimit: 25,
         aiCreditsPerMonth: 5000,
+        mailboxStorageLimitMb: 51200,
         isActive: true,
       },
     ];
@@ -240,13 +252,7 @@ export class BillingService {
     return updatedSubscription;
   }
 
-  async getEntitlements(userId: string): Promise<{
-    planCode: string;
-    providerLimit: number;
-    mailboxLimit: number;
-    workspaceLimit: number;
-    aiCreditsPerMonth: number;
-  }> {
+  async getEntitlements(userId: string): Promise<BillingEntitlements> {
     await this.ensureDefaultPlans();
     const subscription = await this.getMySubscription(userId);
     const plan = await this.billingPlanRepo.findOne({
@@ -264,6 +270,7 @@ export class BillingService {
       mailboxLimit: plan.mailboxLimit,
       workspaceLimit: plan.workspaceLimit,
       aiCreditsPerMonth: plan.aiCreditsPerMonth,
+      mailboxStorageLimitMb: plan.mailboxStorageLimitMb,
     };
   }
 

@@ -9,6 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { Repository } from 'typeorm';
+import { BillingService } from '../billing/billing.service';
 import {
   resolveCorrelationId,
   serializeStructuredLog,
@@ -43,6 +44,7 @@ type MailboxInboundIngestResult = {
 @Injectable()
 export class MailboxInboundService {
   private readonly logger = new Logger(MailboxInboundService.name);
+  private static readonly MAX_MAILBOX_STORAGE_LIMIT_MB = 1_000_000;
   private readonly processedMessageIds = new Map<
     string,
     { expiresAtMs: number; emailId: string }
@@ -56,6 +58,7 @@ export class MailboxInboundService {
     @InjectRepository(MailboxInboundEvent)
     private readonly mailboxInboundEventRepo: Repository<MailboxInboundEvent>,
     private readonly notificationEventBus: NotificationEventBusService,
+    private readonly billingService: BillingService,
   ) {}
 
   private normalizeEmailAddress(input: string): string {
@@ -290,10 +293,55 @@ export class MailboxInboundService {
     }
   }
 
-  private assertMailboxWritable(
+  private normalizeQuotaLimitMb(rawValue?: number | null): number | null {
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+    const normalized = Math.trunc(parsed);
+    if (normalized > MailboxInboundService.MAX_MAILBOX_STORAGE_LIMIT_MB) {
+      return MailboxInboundService.MAX_MAILBOX_STORAGE_LIMIT_MB;
+    }
+    return normalized;
+  }
+
+  private async resolveEffectiveQuotaLimitMb(
+    mailbox: Mailbox,
+  ): Promise<number | null> {
+    const mailboxQuotaLimitMb = this.normalizeQuotaLimitMb(
+      mailbox.quotaLimitMb,
+    );
+    let entitlementQuotaLimitMb: number | null = null;
+
+    try {
+      const entitlements = await this.billingService.getEntitlements(
+        mailbox.userId,
+      );
+      entitlementQuotaLimitMb = this.normalizeQuotaLimitMb(
+        entitlements.mailboxStorageLimitMb,
+      );
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'mailbox_inbound_entitlements_lookup_failed',
+          mailboxEmail: mailbox.email,
+          mailboxId: mailbox.id,
+          userId: mailbox.userId,
+          error: errorMessage,
+        }),
+      );
+    }
+
+    if (mailboxQuotaLimitMb && entitlementQuotaLimitMb) {
+      return Math.min(mailboxQuotaLimitMb, entitlementQuotaLimitMb);
+    }
+    return mailboxQuotaLimitMb ?? entitlementQuotaLimitMb;
+  }
+
+  private async assertMailboxWritable(
     mailbox: Mailbox,
     inboundSizeBytes: bigint,
-  ): void {
+  ): Promise<void> {
     const normalizedStatus = String(mailbox.status || '')
       .trim()
       .toUpperCase();
@@ -301,8 +349,8 @@ export class MailboxInboundService {
       throw new BadRequestException('Mailbox is not active');
     }
 
-    const quotaLimitMb = Number(mailbox.quotaLimitMb || 0);
-    if (!Number.isFinite(quotaLimitMb) || quotaLimitMb <= 0) return;
+    const quotaLimitMb = await this.resolveEffectiveQuotaLimitMb(mailbox);
+    if (!quotaLimitMb) return;
 
     const quotaLimitBytes = BigInt(Math.floor(quotaLimitMb)) * 1024n * 1024n;
     const currentUsageBytes = this.resolveCurrentMailboxUsageBytes(
@@ -633,7 +681,7 @@ export class MailboxInboundService {
       }
 
       const inboundSizeBytes = this.resolveApproximateSizeBytes(input);
-      this.assertMailboxWritable(mailbox, inboundSizeBytes);
+      await this.assertMailboxWritable(mailbox, inboundSizeBytes);
 
       const subject = input.subject?.trim() || '(no subject)';
       const body = input.htmlBody?.trim() || input.textBody?.trim() || '';

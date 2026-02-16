@@ -63,6 +63,8 @@
   - `20260216061000-mailbox-inbound-sync-lifecycle-state.ts`
 - Added smart reply history migration:
   - `20260216073000-smart-reply-history.ts`
+- Added billing mailbox storage entitlement migration:
+  - `20260216081000-billing-mailbox-storage-limit.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

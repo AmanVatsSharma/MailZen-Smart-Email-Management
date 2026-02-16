@@ -29,6 +29,7 @@ const requiredContracts = [
   'syncMyMailboxPull',
   'syncMyProviders',
   'syncMyInboxes',
+  'myInboxSourceHealthStats',
   'myProviderSyncStats',
   'myProviderSyncDataExport',
   'smartReplySettings',

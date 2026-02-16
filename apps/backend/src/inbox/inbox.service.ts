@@ -14,6 +14,8 @@ import { EmailProviderService } from '../email-integration/email-provider.servic
 @Injectable()
 export class InboxService {
   private readonly logger = new Logger(InboxService.name);
+  private static readonly MIN_HEALTH_WINDOW_HOURS = 1;
+  private static readonly MAX_HEALTH_WINDOW_HOURS = 24 * 30;
 
   constructor(
     @InjectRepository(User)
@@ -67,6 +69,20 @@ export class InboxService {
     }
     if (provider.lastSyncedAt) return 'connected';
     return 'connected';
+  }
+
+  private normalizeHealthWindowHours(windowHours?: number | null): number {
+    if (typeof windowHours !== 'number' || !Number.isFinite(windowHours)) {
+      return 24;
+    }
+    const rounded = Math.trunc(windowHours);
+    if (rounded < InboxService.MIN_HEALTH_WINDOW_HOURS) {
+      return InboxService.MIN_HEALTH_WINDOW_HOURS;
+    }
+    if (rounded > InboxService.MAX_HEALTH_WINDOW_HOURS) {
+      return InboxService.MAX_HEALTH_WINDOW_HOURS;
+    }
+    return rounded;
   }
 
   /**
@@ -264,6 +280,124 @@ export class InboxService {
       success: !mailboxSyncError && !providerSyncError,
       mailboxSyncError,
       providerSyncError,
+      executedAtIso: new Date().toISOString(),
+    };
+  }
+
+  async getInboxSourceHealthStats(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+  }) {
+    const user = await this.userRepository.findOne({
+      where: { id: input.userId },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    const requestedWorkspaceId = String(input.workspaceId || '').trim();
+    const scopedWorkspaceId =
+      requestedWorkspaceId || user.activeWorkspaceId || null;
+    const normalizedWindowHours = this.normalizeHealthWindowHours(
+      input.windowHours,
+    );
+    const cutoff = new Date(
+      Date.now() - normalizedWindowHours * 60 * 60 * 1000,
+    );
+    const mailboxWhere = scopedWorkspaceId
+      ? { userId: input.userId, workspaceId: scopedWorkspaceId }
+      : { userId: input.userId };
+    const providerWhere = scopedWorkspaceId
+      ? { userId: input.userId, workspaceId: scopedWorkspaceId }
+      : { userId: input.userId };
+
+    const [mailboxes, providers] = await Promise.all([
+      this.mailboxRepository.find({
+        where: mailboxWhere,
+      }),
+      this.providerRepository.find({
+        where: providerWhere,
+      }),
+    ]);
+
+    let activeInboxes = 0;
+    let connectedInboxes = 0;
+    let syncingInboxes = 0;
+    let errorInboxes = 0;
+    let pendingInboxes = 0;
+    let disabledInboxes = 0;
+    let recentlySyncedInboxes = 0;
+    let recentlyErroredInboxes = 0;
+
+    for (const mailbox of mailboxes) {
+      const status = this.resolveMailboxSyncStatus(mailbox);
+      const normalizedStatus = String(status || '')
+        .trim()
+        .toLowerCase();
+      if (
+        user.activeInboxType === 'MAILBOX' &&
+        user.activeInboxId === mailbox.id
+      ) {
+        activeInboxes += 1;
+      }
+      if (normalizedStatus === 'syncing') syncingInboxes += 1;
+      else if (normalizedStatus === 'error') errorInboxes += 1;
+      else if (normalizedStatus === 'pending') pendingInboxes += 1;
+      else if (normalizedStatus === 'disabled') disabledInboxes += 1;
+      else connectedInboxes += 1;
+
+      if (
+        mailbox.inboundSyncLastPolledAt &&
+        mailbox.inboundSyncLastPolledAt >= cutoff
+      ) {
+        recentlySyncedInboxes += 1;
+      }
+      if (
+        mailbox.inboundSyncLastErrorAt &&
+        mailbox.inboundSyncLastErrorAt >= cutoff
+      ) {
+        recentlyErroredInboxes += 1;
+      }
+    }
+
+    for (const provider of providers) {
+      const status = this.resolveProviderSyncStatus(provider);
+      const normalizedStatus = String(status || '')
+        .trim()
+        .toLowerCase();
+      if (
+        user.activeInboxType === 'PROVIDER' &&
+        user.activeInboxId === provider.id
+      ) {
+        activeInboxes += 1;
+      }
+      if (normalizedStatus === 'syncing') syncingInboxes += 1;
+      else if (normalizedStatus === 'error') errorInboxes += 1;
+      else if (normalizedStatus === 'pending') pendingInboxes += 1;
+      else if (normalizedStatus === 'disabled') disabledInboxes += 1;
+      else connectedInboxes += 1;
+
+      if (provider.lastSyncedAt && provider.lastSyncedAt >= cutoff) {
+        recentlySyncedInboxes += 1;
+      }
+      if (provider.lastSyncErrorAt && provider.lastSyncErrorAt >= cutoff) {
+        recentlyErroredInboxes += 1;
+      }
+    }
+
+    return {
+      totalInboxes: mailboxes.length + providers.length,
+      mailboxInboxes: mailboxes.length,
+      providerInboxes: providers.length,
+      activeInboxes,
+      connectedInboxes,
+      syncingInboxes,
+      errorInboxes,
+      pendingInboxes,
+      disabledInboxes,
+      recentlySyncedInboxes,
+      recentlyErroredInboxes,
+      windowHours: normalizedWindowHours,
+      workspaceId: scopedWorkspaceId,
       executedAtIso: new Date().toISOString(),
     };
   }

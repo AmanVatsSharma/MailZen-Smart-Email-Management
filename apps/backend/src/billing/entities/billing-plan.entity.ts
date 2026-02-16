@@ -48,6 +48,10 @@ export class BillingPlan {
   @Column({ default: 50 })
   aiCreditsPerMonth: number;
 
+  @Field(() => Int)
+  @Column({ default: 2048 })
+  mailboxStorageLimitMb: number;
+
   @Field()
   @Column({ default: true })
   isActive: boolean;

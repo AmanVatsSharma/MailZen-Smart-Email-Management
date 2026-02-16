@@ -33,6 +33,7 @@ describe('MailboxService', () => {
       mailboxLimit: 5,
       workspaceLimit: 5,
       aiCreditsPerMonth: 500,
+      mailboxStorageLimitMb: 10240,
     }),
   };
   const workspaceService = {
@@ -85,6 +86,7 @@ describe('MailboxService', () => {
       mailboxLimit: 5,
       workspaceLimit: 5,
       aiCreditsPerMonth: 500,
+      mailboxStorageLimitMb: 10240,
     });
   });
 
@@ -157,14 +159,46 @@ describe('MailboxService', () => {
         localPart: 'sales',
         domain: 'mailzen.com',
         email: 'sales@mailzen.com',
+        quotaLimitMb: 10240,
       }),
     );
-    expect(mailServer.provisionMailbox).toHaveBeenCalledWith('user-1', 'sales');
+    expect(mailServer.provisionMailbox).toHaveBeenCalledWith(
+      'user-1',
+      'sales',
+      10240,
+    );
     expect(userRepo.update).toHaveBeenCalledWith('user-1', {
       activeInboxType: 'MAILBOX',
       activeInboxId: 'mailbox-1',
     });
     expect(result).toEqual({ id: 'mailbox-1', email: 'sales@mailzen.com' });
+  });
+
+  it('clamps mailbox quota to safe minimum when entitlement value is invalid', async () => {
+    billingService.getEntitlements.mockResolvedValue({
+      planCode: 'FREE',
+      providerLimit: 1,
+      mailboxLimit: 1,
+      workspaceLimit: 1,
+      aiCreditsPerMonth: 50,
+      mailboxStorageLimitMb: 0,
+    });
+    userRepo.findOne.mockResolvedValue({ id: 'user-1' });
+    mailboxRepo.findOne.mockResolvedValue(null);
+    mailboxRepo.create.mockImplementation((data) => data);
+    mailboxRepo.save.mockResolvedValue({
+      id: 'mailbox-1',
+      email: 'founder@mailzen.com',
+    });
+    mailServer.provisionMailbox.mockResolvedValue(undefined);
+
+    await service.createMailbox('user-1', 'founder');
+
+    expect(mailboxRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quotaLimitMb: 128,
+      }),
+    );
   });
 
   it('does not overwrite existing active inbox when creating mailbox', async () => {

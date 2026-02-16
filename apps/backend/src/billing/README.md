@@ -83,7 +83,9 @@ flowchart TD
 - Current integrations:
   - `EmailProviderService` enforces `providerLimit`
   - `MailboxService` enforces `mailboxLimit`
+  - `MailboxService` applies plan-based `mailboxStorageLimitMb` to new aliases
+  - `MailboxInboundService` enforces effective mailbox storage ceiling using
+    `min(mailbox.quotaLimitMb, entitlement.mailboxStorageLimitMb)`
   - `WorkspaceService` enforces `workspaceLimit`
   - `AiAgentGatewayService` consumes monthly AI credits via billing service
   - `NotificationEventBusService` stores `BILLING_UPGRADE_INTENT` intents
-

@@ -7,7 +7,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { BillingService } from '../billing/billing.service';
+import {
+  BillingEntitlements,
+  BillingService,
+} from '../billing/billing.service';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { MailServerService } from './mail-server.service';
 import { Mailbox } from './entities/mailbox.entity';
@@ -32,6 +35,8 @@ export class MailboxService {
     'DEDUPLICATED',
     'REJECTED',
   ]);
+  private static readonly MIN_MAILBOX_STORAGE_LIMIT_MB = 128;
+  private static readonly MAX_MAILBOX_STORAGE_LIMIT_MB = 1_000_000;
   private static readonly DEFAULT_INBOUND_EVENT_LIMIT = 20;
   private static readonly MAX_INBOUND_EVENT_LIMIT = 100;
   private static readonly DEFAULT_STATS_WINDOW_HOURS = 24;
@@ -102,7 +107,7 @@ export class MailboxService {
     userId: string,
     desiredLocalPart?: string,
   ): Promise<{ email: string; id: string }> {
-    await this.enforceMailboxLimit(userId);
+    const entitlements = await this.enforceMailboxLimit(userId);
     const workspaceId = await this.resolveDefaultWorkspaceId(userId);
 
     const user = await this.userRepo.findOne({ where: { id: userId } });
@@ -130,6 +135,9 @@ export class MailboxService {
     }
 
     const email = `${localPart}@${MailboxService.MAILZEN_DOMAIN}`;
+    const quotaLimitMb = this.resolveEntitledMailboxStorageLimitMb(
+      entitlements.mailboxStorageLimitMb,
+    );
     const created = await this.mailboxRepo.save(
       this.mailboxRepo.create({
         userId,
@@ -137,11 +145,12 @@ export class MailboxService {
         localPart,
         domain: MailboxService.MAILZEN_DOMAIN,
         email,
+        quotaLimitMb,
       }),
     );
     // Provision on self-hosted server
     try {
-      await this.mailServer.provisionMailbox(userId, localPart);
+      await this.mailServer.provisionMailbox(userId, localPart, quotaLimitMb);
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -649,12 +658,27 @@ export class MailboxService {
     return name;
   }
 
-  private async enforceMailboxLimit(userId: string): Promise<void> {
+  private resolveEntitledMailboxStorageLimitMb(rawValue?: number): number {
+    const parsed = Number(rawValue);
+    const fallback = 2048;
+    const normalized = Number.isFinite(parsed) ? Math.trunc(parsed) : fallback;
+    if (normalized < MailboxService.MIN_MAILBOX_STORAGE_LIMIT_MB) {
+      return MailboxService.MIN_MAILBOX_STORAGE_LIMIT_MB;
+    }
+    if (normalized > MailboxService.MAX_MAILBOX_STORAGE_LIMIT_MB) {
+      return MailboxService.MAX_MAILBOX_STORAGE_LIMIT_MB;
+    }
+    return normalized;
+  }
+
+  private async enforceMailboxLimit(
+    userId: string,
+  ): Promise<BillingEntitlements> {
     const entitlements = await this.billingService.getEntitlements(userId);
     const currentMailboxCount = await this.mailboxRepo.count({
       where: { userId },
     });
-    if (currentMailboxCount < entitlements.mailboxLimit) return;
+    if (currentMailboxCount < entitlements.mailboxLimit) return entitlements;
 
     throw new BadRequestException(
       `Plan limit reached. Your ${entitlements.planCode} plan supports up to ${entitlements.mailboxLimit} mailboxes.`,

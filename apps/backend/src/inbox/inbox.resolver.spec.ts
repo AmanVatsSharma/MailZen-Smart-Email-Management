@@ -9,6 +9,7 @@ describe('InboxResolver', () => {
     listUserInboxes: jest.fn(),
     setActiveInbox: jest.fn(),
     syncUserInboxes: jest.fn(),
+    getInboxSourceHealthStats: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -76,6 +77,29 @@ describe('InboxResolver', () => {
     expect(inboxServiceMock.syncUserInboxes).toHaveBeenCalledWith({
       userId: 'user-1',
       workspaceId: 'workspace-1',
+    });
+  });
+
+  it('delegates myInboxSourceHealthStats query to service', async () => {
+    inboxServiceMock.getInboxSourceHealthStats.mockResolvedValue({
+      totalInboxes: 4,
+      connectedInboxes: 3,
+      windowHours: 24,
+      executedAtIso: new Date().toISOString(),
+    });
+    const context = { req: { user: { id: 'user-1' } } };
+
+    const result = await resolver.myInboxSourceHealthStats(
+      'workspace-9',
+      48,
+      context,
+    );
+
+    expect(result).toEqual(expect.objectContaining({ totalInboxes: 4 }));
+    expect(inboxServiceMock.getInboxSourceHealthStats).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-9',
+      windowHours: 48,
     });
   });
 });

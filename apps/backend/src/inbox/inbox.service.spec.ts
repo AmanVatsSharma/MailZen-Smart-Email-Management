@@ -249,4 +249,110 @@ describe('InboxService', () => {
     expect(result.providerSyncError).toContain('provider backend unavailable');
     expect(result.mailboxPolledMailboxes).toBe(1);
   });
+
+  it('returns workspace health stats with status buckets', async () => {
+    const recentSyncTime = new Date(Date.now() - 10 * 60 * 1000);
+    const recentErrorTime = new Date(Date.now() - 15 * 60 * 1000);
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-1',
+      activeWorkspaceId: 'workspace-1',
+      activeInboxType: 'MAILBOX',
+      activeInboxId: 'mailbox-syncing',
+    } as User);
+    mailboxRepo.find.mockResolvedValue([
+      {
+        id: 'mailbox-syncing',
+        status: 'ACTIVE',
+        inboundSyncStatus: 'syncing',
+        inboundSyncLastPolledAt: recentSyncTime,
+      },
+      {
+        id: 'mailbox-error',
+        status: 'ACTIVE',
+        inboundSyncStatus: 'error',
+        inboundSyncLastErrorAt: recentErrorTime,
+      },
+      {
+        id: 'mailbox-disabled',
+        status: 'DISABLED',
+      },
+    ] as Mailbox[]);
+    providerRepo.find.mockResolvedValue([
+      {
+        id: 'provider-active',
+        status: 'connected',
+        lastSyncedAt: recentSyncTime,
+      },
+      {
+        id: 'provider-error',
+        status: 'error',
+        lastSyncErrorAt: recentErrorTime,
+      },
+    ] as EmailProvider[]);
+
+    const result = await service.getInboxSourceHealthStats({
+      userId: 'user-1',
+      workspaceId: undefined,
+      windowHours: 24,
+    });
+
+    expect(mailboxRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1', workspaceId: 'workspace-1' },
+      }),
+    );
+    expect(providerRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1', workspaceId: 'workspace-1' },
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        totalInboxes: 5,
+        mailboxInboxes: 3,
+        providerInboxes: 2,
+        activeInboxes: 1,
+        connectedInboxes: 1,
+        syncingInboxes: 1,
+        errorInboxes: 2,
+        disabledInboxes: 1,
+        pendingInboxes: 0,
+        recentlySyncedInboxes: 2,
+        recentlyErroredInboxes: 2,
+        windowHours: 24,
+        workspaceId: 'workspace-1',
+      }),
+    );
+  });
+
+  it('clamps health stats window and supports explicit workspace override', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-1',
+      activeWorkspaceId: 'workspace-1',
+      activeInboxType: 'PROVIDER',
+      activeInboxId: 'provider-2',
+    } as User);
+    mailboxRepo.find.mockResolvedValue([]);
+    providerRepo.find.mockResolvedValue([
+      {
+        id: 'provider-2',
+        status: 'connected',
+      },
+    ] as EmailProvider[]);
+
+    const result = await service.getInboxSourceHealthStats({
+      userId: 'user-1',
+      workspaceId: 'workspace-2',
+      windowHours: 0,
+    });
+
+    expect(mailboxRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1', workspaceId: 'workspace-2' },
+      }),
+    );
+    expect(result.windowHours).toBe(1);
+    expect(result.workspaceId).toBe('workspace-2');
+    expect(result.activeInboxes).toBe(1);
+  });
 });

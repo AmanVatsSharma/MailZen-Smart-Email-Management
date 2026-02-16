@@ -40,6 +40,7 @@ describe('WorkspaceService', () => {
         mailboxLimit: 5,
         workspaceLimit: 5,
         aiCreditsPerMonth: 500,
+        mailboxStorageLimitMb: 10240,
       }),
     };
     workspaceRepo.count.mockResolvedValue(1);
@@ -119,6 +120,7 @@ describe('WorkspaceService', () => {
       mailboxLimit: 5,
       workspaceLimit: 5,
       aiCreditsPerMonth: 500,
+      mailboxStorageLimitMb: 10240,
     });
     userRepo.findOne.mockResolvedValue({
       id: 'user-1',
@@ -207,8 +209,8 @@ describe('WorkspaceService', () => {
       email: 'invitee@mailzen.com',
       status: 'pending',
     } as WorkspaceMember);
-    workspaceMemberRepo.save.mockImplementation(
-      (member: WorkspaceMember) => Promise.resolve(member),
+    workspaceMemberRepo.save.mockImplementation((member: WorkspaceMember) =>
+      Promise.resolve(member),
     );
 
     const result = await service.respondToWorkspaceInvitation({
@@ -314,8 +316,8 @@ describe('WorkspaceService', () => {
         role: 'OWNER',
         status: 'active',
       } as WorkspaceMember);
-    workspaceMemberRepo.save.mockImplementation(
-      (member: WorkspaceMember) => Promise.resolve(member),
+    workspaceMemberRepo.save.mockImplementation((member: WorkspaceMember) =>
+      Promise.resolve(member),
     );
 
     const updated = await service.updateWorkspaceMemberRole({
@@ -377,8 +379,8 @@ describe('WorkspaceService', () => {
         role: 'OWNER',
         status: 'active',
       } as WorkspaceMember);
-    workspaceMemberRepo.save.mockImplementation(
-      (member: WorkspaceMember) => Promise.resolve(member),
+    workspaceMemberRepo.save.mockImplementation((member: WorkspaceMember) =>
+      Promise.resolve(member),
     );
     userRepo.update.mockResolvedValue({} as any);
 
@@ -416,8 +418,8 @@ describe('WorkspaceService', () => {
       slug: 'workspace-one',
       isPersonal: false,
     } as Workspace);
-    workspaceMemberRepo.save.mockImplementation(
-      (member: WorkspaceMember) => Promise.resolve(member),
+    workspaceMemberRepo.save.mockImplementation((member: WorkspaceMember) =>
+      Promise.resolve(member),
     );
 
     const reinvited = await service.inviteWorkspaceMember(

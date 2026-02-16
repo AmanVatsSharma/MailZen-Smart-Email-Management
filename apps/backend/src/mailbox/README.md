@@ -8,6 +8,7 @@ This module covers:
 
 - alias handle validation + creation
 - plan entitlement enforcement for mailbox count
+- plan entitlement enforcement for mailbox storage quota (`mailboxStorageLimitMb`)
 - default workspace assignment for each new mailbox
 - mailbox persistence in Postgres (`mailboxes` table)
 - credential generation + encryption
@@ -19,6 +20,7 @@ This module covers:
 - `mailbox.service.ts`
   - validates desired local part
   - enforces uniqueness for `localPart@mailzen.com`
+  - resolves plan entitlement storage quota and persists `quotaLimitMb` on create
   - creates mailbox row and triggers provisioning
 - `mail-server.service.ts`
   - generates mailbox password
@@ -48,6 +50,7 @@ This module covers:
 - `mailbox-inbound.service.ts`
   - resolves mailbox owner/workspace
   - enforces mailbox status/quota guardrails before persisting
+  - resolves effective storage limit from mailbox row + billing entitlement policy
   - persists inbound payload in `emails` table with `status=NEW`, `inboundMessageId`, `inboundThreadKey`
   - links inbox rows to mailbox source via `emails.mailboxId` for strict mailbox scoping
   - upserts idempotency/observability records in `mailbox_inbound_events`
@@ -118,7 +121,8 @@ flowchart TD
 - `MAILZEN_MAIL_ADMIN_API_RETRY_BACKOFF_MS` (default `300`)
 - `MAILZEN_MAIL_ADMIN_API_RETRY_JITTER_MS` (default `150`)
 - `MAILZEN_MAIL_ADMIN_MAILCOW_QUOTA_MB` (default `51200`)
-  - used when provider is `MAILCOW` to set mailbox quota at create time
+  - fallback used when provider is `MAILCOW` and entitlement-derived quota is unavailable
+  - entitlement-derived `mailboxStorageLimitMb` is passed when provisioning new aliases
 
 ### Optional mailbox pull sync pipeline
 

@@ -53,6 +53,7 @@ describe('EmailProviderService', () => {
       mailboxLimit: 5,
       workspaceLimit: 5,
       aiCreditsPerMonth: 500,
+      mailboxStorageLimitMb: 10240,
     }),
   };
   const workspaceServiceMock = {

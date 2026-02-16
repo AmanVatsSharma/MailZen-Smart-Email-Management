@@ -246,6 +246,23 @@ type InboxSyncRunResponse {
   executedAtIso: String!
 }
 
+type InboxSourceHealthStatsResponse {
+  totalInboxes: Int!
+  mailboxInboxes: Int!
+  providerInboxes: Int!
+  activeInboxes: Int!
+  connectedInboxes: Int!
+  syncingInboxes: Int!
+  errorInboxes: Int!
+  pendingInboxes: Int!
+  disabledInboxes: Int!
+  recentlySyncedInboxes: Int!
+  recentlyErroredInboxes: Int!
+  windowHours: Int!
+  workspaceId: String
+  executedAtIso: String!
+}
+
 type EmailAttachment {
   id: ID!
   name: String!
@@ -398,6 +415,10 @@ type Query {
   """Get a contact by id"""
   getContact(id: String!): Contact!
   myInboxes: [Inbox!]!
+  myInboxSourceHealthStats(
+    workspaceId: String
+    windowHours: Int
+  ): InboxSourceHealthStatsResponse!
   emails(limit: Int, offset: Int, filter: EmailFilterInput, sort: EmailSortInput): [EmailThread!]!
   email(id: String!): EmailThread!
   folders: [EmailFolder!]!
@@ -999,6 +1020,7 @@ type BillingPlan {
   providerLimit: Int!
   mailboxLimit: Int!
   aiCreditsPerMonth: Int!
+  mailboxStorageLimitMb: Int!
   isActive: Boolean!
   createdAt: DateTime!
   updatedAt: DateTime!

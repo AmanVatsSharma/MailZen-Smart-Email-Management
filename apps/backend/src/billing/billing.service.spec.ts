@@ -175,6 +175,7 @@ describe('BillingService', () => {
       mailboxLimit: 25,
       workspaceLimit: 25,
       aiCreditsPerMonth: 5000,
+      mailboxStorageLimitMb: 51200,
     } as BillingPlan);
     subscriptionRepo.findOne.mockResolvedValue({
       id: 'sub-1',
@@ -216,6 +217,7 @@ describe('BillingService', () => {
       mailboxLimit: 5,
       workspaceLimit: 5,
       aiCreditsPerMonth: 500,
+      mailboxStorageLimitMb: 10240,
     } as BillingPlan);
     usageRepo.upsert.mockResolvedValue({} as never);
     usageRepo.findOne.mockResolvedValue({
@@ -231,6 +233,35 @@ describe('BillingService', () => {
     expect(balance.monthlyLimit).toBe(500);
     expect(balance.usedCredits).toBe(120);
     expect(balance.remainingCredits).toBe(380);
+  });
+
+  it('returns storage entitlement in plan entitlements snapshot', async () => {
+    planRepo.count.mockResolvedValue(1);
+    subscriptionRepo.findOne.mockResolvedValue({
+      id: 'sub-1',
+      userId: 'user-1',
+      planCode: 'PRO',
+      status: 'active',
+    } as UserSubscription);
+    planRepo.findOne.mockResolvedValue({
+      id: 'plan-pro',
+      code: 'PRO',
+      isActive: true,
+      providerLimit: 5,
+      mailboxLimit: 5,
+      workspaceLimit: 5,
+      aiCreditsPerMonth: 500,
+      mailboxStorageLimitMb: 10240,
+    } as BillingPlan);
+
+    const entitlements = await service.getEntitlements('user-1');
+
+    expect(entitlements).toEqual(
+      expect.objectContaining({
+        planCode: 'PRO',
+        mailboxStorageLimitMb: 10240,
+      }),
+    );
   });
 
   it('denies AI credit consumption when monthly limit exhausted', async () => {
@@ -253,6 +284,7 @@ describe('BillingService', () => {
       mailboxLimit: 1,
       workspaceLimit: 1,
       aiCreditsPerMonth: 50,
+      mailboxStorageLimitMb: 2048,
     } as BillingPlan);
     usageRepo.upsert.mockResolvedValue({} as never);
     usageRepo.findOne.mockResolvedValue({
@@ -316,6 +348,7 @@ describe('BillingService', () => {
       mailboxLimit: 5,
       workspaceLimit: 5,
       aiCreditsPerMonth: 500,
+      mailboxStorageLimitMb: 10240,
     } as BillingPlan);
     usageRepo.upsert.mockResolvedValue({} as never);
     usageRepo.findOne.mockResolvedValue({

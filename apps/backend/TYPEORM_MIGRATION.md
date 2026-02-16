@@ -1044,3 +1044,44 @@ WHERE type = 'GMAIL'
 ORDER BY "updatedAt" DESC
 LIMIT 50;
 ```
+
+## Billing Mailbox Storage Entitlement Rollout Notes (2026-02-16)
+
+New migration: `20260216081000-billing-mailbox-storage-limit.ts`
+
+This migration introduces:
+
+- `billing_plans.mailboxStorageLimitMb`
+  - per-mailbox storage entitlement ceiling (MB) used by mailbox provisioning
+    and inbound quota enforcement
+- backfill defaults for first-party catalog codes:
+  - `FREE=2048`
+  - `PRO=10240`
+  - `BUSINESS=51200`
+
+### Safe rollout sequence
+
+1. Deploy backend containing migration + mailbox entitlement enforcement logic.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- billing/billing.service.spec.ts mailbox/mailbox.service.spec.ts mailbox/mailbox-inbound.service.spec.ts`
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Validate runtime behavior:
+   - newly created mailboxes inherit plan storage quota (`quotaLimitMb`).
+   - inbound ingestion rejects writes once mailbox usage exceeds effective
+     entitlement quota.
+
+### Staging verification SQL
+
+```sql
+SELECT
+  code,
+  "providerLimit",
+  "mailboxLimit",
+  "workspaceLimit",
+  "mailboxStorageLimitMb"
+FROM billing_plans
+ORDER BY code;
+```

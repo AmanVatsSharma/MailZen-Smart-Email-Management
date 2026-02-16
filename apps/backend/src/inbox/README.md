@@ -14,6 +14,10 @@ Provide a single API for **multi-inbox switching**, combining:
 - `syncMyInboxes(workspaceId?: String): InboxSyncRunResponse!`
   - triggers both mailbox pull sync + provider sync for authenticated user/workspace
   - returns aggregate counters and partial-failure fields (`mailboxSyncError`, `providerSyncError`)
+- `myInboxSourceHealthStats(workspaceId?: String, windowHours?: Int): InboxSourceHealthStatsResponse!`
+  - returns aggregate health buckets for mailbox + provider inbox sources
+  - includes lifecycle counts (`connected/syncing/error/pending/disabled`),
+    recent sync/error counts, active inbox count, and evaluated workspace scope
 
 `Inbox` response now includes sync telemetry fields:
 
@@ -41,8 +45,10 @@ flowchart TD
   api --> db[(PostgresTypeORM)]
   frontend -->|Mutation setActiveInbox(type,id)| api
   frontend -->|Mutation syncMyInboxes| api
+  frontend -->|Query myInboxSourceHealthStats| api
   api -->|validate_ownership| db
   api -->|persist_activeInbox| db
+  api -->|aggregate lifecycle counts| db
 ```
 
 ## Notes

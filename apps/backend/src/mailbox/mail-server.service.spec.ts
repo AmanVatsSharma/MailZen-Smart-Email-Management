@@ -119,6 +119,28 @@ describe('MailServerService', () => {
     expect(mailboxRepo.update).toHaveBeenCalledTimes(1);
   });
 
+  it('passes entitlement mailbox quota to mailcow provisioning payload', async () => {
+    process.env.MAILZEN_MAIL_ADMIN_API_URL = 'https://mail-admin.local';
+    process.env.MAILZEN_MAIL_ADMIN_PROVIDER = 'MAILCOW';
+    mockedAxios.post.mockResolvedValue({ data: { ok: true } } as never);
+    mailboxRepo.update.mockResolvedValue({ affected: 1 });
+    const service = new MailServerService(
+      mailboxRepo as unknown as Repository<Mailbox>,
+    );
+
+    await service.provisionMailbox('user-1', 'sales', 4096);
+
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /^https:\/\/mail-admin\.local\/api\/v1\/add\/mailbox$/,
+      ),
+      expect.objectContaining({
+        quota: 4096,
+      }),
+      expect.any(Object),
+    );
+  });
+
   it('treats already-existing mailbox response as idempotent success', async () => {
     process.env.MAILZEN_MAIL_ADMIN_API_URL = 'https://mail-admin.local';
     mockedAxios.post.mockRejectedValue({
