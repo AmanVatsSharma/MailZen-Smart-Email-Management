@@ -136,7 +136,7 @@ check_http_status() {
 
   while [[ "${attempt}" -le "${MAX_RETRIES}" ]]; do
     log_info "[${label}] attempt ${attempt}/${MAX_RETRIES} -> ${url}"
-    status_code="$(curl -sS -o /tmp/mailzen-verify-response.out -w "%{http_code}" "${url}" || true)"
+    status_code="$(curl -sS -o /dev/null -w "%{http_code}" "${url}" || true)"
     if [[ "${status_code}" =~ ^[0-9]+$ ]] &&
       [[ "${status_code}" -ge "${expected_min}" ]] &&
       [[ "${status_code}" -le "${expected_max}" ]]; then
@@ -162,7 +162,7 @@ check_graphql_post() {
 
   while [[ "${attempt}" -le "${MAX_RETRIES}" ]]; do
     log_info "[graphql-post] attempt ${attempt}/${MAX_RETRIES} -> ${graphql_url}"
-    status_code="$(curl -sS -o /tmp/mailzen-verify-graphql.out -w "%{http_code}" \
+    status_code="$(curl -sS -o /dev/null -w "%{http_code}" \
       -H "content-type: application/json" \
       -X POST \
       --data "${body}" \
