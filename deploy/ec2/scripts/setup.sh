@@ -25,6 +25,10 @@ DOMAIN_ARG=""
 ACME_EMAIL_ARG=""
 NON_INTERACTIVE=false
 SKIP_DAEMON=false
+DOMAIN_FLAG_SET=false
+DOMAIN_FLAG_VALUE=""
+ACME_EMAIL_FLAG_SET=false
+ACME_EMAIL_FLAG_VALUE=""
 
 prompt_value() {
   local key="$1"
@@ -117,27 +121,59 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --domain)
-    DOMAIN_ARG="${2:-}"
-    if [[ -z "${DOMAIN_ARG}" ]]; then
+    domain_arg="${2:-}"
+    if [[ -z "${domain_arg}" ]]; then
       log_error "--domain requires a value."
       exit 1
     fi
+    if [[ "${DOMAIN_FLAG_SET}" == true ]] && [[ "${domain_arg}" != "${DOMAIN_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --domain '${DOMAIN_FLAG_VALUE}' overridden by --domain '${domain_arg}'."
+    fi
+    DOMAIN_ARG="${domain_arg}"
+    DOMAIN_FLAG_SET=true
+    DOMAIN_FLAG_VALUE="${domain_arg}"
     shift 2
     ;;
   --acme-email)
-    ACME_EMAIL_ARG="${2:-}"
-    if [[ -z "${ACME_EMAIL_ARG}" ]]; then
+    acme_email_arg="${2:-}"
+    if [[ -z "${acme_email_arg}" ]]; then
       log_error "--acme-email requires a value."
       exit 1
     fi
+    if [[ "${ACME_EMAIL_FLAG_SET}" == true ]] && [[ "${acme_email_arg}" != "${ACME_EMAIL_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --acme-email '${ACME_EMAIL_FLAG_VALUE}' overridden by --acme-email '${acme_email_arg}'."
+    fi
+    ACME_EMAIL_ARG="${acme_email_arg}"
+    ACME_EMAIL_FLAG_SET=true
+    ACME_EMAIL_FLAG_VALUE="${acme_email_arg}"
     shift 2
     ;;
   --domain=*)
-    DOMAIN_ARG="${1#*=}"
+    domain_arg="${1#*=}"
+    if [[ -z "${domain_arg}" ]]; then
+      log_error "--domain requires a non-empty value."
+      exit 1
+    fi
+    if [[ "${DOMAIN_FLAG_SET}" == true ]] && [[ "${domain_arg}" != "${DOMAIN_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --domain '${DOMAIN_FLAG_VALUE}' overridden by --domain '${domain_arg}'."
+    fi
+    DOMAIN_ARG="${domain_arg}"
+    DOMAIN_FLAG_SET=true
+    DOMAIN_FLAG_VALUE="${domain_arg}"
     shift
     ;;
   --acme-email=*)
-    ACME_EMAIL_ARG="${1#*=}"
+    acme_email_arg="${1#*=}"
+    if [[ -z "${acme_email_arg}" ]]; then
+      log_error "--acme-email requires a non-empty value."
+      exit 1
+    fi
+    if [[ "${ACME_EMAIL_FLAG_SET}" == true ]] && [[ "${acme_email_arg}" != "${ACME_EMAIL_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --acme-email '${ACME_EMAIL_FLAG_VALUE}' overridden by --acme-email '${acme_email_arg}'."
+    fi
+    ACME_EMAIL_ARG="${acme_email_arg}"
+    ACME_EMAIL_FLAG_SET=true
+    ACME_EMAIL_FLAG_VALUE="${acme_email_arg}"
     shift
     ;;
   *)
