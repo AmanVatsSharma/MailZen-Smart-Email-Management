@@ -72,7 +72,16 @@ if [[ "${#report_candidates[@]}" -eq 0 ]]; then
   exit 0
 fi
 
-mapfile -t report_files < <(printf '%s\n' "${report_candidates[@]}" | awk '!seen[$0]++' | xargs ls -1dt 2>/dev/null || true)
+declare -A seen_reports=()
+unique_reports=()
+for candidate in "${report_candidates[@]}"; do
+  if [[ -z "${seen_reports[$candidate]+x}" ]]; then
+    unique_reports+=("${candidate}")
+    seen_reports["${candidate}"]=1
+  fi
+done
+
+mapfile -t report_files < <(ls -1dt "${unique_reports[@]}" 2>/dev/null || true)
 
 total_count="${#report_files[@]}"
 if [[ "${total_count}" -le "${KEEP_COUNT}" ]]; then
