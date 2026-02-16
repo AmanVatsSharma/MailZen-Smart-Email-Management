@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import {
   resolveCorrelationId,
   serializeStructuredLog,
@@ -27,10 +28,36 @@ export class MailboxInboundSlaScheduler {
     private readonly mailboxInboundEventRepo: Repository<MailboxInboundEvent>,
     @InjectRepository(UserNotificationPreference)
     private readonly notificationPreferenceRepo: Repository<UserNotificationPreference>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly mailboxService: MailboxService,
     private readonly notificationService: NotificationService,
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'mailbox_inbound_sla_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
 
   @Cron('*/15 * * * *')
   async monitorMailboxInboundSla() {
@@ -143,7 +170,7 @@ export class MailboxInboundSlaScheduler {
       schedulerAlertsEnabled &&
       preferences.mailboxInboundSlaAlertsEnabled &&
       MailboxInboundSlaScheduler.ALERTABLE_STATUSES.has(status);
-    return {
+    const result = {
       schedulerAlertsEnabled,
       alertsEnabled: preferences.mailboxInboundSlaAlertsEnabled,
       evaluatedAtIso: new Date().toISOString(),
@@ -170,6 +197,26 @@ export class MailboxInboundSlaScheduler {
         ? stats.lastProcessedAt.toISOString()
         : undefined,
     };
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'mailbox_inbound_sla_alert_check_requested',
+      metadata: {
+        schedulerAlertsEnabled: result.schedulerAlertsEnabled,
+        alertsEnabled: result.alertsEnabled,
+        windowHours: result.windowHours,
+        status: result.status,
+        statusReason: result.statusReason,
+        shouldAlert: result.shouldAlert,
+        cooldownMinutes: result.cooldownMinutes,
+        totalCount: result.totalCount,
+        acceptedCount: result.acceptedCount,
+        deduplicatedCount: result.deduplicatedCount,
+        rejectedCount: result.rejectedCount,
+        successRatePercent: result.successRatePercent,
+        rejectionRatePercent: result.rejectionRatePercent,
+      },
+    });
+    return result;
   }
 
   private async resolveMonitoredUserIds(input: {

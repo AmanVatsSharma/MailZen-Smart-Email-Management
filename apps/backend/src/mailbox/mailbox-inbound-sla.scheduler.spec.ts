@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { UserNotificationPreference } from '../notification/entities/user-notification-preference.entity';
 import { NotificationService } from '../notification/notification.service';
@@ -11,6 +12,7 @@ describe('MailboxInboundSlaScheduler', () => {
   let scheduler: MailboxInboundSlaScheduler;
   let inboundEventRepo: jest.Mocked<Repository<MailboxInboundEvent>>;
   let preferenceRepo: jest.Mocked<Repository<UserNotificationPreference>>;
+  let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
   let mailboxService: jest.Mocked<Pick<MailboxService, 'getInboundEventStats'>>;
   let notificationService: jest.Mocked<
     Pick<
@@ -33,6 +35,10 @@ describe('MailboxInboundSlaScheduler', () => {
     preferenceRepo = {
       find: jest.fn(),
     } as unknown as jest.Mocked<Repository<UserNotificationPreference>>;
+    auditLogRepo = {
+      create: jest.fn((payload: unknown) => payload as AuditLog),
+      save: jest.fn().mockResolvedValue({} as AuditLog),
+    } as unknown as jest.Mocked<Repository<AuditLog>>;
     mailboxService = {
       getInboundEventStats: jest.fn(),
     };
@@ -55,6 +61,7 @@ describe('MailboxInboundSlaScheduler', () => {
     scheduler = new MailboxInboundSlaScheduler(
       inboundEventRepo,
       preferenceRepo,
+      auditLogRepo,
       mailboxService as unknown as MailboxService,
       notificationService as unknown as NotificationService,
       notificationEventBus as unknown as NotificationEventBusService,
@@ -318,6 +325,12 @@ describe('MailboxInboundSlaScheduler', () => {
         shouldAlert: true,
         statusReason: 'rejection-rate-critical',
         totalCount: 20,
+      }),
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'mailbox_inbound_sla_alert_check_requested',
       }),
     );
   });

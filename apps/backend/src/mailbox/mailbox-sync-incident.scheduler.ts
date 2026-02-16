@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import {
   resolveCorrelationId,
   serializeStructuredLog,
@@ -39,10 +40,36 @@ export class MailboxSyncIncidentScheduler {
     private readonly mailboxSyncRunRepo: Repository<MailboxSyncRun>,
     @InjectRepository(UserNotification)
     private readonly notificationRepo: Repository<UserNotification>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly mailboxSyncService: MailboxSyncService,
     private readonly notificationService: NotificationService,
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'mailbox_sync_incident_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
 
   private isIncidentAlertsEnabled(): boolean {
     const normalized = String(
@@ -194,7 +221,7 @@ export class MailboxSyncIncidentScheduler {
     });
     const evaluatedAtIso = new Date().toISOString();
     if (!baseConfig.alertsEnabled) {
-      return {
+      const disabledResult = {
         alertsEnabled: false,
         evaluatedAtIso,
         windowHours,
@@ -210,6 +237,24 @@ export class MailboxSyncIncidentScheduler {
         partialRuns: 0,
         incidentRatePercent: 0,
       };
+      await this.writeAuditLog({
+        userId: input.userId,
+        action: 'mailbox_sync_incident_alert_check_requested',
+        metadata: {
+          alertsEnabled: disabledResult.alertsEnabled,
+          windowHours: disabledResult.windowHours,
+          warningRatePercent: disabledResult.warningRatePercent,
+          criticalRatePercent: disabledResult.criticalRatePercent,
+          minIncidentRuns: disabledResult.minIncidentRuns,
+          status: disabledResult.status,
+          statusReason: disabledResult.statusReason,
+          shouldAlert: disabledResult.shouldAlert,
+          totalRuns: disabledResult.totalRuns,
+          incidentRuns: disabledResult.incidentRuns,
+          incidentRatePercent: disabledResult.incidentRatePercent,
+        },
+      });
+      return disabledResult;
     }
 
     const stats =
@@ -225,7 +270,7 @@ export class MailboxSyncIncidentScheduler {
       criticalRatePercent,
       minIncidentRuns,
     });
-    return {
+    const result = {
       alertsEnabled: true,
       evaluatedAtIso,
       windowHours,
@@ -251,6 +296,26 @@ export class MailboxSyncIncidentScheduler {
       incidentRatePercent: stats.incidentRatePercent,
       lastIncidentAtIso: stats.lastIncidentAtIso,
     };
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'mailbox_sync_incident_alert_check_requested',
+      metadata: {
+        alertsEnabled: result.alertsEnabled,
+        windowHours: result.windowHours,
+        warningRatePercent: result.warningRatePercent,
+        criticalRatePercent: result.criticalRatePercent,
+        minIncidentRuns: result.minIncidentRuns,
+        status: result.status,
+        statusReason: result.statusReason,
+        shouldAlert: result.shouldAlert,
+        totalRuns: result.totalRuns,
+        incidentRuns: result.incidentRuns,
+        failedRuns: result.failedRuns,
+        partialRuns: result.partialRuns,
+        incidentRatePercent: result.incidentRatePercent,
+      },
+    });
+    return result;
   }
 
   @Cron('*/15 * * * *')

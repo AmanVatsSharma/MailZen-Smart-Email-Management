@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { UserNotificationPreference } from '../notification/entities/user-notification-preference.entity';
 import { UserNotification } from '../notification/entities/user-notification.entity';
@@ -12,6 +13,7 @@ describe('MailboxSyncIncidentScheduler', () => {
   let scheduler: MailboxSyncIncidentScheduler;
   let mailboxSyncRunRepo: jest.Mocked<Repository<MailboxSyncRun>>;
   let notificationRepo: jest.Mocked<Repository<UserNotification>>;
+  let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
   let mailboxSyncService: jest.Mocked<
     Pick<MailboxSyncService, 'getMailboxSyncIncidentStatsForUser'>
   >;
@@ -51,6 +53,10 @@ describe('MailboxSyncIncidentScheduler', () => {
     notificationRepo = {
       findOne: jest.fn(),
     } as unknown as jest.Mocked<Repository<UserNotification>>;
+    auditLogRepo = {
+      create: jest.fn((payload: unknown) => payload as AuditLog),
+      save: jest.fn().mockResolvedValue({} as AuditLog),
+    } as unknown as jest.Mocked<Repository<AuditLog>>;
     mailboxSyncService = {
       getMailboxSyncIncidentStatsForUser: jest.fn(),
     };
@@ -73,6 +79,7 @@ describe('MailboxSyncIncidentScheduler', () => {
     scheduler = new MailboxSyncIncidentScheduler(
       mailboxSyncRunRepo,
       notificationRepo,
+      auditLogRepo,
       mailboxSyncService as unknown as MailboxSyncService,
       notificationService as unknown as NotificationService,
       notificationEventBus as unknown as NotificationEventBusService,
@@ -283,6 +290,12 @@ describe('MailboxSyncIncidentScheduler', () => {
     expect(result.status).toBe('CRITICAL');
     expect(result.shouldAlert).toBe(true);
     expect(result.incidentRuns).toBe(8);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'mailbox_sync_incident_alert_check_requested',
+      }),
+    );
   });
 
   it('returns disabled check payload when alerts are disabled', async () => {
@@ -297,5 +310,11 @@ describe('MailboxSyncIncidentScheduler', () => {
     expect(
       mailboxSyncService.getMailboxSyncIncidentStatsForUser,
     ).not.toHaveBeenCalled();
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'mailbox_sync_incident_alert_check_requested',
+      }),
+    );
   });
 });
