@@ -14,6 +14,11 @@ Web sessions are persisted with an HttpOnly `token` cookie.
 ## Environment requirements
 
 - `JWT_SECRET` is mandatory and validated at bootstrap.
+- Session cookie tuning:
+  - `MAILZEN_SESSION_COOKIE_SAMESITE` (`lax|strict|none`, default `lax`)
+  - `MAILZEN_SESSION_COOKIE_SECURE` (optional override; defaults to `true` in prod)
+  - `MAILZEN_SESSION_COOKIE_DOMAIN` (optional; useful for shared parent domains)
+  - `MAILZEN_SESSION_COOKIE_PATH` (default `/`)
 - Google OAuth requires:
   - `GOOGLE_CLIENT_ID`
   - `GOOGLE_CLIENT_SECRET`
@@ -77,3 +82,4 @@ Web sessions are persisted with an HttpOnly `token` cookie.
 - Added backend tests for OAuth state validation, admin guard role checks, and mailbox alias validation.
 - Added global CSRF origin protection middleware for cookie-authenticated
   state-changing requests.
+- Hardened session cookie management with env-configurable SameSite/secure/domain/path options.

@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { Response } from 'express';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 /**
  * Centralized session cookie management.
@@ -11,6 +12,8 @@ import type { Response } from 'express';
  */
 @Injectable()
 export class SessionCookieService {
+  private readonly logger = new Logger(SessionCookieService.name);
+
   /**
    * IMPORTANT: This name must match what the Next middleware expects.
    * Frontend middleware currently checks `request.cookies.get('token')`.
@@ -30,6 +33,44 @@ export class SessionCookieService {
     return safeSeconds * 1000;
   }
 
+  private resolveCookieSameSite(): 'lax' | 'strict' | 'none' {
+    const normalized = String(process.env.MAILZEN_SESSION_COOKIE_SAMESITE || '')
+      .trim()
+      .toLowerCase();
+    if (normalized === 'strict') return 'strict';
+    if (normalized === 'none') return 'none';
+    return 'lax';
+  }
+
+  private resolveCookieSecure(sameSite: 'lax' | 'strict' | 'none'): boolean {
+    const override = String(process.env.MAILZEN_SESSION_COOKIE_SECURE || '')
+      .trim()
+      .toLowerCase();
+    const secureByOverride = ['true', '1', 'yes', 'on'].includes(override)
+      ? true
+      : ['false', '0', 'no', 'off'].includes(override)
+        ? false
+        : this.isProd();
+    if (sameSite === 'none' && !secureByOverride) return true;
+    return secureByOverride;
+  }
+
+  private resolveCookieDomain(): string | undefined {
+    const normalized = String(process.env.MAILZEN_SESSION_COOKIE_DOMAIN || '')
+      .trim()
+      .toLowerCase();
+    if (!normalized) return undefined;
+    return normalized;
+  }
+
+  private resolveCookiePath(): string {
+    const normalized = String(process.env.MAILZEN_SESSION_COOKIE_PATH || '/')
+      .trim()
+      .toLowerCase();
+    if (!normalized) return '/';
+    return normalized.startsWith('/') ? normalized : `/${normalized}`;
+  }
+
   /**
    * Set the access token cookie (HttpOnly).
    * In production this should be Secure (HTTPS). In local dev it's typically HTTP.
@@ -37,47 +78,67 @@ export class SessionCookieService {
   setTokenCookie(res: Response, token: string): void {
     if (!token) {
       // Defensive: never set an empty cookie
-      if (!this.isProd())
-        console.warn(
-          '[SessionCookieService] setTokenCookie called with empty token',
-        );
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'session_cookie_set_skipped',
+          reason: 'empty-token',
+        }),
+      );
       return;
     }
 
-    const secure = this.isProd();
+    const sameSite = this.resolveCookieSameSite();
+    const secure = this.resolveCookieSecure(sameSite);
+    const domain = this.resolveCookieDomain();
+    const path = this.resolveCookiePath();
 
     res.cookie(this.cookieName, token, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite,
       secure,
-      path: '/',
+      domain,
+      path,
       maxAge: this.getMaxAgeMs(),
     });
 
-    if (!this.isProd()) {
-      console.log('[SessionCookieService] token cookie set', {
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'session_cookie_set',
         httpOnly: true,
-        sameSite: 'lax',
+        sameSite,
         secure,
-      });
-    }
+        hasDomain: Boolean(domain),
+        path,
+      }),
+    );
   }
 
   /**
    * Clear the access token cookie.
    */
   clearTokenCookie(res: Response): void {
-    const secure = this.isProd();
+    const sameSite = this.resolveCookieSameSite();
+    const secure = this.resolveCookieSecure(sameSite);
+    const domain = this.resolveCookieDomain();
+    const path = this.resolveCookiePath();
 
     res.clearCookie(this.cookieName, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite,
       secure,
-      path: '/',
+      domain,
+      path,
     });
 
-    if (!this.isProd()) {
-      console.log('[SessionCookieService] token cookie cleared', { secure });
-    }
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'session_cookie_cleared',
+        httpOnly: true,
+        sameSite,
+        secure,
+        hasDomain: Boolean(domain),
+        path,
+      }),
+    );
   }
 }
