@@ -93,6 +93,8 @@ fi
 require_cmd curl
 ensure_required_files_exist
 validate_core_env
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
 
 domain="$(read_env_value "MAILZEN_DOMAIN")"
 frontend_url="https://${domain}/"
