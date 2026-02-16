@@ -36,3 +36,9 @@ flowchart TD
   - `scheduled_email_create_completed`
   - `scheduled_email_list_start`
   - `scheduled_email_list_completed`
+  - `scheduled_email_audit_log_write_failed`
+
+## Compliance / Audit Trail
+
+- Persisted audit actions:
+  - `scheduled_email_created`

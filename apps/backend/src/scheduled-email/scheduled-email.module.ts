@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { ScheduledEmailService } from './scheduled-email.service';
 import { ScheduledEmailResolver } from './scheduled-email.resolver';
 import { ScheduledEmail } from './scheduled-email.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ScheduledEmail])],
+  imports: [TypeOrmModule.forFeature([ScheduledEmail, AuditLog])],
   providers: [ScheduledEmailService, ScheduledEmailResolver],
   exports: [ScheduledEmailService],
 })

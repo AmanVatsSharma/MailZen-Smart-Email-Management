@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { ScheduledEmail } from './scheduled-email.entity';
 import { CreateScheduledEmailInput } from './dto/create-scheduled-email.input';
 import { serializeStructuredLog } from '../common/logging/structured-log.util';
@@ -12,7 +13,33 @@ export class ScheduledEmailService {
   constructor(
     @InjectRepository(ScheduledEmail)
     private readonly scheduledEmailRepo: Repository<ScheduledEmail>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'scheduled_email_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
 
   async createScheduledEmail(
     input: CreateScheduledEmailInput,
@@ -43,6 +70,18 @@ export class ScheduledEmailService {
         status: result.status,
       }),
     );
+    await this.writeAuditLog({
+      userId,
+      action: 'scheduled_email_created',
+      metadata: {
+        scheduledItemId: result.id,
+        recipientCount: Array.isArray(result.recipientIds)
+          ? result.recipientIds.length
+          : 0,
+        scheduledAtIso: result.scheduledAt.toISOString(),
+        status: result.status,
+      },
+    });
     return result;
   }
 
