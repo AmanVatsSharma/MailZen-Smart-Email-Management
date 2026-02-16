@@ -191,6 +191,9 @@ if [[ "${RUN_VERIFY}" == false ]]; then
   log_info "[LAUNCH] verify step skipped by --skip-verify"
 fi
 
+log_info "[LAUNCH] active env file: $(get_env_file)"
+log_info "[LAUNCH] active compose file: $(get_compose_file)"
+
 total_steps=3 # preflight + deploy + status
 if [[ "${RUN_SETUP}" == true ]]; then
   total_steps=$((total_steps + 1))
