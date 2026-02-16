@@ -24,6 +24,41 @@ export class InboxService {
     // intentionally quiet in constructor to reduce startup log noise
   }
 
+  private resolveMailboxSyncStatus(mailbox: Mailbox): string {
+    const mailboxStatus = String(mailbox.status || '')
+      .trim()
+      .toUpperCase();
+    if (mailboxStatus && mailboxStatus !== 'ACTIVE') {
+      return 'disabled';
+    }
+    const now = Date.now();
+    const leaseExpiresAtMs = mailbox.inboundSyncLeaseExpiresAt
+      ? new Date(mailbox.inboundSyncLeaseExpiresAt).getTime()
+      : 0;
+    if (leaseExpiresAtMs > now) {
+      return 'syncing';
+    }
+    if (String(mailbox.inboundSyncLastError || '').trim()) {
+      return 'error';
+    }
+    if (mailbox.inboundSyncLastPolledAt) {
+      return 'connected';
+    }
+    return 'pending';
+  }
+
+  private resolveProviderSyncStatus(provider: EmailProvider): string {
+    const normalizedStatus = String(provider.status || '')
+      .trim()
+      .toLowerCase();
+    if (normalizedStatus) return normalizedStatus;
+    if (String(provider.lastSyncError || '').trim()) {
+      return 'error';
+    }
+    if (provider.lastSyncedAt) return 'connected';
+    return 'connected';
+  }
+
   /**
    * List all inboxes (mailboxes + providers) for a user
    * @param userId - User ID
@@ -60,6 +95,10 @@ export class InboxService {
       address: m.email,
       isActive: activeType === 'MAILBOX' && activeId === m.id,
       status: m.status,
+      syncStatus: this.resolveMailboxSyncStatus(m),
+      lastSyncedAt: m.inboundSyncLastPolledAt || null,
+      lastSyncError: m.inboundSyncLastError || null,
+      sourceKind: 'MAILBOX',
     }));
 
     const providerInboxes = providers.map((p) => ({
@@ -68,6 +107,13 @@ export class InboxService {
       address: p.email,
       isActive: activeType === 'PROVIDER' && activeId === p.id,
       status: p.status || 'connected',
+      syncStatus: this.resolveProviderSyncStatus(p),
+      lastSyncedAt: p.lastSyncedAt || null,
+      lastSyncError: p.lastSyncError || null,
+      sourceKind:
+        String(p.type || '')
+          .trim()
+          .toUpperCase() || 'PROVIDER',
     }));
 
     return [...mailboxInboxes, ...providerInboxes];

@@ -35,6 +35,8 @@ describe('InboxService', () => {
   });
 
   it('lists inboxes scoped to active workspace', async () => {
+    const mailboxLastPolledAt = new Date('2026-02-16T00:00:00.000Z');
+    const providerLastSyncedAt = new Date('2026-02-16T00:05:00.000Z');
     userRepo.findOne.mockResolvedValue({
       id: 'user-1',
       activeWorkspaceId: 'workspace-1',
@@ -46,6 +48,8 @@ describe('InboxService', () => {
         id: 'mailbox-1',
         email: 'sales@mailzen.com',
         status: 'ACTIVE',
+        inboundSyncLastPolledAt: mailboxLastPolledAt,
+        inboundSyncLastError: null,
       },
     ] as Mailbox[]);
     providerRepo.find.mockResolvedValue([
@@ -53,6 +57,9 @@ describe('InboxService', () => {
         id: 'provider-1',
         email: 'founder@gmail.com',
         status: 'connected',
+        type: 'GMAIL',
+        lastSyncedAt: providerLastSyncedAt,
+        lastSyncError: null,
       },
     ] as EmailProvider[]);
 
@@ -69,6 +76,50 @@ describe('InboxService', () => {
       }),
     );
     expect(result).toHaveLength(2);
+    expect(result).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'mailbox-1',
+          syncStatus: 'connected',
+          lastSyncedAt: mailboxLastPolledAt,
+          sourceKind: 'MAILBOX',
+        }),
+        expect.objectContaining({
+          id: 'provider-1',
+          syncStatus: 'connected',
+          lastSyncedAt: providerLastSyncedAt,
+          sourceKind: 'GMAIL',
+        }),
+      ]),
+    );
+  });
+
+  it('marks mailbox sync status as error when sync error exists', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-1',
+      activeWorkspaceId: null,
+      activeInboxType: 'MAILBOX',
+      activeInboxId: 'mailbox-1',
+    } as unknown as User);
+    mailboxRepo.find.mockResolvedValue([
+      {
+        id: 'mailbox-1',
+        email: 'ops@mailzen.com',
+        status: 'ACTIVE',
+        inboundSyncLastError: 'mail transport unavailable',
+      },
+    ] as Mailbox[]);
+    providerRepo.find.mockResolvedValue([]);
+
+    const result = await service.listUserInboxes('user-1');
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 'mailbox-1',
+        syncStatus: 'error',
+        lastSyncError: 'mail transport unavailable',
+      }),
+    ]);
   });
 
   it('scopes active provider update to active workspace', async () => {

@@ -22,4 +22,31 @@ export class Inbox {
 
   @Field({ nullable: true })
   status?: string;
+
+  /**
+   * Runtime sync health for this inbox source.
+   * Examples: connected | syncing | error | pending | disabled
+   */
+  @Field({ nullable: true })
+  syncStatus?: string;
+
+  /**
+   * Last successful poll/sync timestamp when available.
+   */
+  @Field({ nullable: true })
+  lastSyncedAt?: Date;
+
+  /**
+   * Last sync error message (PII-safe truncated string).
+   */
+  @Field({ nullable: true })
+  lastSyncError?: string;
+
+  /**
+   * Provider/mail source kind:
+   * - MAILBOX for internal mailbox aliases
+   * - provider.type for external providers (GMAIL/OUTLOOK/CUSTOM_SMTP/...)
+   */
+  @Field({ nullable: true })
+  sourceKind?: string;
 }

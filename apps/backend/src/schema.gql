@@ -192,6 +192,10 @@ type Inbox {
   address: String!
   isActive: Boolean!
   status: String
+  syncStatus: String
+  lastSyncedAt: DateTime
+  lastSyncError: String
+  sourceKind: String
 }
 
 type EmailAttachment {

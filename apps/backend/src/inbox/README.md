@@ -3,6 +3,7 @@
 ## Goal
 
 Provide a single API for **multi-inbox switching**, combining:
+
 - Internal MailZen mailboxes (`Mailbox`)
 - External connected providers (`EmailProvider`)
 
@@ -10,6 +11,21 @@ Provide a single API for **multi-inbox switching**, combining:
 
 - `myInboxes: [Inbox!]!`
 - `setActiveInbox(input: SetActiveInboxInput!): [Inbox!]!`
+
+`Inbox` response now includes sync telemetry fields:
+
+- `syncStatus`
+  - provider: mirrors normalized provider lifecycle (`connected/syncing/error/...`)
+  - mailbox: derived from mailbox status + lease + last error
+- `lastSyncedAt`
+  - provider: `EmailProvider.lastSyncedAt`
+  - mailbox: `Mailbox.inboundSyncLastPolledAt`
+- `lastSyncError`
+  - provider: `EmailProvider.lastSyncError`
+  - mailbox: `Mailbox.inboundSyncLastError`
+- `sourceKind`
+  - `MAILBOX` for internal alias inboxes
+  - provider type for external inboxes (e.g. `GMAIL`, `OUTLOOK`)
 
 ## Flow
 
