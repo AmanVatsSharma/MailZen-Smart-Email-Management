@@ -30,6 +30,10 @@ const requiredReadmes = [
   'src/contacts/README.md',
   'src/organization/README.md',
   'src/email/README.md',
+  'src/email-analytics/README.md',
+  'src/scheduled-email/README.md',
+  'src/template/README.md',
+  'src/question/README.md',
 ];
 
 function fail(message) {
