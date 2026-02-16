@@ -73,7 +73,8 @@ describe('EmailWarmupResolver (smoke)', () => {
     const input = { providerId: mockProviderId } as any;
     const res = await resolver.pauseEmailWarmup(input, mockContext as any);
     expect(service.pauseWarmup).toHaveBeenCalledWith(input, mockUserId);
-    expect(res.status).toBe('PAUSED');
+    expect(res).not.toBeNull();
+    expect(res?.status).toBe('PAUSED');
   });
 
   it('getEmailWarmupStatus calls service.getWarmupStatus', async () => {
