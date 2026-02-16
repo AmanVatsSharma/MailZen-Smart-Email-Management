@@ -229,7 +229,7 @@ if [[ "${STATUS_RUNTIME_CHECKS}" == false ]] &&
   log_warn "[LAUNCH] status runtime skip flags were provided without --status-runtime-checks; skip flags will be ignored."
 fi
 status_ports_check_enabled=false
-if [[ "${STATUS_RUNTIME_CHECKS}" == true ]] && [[ "${STATUS_SKIP_PORTS_CHECK}" == false ]]; then
+if [[ "${STATUS_RUNTIME_CHECKS}" == true ]] && [[ "${RUN_PORTS_CHECK}" == true ]] && [[ "${STATUS_SKIP_PORTS_CHECK}" == false ]]; then
   status_ports_check_enabled=true
 fi
 if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${RUN_PORTS_CHECK}" == false ]] && [[ "${STATUS_RUNTIME_CHECKS}" == false ]]; then
