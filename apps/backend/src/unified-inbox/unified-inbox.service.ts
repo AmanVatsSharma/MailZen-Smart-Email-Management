@@ -199,17 +199,22 @@ export class UnifiedInboxService {
     return textOnly.slice(0, 180);
   }
 
-  private async listMailboxEmailsForUser(
-    userId: string,
-    mailboxAddress: string,
-  ): Promise<Email[]> {
+  private async listMailboxEmailsForUser(input: {
+    userId: string;
+    mailboxId: string;
+    mailboxAddress: string;
+  }): Promise<Email[]> {
     const emails = await this.emailRepo.find({
-      where: { userId },
+      where: { userId: input.userId },
       order: { createdAt: 'DESC' },
     });
-    return emails.filter((email) =>
-      this.isMailboxEmailParticipant(email, mailboxAddress),
-    );
+    return emails.filter((email) => {
+      if (email.mailboxId) {
+        return email.mailboxId === input.mailboxId;
+      }
+      if (email.providerId) return false;
+      return this.isMailboxEmailParticipant(email, input.mailboxAddress);
+    });
   }
 
   private async findScopedProviderById(
@@ -520,10 +525,11 @@ export class UnifiedInboxService {
     if (!source) return [];
 
     if (source.type === 'MAILBOX') {
-      const mailboxEmails = await this.listMailboxEmailsForUser(
+      const mailboxEmails = await this.listMailboxEmailsForUser({
         userId,
-        source.address,
-      );
+        mailboxId: source.id,
+        mailboxAddress: source.address,
+      });
       const mailboxThreadBuckets = new Map<string, Email[]>();
       for (const mailboxEmail of mailboxEmails) {
         const threadKey = this.resolveMailboxThreadKey(mailboxEmail);
@@ -945,10 +951,11 @@ export class UnifiedInboxService {
     if (!source) throw new NotFoundException('No inbox sources connected');
 
     if (source.type === 'MAILBOX') {
-      const mailboxEmails = await this.listMailboxEmailsForUser(
+      const mailboxEmails = await this.listMailboxEmailsForUser({
         userId,
-        source.address,
-      );
+        mailboxId: source.id,
+        mailboxAddress: source.address,
+      });
       const normalizedThreadIdentifier =
         this.normalizeMailboxMessageIdentifier(threadId);
       const anchorEmail = mailboxEmails.find((email) => {
@@ -1146,10 +1153,11 @@ export class UnifiedInboxService {
     if (!source) throw new NotFoundException('No inbox sources connected');
 
     if (source.type === 'MAILBOX') {
-      const mailboxEmails = await this.listMailboxEmailsForUser(
+      const mailboxEmails = await this.listMailboxEmailsForUser({
         userId,
-        source.address,
-      );
+        mailboxId: source.id,
+        mailboxAddress: source.address,
+      });
       const normalizedThreadIdentifier =
         this.normalizeMailboxMessageIdentifier(threadId);
       const anchorEmail = mailboxEmails.find((email) => {
@@ -1213,10 +1221,11 @@ export class UnifiedInboxService {
         }
       }
 
-      const refreshedMailboxEmails = await this.listMailboxEmailsForUser(
+      const refreshedMailboxEmails = await this.listMailboxEmailsForUser({
         userId,
-        source.address,
-      );
+        mailboxId: source.id,
+        mailboxAddress: source.address,
+      });
       const refreshedThreadEmails = refreshedMailboxEmails.filter(
         (email) => this.resolveMailboxThreadKey(email) === anchorThreadKey,
       );
@@ -1372,10 +1381,11 @@ export class UnifiedInboxService {
     }
 
     if (source.type === 'MAILBOX') {
-      const mailboxEmails = await this.listMailboxEmailsForUser(
+      const mailboxEmails = await this.listMailboxEmailsForUser({
         userId,
-        source.address,
-      );
+        mailboxId: source.id,
+        mailboxAddress: source.address,
+      });
       const counts = new Map<string, { count: number; unread: number }>();
       for (const folder of SYSTEM_FOLDERS) {
         counts.set(folder.id, { count: 0, unread: 0 });
@@ -1429,10 +1439,11 @@ export class UnifiedInboxService {
     if (!source) return [];
 
     if (source.type === 'MAILBOX') {
-      const mailboxEmails = await this.listMailboxEmailsForUser(
+      const mailboxEmails = await this.listMailboxEmailsForUser({
         userId,
-        source.address,
-      );
+        mailboxId: source.id,
+        mailboxAddress: source.address,
+      });
       const counts = new Map<string, number>();
       for (const mailboxEmail of mailboxEmails) {
         if (!mailboxEmail.folderId) continue;

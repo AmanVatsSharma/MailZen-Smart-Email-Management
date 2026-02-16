@@ -813,6 +813,47 @@ ORDER BY "updatedAt" DESC
 LIMIT 50;
 ```
 
+## Email Mailbox Source Link Rollout Notes (2026-02-16)
+
+New migration: `20260216043000-email-mailbox-source-link.ts`
+
+This migration introduces:
+
+- `emails.mailboxId`
+- index `IDX_emails_mailboxId`
+- index `IDX_emails_mailboxId_inboundMessageId`
+
+This field links internal email rows to the owning MailZen mailbox, improving
+strict mailbox-source isolation in unified inbox queries and mailbox dedup logic.
+
+### Safe rollout sequence
+
+1. Deploy backend containing migration + mailbox inbound/unified inbox updates.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- mailbox/mailbox-inbound.service.spec.ts mailbox/mailbox.service.spec.ts unified-inbox/unified-inbox.service.spec.ts`
+   - `npm run build`
+5. Verify runtime behavior:
+   - new inbound webhook emails are persisted with `mailboxId`.
+   - mailbox inbox reads prioritize `mailboxId` scoping and keep fallback behavior for legacy rows without linkage.
+
+### Staging verification SQL
+
+```sql
+SELECT
+  id,
+  "userId",
+  "mailboxId",
+  "inboundMessageId",
+  "inboundThreadKey",
+  "createdAt"
+FROM emails
+WHERE "inboundMessageId" IS NOT NULL
+ORDER BY "createdAt" DESC
+LIMIT 50;
+```
+
 ## Gmail Push Watch State Rollout Notes (2026-02-16)
 
 New migration: `20260216035000-email-provider-gmail-watch-state.ts`

@@ -334,12 +334,14 @@ export class MailboxInboundService {
 
   private async findPersistedDuplicateMessage(input: {
     userId: string;
+    mailboxId: string;
     inboundMessageId?: string | null;
   }): Promise<Email | null> {
     if (!input.inboundMessageId) return null;
     return this.emailRepo.findOne({
       where: {
         userId: input.userId,
+        mailboxId: input.mailboxId,
         inboundMessageId: input.inboundMessageId,
       },
     });
@@ -570,6 +572,7 @@ export class MailboxInboundService {
 
       const persistedDuplicate = await this.findPersistedDuplicateMessage({
         userId: mailbox.userId,
+        mailboxId: mailbox.id,
         inboundMessageId: normalizedMessageId,
       });
       if (persistedDuplicate) {
@@ -643,6 +646,7 @@ export class MailboxInboundService {
       const email = await this.emailRepo.save(
         this.emailRepo.create({
           userId: mailbox.userId,
+          mailboxId: mailbox.id,
           subject,
           body,
           from: this.normalizeEmailAddress(input.from),

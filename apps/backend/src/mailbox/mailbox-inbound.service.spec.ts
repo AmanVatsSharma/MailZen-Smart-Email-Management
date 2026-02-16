@@ -110,6 +110,7 @@ describe('MailboxInboundService', () => {
     expect(emailRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-1',
+        mailboxId: 'mailbox-1',
         status: 'NEW',
       }),
     );

@@ -22,7 +22,7 @@ These names intentionally match the frontend inbox UI (`apps/frontend/lib/apollo
   - Thread-shaped list records (what the inbox list UI needs).
   - Resolves active inbox source from `User.activeInboxType/activeInboxId`:
     - `PROVIDER` -> uses `ExternalEmailMessage`
-    - `MAILBOX` -> uses internal `Email` rows filtered by mailbox address participation
+    - `MAILBOX` -> uses internal `Email` rows scoped by `emails.mailboxId` (with legacy mailbox-address fallback)
   - Fallback order: active provider -> newest provider -> newest mailbox.
 
 - **`email(id: ID!): EmailThread!`**
@@ -77,6 +77,7 @@ Read/star state:
 ## Mailbox threading model
 
 - Incoming alias webhook writes:
+  - `emails.mailboxId` (mailbox source id for strict mailbox scoping)
   - `emails.inboundMessageId` (normalized message-id)
   - `emails.inboundThreadKey` (derived thread key)
 - Mailbox inbox list groups rows by `inboundThreadKey` (fallback: `Email.id`)
@@ -92,7 +93,7 @@ Every operation is **user-scoped**:
 - active provider/mailbox must belong to the authenticated user
 - when `User.activeWorkspaceId` is set, provider/mailbox source resolution is scoped to that workspace (with legacy null fallback during rollout)
 - provider message queries are filtered by `userId` + `providerId`
-- mailbox message queries are filtered by `userId` + mailbox address participation
+- mailbox message queries are filtered by `userId` + `mailboxId` (with address-participation fallback for legacy pre-linkage rows)
 
 ## Mermaid: inbox source resolution
 
@@ -171,6 +172,10 @@ sequenceDiagram
 
 ## Changelog
 
+- 2026-02-16:
+  - Unified mailbox-source reads now prefer strict `emails.mailboxId` scoping.
+  - Added fallback compatibility path for older rows without mailbox linkage.
+  - Mailbox-source filtering now excludes provider-linked `Email` rows.
 - 2026-02-15:
   - Added mailbox-source support in `UnifiedInboxService` so active `MAILBOX` inboxes return real thread data from internal `Email` rows.
   - Added mailbox-mode folder/label/read/star mapping while preserving existing provider behavior.

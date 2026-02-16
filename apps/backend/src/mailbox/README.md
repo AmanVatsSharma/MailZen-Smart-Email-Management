@@ -46,6 +46,7 @@ This module covers:
   - resolves mailbox owner/workspace
   - enforces mailbox status/quota guardrails before persisting
   - persists inbound payload in `emails` table with `status=NEW`, `inboundMessageId`, `inboundThreadKey`
+  - links inbox rows to mailbox source via `emails.mailboxId` for strict mailbox scoping
   - upserts idempotency/observability records in `mailbox_inbound_events`
   - updates mailbox `usedBytes`
   - emits `MAILBOX_INBOUND` notification metadata context with `inboundStatus`
