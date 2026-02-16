@@ -203,6 +203,9 @@ fi
 if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${RUN_PORTS_CHECK}" == false ]] && [[ "${STATUS_RUNTIME_CHECKS}" == false ]]; then
   log_warn "[LAUNCH] --ports-check-ports has no effect when both direct ports check and status runtime checks are disabled."
 fi
+if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${RUN_PORTS_CHECK}" == false ]] && [[ "${STATUS_RUNTIME_CHECKS}" == true ]]; then
+  log_warn "[LAUNCH] --ports-check-ports has no effect because ports checks are skipped in both direct and status runtime paths."
+fi
 
 log_info "[LAUNCH] active env file: $(get_env_file)"
 log_info "[LAUNCH] active compose file: $(get_compose_file)"

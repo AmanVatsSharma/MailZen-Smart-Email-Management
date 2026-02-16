@@ -155,6 +155,9 @@ fi
 if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${STATUS_RUNTIME_CHECKS}" == false ]]; then
   log_warn "--ports-check-ports has no effect unless --status-runtime-checks is enabled."
 fi
+if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${STATUS_RUNTIME_CHECKS}" == true ]] && [[ "${STATUS_SKIP_PORTS_CHECK}" == true ]]; then
+  log_warn "--ports-check-ports has no effect when --status-skip-ports-check is enabled."
+fi
 
 log_info "Starting MailZen update workflow..."
 log_info "Active env file: $(get_env_file)"
