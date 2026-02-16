@@ -9,6 +9,15 @@
 # - docker daemon availability
 # - docker compose configuration rendering
 # - optional runtime readiness checks (host/dns/ssl/ports)
+#
+# Optional flags:
+#   --config-only / --skip-daemon
+#   --with-runtime-checks
+#   --skip-host-readiness
+#   --skip-dns-check
+#   --skip-ssl-check
+#   --skip-ports-check
+#   --ports-check-ports <p1,p2,...>
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail

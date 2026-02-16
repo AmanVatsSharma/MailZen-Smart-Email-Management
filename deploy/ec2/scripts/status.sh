@@ -12,6 +12,7 @@
 #   --skip-dns-check
 #   --skip-ssl-check
 #   --skip-ports-check
+#   --ports-check-ports <p1,p2,...>
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
