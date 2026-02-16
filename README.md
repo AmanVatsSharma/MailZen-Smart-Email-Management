@@ -261,6 +261,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: ensure host ports 80/443 are free before first deploy
 ./deploy/ec2/scripts/ports-check.sh
 
+# Optional: validate custom host port set (comma-separated)
+./deploy/ec2/scripts/ports-check.sh --ports 80,443,8100
+
 # Optional: redacted audit of critical deploy env keys
 ./deploy/ec2/scripts/env-audit.sh
 

@@ -34,7 +34,7 @@ Additional deployment flowcharts:
   - `dns-check.sh` (domain DNS readiness validation)
   - `ssl-check.sh` (HTTPS certificate validity and expiry check)
   - `host-readiness.sh` (disk/memory/cpu baseline checks)
-  - `ports-check.sh` (check host port conflicts for 80/443)
+  - `ports-check.sh` (check host port conflicts; defaults to 80/443)
   - `env-audit.sh` (redacted critical env audit)
   - `doctor.sh` (generate diagnostics report for support)
   - `support-bundle.sh` (collect support-ready diagnostics archive)
@@ -227,6 +227,9 @@ Example:
 
 # Validate host ports 80/443 are available
 ./deploy/ec2/scripts/ports-check.sh
+
+# Validate custom host port set (comma-separated)
+./deploy/ec2/scripts/ports-check.sh --ports 80,443,8100
 
 # Redacted audit of critical env keys
 ./deploy/ec2/scripts/env-audit.sh

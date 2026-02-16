@@ -46,6 +46,7 @@ Readiness checks:
   ./deploy/ec2/scripts/dns-check.sh --domain ${domain}
   ./deploy/ec2/scripts/ssl-check.sh --domain ${domain}
   ./deploy/ec2/scripts/ports-check.sh
+  ./deploy/ec2/scripts/ports-check.sh --ports 80,443,8100
 
 Operations:
   ./deploy/ec2/scripts/update.sh
