@@ -1,8 +1,52 @@
 # MailZen
 
-MailZen is an email management platform built with Next.js (frontend) and NestJS (backend).
+MailZen is an AI-powered business inbox that helps teams manage email faster,
+with more control and less operational chaos.
 
-## Project Structure
+## Product overview (non-technical)
+
+MailZen brings business communication into one workflow:
+
+- Connect inbox providers (Gmail/Outlook and additional provider flows)
+- Manage conversations in a unified workspace inbox
+- Use AI assistance for summaries, reply drafting, and follow-up workflows
+- Monitor sync and mailbox health with operational visibility
+- Support business governance with retention and admin export controls
+
+### One-line positioning
+
+**MailZen turns email chaos into business clarity.**
+
+### Who this is for
+
+- Founders and business owners
+- Sales and customer-facing teams
+- Operations and support teams
+- Agencies handling multiple inbox workflows
+
+### Marketing/public pages available in frontend app router
+
+- `/` (home)
+- `/features`
+- `/pricing`
+- `/integrations`
+- `/security`
+- `/about`
+- `/contact`
+- `/privacy`
+- `/terms`
+
+## Core platform capabilities
+
+- Unified inbox and dashboard workflows
+- Provider connection and sync operations
+- Smart replies and AI-assisted inbox actions
+- Notification and alerting pipelines
+- Billing/workspace/user/account operations
+- Admin-guarded export and compliance workflows
+- Structured observability and audit logging across critical actions
+
+## Project structure
 
 - `apps/frontend/`: Next.js application
 - `apps/backend/`: NestJS application
@@ -43,9 +87,9 @@ MailZen is an email management platform built with Next.js (frontend) and NestJS
      - `DATABASE_URL=postgresql:///mailzen?host=/var/run/postgresql`
    - For Docker/password auth, override `DATABASE_URL` to a TCP URL.
 
-## Running the Application
+## Running the application
 
-### Development Mode
+### Development mode
 
 To run both frontend and backend concurrently:
 
@@ -77,7 +121,7 @@ nx run-many -t serve -p frontend backend --parallel=2
 - Inbox renders empty folders/labels/messages until a provider is connected.
 - Provider OAuth is intended to be configured at deploy-time.
 
-### Production Build
+### Production build
 
 ```bash
 # Build both
@@ -97,16 +141,7 @@ flowchart TD
   backendPrepare --> envScript
 ```
 
-## Features
-
-- Email management
-- Email warmup
-- Smart replies
-- Email tracking
-- Contact management
-- Email templates
-
-## API Documentation
+## API documentation
 
 The GraphQL API is available at `http://localhost:4000/graphql` when the backend is running.
 
@@ -119,9 +154,9 @@ The application uses JWT for authentication. To access protected routes, you nee
 
 Note: the browser app is designed around **HttpOnly cookies** for the session; the GraphQL API also supports Authorization headers for non-browser clients.
 
-## Environment Variables
+## Environment variables
 
-### Frontend (.env.local)
+### Frontend (`.env.local`)
 
 ```
 NEXT_PUBLIC_GRAPHQL_ENDPOINT=http://localhost:4000/graphql
@@ -132,7 +167,7 @@ NEXT_PUBLIC_ENABLE_EMAIL_TRACKING=true
 NEXT_PUBLIC_DEFAULT_THEME=system
 ```
 
-### Backend (.env)
+### Backend (`.env`)
 
 ```
 # Database
@@ -149,7 +184,7 @@ JWT_EXPIRATION=86400
 ENABLE_EMAIL_WARMUP=true
 ENABLE_SMART_REPLIES=true
 ENABLE_EMAIL_TRACKING=true
-``` 
+```
 
 ### Provider OAuth (deploy-time)
 
