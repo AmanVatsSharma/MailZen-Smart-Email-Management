@@ -33,6 +33,7 @@ scripts=(
   "help.sh"
   "self-check.sh"
   "status.sh"
+  "runtime-smoke.sh"
   "logs.sh"
   "restart.sh"
   "stop.sh"

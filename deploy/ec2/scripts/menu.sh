@@ -89,7 +89,8 @@ show_menu() {
 30) Run pipeline check (seeded env, optional custom ports)
 31) Restart services (guided)
 32) Stop stack (guided)
-33) Exit
+33) Runtime smoke checks (container-internal, guided)
+34) Exit
 ===============================================================================
 MENU
 }
@@ -102,7 +103,7 @@ fi
 
 while true; do
   show_menu
-  read -r -p "Select an option [1-33]: " choice
+  read -r -p "Select an option [1-34]: " choice
 
   case "${choice}" in
   1)
@@ -640,11 +641,40 @@ while true; do
     run_step "stop.sh" "${stop_args[@]}"
     ;;
   33)
+    runtime_smoke_args=()
+    runtime_smoke_retries="$(prompt_with_default "Runtime smoke max retries (blank = default)" "")"
+    if [[ -n "${runtime_smoke_retries}" ]]; then
+      if [[ "${runtime_smoke_retries}" =~ ^[0-9]+$ ]] && [[ "${runtime_smoke_retries}" -gt 0 ]]; then
+        runtime_smoke_args+=(--max-retries "${runtime_smoke_retries}")
+      else
+        echo "[mailzen-deploy][MENU][WARN] Ignoring invalid runtime smoke max retries value: ${runtime_smoke_retries}"
+      fi
+    fi
+    runtime_smoke_retry_sleep="$(prompt_with_default "Runtime smoke retry sleep seconds (blank = default)" "")"
+    if [[ -n "${runtime_smoke_retry_sleep}" ]]; then
+      if [[ "${runtime_smoke_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${runtime_smoke_retry_sleep}" -gt 0 ]]; then
+        runtime_smoke_args+=(--retry-sleep "${runtime_smoke_retry_sleep}")
+      else
+        echo "[mailzen-deploy][MENU][WARN] Ignoring invalid runtime smoke retry sleep value: ${runtime_smoke_retry_sleep}"
+      fi
+    fi
+    if prompt_yes_no "Skip compose status snapshot in runtime smoke check" "no"; then
+      runtime_smoke_args+=(--skip-compose-ps)
+    fi
+    if prompt_yes_no "Skip backend dependency connectivity check (postgres+redis)" "no"; then
+      runtime_smoke_args+=(--skip-backend-dependency-check)
+    fi
+    if prompt_yes_no "Run runtime smoke in dry-run mode" "no"; then
+      runtime_smoke_args+=(--dry-run)
+    fi
+    run_step "runtime-smoke.sh" "${runtime_smoke_args[@]}"
+    ;;
+  34)
     echo "[mailzen-deploy][INFO] Exiting menu."
     exit 0
     ;;
   *)
-    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-33."
+    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-34."
     ;;
   esac
 done

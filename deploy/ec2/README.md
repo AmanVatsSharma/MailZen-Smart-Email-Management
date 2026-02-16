@@ -31,6 +31,7 @@ Additional deployment flowcharts:
   - `deploy.sh`
   - `update.sh`
   - `verify.sh` (post-deploy smoke checks)
+  - `runtime-smoke.sh` (container-internal runtime checks for core services + dependencies)
   - `dns-check.sh` (domain DNS readiness validation)
   - `ssl-check.sh` (HTTPS certificate validity and expiry check)
   - `host-readiness.sh` (disk/memory/cpu baseline checks)
@@ -71,7 +72,8 @@ flowchart TD
   H --> I[docker compose build + up]
   I --> J[caddy enables HTTPS for domain]
   J --> K[Run verify.sh]
-  K --> L[Use status/logs/restart/stop scripts for ops]
+  K --> L[Run runtime-smoke.sh]
+  L --> M[Use status/logs/restart/stop scripts for ops]
 ```
 
 ## First-time setup
@@ -87,6 +89,7 @@ From repository root:
 # - setup overrides (domain/acme/daemon check)
 # - deploy flags (--no-build/--pull/--force-recreate/--dry-run/--config-only)
 # - verify checks (retries + oauth/ssl toggles)
+# - runtime smoke checks (container-internal retries + dependency toggles)
 # - logs filters (service/tail/since/follow)
 # - restart/stop operations (service/wait/purge/dry-run/confirmation controls)
 
@@ -273,6 +276,15 @@ Example:
 
 # Require OAuth check and fail fast if OAuth env keys are missing
 ./deploy/ec2/scripts/verify.sh --require-oauth-check
+
+# Run runtime smoke checks from inside containers (no public DNS/TLS dependency)
+./deploy/ec2/scripts/runtime-smoke.sh
+
+# Runtime smoke checks with custom retries/sleep
+./deploy/ec2/scripts/runtime-smoke.sh --max-retries 15 --retry-sleep 4
+
+# Runtime smoke dry-run for rehearsal
+./deploy/ec2/scripts/runtime-smoke.sh --dry-run
 
 # Validate deployment domain DNS (uses MAILZEN_DOMAIN from env)
 ./deploy/ec2/scripts/dns-check.sh

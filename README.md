@@ -258,6 +258,7 @@ For production-style EC2 deployment, use the deployment module:
 ./deploy/ec2/scripts/menu.sh
 
 # Menu includes guided prompts for setup/deploy/verify/logs/update/restart/stop operations
+# and runtime smoke checks (container-internal probes)
 # (useful for non-technical EC2 operators)
 
 # Optional on fresh Ubuntu EC2: install Docker + Compose
@@ -358,6 +359,15 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: require OAuth smoke check (fail when OAuth keys are missing)
 ./deploy/ec2/scripts/verify.sh --require-oauth-check
+
+# Optional: runtime smoke checks from inside containers
+./deploy/ec2/scripts/runtime-smoke.sh
+
+# Optional: runtime smoke checks with custom retries
+./deploy/ec2/scripts/runtime-smoke.sh --max-retries 15 --retry-sleep 4
+
+# Optional: runtime smoke dry-run rehearsal
+./deploy/ec2/scripts/runtime-smoke.sh --dry-run
 
 # 5) Check status
 ./deploy/ec2/scripts/status.sh

@@ -21,7 +21,8 @@ flowchart TD
   FixConfig --> Preflight
   ComposeConfig -- yes --> Deploy[deploy.sh]
   Deploy --> Verify[verify.sh]
-  Verify --> VerifyOK{smoke checks pass?}
+  Verify --> RuntimeSmoke[runtime-smoke.sh]
+  RuntimeSmoke --> VerifyOK{smoke checks pass?}
   VerifyOK -- no --> Logs[logs.sh + status.sh troubleshooting]
   Logs --> FixAndRedeploy[update.sh or deploy.sh --force-recreate]
   FixAndRedeploy --> Verify
@@ -66,6 +67,7 @@ flowchart TD
 
 - Always run `preflight.sh` before deploy/update.
 - Prefer `verify.sh` immediately after deploy/update.
+- Prefer `runtime-smoke.sh` after deploy/update to validate container-internal service/runtime dependency health.
 - Use `verify.sh --require-oauth-check` when OAuth must be enforced in smoke checks.
 - Use `verify.sh --skip-oauth-check --skip-ssl-check` only for controlled break-glass checks.
 - Take a fresh labeled backup before risky changes:

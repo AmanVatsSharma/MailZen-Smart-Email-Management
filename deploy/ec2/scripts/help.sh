@@ -45,6 +45,10 @@ Primary flow:
   ./deploy/ec2/scripts/verify.sh --max-retries 10 --retry-sleep 5
   ./deploy/ec2/scripts/verify.sh --skip-oauth-check
   ./deploy/ec2/scripts/verify.sh --require-oauth-check
+  ./deploy/ec2/scripts/runtime-smoke.sh
+  ./deploy/ec2/scripts/runtime-smoke.sh --max-retries 15 --retry-sleep 4
+  ./deploy/ec2/scripts/runtime-smoke.sh --skip-backend-dependency-check
+  ./deploy/ec2/scripts/runtime-smoke.sh --dry-run
   ./deploy/ec2/scripts/status.sh
   ./deploy/ec2/scripts/status.sh --with-runtime-checks
   ./deploy/ec2/scripts/status.sh --with-runtime-checks --ports-check-ports 80,443,8100
