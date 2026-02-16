@@ -61,4 +61,5 @@ flowchart TD
 - Run `doctor.sh` and share report output during incident triage.
 - Run `support-bundle.sh` to package diagnostics for escalation/support.
 - Use `rotate-app-secrets.sh` for controlled JWT/OAuth/platform key rotation.
+- Run `pipeline-check.sh` for CI/config-only deployment validation.
 - Use `self-check.sh` after editing deployment scripts.

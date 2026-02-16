@@ -27,6 +27,7 @@ scripts=(
   "env-audit.sh"
   "doctor.sh"
   "support-bundle.sh"
+  "pipeline-check.sh"
   "self-check.sh"
   "status.sh"
   "logs.sh"

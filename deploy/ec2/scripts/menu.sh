@@ -44,8 +44,9 @@ show_menu() {
 18) Run diagnostics report (doctor)
 19) Generate support bundle
 20) Rotate app secrets
-21) Run script self-check
-22) Exit
+21) Run pipeline check (config-only)
+22) Run script self-check
+23) Exit
 ===============================================================================
 MENU
 }
@@ -58,7 +59,7 @@ fi
 
 while true; do
   show_menu
-  read -r -p "Select an option [1-22]: " choice
+  read -r -p "Select an option [1-23]: " choice
 
   case "${choice}" in
   1)
@@ -122,14 +123,17 @@ while true; do
     run_step "rotate-app-secrets.sh"
     ;;
   21)
-    run_step "self-check.sh"
+    run_step "pipeline-check.sh"
     ;;
   22)
+    run_step "self-check.sh"
+    ;;
+  23)
     echo "[mailzen-deploy][INFO] Exiting menu."
     exit 0
     ;;
   *)
-    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-22."
+    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-23."
     ;;
   esac
 done

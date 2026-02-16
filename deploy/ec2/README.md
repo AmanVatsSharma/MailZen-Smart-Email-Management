@@ -44,6 +44,7 @@ Additional deployment flowcharts:
   - `doctor.sh` (generate diagnostics report for support)
   - `support-bundle.sh` (collect support-ready diagnostics archive)
   - `rotate-app-secrets.sh` (rotate JWT/OAuth/platform secrets)
+  - `pipeline-check.sh` (CI/config-only deployment validation sequence)
 - `backups/`  
   Local backup dump directory (tracked folder; dump files ignored by git).
 - `reports/`  
@@ -160,6 +161,9 @@ The setup script:
 
 # Rotate app secrets non-interactively
 ./deploy/ec2/scripts/rotate-app-secrets.sh --yes
+
+# Run config-only deployment pipeline checks
+./deploy/ec2/scripts/pipeline-check.sh
 
 # Validate deployment scripts syntax/executable state
 ./deploy/ec2/scripts/self-check.sh
