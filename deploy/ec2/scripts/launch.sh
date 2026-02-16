@@ -222,6 +222,15 @@ fi
 if [[ "${RUN_SETUP}" == false ]]; then
   log_info "[LAUNCH] setup step skipped by --skip-setup"
 fi
+if [[ "${RUN_SETUP}" == false ]] && [[ "${SETUP_SKIP_DAEMON}" == true ]]; then
+  log_warn "[LAUNCH] --setup-skip-daemon is ignored when --skip-setup is enabled."
+fi
+if [[ "${RUN_SETUP}" == false ]] && [[ -n "${DOMAIN_ARG}" ]]; then
+  log_warn "[LAUNCH] --domain is ignored when --skip-setup is enabled."
+fi
+if [[ "${RUN_SETUP}" == false ]] && [[ -n "${ACME_EMAIL_ARG}" ]]; then
+  log_warn "[LAUNCH] --acme-email is ignored when --skip-setup is enabled."
+fi
 if [[ "${RUN_HOST_READINESS}" == false ]]; then
   log_info "[LAUNCH] host-readiness step skipped by --skip-host-readiness"
 fi

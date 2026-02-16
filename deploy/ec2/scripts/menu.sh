@@ -110,8 +110,10 @@ while true; do
     launch_status_skip_ports=false
     launch_deploy_dry_run=false
     launch_status_enabled=true
+    launch_setup_enabled=true
     if prompt_yes_no "Skip setup step" "no"; then
       launch_args+=(--skip-setup)
+      launch_setup_enabled=false
     fi
     if prompt_yes_no "Skip host readiness check" "no"; then
       launch_args+=(--skip-host-readiness)
@@ -157,16 +159,18 @@ while true; do
         fi
       fi
     fi
-    if prompt_yes_no "Skip docker daemon check during setup step" "no"; then
-      launch_args+=(--setup-skip-daemon)
-    fi
-    launch_domain="$(prompt_with_default "Setup domain override (blank = default env/template value)" "")"
-    if [[ -n "${launch_domain}" ]]; then
-      launch_args+=(--domain "${launch_domain}")
-    fi
-    launch_acme_email="$(prompt_with_default "Setup ACME email override (blank = default env/template value)" "")"
-    if [[ -n "${launch_acme_email}" ]]; then
-      launch_args+=(--acme-email "${launch_acme_email}")
+    if [[ "${launch_setup_enabled}" == true ]]; then
+      if prompt_yes_no "Skip docker daemon check during setup step" "no"; then
+        launch_args+=(--setup-skip-daemon)
+      fi
+      launch_domain="$(prompt_with_default "Setup domain override (blank = default env/template value)" "")"
+      if [[ -n "${launch_domain}" ]]; then
+        launch_args+=(--domain "${launch_domain}")
+      fi
+      launch_acme_email="$(prompt_with_default "Setup ACME email override (blank = default env/template value)" "")"
+      if [[ -n "${launch_acme_email}" ]]; then
+        launch_args+=(--acme-email "${launch_acme_email}")
+      fi
     fi
     if ! prompt_yes_no "Run final status step after launch" "yes"; then
       launch_status_enabled=false
