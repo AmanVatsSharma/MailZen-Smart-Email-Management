@@ -138,6 +138,24 @@ flowchart TD
   Admin[Admin GraphQL mutation] --> Service
 ```
 
+Retention scheduler structured observability events:
+
+- Agent action audit retention scheduler:
+  - `agent_action_audit_retention_autopurge_disabled`
+  - `agent_action_audit_retention_autopurge_start`
+  - `agent_action_audit_retention_autopurge_completed`
+  - `agent_action_audit_retention_autopurge_failed`
+- Health sample retention scheduler:
+  - `agent_platform_health_sample_retention_autopurge_disabled`
+  - `agent_platform_health_sample_retention_autopurge_start`
+  - `agent_platform_health_sample_retention_autopurge_completed`
+  - `agent_platform_health_sample_retention_autopurge_failed`
+- Alert-run retention scheduler:
+  - `agent_platform_alert_run_retention_autopurge_disabled`
+  - `agent_platform_alert_run_retention_autopurge_start`
+  - `agent_platform_alert_run_retention_autopurge_completed`
+  - `agent_platform_alert_run_retention_autopurge_failed`
+
 ## Health alerting flow
 
 ```mermaid

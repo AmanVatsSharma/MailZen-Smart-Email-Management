@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 @Injectable()
 export class AiAgentPlatformHealthSampleRetentionScheduler {
@@ -21,25 +25,45 @@ export class AiAgentPlatformHealthSampleRetentionScheduler {
 
   @Cron(CronExpression.EVERY_DAY_AT_4AM)
   async purgeExpiredHealthSamples(): Promise<void> {
+    const runCorrelationId = resolveCorrelationId(undefined);
     if (!this.isAutoPurgeEnabled()) {
       this.logger.log(
-        'agent-platform-health-sample: auto-purge disabled by env',
+        serializeStructuredLog({
+          event: 'agent_platform_health_sample_retention_autopurge_disabled',
+          runCorrelationId,
+        }),
       );
       return;
     }
 
     try {
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'agent_platform_health_sample_retention_autopurge_start',
+          runCorrelationId,
+        }),
+      );
       const result =
         await this.aiAgentGatewayService.purgePlatformHealthSampleRetentionData(
           {},
         );
       this.logger.log(
-        `agent-platform-health-sample: purged rows=${result.deletedSamples} retentionDays=${result.retentionDays}`,
+        serializeStructuredLog({
+          event: 'agent_platform_health_sample_retention_autopurge_completed',
+          runCorrelationId,
+          deletedSamples: result.deletedSamples,
+          retentionDays: result.retentionDays,
+          executedAtIso: result.executedAtIso,
+        }),
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'unknown error';
       this.logger.warn(
-        `agent-platform-health-sample: purge failed: ${message}`,
+        serializeStructuredLog({
+          event: 'agent_platform_health_sample_retention_autopurge_failed',
+          runCorrelationId,
+          error: message,
+        }),
       );
     }
   }
