@@ -27,6 +27,7 @@ on an EC2 instance using Docker Compose, a public domain, and HTTPS.
   - `deploy.sh`
   - `update.sh`
   - `verify.sh` (post-deploy smoke checks)
+  - `self-check.sh` (validate deployment script integrity)
   - `backup-db.sh` (database backup)
   - `restore-db.sh` (database restore with confirmation)
   - `status.sh`
@@ -95,6 +96,9 @@ The setup script:
 
 # Custom retries/sleep
 ./deploy/ec2/scripts/verify.sh 10 5
+
+# Validate deployment scripts syntax/executable state
+./deploy/ec2/scripts/self-check.sh
 
 # Create DB backup
 ./deploy/ec2/scripts/backup-db.sh

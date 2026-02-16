@@ -235,6 +235,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # 7) Optional DB backup
 ./deploy/ec2/scripts/backup-db.sh
+
+# 8) Validate deployment scripts integrity
+./deploy/ec2/scripts/self-check.sh
 ```
 
 This stack includes by default:
