@@ -320,6 +320,14 @@ The module automatically handles OAuth token refresh for Gmail and Outlook provi
 `PROVIDER_SYNC_INCIDENT_ALERT` notifications when the percentage of providers
 in `error` status breaches warning/critical thresholds for a user.
 
+Scheduler emits structured observability events such as:
+
+- `provider_sync_incident_monitor_start`
+- `provider_sync_incident_user_within_threshold`
+- `provider_sync_incident_alert_suppressed_by_cooldown`
+- `provider_sync_incident_alert_emitted`
+- `provider_sync_incident_monitor_user_failed`
+
 Configuration:
 
 - `MAILZEN_PROVIDER_SYNC_INCIDENT_ALERTS_ENABLED` (default `true`)

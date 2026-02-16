@@ -2,6 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { NotificationService } from '../notification/notification.service';
 import { UserNotification } from '../notification/entities/user-notification.entity';
@@ -347,19 +351,38 @@ export class ProviderSyncIncidentScheduler {
 
   @Cron('*/15 * * * *')
   async monitorProviderSyncIncidents(): Promise<void> {
+    const runCorrelationId = resolveCorrelationId(undefined);
     const config = this.resolveMonitorConfig();
     if (!config.alertsEnabled) {
-      this.logger.log('provider-sync-incident: alerts disabled by env');
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'provider_sync_incident_alerts_disabled',
+          runCorrelationId,
+        }),
+      );
       return;
     }
     const monitoredUserIds = await this.resolveMonitoredUserIds({
       maxUsersPerRun: config.maxUsersPerRun,
     });
     if (!monitoredUserIds.length) return;
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'provider_sync_incident_monitor_start',
+        runCorrelationId,
+        monitoredUsers: monitoredUserIds.length,
+        windowHours: config.windowHours,
+        cooldownMinutes: config.cooldownMinutes,
+        warningErrorProviderPercent: config.warningErrorProviderPercent,
+        criticalErrorProviderPercent: config.criticalErrorProviderPercent,
+        minErrorProviders: config.minErrorProviders,
+      }),
+    );
 
     for (const userId of monitoredUserIds) {
       await this.monitorProviderSyncIncidentsForUser({
         userId,
+        runCorrelationId,
         windowHours: config.windowHours,
         cooldownMinutes: config.cooldownMinutes,
         warningErrorProviderPercent: config.warningErrorProviderPercent,
@@ -411,6 +434,7 @@ export class ProviderSyncIncidentScheduler {
 
   private async monitorProviderSyncIncidentsForUser(input: {
     userId: string;
+    runCorrelationId: string;
     windowHours: number;
     cooldownMinutes: number;
     warningErrorProviderPercent: number;
@@ -422,6 +446,13 @@ export class ProviderSyncIncidentScheduler {
         input.userId,
       );
       if (!preferences.syncFailureEnabled) {
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'provider_sync_incident_user_skipped_by_preference',
+            userId: input.userId,
+            runCorrelationId: input.runCorrelationId,
+          }),
+        );
         return;
       }
       const check = await this.runIncidentAlertCheck({
@@ -432,7 +463,21 @@ export class ProviderSyncIncidentScheduler {
         minErrorProviders: input.minErrorProviders,
         syncFailureEnabledOverride: preferences.syncFailureEnabled,
       });
-      if (!check.shouldAlert) return;
+      if (!check.shouldAlert) {
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'provider_sync_incident_user_within_threshold',
+            userId: input.userId,
+            runCorrelationId: input.runCorrelationId,
+            status: check.status,
+            statusReason: check.statusReason,
+            errorProviderPercent: check.errorProviderPercent,
+            errorProviders: check.errorProviders,
+            totalProviders: check.totalProviders,
+          }),
+        );
+        return;
+      }
 
       const previousAlert = await this.notificationRepository.findOne({
         where: {
@@ -448,6 +493,15 @@ export class ProviderSyncIncidentScheduler {
           cooldownMinutes: input.cooldownMinutes,
         })
       ) {
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'provider_sync_incident_alert_suppressed_by_cooldown',
+            userId: input.userId,
+            runCorrelationId: input.runCorrelationId,
+            status: check.status,
+            cooldownMinutes: input.cooldownMinutes,
+          }),
+        );
         return;
       }
 
@@ -474,10 +528,27 @@ export class ProviderSyncIncidentScheduler {
           source: 'provider-sync-incident-scheduler',
         },
       });
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'provider_sync_incident_alert_emitted',
+          userId: input.userId,
+          runCorrelationId: input.runCorrelationId,
+          status: check.status,
+          statusReason: check.statusReason,
+          errorProviderPercent: check.errorProviderPercent,
+          errorProviders: check.errorProviders,
+          totalProviders: check.totalProviders,
+        }),
+      );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `provider-sync-incident: failed for user=${input.userId}: ${message}`,
+        serializeStructuredLog({
+          event: 'provider_sync_incident_monitor_user_failed',
+          userId: input.userId,
+          runCorrelationId: input.runCorrelationId,
+          error: message,
+        }),
       );
     }
   }
