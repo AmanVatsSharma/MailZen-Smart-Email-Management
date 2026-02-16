@@ -86,6 +86,7 @@ jobs:
           mailbox/mailbox-inbound.service.spec.ts
           mailbox/mailbox-inbound.controller.spec.ts
           phone/phone.service.spec.ts
+          phone/phone.resolver.spec.ts
           auth/auth.service.spec.ts
           auth/auth.resolver.spec.ts
           auth/auth-abuse-protection.service.spec.ts

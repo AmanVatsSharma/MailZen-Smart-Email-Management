@@ -68,3 +68,15 @@ flowchart TD
 - `phone_otp_verify_completed`
 
 Phone numbers are logged as irreversible fingerprints for privacy.
+
+## Abuse protection
+
+Phone verification mutations are guarded by `AuthAbuseProtectionService`:
+
+- `sendPhoneOtp` → `phone_send_otp` limiter operation
+- `verifyPhoneOtp` → `phone_verify_otp` limiter operation
+
+Rate limits use auth OTP limiter env controls:
+
+- `AUTH_OTP_RATE_LIMIT_WINDOW_MS`
+- `AUTH_OTP_RATE_LIMIT_MAX_REQUESTS`

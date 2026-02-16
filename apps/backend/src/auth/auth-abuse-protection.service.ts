@@ -15,6 +15,8 @@ type AuthAbuseOperation =
   | 'refresh'
   | 'logout'
   | 'register'
+  | 'phone_send_otp'
+  | 'phone_verify_otp'
   | 'signup_send_otp'
   | 'signup_verify'
   | 'forgot_password'
@@ -142,7 +144,12 @@ export class AuthAbuseProtectionService {
       return this.refreshLimiter;
     }
     if (operation === 'register') return this.registerLimiter;
-    if (operation === 'signup_send_otp' || operation === 'signup_verify') {
+    if (
+      operation === 'signup_send_otp' ||
+      operation === 'signup_verify' ||
+      operation === 'phone_send_otp' ||
+      operation === 'phone_verify_otp'
+    ) {
       return this.otpLimiter;
     }
     return this.passwordResetLimiter;

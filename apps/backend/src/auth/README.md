@@ -142,6 +142,8 @@ Protected mutation families include:
 - `refresh`
 - `logout` (when refresh token is supplied)
 - `register`
+- `sendPhoneOtp` (phone module)
+- `verifyPhoneOtp` (phone module)
 - `signupSendOtp`
 - `signupVerify`
 - `forgotPassword`
