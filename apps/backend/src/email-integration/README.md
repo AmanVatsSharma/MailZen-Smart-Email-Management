@@ -111,6 +111,9 @@ Frontend-facing (matches `apps/frontend/lib/providers/provider-utils.ts`):
   - optional `workspaceId` enforces workspace ownership/scope
   - returns aggregate counters (`requested/synced/failed/skipped`) and per-provider results
   - skips providers with active lease/status indicating in-flight sync
+  - emits structured batch observability logs with run correlation id
+    (`provider_sync_batch_start`, `provider_sync_batch_provider_completed`,
+    `provider_sync_batch_provider_failed`, `provider_sync_batch_completed`)
 - `runMyProviderSyncIncidentAlertCheck(windowHours?: Int, warningErrorProviderPercent?: Float, criticalErrorProviderPercent?: Float, minErrorProviders?: Int): ProviderSyncIncidentAlertCheckResponse!`
   - runs on-demand provider incident alert evaluation for current user with optional threshold overrides
   - returns status reason and whether warning/critical alert criteria are currently met

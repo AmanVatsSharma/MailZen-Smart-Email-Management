@@ -21,6 +21,10 @@ import { NotificationEventBusService } from '../notification/notification-event-
 import { OutlookSyncService } from '../outlook-sync/outlook-sync.service';
 import { WorkspaceService } from '../workspace/workspace.service';
 import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
+import {
   decryptProviderSecret,
   encryptProviderSecret,
   resolveProviderSecretsKeyring,
@@ -522,6 +526,7 @@ export class EmailProviderService {
     workspaceId?: string | null;
     providerId?: string | null;
   }) {
+    const runCorrelationId = resolveCorrelationId(undefined);
     const normalizedWorkspaceId = String(input.workspaceId || '').trim();
     const normalizedProviderId = String(input.providerId || '').trim();
 
@@ -563,6 +568,16 @@ export class EmailProviderService {
     let syncedProviders = 0;
     let failedProviders = 0;
     let skippedProviders = 0;
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'provider_sync_batch_start',
+        userId: input.userId,
+        runCorrelationId,
+        workspaceId: normalizedWorkspaceId || null,
+        providerId: normalizedProviderId || null,
+        candidateProviders: providers.length,
+      }),
+    );
 
     for (const provider of providers) {
       const leaseExpiresAtMs = provider.syncLeaseExpiresAt
@@ -575,6 +590,17 @@ export class EmailProviderService {
         leaseExpiresAtMs > now
       ) {
         skippedProviders += 1;
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'provider_sync_batch_provider_skipped',
+            userId: input.userId,
+            providerId: provider.id,
+            providerType: provider.type,
+            workspaceId: provider.workspaceId || null,
+            runCorrelationId,
+            reason: 'active-lease',
+          }),
+        );
         results.push({
           providerId: provider.id,
           providerType: provider.type,
@@ -599,6 +625,19 @@ export class EmailProviderService {
         } else {
           syncedProviders += 1;
         }
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'provider_sync_batch_provider_completed',
+            userId: input.userId,
+            providerId: provider.id,
+            providerType: provider.type,
+            workspaceId: provider.workspaceId || null,
+            runCorrelationId,
+            success: !failed,
+            status: syncedProvider.status,
+            error: failed ? syncedProvider.lastSyncError || null : null,
+          }),
+        );
         results.push({
           providerId: provider.id,
           providerType: provider.type,
@@ -612,7 +651,15 @@ export class EmailProviderService {
         const message =
           error instanceof Error ? error.message : 'Provider sync failed';
         this.logger.warn(
-          `provider-sync-batch: providerId=${provider.id} userId=${input.userId} failed error=${message}`,
+          serializeStructuredLog({
+            event: 'provider_sync_batch_provider_failed',
+            userId: input.userId,
+            providerId: provider.id,
+            providerType: provider.type,
+            workspaceId: provider.workspaceId || null,
+            runCorrelationId,
+            error: message,
+          }),
         );
         failedProviders += 1;
         results.push({
@@ -625,6 +672,19 @@ export class EmailProviderService {
       }
     }
 
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'provider_sync_batch_completed',
+        userId: input.userId,
+        runCorrelationId,
+        workspaceId: normalizedWorkspaceId || null,
+        providerId: normalizedProviderId || null,
+        requestedProviders: providers.length,
+        syncedProviders,
+        failedProviders,
+        skippedProviders,
+      }),
+    );
     return {
       requestedProviders: providers.length,
       syncedProviders,
