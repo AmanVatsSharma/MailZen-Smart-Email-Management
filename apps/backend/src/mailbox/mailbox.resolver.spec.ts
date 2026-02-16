@@ -15,6 +15,7 @@ describe('MailboxResolver', () => {
     getInboundEventStats: jest.fn(),
     getInboundEventSeries: jest.fn(),
     exportInboundEventData: jest.fn(),
+    exportInboundEventDataForAdmin: jest.fn(),
     purgeInboundEventRetentionData: jest.fn(),
     getProvisioningHealthSummary: jest.fn(),
   };
@@ -231,6 +232,36 @@ describe('MailboxResolver', () => {
       bucketMinutes: 60,
     });
     expect(result.generatedAtIso).toBe('2026-02-16T00:00:00.000Z');
+  });
+
+  it('forwards admin mailbox inbound export query to service', async () => {
+    mailboxServiceMock.exportInboundEventDataForAdmin.mockResolvedValue({
+      generatedAtIso: '2026-02-16T01:00:00.000Z',
+      dataJson: '{"events":[]}',
+    });
+
+    const result = await resolver.userMailboxInboundDataExport(
+      ctx as any,
+      'user-2',
+      'mailbox-2',
+      'workspace-1',
+      40,
+      24,
+      60,
+    );
+
+    expect(mailboxServiceMock.exportInboundEventDataForAdmin).toHaveBeenCalledWith(
+      {
+        targetUserId: 'user-2',
+        actorUserId: 'user-1',
+        mailboxId: 'mailbox-2',
+        workspaceId: 'workspace-1',
+        limit: 40,
+        windowHours: 24,
+        bucketMinutes: 60,
+      },
+    );
+    expect(result.generatedAtIso).toBe('2026-02-16T01:00:00.000Z');
   });
 
   it('forwards mailbox inbound retention purge mutation to service', async () => {

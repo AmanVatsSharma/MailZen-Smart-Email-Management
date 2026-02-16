@@ -164,6 +164,30 @@ export class MailboxResolver {
     });
   }
 
+  @Query(() => MailboxInboundDataExportResponse)
+  @UseGuards(AdminGuard)
+  async userMailboxInboundDataExport(
+    @Context() ctx: RequestContext,
+    @Args('userId') userId: string,
+    @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<MailboxInboundDataExportResponse> {
+    return this.mailboxService.exportInboundEventDataForAdmin({
+      targetUserId: userId,
+      actorUserId: ctx.req.user.id,
+      mailboxId,
+      workspaceId,
+      limit: limit ?? null,
+      windowHours: windowHours ?? null,
+      bucketMinutes: bucketMinutes ?? null,
+    });
+  }
+
   @Mutation(() => MailboxInboundRetentionPurgeResponse)
   async purgeMyMailboxInboundRetentionData(
     @Context() ctx: RequestContext,

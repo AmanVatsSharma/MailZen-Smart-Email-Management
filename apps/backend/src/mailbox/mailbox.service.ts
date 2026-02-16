@@ -688,6 +688,63 @@ export class MailboxService {
     };
   }
 
+  async exportInboundEventDataForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+    limit?: number | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<MailboxInboundDataExportResponse> {
+    const targetUserId = String(input.targetUserId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!targetUserId) {
+      throw new BadRequestException('Target user id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'mailbox_inbound_data_export_admin_start',
+        actorUserId,
+        targetUserId,
+        mailboxId: input.mailboxId || null,
+        workspaceId: input.workspaceId || null,
+      }),
+    );
+    const exportPayload = await this.exportInboundEventData({
+      userId: targetUserId,
+      mailboxId: input.mailboxId || null,
+      workspaceId: input.workspaceId || null,
+      limit: input.limit ?? null,
+      windowHours: input.windowHours ?? null,
+      bucketMinutes: input.bucketMinutes ?? null,
+    });
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'mailbox_inbound_data_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        mailboxId: input.mailboxId || null,
+        workspaceId: input.workspaceId || null,
+        generatedAtIso: exportPayload.generatedAtIso,
+        selfRequested: actorUserId === targetUserId,
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'mailbox_inbound_data_export_admin_completed',
+        actorUserId,
+        targetUserId,
+        mailboxId: input.mailboxId || null,
+        workspaceId: input.workspaceId || null,
+      }),
+    );
+    return exportPayload;
+  }
+
   async purgeInboundEventRetentionData(input: {
     userId?: string | null;
     retentionDays?: number | null;

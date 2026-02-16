@@ -569,6 +569,109 @@ describe('MailboxService', () => {
     inboundSeriesSpy.mockRestore();
   });
 
+  it('exports mailbox inbound observability data snapshot for admin legal workflows', async () => {
+    const inboundEventsSpy = jest
+      .spyOn(service, 'getInboundEvents')
+      .mockResolvedValue([]);
+    const inboundStatsSpy = jest
+      .spyOn(service, 'getInboundEventStats')
+      .mockResolvedValue({
+        mailboxId: null,
+        mailboxEmail: null,
+        windowHours: 24,
+        totalCount: 0,
+        acceptedCount: 0,
+        deduplicatedCount: 0,
+        rejectedCount: 0,
+        successRatePercent: 0,
+        rejectionRatePercent: 0,
+        slaTargetSuccessPercent: 99,
+        slaWarningRejectedPercent: 1,
+        slaCriticalRejectedPercent: 5,
+        slaStatus: 'NO_DATA',
+        meetsSla: true,
+        lastProcessedAt: null,
+      });
+    const inboundSeriesSpy = jest
+      .spyOn(service, 'getInboundEventSeries')
+      .mockResolvedValue([]);
+
+    const result = await service.exportInboundEventDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      mailboxId: 'mailbox-2',
+      workspaceId: 'workspace-1',
+      limit: 40,
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+
+    expect(result.generatedAtIso).toBeTruthy();
+    expect(result.dataJson).toContain('"events"');
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+        action: 'mailbox_inbound_data_export_requested',
+      }),
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'mailbox_inbound_data_export_requested_by_admin',
+        metadata: expect.objectContaining({
+          targetUserId: 'user-2',
+        }),
+      }),
+    );
+
+    inboundEventsSpy.mockRestore();
+    inboundStatsSpy.mockRestore();
+    inboundSeriesSpy.mockRestore();
+  });
+
+  it('does not fail admin mailbox inbound export when admin audit write fails', async () => {
+    jest.spyOn(service, 'getInboundEvents').mockResolvedValue([]);
+    jest.spyOn(service, 'getInboundEventStats').mockResolvedValue({
+      mailboxId: null,
+      mailboxEmail: null,
+      windowHours: 24,
+      totalCount: 0,
+      acceptedCount: 0,
+      deduplicatedCount: 0,
+      rejectedCount: 0,
+      successRatePercent: 0,
+      rejectionRatePercent: 0,
+      slaTargetSuccessPercent: 99,
+      slaWarningRejectedPercent: 1,
+      slaCriticalRejectedPercent: 5,
+      slaStatus: 'NO_DATA',
+      meetsSla: true,
+      lastProcessedAt: null,
+    });
+    jest.spyOn(service, 'getInboundEventSeries').mockResolvedValue([]);
+    auditLogRepo.save
+      .mockResolvedValueOnce({ id: 'audit-log-1' })
+      .mockRejectedValueOnce(new Error('audit datastore unavailable'));
+
+    const result = await service.exportInboundEventDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      limit: 20,
+    });
+
+    expect(result.generatedAtIso).toBeTruthy();
+    expect(result.dataJson).toContain('"events"');
+  });
+
+  it('rejects admin mailbox inbound export when actor user id is missing', async () => {
+    await expect(
+      service.exportInboundEventDataForAdmin({
+        targetUserId: 'user-2',
+        actorUserId: '',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('purges old mailbox inbound events by retention window', async () => {
     const deleteBuilder = {
       delete: jest.fn().mockReturnThis(),

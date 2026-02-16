@@ -42,6 +42,7 @@ This module covers:
     - `myMailboxInboundEventStats(mailboxId?: String, workspaceId?: String, windowHours?: Int): MailboxInboundEventStatsResponse!`
     - `myMailboxInboundEventSeries(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxInboundEventTrendPointResponse!]!`
     - `myMailboxInboundDataExport(mailboxId?: String, workspaceId?: String, limit?: Int, windowHours?: Int, bucketMinutes?: Int): MailboxInboundDataExportResponse!`
+    - `userMailboxInboundDataExport(userId: String!, mailboxId?: String, workspaceId?: String, limit?: Int, windowHours?: Int, bucketMinutes?: Int): MailboxInboundDataExportResponse!` (admin)
     - `myMailboxSyncStates(workspaceId?: String): [MailboxSyncStateResponse!]!`
     - `myMailboxSyncRuns(mailboxId?: String, workspaceId?: String, windowHours?: Int, limit?: Int): [MailboxSyncRunObservabilityResponse!]!`
     - `myMailboxSyncRunStats(mailboxId?: String, workspaceId?: String, windowHours?: Int): MailboxSyncRunStatsResponse!`
@@ -383,6 +384,8 @@ flowchart TD
   - supports optional workspace/mailbox scoping + rolling window and bucket granularity controls
 - `myMailboxInboundDataExport`
   - exports mailbox inbound observability as JSON snapshot (events, stats, trend, retention policy)
+- `userMailboxInboundDataExport` (admin)
+  - exports target-user mailbox inbound observability JSON snapshot for legal/compliance workflows
 - `purgeMyMailboxInboundRetentionData`
   - purges authenticated user inbound observability rows older than retention cutoff
 - `myMailboxSyncStates`
@@ -458,6 +461,8 @@ flowchart TD
   - `mailbox_create_provisioning_failed_rollback`
   - `mailbox_create_active_inbox_update_failed`
   - `mailbox_audit_log_write_failed`
+  - `mailbox_inbound_data_export_admin_start`
+  - `mailbox_inbound_data_export_admin_completed`
 - `MailboxSyncService` emits structured pull-retry event:
   - `mailbox_sync_pull_retry_scheduled`
   - `mailbox_sync_audit_log_write_failed`
@@ -481,6 +486,7 @@ flowchart TD
   - `mailbox_provisioning_failed`
   - `mailbox_created`
   - `mailbox_inbound_data_export_requested`
+  - `mailbox_inbound_data_export_requested_by_admin`
   - `mailbox_inbound_retention_purged`
   - `mailbox_inbound_retention_autopurge_started`
   - `mailbox_inbound_retention_autopurge_completed`
