@@ -1323,6 +1323,43 @@ export class EmailProviderService {
     }));
   }
 
+  async exportProviderSyncIncidentAlertHistoryDataForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    limit?: number | null;
+  }): Promise<{ generatedAtIso: string; dataJson: string }> {
+    const normalizedWorkspaceId =
+      String(input.workspaceId || '').trim() || null;
+    const normalizedWindowHours = this.normalizeSyncStatsWindowHours(
+      input.windowHours,
+    );
+    const normalizedLimit = this.normalizeProviderSyncAlertHistoryLimit(
+      input.limit,
+    );
+    const alerts = await this.getProviderSyncIncidentAlertsForUser({
+      userId: input.userId,
+      workspaceId: normalizedWorkspaceId,
+      windowHours: normalizedWindowHours,
+      limit: normalizedLimit,
+    });
+    const generatedAtIso = new Date().toISOString();
+    return {
+      generatedAtIso,
+      dataJson: JSON.stringify({
+        generatedAtIso,
+        workspaceId: normalizedWorkspaceId,
+        windowHours: normalizedWindowHours,
+        limit: normalizedLimit,
+        alertCount: alerts.length,
+        alerts: alerts.map((alert) => ({
+          ...alert,
+          createdAtIso: alert.createdAt.toISOString(),
+        })),
+      }),
+    };
+  }
+
   async exportProviderSyncIncidentAlertDeliveryDataForUser(input: {
     userId: string;
     workspaceId?: string | null;

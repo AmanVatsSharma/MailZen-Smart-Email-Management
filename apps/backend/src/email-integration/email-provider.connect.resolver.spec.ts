@@ -25,6 +25,7 @@ describe('EmailProviderConnectResolver', () => {
     getProviderSyncIncidentAlertDeliverySeriesForUser: jest.fn(),
     getProviderSyncIncidentAlertsForUser: jest.fn(),
     exportProviderSyncIncidentAlertDeliveryDataForUser: jest.fn(),
+    exportProviderSyncIncidentAlertHistoryDataForUser: jest.fn(),
     listProvidersUi: jest.fn(),
   };
   const providerSyncIncidentSchedulerMock = {
@@ -383,6 +384,37 @@ describe('EmailProviderConnectResolver', () => {
       windowHours: 24,
       bucketMinutes: 60,
       limit: 100,
+    });
+  });
+
+  it('delegates provider sync incident alert history export query to service', async () => {
+    emailProviderServiceMock.exportProviderSyncIncidentAlertHistoryDataForUser.mockResolvedValue(
+      {
+        generatedAtIso: '2026-02-16T00:00:00.000Z',
+        dataJson: '{"alertCount":3}',
+      },
+    );
+    const context = { req: { user: { id: 'user-1' } } };
+
+    const result = await resolver.myProviderSyncIncidentAlertHistoryDataExport(
+      'workspace-1',
+      24,
+      50,
+      context,
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        generatedAtIso: '2026-02-16T00:00:00.000Z',
+      }),
+    );
+    expect(
+      emailProviderServiceMock.exportProviderSyncIncidentAlertHistoryDataForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      limit: 50,
     });
   });
 

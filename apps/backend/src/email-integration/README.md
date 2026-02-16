@@ -78,6 +78,8 @@ This module follows NestJS best practices and consists of:
   - returns bucketed trend points for emitted provider sync incident alerts
 - `myProviderSyncIncidentAlerts(workspaceId?: String, windowHours?: Int, limit?: Int): [ProviderSyncIncidentAlertResponse!]!`
   - returns recent provider sync incident alert notifications with incident metadata context
+- `myProviderSyncIncidentAlertHistoryDataExport(workspaceId?: String, windowHours?: Int, limit?: Int): ProviderSyncIncidentAlertHistoryDataExportResponse!`
+  - exports recent provider sync incident alert history as JSON payload
 - `myProviderSyncIncidentAlertDeliveryDataExport(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int, limit?: Int): ProviderSyncIncidentAlertDeliveryDataExportResponse!`
   - exports provider sync incident alert delivery stats/series/history as JSON payload
 

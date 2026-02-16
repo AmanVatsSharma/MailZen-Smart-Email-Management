@@ -18,6 +18,7 @@ import { ProviderSyncAlertDeliveryDataExportResponse } from './entities/provider
 import { ProviderSyncIncidentAlertCheckResponse } from './entities/provider-sync-incident-alert-check.response';
 import { ProviderSyncIncidentAlertConfigResponse } from './entities/provider-sync-incident-alert-config.response';
 import { ProviderSyncIncidentAlertDeliveryDataExportResponse } from './entities/provider-sync-incident-alert-delivery-data-export.response';
+import { ProviderSyncIncidentAlertHistoryDataExportResponse } from './entities/provider-sync-incident-alert-history-data-export.response';
 import {
   ProviderSyncAlertDeliveryStatsResponse,
   ProviderSyncAlertDeliveryTrendPointResponse,
@@ -307,6 +308,24 @@ export class EmailProviderConnectResolver {
         workspaceId,
         windowHours,
         bucketMinutes,
+        limit,
+      },
+    );
+  }
+
+  @Query(() => ProviderSyncIncidentAlertHistoryDataExportResponse)
+  async myProviderSyncIncidentAlertHistoryDataExport(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours: number,
+    @Args('limit', { type: () => Int, nullable: true }) limit: number,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.emailProviderService.exportProviderSyncIncidentAlertHistoryDataForUser(
+      {
+        userId: ctx.req.user.id,
+        workspaceId,
+        windowHours,
         limit,
       },
     );

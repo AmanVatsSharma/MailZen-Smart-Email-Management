@@ -255,6 +255,11 @@ type ProviderSyncIncidentAlertDeliveryDataExportResponse {
   dataJson: String!
 }
 
+type ProviderSyncIncidentAlertHistoryDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
 type InboxMessage {
   id: ID!
   providerId: String!
@@ -493,6 +498,7 @@ type Query {
   myProviderSyncIncidentAlertDeliveryStats(workspaceId: String, windowHours: Int): ProviderSyncIncidentAlertDeliveryStatsResponse!
   myProviderSyncIncidentAlertDeliverySeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [ProviderSyncIncidentAlertDeliveryTrendPointResponse!]!
   myProviderSyncIncidentAlerts(workspaceId: String, windowHours: Int, limit: Int): [ProviderSyncIncidentAlertResponse!]!
+  myProviderSyncIncidentAlertHistoryDataExport(workspaceId: String, windowHours: Int, limit: Int): ProviderSyncIncidentAlertHistoryDataExportResponse!
   myProviderSyncIncidentAlertDeliveryDataExport(workspaceId: String, windowHours: Int, bucketMinutes: Int, limit: Int): ProviderSyncIncidentAlertDeliveryDataExportResponse!
   getInboxMessages(inboxType: String!, inboxId: String!, limit: Int, offset: Int): [InboxMessage!]!
   myMailboxes(workspaceId: String): [String!]!

@@ -62,6 +62,7 @@ const requiredContracts = [
   'myProviderSyncIncidentAlertDeliveryStats',
   'myProviderSyncIncidentAlertDeliverySeries',
   'myProviderSyncIncidentAlerts',
+  'myProviderSyncIncidentAlertHistoryDataExport',
   'myProviderSyncIncidentAlertDeliveryDataExport',
   'runMyProviderSyncIncidentAlertCheck',
   'smartReplySettings',

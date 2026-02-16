@@ -776,6 +776,42 @@ describe('EmailProviderService', () => {
     ]);
   });
 
+  it('exports provider sync incident alert history payload', async () => {
+    const alertsSpy = jest
+      .spyOn(service, 'getProviderSyncIncidentAlertsForUser')
+      .mockResolvedValue([
+        {
+          notificationId: 'notif-warning',
+          status: 'WARNING',
+          title: 'Provider sync incident warning',
+          message: 'incident',
+          errorProviderPercent: 33.33,
+          errorProviders: 1,
+          totalProviders: 3,
+          warningErrorProviderPercent: 20,
+          criticalErrorProviderPercent: 50,
+          minErrorProviders: 1,
+          createdAt: new Date('2026-02-16T00:00:00.000Z'),
+        },
+      ]);
+
+    const exported =
+      await service.exportProviderSyncIncidentAlertHistoryDataForUser({
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        limit: 10,
+      });
+    const payload = JSON.parse(exported.dataJson) as {
+      alertCount: number;
+      alerts: Array<{ notificationId: string }>;
+    };
+
+    expect(alertsSpy).toHaveBeenCalledTimes(1);
+    expect(payload.alertCount).toBe(1);
+    expect(payload.alerts[0]?.notificationId).toBe('notif-warning');
+  });
+
   it('exports provider sync incident alert delivery analytics payload', async () => {
     const statsSpy = jest
       .spyOn(service, 'getProviderSyncIncidentAlertDeliveryStatsForUser')
