@@ -143,6 +143,7 @@ describe('MailboxSyncService', () => {
   });
 
   it('records mailbox sync error when pull fails', async () => {
+    process.env.MAILZEN_MAIL_SYNC_RETRIES = '0';
     mockedAxios.get.mockRejectedValue({
       isAxiosError: true,
       message: 'gateway timeout',
@@ -165,6 +166,64 @@ describe('MailboxSyncService', () => {
         inboundSyncLastError: expect.stringContaining('status=504'),
       }),
     );
+  });
+
+  it('retries mailbox pull when sync API returns retryable failure', async () => {
+    process.env.MAILZEN_MAIL_SYNC_RETRIES = '2';
+    process.env.MAILZEN_MAIL_SYNC_RETRY_BACKOFF_MS = '1';
+    process.env.MAILZEN_MAIL_SYNC_RETRY_JITTER_MS = '0';
+    mockedAxios.get
+      .mockRejectedValueOnce({
+        isAxiosError: true,
+        message: 'temporary outage',
+        response: {
+          status: 503,
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          messages: [
+            {
+              from: 'lead@example.com',
+              subject: 'retry message',
+              textBody: 'retry body',
+              messageId: '<retry-1@example.com>',
+            },
+          ],
+          nextCursor: 'cursor-3',
+        },
+      } as never);
+
+    const result = await service.pollMailbox({
+      id: 'mailbox-1',
+      email: 'sales@mailzen.com',
+      inboundSyncCursor: 'cursor-2',
+    } as Mailbox);
+
+    expect(mockedAxios.get).toHaveBeenCalledTimes(2);
+    expect(result.acceptedMessages).toBe(1);
+    expect(result.nextCursor).toBe('cursor-3');
+  });
+
+  it('does not retry mailbox pull when failure is non-retryable', async () => {
+    process.env.MAILZEN_MAIL_SYNC_RETRIES = '3';
+    process.env.MAILZEN_MAIL_SYNC_RETRY_BACKOFF_MS = '1';
+    process.env.MAILZEN_MAIL_SYNC_RETRY_JITTER_MS = '0';
+    mockedAxios.get.mockRejectedValue({
+      isAxiosError: true,
+      message: 'bad request',
+      response: {
+        status: 400,
+      },
+    });
+
+    await expect(
+      service.pollMailbox({
+        id: 'mailbox-1',
+        email: 'sales@mailzen.com',
+      } as Mailbox),
+    ).rejects.toBeDefined();
+    expect(mockedAxios.get).toHaveBeenCalledTimes(1);
   });
 
   it('polls active mailboxes and continues after failures', async () => {

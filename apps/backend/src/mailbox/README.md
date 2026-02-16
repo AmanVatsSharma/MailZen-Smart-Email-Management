@@ -125,6 +125,9 @@ flowchart TD
 - `MAILZEN_MAIL_SYNC_API_TOKEN_HEADER` (default `authorization`)
   - supports `authorization` or `x-api-key`
 - `MAILZEN_MAIL_SYNC_TIMEOUT_MS` (default `5000`)
+- `MAILZEN_MAIL_SYNC_RETRIES` (default `2`)
+- `MAILZEN_MAIL_SYNC_RETRY_BACKOFF_MS` (default `250`)
+- `MAILZEN_MAIL_SYNC_RETRY_JITTER_MS` (default `125`)
 - `MAILZEN_MAIL_SYNC_BATCH_LIMIT` (default `25`)
 - `MAILZEN_MAIL_SYNC_MAX_MAILBOXES_PER_RUN` (default `250`)
 - `MAILZEN_MAIL_SYNC_CURSOR_PARAM` (default `cursor`)
@@ -187,6 +190,9 @@ flowchart TD
 - If mailbox sync pull request fails:
   - mailbox row stores `inboundSyncLastError` + `inboundSyncLastPolledAt`
   - scheduler continues polling other mailboxes (failure isolation)
+- Sync API pull retries:
+  - transient failures (`429`, `5xx`, network timeouts/resets) use retry with backoff + jitter
+  - non-retryable failures (e.g. `4xx` validation/auth issues) fail fast
 - If mailbox sync ingest of a pulled message fails:
   - current mailbox poll run fails fast (cursor is not advanced)
   - safe retries rely on idempotent inbound dedupe (`mailboxId + messageId`)

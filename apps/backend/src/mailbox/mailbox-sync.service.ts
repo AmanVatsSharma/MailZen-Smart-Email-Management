@@ -81,6 +81,33 @@ export class MailboxSyncService {
     });
   }
 
+  private resolveSyncPullRetries(): number {
+    return this.resolveIntegerEnv({
+      rawValue: process.env.MAILZEN_MAIL_SYNC_RETRIES,
+      fallbackValue: 2,
+      minimumValue: 0,
+      maximumValue: 6,
+    });
+  }
+
+  private resolveSyncRetryBackoffMs(): number {
+    return this.resolveIntegerEnv({
+      rawValue: process.env.MAILZEN_MAIL_SYNC_RETRY_BACKOFF_MS,
+      fallbackValue: 250,
+      minimumValue: 50,
+      maximumValue: 30_000,
+    });
+  }
+
+  private resolveSyncRetryJitterMs(): number {
+    return this.resolveIntegerEnv({
+      rawValue: process.env.MAILZEN_MAIL_SYNC_RETRY_JITTER_MS,
+      fallbackValue: 125,
+      minimumValue: 0,
+      maximumValue: 10_000,
+    });
+  }
+
   private resolveSyncMaxMailboxesPerRun(): number {
     return this.resolveIntegerEnv({
       rawValue: process.env.MAILZEN_MAIL_SYNC_MAX_MAILBOXES_PER_RUN,
@@ -241,6 +268,66 @@ export class MailboxSyncService {
     }
   }
 
+  private isRetryablePullError(error: unknown): boolean {
+    if (!axios.isAxiosError(error)) return false;
+    const status = Number(error.response?.status || 0);
+    if (status === 429) return true;
+    if (status >= 500 && status <= 599) return true;
+    const code = String(error.code || '')
+      .trim()
+      .toUpperCase();
+    return (
+      code === 'ECONNABORTED' ||
+      code === 'ECONNRESET' ||
+      code === 'ETIMEDOUT' ||
+      code === 'EAI_AGAIN' ||
+      code === 'ENOTFOUND'
+    );
+  }
+
+  private async sleep(ms: number): Promise<void> {
+    if (!Number.isFinite(ms) || ms <= 0) return;
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private async pullMailboxMessagesWithRetry(input: {
+    mailbox: Mailbox;
+    endpoint: string;
+    timeoutMs: number;
+    params: Record<string, unknown>;
+    headers: Record<string, string>;
+  }): Promise<unknown> {
+    const maxRetries = this.resolveSyncPullRetries();
+    const backoffMs = this.resolveSyncRetryBackoffMs();
+    const maxJitterMs = this.resolveSyncRetryJitterMs();
+
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      try {
+        const response = await axios.get(input.endpoint, {
+          timeout: input.timeoutMs,
+          params: input.params,
+          headers: input.headers,
+        });
+        return response.data;
+      } catch (error: unknown) {
+        const isRetryable = this.isRetryablePullError(error);
+        const isLastAttempt = attempt >= maxRetries;
+        if (!isRetryable || isLastAttempt) {
+          throw error;
+        }
+        const jitterMs =
+          maxJitterMs > 0 ? Math.floor(Math.random() * (maxJitterMs + 1)) : 0;
+        const waitMs = backoffMs * (attempt + 1) + jitterMs;
+        const errorMessage = this.describeSyncError(error);
+        this.logger.warn(
+          `mailbox-sync: retrying mailbox pull mailboxId=${input.mailbox.id} email=${input.mailbox.email} attempt=${attempt + 1} waitMs=${waitMs} error=${errorMessage}`,
+        );
+        await this.sleep(waitMs);
+      }
+    }
+    throw new Error('Mailbox sync retry loop exhausted unexpectedly');
+  }
+
   async pollMailbox(mailbox: Mailbox): Promise<MailboxSyncPollResult> {
     const apiBaseUrl = this.resolveSyncApiBaseUrl();
     if (!apiBaseUrl) {
@@ -267,13 +354,15 @@ export class MailboxSyncService {
     let rejectedMessages = 0;
 
     try {
-      const response = await axios.get(endpoint, {
-        timeout: timeoutMs,
+      const responseData = await this.pullMailboxMessagesWithRetry({
+        mailbox,
+        endpoint,
+        timeoutMs,
         params,
         headers,
       });
-      const messages = this.resolvePullMessages(response.data);
-      const nextCursor = this.resolveNextCursor(response.data);
+      const messages = this.resolvePullMessages(responseData);
+      const nextCursor = this.resolveNextCursor(responseData);
       fetchedMessages = messages.length;
 
       for (const message of messages) {
