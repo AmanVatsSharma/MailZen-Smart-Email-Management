@@ -73,10 +73,17 @@ Scheduler hardening features:
   - `gmail_sync_watch_renew_failed`
   - `gmail_push_notification_ignored_no_provider`
   - `gmail_push_notification_provider_failed`
+  - `gmail_sync_resolver_audit_log_write_failed`
 - structured scheduler logs (`gmail_sync_scheduler_start`,
   `gmail_sync_scheduler_retry`, `gmail_sync_scheduler_provider_failed`,
   `gmail_sync_watch_refresh_start`, `gmail_sync_watch_refresh_failed`) provide
   run-level retry and lease-skip diagnostics
+
+## Compliance / Audit Trail
+
+- Persisted audit actions:
+  - `gmail_sync_requested`
+  - `gmail_sync_request_failed`
 
 ## Push webhook endpoint
 

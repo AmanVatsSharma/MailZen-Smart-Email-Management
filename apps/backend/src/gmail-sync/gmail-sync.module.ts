@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { GmailSyncService } from './gmail-sync.service';
 import { GmailSyncResolver } from './gmail-sync.resolver';
 import { GmailSyncScheduler } from './gmail-sync.scheduler';
@@ -16,6 +17,7 @@ import { NotificationModule } from '../notification/notification.module';
       EmailProvider,
       ExternalEmailLabel,
       ExternalEmailMessage,
+      AuditLog,
     ]),
     NotificationModule,
   ],
