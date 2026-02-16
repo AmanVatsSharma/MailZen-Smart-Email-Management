@@ -273,6 +273,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: run config-only deployment pipeline checks
 ./deploy/ec2/scripts/pipeline-check.sh
 
+# Optional: run pipeline checks with seeded temporary env
+./deploy/ec2/scripts/pipeline-check.sh --seed-env
+
 # Optional: print deployment command quick-reference
 ./deploy/ec2/scripts/help.sh
 

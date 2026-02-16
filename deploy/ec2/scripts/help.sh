@@ -55,6 +55,7 @@ Diagnostics:
   ./deploy/ec2/scripts/doctor.sh
   ./deploy/ec2/scripts/support-bundle.sh
   ./deploy/ec2/scripts/pipeline-check.sh
+  ./deploy/ec2/scripts/pipeline-check.sh --seed-env
   ./deploy/ec2/scripts/reports-prune.sh 20
   ./deploy/ec2/scripts/self-check.sh
 HELP

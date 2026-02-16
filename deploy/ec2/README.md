@@ -222,6 +222,9 @@ Example:
 # Run config-only deployment pipeline checks
 ./deploy/ec2/scripts/pipeline-check.sh
 
+# Run pipeline checks with seeded temporary env (CI-friendly)
+./deploy/ec2/scripts/pipeline-check.sh --seed-env
+
 # Show command quick-reference
 ./deploy/ec2/scripts/help.sh
 

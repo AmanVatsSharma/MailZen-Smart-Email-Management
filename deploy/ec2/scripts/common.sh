@@ -8,9 +8,12 @@ set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-COMPOSE_FILE="${DEPLOY_DIR}/docker-compose.yml"
+# Advanced override hooks:
+# - MAILZEN_DEPLOY_ENV_FILE: custom env file path (useful for CI seeded checks)
+# - MAILZEN_DEPLOY_COMPOSE_FILE: custom compose file path
+COMPOSE_FILE="${MAILZEN_DEPLOY_COMPOSE_FILE:-${DEPLOY_DIR}/docker-compose.yml}"
 ENV_TEMPLATE_FILE="${DEPLOY_DIR}/.env.ec2.example"
-ENV_FILE="${DEPLOY_DIR}/.env.ec2"
+ENV_FILE="${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}"
 KNOWN_SERVICES=(
   caddy
   frontend
