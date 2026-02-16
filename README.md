@@ -216,6 +216,15 @@ For production-style EC2 deployment, use the deployment module:
 # Optional: skip selected prechecks
 ./deploy/ec2/scripts/launch.sh --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check
 
+# Optional: config-only + dry-run launch (daemon-offline validation)
+./deploy/ec2/scripts/launch.sh \
+  --skip-setup \
+  --skip-dns-check \
+  --skip-ssl-check \
+  --preflight-config-only \
+  --deploy-dry-run \
+  --skip-verify
+
 # Optional: launch with explicit setup inputs
 ./deploy/ec2/scripts/launch.sh \
   --domain mail.example.com \

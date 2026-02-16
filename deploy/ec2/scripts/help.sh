@@ -23,6 +23,7 @@ cat <<HELP
 
 Primary flow:
   ./deploy/ec2/scripts/launch.sh
+  ./deploy/ec2/scripts/launch.sh --preflight-config-only --deploy-dry-run --skip-verify
   ./deploy/ec2/scripts/preflight.sh
   ./deploy/ec2/scripts/deploy.sh
   ./deploy/ec2/scripts/verify.sh

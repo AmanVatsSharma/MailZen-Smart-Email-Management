@@ -92,6 +92,21 @@ From repository root:
 # Skip selected prechecks during launch
 ./deploy/ec2/scripts/launch.sh --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check
 
+# Config-only + dry-run launch for daemon-offline validation
+./deploy/ec2/scripts/launch.sh \
+  --skip-setup \
+  --skip-dns-check \
+  --skip-ssl-check \
+  --preflight-config-only \
+  --deploy-dry-run \
+  --skip-verify
+
+# Launch with custom verify retries and runtime status checks
+./deploy/ec2/scripts/launch.sh \
+  --verify-max-retries 10 \
+  --verify-retry-sleep 8 \
+  --status-runtime-checks
+
 # Launch with explicit domain/email and skip daemon check during setup
 ./deploy/ec2/scripts/launch.sh \
   --domain mail.example.com \
