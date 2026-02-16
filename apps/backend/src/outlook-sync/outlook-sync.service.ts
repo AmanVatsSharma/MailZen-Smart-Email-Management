@@ -14,6 +14,10 @@ import {
   resolveProviderSecretsKeyring,
   ProviderSecretsKeyring,
 } from '../common/provider-secrets.util';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
@@ -601,6 +605,8 @@ export class OutlookSyncService {
     userId: string,
     maxMessages = 25,
   ): Promise<{ imported: number }> {
+    const syncCorrelationId = resolveCorrelationId(undefined);
+    const syncStartedAtMs = Date.now();
     const provider = await this.emailProviderRepo.findOne({
       where: { id: providerId, userId },
     });
@@ -615,6 +621,16 @@ export class OutlookSyncService {
         'Could not obtain Outlook access token',
       );
     }
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'outlook_sync_start',
+        providerId,
+        userId,
+        maxMessages,
+        syncCorrelationId,
+        currentCursorPresent: Boolean(provider.outlookSyncCursor),
+      }),
+    );
 
     await this.emailProviderRepo.update(
       { id: providerId },
@@ -642,7 +658,13 @@ export class OutlookSyncService {
 
       if (providerCursor) {
         this.logger.log(
-          `Starting Outlook incremental sync provider=${providerId} pageLimit=${deltaPageLimit}`,
+          serializeStructuredLog({
+            event: 'outlook_sync_incremental_start',
+            providerId,
+            userId,
+            syncCorrelationId,
+            pageLimit: deltaPageLimit,
+          }),
         );
         try {
           const deltaSyncResult = await this.runDeltaSync({
@@ -662,7 +684,13 @@ export class OutlookSyncService {
           const message =
             error instanceof Error ? error.message : String(error);
           this.logger.warn(
-            `Outlook incremental cursor failed provider=${providerId}; fallback to full sync: ${message}`,
+            serializeStructuredLog({
+              event: 'outlook_sync_incremental_fallback',
+              providerId,
+              userId,
+              syncCorrelationId,
+              reason: message,
+            }),
           );
           shouldRunFullSync = true;
           nextCursor = null;
@@ -721,13 +749,29 @@ export class OutlookSyncService {
       );
 
       this.logger.log(
-        `Finished Outlook sync provider=${providerId} imported=${imported} removed=${removed} cursor=${nextCursor ? 'set' : 'unset'}`,
+        serializeStructuredLog({
+          event: 'outlook_sync_completed',
+          providerId,
+          userId,
+          syncCorrelationId,
+          importedMessages: imported,
+          removedMessages: removed,
+          cursorPresent: Boolean(nextCursor),
+          durationMs: Date.now() - syncStartedAtMs,
+        }),
       );
       return { imported };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Outlook sync failed provider=${providerId} user=${userId}: ${message}`,
+        serializeStructuredLog({
+          event: 'outlook_sync_failed',
+          providerId,
+          userId,
+          syncCorrelationId,
+          error: message,
+          durationMs: Date.now() - syncStartedAtMs,
+        }),
       );
       await this.emailProviderRepo.update(
         { id: providerId },

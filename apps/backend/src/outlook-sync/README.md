@@ -40,6 +40,10 @@ label metadata into `ExternalEmailLabel`, similar to Gmail sync.
   - success updates `lastSyncedAt`
   - failures persist `lastSyncError` and `lastSyncErrorAt`
   - new sync attempts clear stale error state
+- structured sync lifecycle logs (`outlook_sync_start`,
+  `outlook_sync_incremental_start`, `outlook_sync_incremental_fallback`,
+  `outlook_sync_completed`, `outlook_sync_failed`) include correlation id and
+  duration metadata for incident triage
 
 ## Graph API flow
 
