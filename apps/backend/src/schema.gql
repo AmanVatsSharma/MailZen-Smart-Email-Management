@@ -575,6 +575,19 @@ type AgentPlatformHealthSampleDataExportResponse {
   dataJson: String!
 }
 
+type AgentPlatformHealthTrendSummaryResponse {
+  windowHours: Int!
+  sampleCount: Int!
+  healthyCount: Int!
+  warnCount: Int!
+  criticalCount: Int!
+  avgErrorRatePercent: Float!
+  peakErrorRatePercent: Float!
+  avgLatencyMs: Float!
+  peakLatencyMs: Float!
+  latestCheckedAtIso: String
+}
+
 type AgentPlatformEndpointStatResponse {
   endpointUrl: String!
   successCount: Int!
@@ -1045,6 +1058,9 @@ extend type Query {
     limit: Int
     windowHours: Int
   ): AgentPlatformHealthSampleDataExportResponse!
+  agentPlatformHealthTrendSummary(
+    windowHours: Int
+  ): AgentPlatformHealthTrendSummaryResponse!
   myWorkspaces: [Workspace!]!
   myActiveWorkspace: Workspace
   myWorkspaceDataExport(workspaceId: String!): WorkspaceDataExportResponse!

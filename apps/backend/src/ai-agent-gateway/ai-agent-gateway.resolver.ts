@@ -22,6 +22,7 @@ import { AgentPlatformHealthResponse } from './dto/agent-platform-health.respons
 import { AgentPlatformHealthSampleDataExportResponse } from './dto/agent-platform-health-sample-data-export.response';
 import { AgentPlatformHealthSampleResponse } from './dto/agent-platform-health-sample.response';
 import { AgentPlatformHealthSampleRetentionPurgeResponse } from './dto/agent-platform-health-sample-retention-purge.response';
+import { AgentPlatformHealthTrendSummaryResponse } from './dto/agent-platform-health-trend-summary.response';
 import { AgentPlatformRuntimeResetResponse } from './dto/agent-platform-runtime-reset.response';
 import { AgentPlatformSkillRuntimeResetResponse } from './dto/agent-platform-skill-runtime-reset.response';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
@@ -90,6 +91,20 @@ export class AiAgentGatewayResolver {
   ): Promise<AgentPlatformHealthSampleDataExportResponse> {
     return this.gatewayService.exportPlatformHealthSampleData({
       limit,
+      windowHours,
+    });
+  }
+
+  @Query(() => AgentPlatformHealthTrendSummaryResponse, {
+    description:
+      'Get aggregated AI platform health trend summary for a rolling time window',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async agentPlatformHealthTrendSummary(
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+  ): Promise<AgentPlatformHealthTrendSummaryResponse> {
+    return this.gatewayService.getPlatformHealthTrendSummary({
       windowHours,
     });
   }

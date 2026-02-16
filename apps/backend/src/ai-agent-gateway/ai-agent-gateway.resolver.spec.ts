@@ -6,6 +6,7 @@ describe('AiAgentGatewayResolver', () => {
     getPlatformHealth: jest.fn(),
     getPlatformHealthHistory: jest.fn(),
     exportPlatformHealthSampleData: jest.fn(),
+    getPlatformHealthTrendSummary: jest.fn(),
     resetPlatformRuntimeStats: jest.fn(),
     resetSkillRuntimeStats: jest.fn(),
     purgePlatformHealthSampleRetentionData: jest.fn(),
@@ -150,6 +151,33 @@ describe('AiAgentGatewayResolver', () => {
     expect(result).toEqual(
       expect.objectContaining({
         generatedAtIso: '2026-02-16T00:00:00.000Z',
+      }),
+    );
+  });
+
+  it('delegates agentPlatformHealthTrendSummary to gateway service', async () => {
+    gatewayService.getPlatformHealthTrendSummary.mockResolvedValue({
+      windowHours: 24,
+      sampleCount: 20,
+      healthyCount: 14,
+      warnCount: 5,
+      criticalCount: 1,
+      avgErrorRatePercent: 4.5,
+      peakErrorRatePercent: 12,
+      avgLatencyMs: 210,
+      peakLatencyMs: 740,
+      latestCheckedAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    const result = await resolver.agentPlatformHealthTrendSummary(24);
+
+    expect(gatewayService.getPlatformHealthTrendSummary).toHaveBeenCalledWith({
+      windowHours: 24,
+    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        sampleCount: 20,
+        criticalCount: 1,
       }),
     );
   });

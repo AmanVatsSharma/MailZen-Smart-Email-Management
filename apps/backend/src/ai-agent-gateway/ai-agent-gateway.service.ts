@@ -144,6 +144,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   private static readonly DEFAULT_HEALTH_HISTORY_LIMIT = 50;
   private static readonly MIN_HEALTH_HISTORY_LIMIT = 1;
   private static readonly MAX_HEALTH_HISTORY_LIMIT = 500;
+  private static readonly MAX_HEALTH_TREND_SAMPLE_SCAN = 2000;
   private static readonly DEFAULT_HEALTH_HISTORY_WINDOW_HOURS = 24;
   private static readonly MIN_HEALTH_HISTORY_WINDOW_HOURS = 1;
   private static readonly MAX_HEALTH_HISTORY_WINDOW_HOURS = 24 * 30;
@@ -698,6 +699,75 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     return {
       generatedAtIso,
       dataJson: JSON.stringify(payload),
+    };
+  }
+
+  async getPlatformHealthTrendSummary(input?: {
+    windowHours?: number | null;
+  }): Promise<{
+    windowHours: number;
+    sampleCount: number;
+    healthyCount: number;
+    warnCount: number;
+    criticalCount: number;
+    avgErrorRatePercent: number;
+    peakErrorRatePercent: number;
+    avgLatencyMs: number;
+    peakLatencyMs: number;
+    latestCheckedAtIso?: string;
+  }> {
+    const windowHours = this.normalizeHealthHistoryWindowHours(
+      input?.windowHours,
+    );
+    const windowStart = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const samples = await this.healthSampleRepo.find({
+      where: {
+        checkedAt: MoreThanOrEqual(windowStart),
+      },
+      order: {
+        checkedAt: 'DESC',
+      },
+      take: AiAgentGatewayService.MAX_HEALTH_TREND_SAMPLE_SCAN,
+    });
+    const sampleCount = samples.length;
+    const healthyCount = samples.filter(
+      (sample) =>
+        String(sample.alertingState || '').toLowerCase() === 'healthy',
+    ).length;
+    const warnCount = samples.filter(
+      (sample) => String(sample.alertingState || '').toLowerCase() === 'warn',
+    ).length;
+    const criticalCount = samples.filter(
+      (sample) =>
+        String(sample.alertingState || '').toLowerCase() === 'critical',
+    ).length;
+    const totalErrorRate = samples.reduce(
+      (sum, sample) => sum + Number(sample.errorRatePercent || 0),
+      0,
+    );
+    const totalLatency = samples.reduce(
+      (sum, sample) => sum + Number(sample.avgLatencyMs || 0),
+      0,
+    );
+    const peakErrorRatePercent = samples.reduce(
+      (peak, sample) => Math.max(peak, Number(sample.errorRatePercent || 0)),
+      0,
+    );
+    const peakLatencyMs = samples.reduce(
+      (peak, sample) => Math.max(peak, Number(sample.avgLatencyMs || 0)),
+      0,
+    );
+    return {
+      windowHours,
+      sampleCount,
+      healthyCount,
+      warnCount,
+      criticalCount,
+      avgErrorRatePercent: sampleCount > 0 ? totalErrorRate / sampleCount : 0,
+      peakErrorRatePercent,
+      avgLatencyMs: sampleCount > 0 ? totalLatency / sampleCount : 0,
+      peakLatencyMs,
+      latestCheckedAtIso: samples[0]?.checkedAt?.toISOString(),
     };
   }
 

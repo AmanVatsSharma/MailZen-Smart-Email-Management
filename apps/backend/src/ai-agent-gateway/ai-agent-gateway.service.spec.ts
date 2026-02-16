@@ -554,6 +554,55 @@ describe('AiAgentGatewayService', () => {
     expect(payload.retentionPolicy.retentionDays).toBe(30);
   });
 
+  it('returns aggregated health trend summary for rolling window', async () => {
+    const service = createService();
+    findHealthSamplesMock.mockResolvedValueOnce([
+      {
+        alertingState: 'healthy',
+        errorRatePercent: 1,
+        avgLatencyMs: 80,
+        checkedAt: new Date('2026-02-16T02:00:00.000Z'),
+      },
+      {
+        alertingState: 'warn',
+        errorRatePercent: 8,
+        avgLatencyMs: 240,
+        checkedAt: new Date('2026-02-16T01:00:00.000Z'),
+      },
+      {
+        alertingState: 'critical',
+        errorRatePercent: 18,
+        avgLatencyMs: 640,
+        checkedAt: new Date('2026-02-16T00:00:00.000Z'),
+      },
+    ]);
+
+    const summary = await service.getPlatformHealthTrendSummary({
+      windowHours: 24,
+    });
+
+    expect(findHealthSamplesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 2000,
+        order: { checkedAt: 'DESC' },
+      }),
+    );
+    expect(summary).toEqual(
+      expect.objectContaining({
+        windowHours: 24,
+        sampleCount: 3,
+        healthyCount: 1,
+        warnCount: 1,
+        criticalCount: 1,
+        avgErrorRatePercent: 9,
+        peakErrorRatePercent: 18,
+        avgLatencyMs: 320,
+        peakLatencyMs: 640,
+        latestCheckedAtIso: '2026-02-16T02:00:00.000Z',
+      }),
+    );
+  });
+
   it('hydrates persisted runtime stats from database on module init', async () => {
     process.env.AI_AGENT_GATEWAY_USE_REDIS = 'false';
     findEndpointRuntimeStatsMock.mockResolvedValueOnce([
