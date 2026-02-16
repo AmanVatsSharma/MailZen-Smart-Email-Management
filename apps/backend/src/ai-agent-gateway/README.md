@@ -10,6 +10,7 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - Execute approved privileged actions safely in backend:
   - `auth.forgot_password`
   - `inbox.summarize_thread` (authenticated, ownership-scoped thread summary)
+  - `inbox.extract_action_items` (authenticated heuristic action-item extraction)
   - `inbox.open_thread` (authenticated thread open/context snapshot)
   - `inbox.classify_thread` (authenticated heuristic thread classification)
   - `inbox.prioritize_thread` (authenticated urgency scoring and priority level)
@@ -89,3 +90,4 @@ flowchart TD
 - 2026-02-16: Added executable inbox classify/prioritize actions.
 - 2026-02-16: Added executable inbox open-thread action for contextual preview.
 - 2026-02-16: Added multi-endpoint AI platform failover support (`AI_AGENT_PLATFORM_URLS`) for assist and health probes.
+- 2026-02-16: Added executable inbox action-item extraction action.

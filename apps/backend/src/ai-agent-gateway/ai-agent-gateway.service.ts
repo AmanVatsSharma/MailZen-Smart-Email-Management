@@ -175,6 +175,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       access: 'authenticated',
       allowedActions: new Set([
         'inbox.summarize_thread',
+        'inbox.extract_action_items',
         'inbox.classify_thread',
         'inbox.prioritize_thread',
         'inbox.compose_reply_draft',
@@ -183,6 +184,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       ]),
       serverExecutableActions: new Set([
         'inbox.summarize_thread',
+        'inbox.extract_action_items',
         'inbox.classify_thread',
         'inbox.prioritize_thread',
         'inbox.compose_reply_draft',
@@ -1566,6 +1568,41 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
+    if (requestedAction === 'inbox.extract_action_items') {
+      if (!userId) {
+        throw new BadRequestException(
+          'Authenticated user is required for inbox action-item extraction',
+        );
+      }
+
+      const metadata = this.parseContextMetadata(input.context?.metadataJson);
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        '';
+      const actionItems = await this.extractActionItemsForUser(
+        userId,
+        threadId || undefined,
+      );
+
+      return this.finalizeActionExecution({
+        action: requestedAction,
+        executed: true,
+        message: actionItems.message,
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          threadId: threadId || null,
+          actionItemsCount: actionItems.items.length,
+          actionItems: actionItems.items,
+        },
+      });
+    }
+
     if (requestedAction === 'inbox.prioritize_thread') {
       if (!userId) {
         throw new BadRequestException(
@@ -1960,6 +1997,59 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       level,
       score: cappedScore,
       message: `Priority set to ${level} (score ${cappedScore}) because ${reasonSummary}.`,
+    };
+  }
+
+  private async extractActionItemsForUser(
+    userId: string,
+    threadId?: string,
+  ): Promise<{
+    items: string[];
+    message: string;
+  }> {
+    const messages = await this.loadThreadMessagesForUser({
+      userId,
+      threadId,
+      take: 5,
+    });
+    if (!messages.length) {
+      return {
+        items: [],
+        message:
+          'No thread messages are available yet, so no action items could be extracted.',
+      };
+    }
+
+    const candidateSentences = messages.flatMap((message) =>
+      String(message.snippet || '')
+        .split(/[.!?]/)
+        .map((sentence) => sentence.replace(/\s+/g, ' ').trim())
+        .filter(Boolean),
+    );
+    const actionSignals =
+      /(please|need to|action|todo|follow up|follow-up|deadline|by (monday|tuesday|wednesday|thursday|friday|eod|tomorrow)|can you|let's|kindly)/i;
+    const extractedItems = Array.from(
+      new Set(
+        candidateSentences
+          .filter((sentence) => actionSignals.test(sentence))
+          .map((sentence) => sentence.slice(0, 180)),
+      ),
+    ).slice(0, 5);
+
+    if (!extractedItems.length) {
+      return {
+        items: [],
+        message:
+          'No explicit action items were detected in recent thread snippets.',
+      };
+    }
+
+    const bulletItems = extractedItems
+      .map((item, index) => `${index + 1}. ${item}`)
+      .join(' ');
+    return {
+      items: extractedItems,
+      message: `Extracted ${extractedItems.length} action item(s): ${bulletItems}`,
     };
   }
 

@@ -576,6 +576,66 @@ describe('AiAgentGatewayService', () => {
     );
   });
 
+  it('executes inbox extract-action-items action when suggested and requested', async () => {
+    const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'inbox',
+        assistantText: 'I can extract action items from this thread.',
+        intent: 'thread_action_items',
+        confidence: 0.88,
+        suggestedActions: [
+          {
+            name: 'inbox.extract_action_items',
+            label: 'Extract action items',
+            payload: {},
+          },
+        ],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+    findExternalMessagesMock.mockResolvedValue([
+      {
+        subject: 'Customer onboarding follow-up',
+        from: 'ops@example.com',
+        snippet:
+          'Please send the onboarding checklist by tomorrow. Need to confirm owner for training session.',
+      },
+    ]);
+
+    const response = await service.assist(
+      {
+        skill: 'inbox',
+        messages: [{ role: 'user', content: 'Extract action items.' }],
+        context: {
+          surface: 'inbox',
+          locale: 'en-IN',
+          metadataJson: JSON.stringify({ threadId: 'thread-actions-1' }),
+        },
+        allowedActions: ['inbox.extract_action_items'],
+        requestedAction: 'inbox.extract_action_items',
+        executeRequestedAction: true,
+      },
+      {
+        requestId: 'req-action-items-1',
+        headers: { authorization: 'Bearer token-1' },
+      },
+    );
+
+    expect(response.executedAction?.executed).toBe(true);
+    expect(response.executedAction?.message).toContain(
+      'Extracted 2 action item(s)',
+    );
+    expect(saveAgentActionAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'inbox.extract_action_items',
+        executed: true,
+      }),
+    );
+  });
+
   it('executes inbox open-thread action when suggested and requested', async () => {
     const service = createService();
     mockedAxios.post.mockResolvedValueOnce({
