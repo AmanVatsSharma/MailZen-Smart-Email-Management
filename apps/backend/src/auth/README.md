@@ -117,6 +117,21 @@ Web sessions are persisted with an HttpOnly `token` cookie.
 PII-sensitive identifiers such as phone numbers are logged as irreversible
 fingerprints, not raw values.
 
+Google OAuth controller (`oauth.controller.ts`) structured events:
+- `auth_google_oauth_boot_config_missing`
+- `auth_google_oauth_start_redirect`
+- `auth_google_oauth_callback_provider_error`
+- `auth_google_oauth_callback_missing_code_or_state`
+- `auth_google_oauth_callback_invalid_state`
+- `auth_google_oauth_user_created`
+- `auth_google_oauth_user_updated`
+- `auth_google_oauth_callback_failed`
+- provider auto-connect diagnostics:
+  - `auth_google_oauth_provider_autoconnect_skipped_missing_access_token`
+  - `auth_google_oauth_provider_autoconnect_conflict_resolve_failed`
+  - `auth_google_oauth_provider_autoconnect_failed`
+  - `auth_google_oauth_provider_sync_trigger_failed`
+
 ## Google OAuth flow (hardened)
 
 1. Frontend redirects to `GET /auth/google/start`.

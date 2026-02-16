@@ -18,6 +18,11 @@ import { AuditLog } from './entities/audit-log.entity';
 import { SessionCookieService } from './session-cookie.service';
 import { EmailProviderService } from '../email-integration/email-provider.service';
 import { MailboxService } from '../mailbox/mailbox.service';
+import {
+  fingerprintIdentifier,
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 /**
  * Google OAuth login (code flow).
@@ -47,7 +52,12 @@ export class GoogleOAuthController {
     if (!clientId || !clientSecret || !redirectUri) {
       // Don't block boot: OAuth can be configured at deploy-time.
       this.logger.warn(
-        'Google OAuth not configured (missing GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_REDIRECT_URI)',
+        serializeStructuredLog({
+          event: 'auth_google_oauth_boot_config_missing',
+          missingClientId: !clientId,
+          missingClientSecret: !clientSecret,
+          missingRedirectUri: !redirectUri,
+        }),
       );
     }
     this.oauthClient = new OAuth2Client(
@@ -55,6 +65,20 @@ export class GoogleOAuthController {
       clientSecret || '',
       redirectUri || '',
     );
+  }
+
+  private resolveRequestId(req: Request, res: Response): string {
+    const requestId = resolveCorrelationId(
+      (res.getHeader('x-request-id') as string | string[] | undefined) ||
+        req.headers['x-request-id'],
+    );
+    res.setHeader('x-request-id', requestId);
+    return requestId;
+  }
+
+  private resolveErrorMessage(error: unknown): string {
+    if (error instanceof Error && error.message) return error.message;
+    return String(error);
   }
 
   private async getAliasSetupState(userId: string): Promise<{
@@ -82,7 +106,10 @@ export class GoogleOAuthController {
 
     if (!accessToken) {
       this.logger.warn(
-        `Google OAuth callback missing access_token; skipping provider auto-connect for user=${userId}`,
+        serializeStructuredLog({
+          event: 'auth_google_oauth_provider_autoconnect_skipped_missing_access_token',
+          userId,
+        }),
       );
       return;
     }
@@ -114,12 +141,20 @@ export class GoogleOAuthController {
           providerId = existing?.id || null;
         } catch (lookupError: any) {
           this.logger.warn(
-            `Failed to resolve existing Gmail provider for user=${userId}: ${lookupError?.message || lookupError}`,
+            serializeStructuredLog({
+              event: 'auth_google_oauth_provider_autoconnect_conflict_resolve_failed',
+              userId,
+              error: this.resolveErrorMessage(lookupError),
+            }),
           );
         }
       } else {
         this.logger.warn(
-          `Failed to auto-connect Gmail provider for user=${userId}: ${error?.message || error}`,
+          serializeStructuredLog({
+            event: 'auth_google_oauth_provider_autoconnect_failed',
+            userId,
+            error: this.resolveErrorMessage(error),
+          }),
         );
         return;
       }
@@ -133,13 +168,23 @@ export class GoogleOAuthController {
       await this.emailProviderService.syncProvider(providerId, userId);
     } catch (error: any) {
       this.logger.warn(
-        `Failed to trigger Gmail initial sync for provider=${providerId}: ${error?.message || error}`,
+        serializeStructuredLog({
+          event: 'auth_google_oauth_provider_sync_trigger_failed',
+          userId,
+          providerId,
+          error: this.resolveErrorMessage(error),
+        }),
       );
     }
   }
 
   @Get('start')
-  async start(@Res() res: Response, @Query('redirect') redirect?: string) {
+  async start(
+    @Res() res: Response,
+    @Req() req: Request,
+    @Query('redirect') redirect?: string,
+  ) {
+    const requestId = this.resolveRequestId(req, res);
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const redirectUri = process.env.GOOGLE_REDIRECT_URI;
     if (!clientId || !redirectUri) {
@@ -162,7 +207,16 @@ export class GoogleOAuthController {
     url.searchParams.set('state', state);
 
     // Helpful for debugging the redirect URL without leaking tokens.
-    this.logger.log(`OAuth start redirecting to Google (scopes=${scope})`);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_google_oauth_start_redirect',
+        requestId,
+        scopeCount: scope.split(' ').filter(Boolean).length,
+        redirectOverrideFingerprint: redirect
+          ? fingerprintIdentifier(redirect)
+          : null,
+      }),
+    );
     return res.redirect(url.toString());
   }
 
@@ -175,11 +229,18 @@ export class GoogleOAuthController {
     @Query('error') error?: string,
     @Query('mode') mode?: 'json' | 'redirect',
   ) {
+    const requestId = this.resolveRequestId(req, res);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const outMode = mode || 'redirect';
 
     if (error) {
-      this.logger.warn(`Google OAuth callback error from provider: ${error}`);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'auth_google_oauth_callback_provider_error',
+          requestId,
+          error,
+        }),
+      );
       await this.auditLogRepo.save(
         this.auditLogRepo.create({
           action: 'OAUTH_GOOGLE_FAILED',
@@ -193,7 +254,14 @@ export class GoogleOAuthController {
     }
 
     if (!code || !state) {
-      this.logger.warn('Google OAuth callback missing code/state');
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'auth_google_oauth_callback_missing_code_or_state',
+          requestId,
+          hasCode: Boolean(code),
+          hasState: Boolean(state),
+        }),
+      );
       await this.auditLogRepo.save(
         this.auditLogRepo.create({
           action: 'OAUTH_GOOGLE_FAILED',
@@ -213,7 +281,11 @@ export class GoogleOAuthController {
       redirectOverride = payload.redirect;
     } catch (e: any) {
       this.logger.warn(
-        `Google OAuth state validation failed: ${e?.message || e}`,
+        serializeStructuredLog({
+          event: 'auth_google_oauth_callback_invalid_state',
+          requestId,
+          error: this.resolveErrorMessage(e),
+        }),
       );
       await this.auditLogRepo.save(
         this.auditLogRepo.create({
@@ -248,6 +320,7 @@ export class GoogleOAuthController {
       }
 
       const email = payload.email.toLowerCase();
+      const emailFingerprint = fingerprintIdentifier(email);
       const googleSub = payload.sub;
       const name = payload.name || payload.given_name || null;
       const emailVerified = !!payload.email_verified;
@@ -272,7 +345,14 @@ export class GoogleOAuthController {
             googleSub,
           } as any),
         );
-        this.logger.log(`Created new user via Google OAuth: ${email}`);
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'auth_google_oauth_user_created',
+            requestId,
+            userId: dbUser.id,
+            emailFingerprint,
+          }),
+        );
       } else {
         // Guard against accidental account takeover: if email matches but googleSub differs, reject.
         if ((user as any).googleSub && (user as any).googleSub !== googleSub) {
@@ -291,7 +371,14 @@ export class GoogleOAuthController {
         dbUser = (await this.userRepo.findOne({
           where: { id: user.id },
         })) as any;
-        this.logger.log(`Linked/updated user via Google OAuth: ${email}`);
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'auth_google_oauth_user_updated',
+            requestId,
+            userId: dbUser.id,
+            emailFingerprint,
+          }),
+        );
       }
 
       await this.auditLogRepo.save(
@@ -339,7 +426,11 @@ export class GoogleOAuthController {
       return res.redirect(finalRedirect);
     } catch (e: any) {
       this.logger.error(
-        `Google OAuth login failed: ${e?.message || e}`,
+        serializeStructuredLog({
+          event: 'auth_google_oauth_callback_failed',
+          requestId,
+          error: this.resolveErrorMessage(e),
+        }),
         e?.stack,
       );
       await this.auditLogRepo.save(

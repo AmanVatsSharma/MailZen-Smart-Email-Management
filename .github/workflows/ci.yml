@@ -93,6 +93,7 @@ jobs:
           phone/phone.resolver.spec.ts
           auth/auth.service.spec.ts
           auth/auth.resolver.spec.ts
+          auth/oauth.controller.spec.ts
           auth/auth-abuse-protection.service.spec.ts
           auth/guards/jwt-auth.guard.spec.ts
           auth/session-cookie.service.spec.ts
