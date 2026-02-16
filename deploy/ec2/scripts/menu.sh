@@ -49,7 +49,12 @@ show_menu() {
 23) Prune old diagnostics reports (keep latest 20)
 24) Show command help
 25) Run script self-check
-26) Exit
+26) Launch config-only dry-run validation
+27) Verify deployment (skip oauth + ssl checks)
+28) Run diagnostics report (doctor, seeded env)
+29) Generate support bundle (seeded env)
+30) Run pipeline check (seeded env)
+31) Exit
 ===============================================================================
 MENU
 }
@@ -62,7 +67,7 @@ fi
 
 while true; do
   show_menu
-  read -r -p "Select an option [1-26]: " choice
+  read -r -p "Select an option [1-31]: " choice
 
   case "${choice}" in
   1)
@@ -141,11 +146,26 @@ while true; do
     run_step "self-check.sh"
     ;;
   26)
+    run_step "launch.sh" --skip-setup --skip-dns-check --skip-ssl-check --preflight-config-only --deploy-dry-run --skip-verify
+    ;;
+  27)
+    run_step "verify.sh" --skip-oauth-check --skip-ssl-check
+    ;;
+  28)
+    run_step "doctor.sh" --seed-env
+    ;;
+  29)
+    run_step "support-bundle.sh" --seed-env
+    ;;
+  30)
+    run_step "pipeline-check.sh" --seed-env
+    ;;
+  31)
     echo "[mailzen-deploy][INFO] Exiting menu."
     exit 0
     ;;
   *)
-    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-26."
+    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-31."
     ;;
   esac
 done
