@@ -5,6 +5,7 @@ describe('AiAgentGatewayResolver', () => {
     assist: jest.fn(),
     getPlatformHealth: jest.fn(),
     resetPlatformRuntimeStats: jest.fn(),
+    resetSkillRuntimeStats: jest.fn(),
     listAgentActionAuditsForUser: jest.fn(),
     exportAgentActionDataForUser: jest.fn(),
     purgeAgentActionAuditRetentionData: jest.fn(),
@@ -164,6 +165,25 @@ describe('AiAgentGatewayResolver', () => {
     );
     expect(gatewayService.resetPlatformRuntimeStats).toHaveBeenCalledWith({
       endpointUrl: 'http://localhost:8100',
+    });
+  });
+
+  it('forwards skill to resetAgentPlatformSkillRuntimeStats', async () => {
+    gatewayService.resetSkillRuntimeStats.mockResolvedValue({
+      clearedSkills: 3,
+      scopedSkill: 'inbox',
+      resetAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    const result = await resolver.resetAgentPlatformSkillRuntimeStats('inbox');
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        clearedSkills: 3,
+      }),
+    );
+    expect(gatewayService.resetSkillRuntimeStats).toHaveBeenCalledWith({
+      skill: 'inbox',
     });
   });
 });

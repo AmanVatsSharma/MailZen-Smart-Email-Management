@@ -38,6 +38,7 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - Expose admin retention control:
   - `purgeAgentActionRetentionData(retentionDays?, userId?)`
   - `resetAgentPlatformRuntimeStats(endpointUrl?)`
+  - `resetAgentPlatformSkillRuntimeStats(skill?)`
 - Run daily retention scheduler for stale audit rows.
 - Include current-period AI credit balance (`aiCreditsMonthlyLimit`,
   `aiCreditsUsed`, `aiCreditsRemaining`) in authenticated `agentAssist` responses.
@@ -104,3 +105,4 @@ flowchart TD
 - 2026-02-16: Added optional request-id-based endpoint rotation for platform calls (`AI_AGENT_PLATFORM_LOAD_BALANCE_ENABLED`).
 - 2026-02-16: Added admin runtime reset mutation for endpoint health counters.
 - 2026-02-16: Added persistent endpoint/skill runtime metrics hydration from Postgres.
+- 2026-02-16: Added admin runtime reset mutation for per-skill health counters.

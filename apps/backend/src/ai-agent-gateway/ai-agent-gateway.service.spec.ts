@@ -49,6 +49,7 @@ describe('AiAgentGatewayService', () => {
   const deleteEndpointRuntimeStatsMock = jest.fn();
   const findSkillRuntimeStatsMock = jest.fn();
   const upsertSkillRuntimeStatMock = jest.fn();
+  const deleteSkillRuntimeStatsMock = jest.fn();
 
   const authService = {
     createVerificationToken: createVerificationTokenMock,
@@ -96,9 +97,10 @@ describe('AiAgentGatewayService', () => {
   const skillRuntimeStatRepo = {
     find: findSkillRuntimeStatsMock,
     upsert: upsertSkillRuntimeStatMock,
+    delete: deleteSkillRuntimeStatsMock,
   } as unknown as Pick<
     Repository<AgentPlatformSkillRuntimeStat>,
-    'find' | 'upsert'
+    'find' | 'upsert' | 'delete'
   >;
   const billingService = {
     consumeAiCredits: jest.fn().mockResolvedValue({
@@ -147,6 +149,7 @@ describe('AiAgentGatewayService', () => {
     deleteEndpointRuntimeStatsMock.mockResolvedValue({ affected: 0 });
     findSkillRuntimeStatsMock.mockResolvedValue([]);
     upsertSkillRuntimeStatMock.mockResolvedValue(undefined);
+    deleteSkillRuntimeStatsMock.mockResolvedValue({ affected: 0 });
     (billingService.consumeAiCredits as jest.Mock).mockResolvedValue({
       allowed: true,
       planCode: 'PRO',
@@ -801,6 +804,61 @@ describe('AiAgentGatewayService', () => {
         errorRatePercent: 0,
       }),
     ]);
+  });
+
+  it('resets one skill runtime stat when skill is provided', async () => {
+    const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'auth',
+        assistantText: 'Use forgot password.',
+        intent: 'forgot_password',
+        confidence: 0.9,
+        suggestedActions: [],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+    mockedAxios.get.mockResolvedValueOnce({
+      data: {
+        status: 'ok',
+      },
+    } as any);
+
+    await service.assist({
+      skill: 'auth',
+      messages: [{ role: 'user', content: 'help me login' }],
+      context: { surface: 'auth-login', locale: 'en-IN' },
+      allowedActions: ['auth.open_login'],
+      executeRequestedAction: false,
+    });
+    const beforeReset = await service.getPlatformHealth();
+    expect(
+      beforeReset.skillStats.find(
+        (entry: { skill: string }) => entry.skill === 'auth',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        totalRequests: 1,
+      }),
+    );
+
+    const resetResult = await service.resetSkillRuntimeStats({
+      skill: 'auth',
+    });
+    const afterReset = await service.getPlatformHealth();
+    expect(
+      afterReset.skillStats.find(
+        (entry: { skill: string }) => entry.skill === 'auth',
+      ),
+    ).toBeUndefined();
+    expect(resetResult).toEqual(
+      expect.objectContaining({
+        clearedSkills: 1,
+        scopedSkill: 'auth',
+      }),
+    );
   });
 
   it('persists endpoint and skill runtime stats during assist requests', async () => {

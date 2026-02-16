@@ -20,6 +20,7 @@ import { AgentAssistResponse } from './dto/agent-assist.response';
 import { AgentActionDataExportResponse } from './dto/agent-action-data-export.response';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
 import { AgentPlatformRuntimeResetResponse } from './dto/agent-platform-runtime-reset.response';
+import { AgentPlatformSkillRuntimeResetResponse } from './dto/agent-platform-skill-runtime-reset.response';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
 
 interface RequestContext {
@@ -104,7 +105,7 @@ export class AiAgentGatewayResolver {
 
   @Mutation(() => AgentPlatformRuntimeResetResponse, {
     description:
-      'Reset in-memory AI platform endpoint runtime statistics (all or one endpoint)',
+      'Reset AI platform endpoint runtime statistics (all or one endpoint)',
   })
   @UseGuards(JwtAuthGuard, AdminGuard)
   async resetAgentPlatformRuntimeStats(
@@ -112,6 +113,19 @@ export class AiAgentGatewayResolver {
   ): Promise<AgentPlatformRuntimeResetResponse> {
     return this.gatewayService.resetPlatformRuntimeStats({
       endpointUrl,
+    });
+  }
+
+  @Mutation(() => AgentPlatformSkillRuntimeResetResponse, {
+    description:
+      'Reset AI platform skill runtime statistics (all or one skill)',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async resetAgentPlatformSkillRuntimeStats(
+    @Args('skill', { nullable: true }) skill?: string,
+  ): Promise<AgentPlatformSkillRuntimeResetResponse> {
+    return this.gatewayService.resetSkillRuntimeStats({
+      skill,
     });
   }
 }

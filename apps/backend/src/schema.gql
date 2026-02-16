@@ -576,6 +576,12 @@ type AgentPlatformRuntimeResetResponse {
   resetAtIso: String!
 }
 
+type AgentPlatformSkillRuntimeResetResponse {
+  clearedSkills: Int!
+  scopedSkill: String
+  resetAtIso: String!
+}
+
 type AgentActionAudit {
   id: ID!
   userId: String
@@ -1022,6 +1028,9 @@ extend type Mutation {
   resetAgentPlatformRuntimeStats(
     endpointUrl: String
   ): AgentPlatformRuntimeResetResponse!
+  resetAgentPlatformSkillRuntimeStats(
+    skill: String
+  ): AgentPlatformSkillRuntimeResetResponse!
   requestMyPlanUpgrade(
     targetPlanCode: String!
     note: String

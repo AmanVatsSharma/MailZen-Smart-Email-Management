@@ -603,6 +603,48 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  async resetSkillRuntimeStats(input?: { skill?: string | null }): Promise<{
+    clearedSkills: number;
+    scopedSkill: string | null;
+    resetAtIso: string;
+  }> {
+    const scopedSkill = String(input?.skill || '')
+      .trim()
+      .toLowerCase();
+    let clearedSkills = 0;
+
+    if (scopedSkill) {
+      const inMemoryDeleted = this.skillRuntimeStats.delete(scopedSkill)
+        ? 1
+        : 0;
+      const deleteResult = await this.skillRuntimeStatRepo.delete({
+        skill: scopedSkill,
+      });
+      const persistedDeleted = Number(deleteResult.affected || 0);
+      clearedSkills = Math.max(inMemoryDeleted, persistedDeleted);
+    } else {
+      const inMemoryDeleted = this.skillRuntimeStats.size;
+      this.skillRuntimeStats.clear();
+      const deleteResult = await this.skillRuntimeStatRepo.delete({});
+      const persistedDeleted = Number(deleteResult.affected || 0);
+      clearedSkills = Math.max(inMemoryDeleted, persistedDeleted);
+    }
+    const resetAtIso = new Date().toISOString();
+    this.logger.warn(
+      JSON.stringify({
+        event: 'agent_platform_skill_runtime_stats_reset',
+        scopedSkill: scopedSkill || null,
+        clearedSkills,
+        resetAtIso,
+      }),
+    );
+    return {
+      clearedSkills,
+      scopedSkill: scopedSkill || null,
+      resetAtIso,
+    };
+  }
+
   async listAgentActionAuditsForUser(input: {
     userId: string;
     limit?: number;
