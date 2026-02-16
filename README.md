@@ -229,6 +229,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # 6) Future updates
 ./deploy/ec2/scripts/update.sh
+
+# 7) Optional DB backup
+./deploy/ec2/scripts/backup-db.sh
 ```
 
 This stack includes by default:

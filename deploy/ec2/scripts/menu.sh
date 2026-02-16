@@ -32,7 +32,8 @@ show_menu() {
 6) Show status
 7) Show logs (all services)
 8) Update stack (pull + recreate)
-9) Exit
+9) Backup database
+10) Exit
 ===============================================================================
 MENU
 }
@@ -45,7 +46,7 @@ fi
 
 while true; do
   show_menu
-  read -r -p "Select an option [1-9]: " choice
+  read -r -p "Select an option [1-10]: " choice
 
   case "${choice}" in
   1)
@@ -73,11 +74,14 @@ while true; do
     run_step "update.sh"
     ;;
   9)
+    run_step "backup-db.sh"
+    ;;
+  10)
     echo "[mailzen-deploy][INFO] Exiting menu."
     exit 0
     ;;
   *)
-    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-9."
+    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-10."
     ;;
   esac
 done

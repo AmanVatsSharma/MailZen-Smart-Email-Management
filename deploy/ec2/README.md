@@ -26,6 +26,8 @@ on an EC2 instance using Docker Compose, a public domain, and HTTPS.
   - `deploy.sh`
   - `update.sh`
   - `verify.sh` (post-deploy smoke checks)
+  - `backup-db.sh` (database backup)
+  - `restore-db.sh` (database restore with confirmation)
   - `status.sh`
   - `logs.sh`
   - `restart.sh`
@@ -89,6 +91,15 @@ The setup script:
 
 # Custom retries/sleep
 ./deploy/ec2/scripts/verify.sh 10 5
+
+# Create DB backup
+./deploy/ec2/scripts/backup-db.sh
+
+# Create DB backup with label
+./deploy/ec2/scripts/backup-db.sh before-release
+
+# Restore DB backup (destructive: drops and recreates DB)
+./deploy/ec2/scripts/restore-db.sh deploy/ec2/backups/your-backup.sql.gz
 
 # Logs (all services)
 ./deploy/ec2/scripts/logs.sh
@@ -169,3 +180,4 @@ Google/Outlook provider connection flows.
 - The stack includes AI platform by default.
 - Backend migrations run automatically on backend container startup.
 - Use `stop.sh --purge-data` cautiously; it destroys persistent data volumes.
+- `restore-db.sh` is intentionally destructive and requires explicit confirmation.
