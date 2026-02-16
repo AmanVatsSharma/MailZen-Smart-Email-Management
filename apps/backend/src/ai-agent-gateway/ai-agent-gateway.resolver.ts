@@ -14,10 +14,12 @@ import { UseGuards } from '@nestjs/common';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
+import { AiAgentPlatformHealthAlertScheduler } from './ai-agent-platform-health-alert.scheduler';
 import { AgentActionAuditRetentionPurgeResponse } from './dto/agent-action-audit-retention-purge.response';
 import { AgentAssistInput } from './dto/agent-assist.input';
 import { AgentAssistResponse } from './dto/agent-assist.response';
 import { AgentActionDataExportResponse } from './dto/agent-action-data-export.response';
+import { AgentPlatformHealthAlertCheckResponse } from './dto/agent-platform-health-alert-check.response';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
 import { AgentPlatformHealthIncidentDataExportResponse } from './dto/agent-platform-health-incident-data-export.response';
 import { AgentPlatformHealthSampleDataExportResponse } from './dto/agent-platform-health-sample-data-export.response';
@@ -45,7 +47,10 @@ interface RequestContext {
 
 @Resolver()
 export class AiAgentGatewayResolver {
-  constructor(private readonly gatewayService: AiAgentGatewayService) {}
+  constructor(
+    private readonly gatewayService: AiAgentGatewayService,
+    private readonly healthAlertScheduler: AiAgentPlatformHealthAlertScheduler,
+  ) {}
 
   @Mutation(() => AgentAssistResponse)
   async agentAssist(
@@ -260,6 +265,29 @@ export class AiAgentGatewayResolver {
   ): Promise<AgentPlatformHealthSampleRetentionPurgeResponse> {
     return this.gatewayService.purgePlatformHealthSampleRetentionData({
       retentionDays,
+    });
+  }
+
+  @Mutation(() => AgentPlatformHealthAlertCheckResponse, {
+    description:
+      'Run AI platform health anomaly alert evaluation immediately (admin only)',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async runAgentPlatformHealthAlertCheck(
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('baselineWindowHours', { type: () => Int, nullable: true })
+    baselineWindowHours?: number,
+    @Args('cooldownMinutes', { type: () => Int, nullable: true })
+    cooldownMinutes?: number,
+    @Args('minSampleCount', { type: () => Int, nullable: true })
+    minSampleCount?: number,
+  ): Promise<AgentPlatformHealthAlertCheckResponse> {
+    return this.healthAlertScheduler.runHealthAlertCheck({
+      windowHours,
+      baselineWindowHours,
+      cooldownMinutes,
+      minSampleCount,
     });
   }
 }

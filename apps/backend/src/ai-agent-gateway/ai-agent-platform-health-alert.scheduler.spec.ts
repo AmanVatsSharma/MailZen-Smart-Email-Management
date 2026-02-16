@@ -125,6 +125,21 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     );
   });
 
+  it('returns structured result payload from manual health alert check', async () => {
+    notificationEventBus.publishSafely.mockResolvedValue(null);
+
+    const result = await scheduler.runHealthAlertCheck({});
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        alertsEnabled: true,
+        severity: 'CRITICAL',
+        recipientCount: 1,
+        publishedCount: 1,
+      }),
+    );
+  });
+
   it('skips publishing duplicate warning alerts during cooldown', async () => {
     aiAgentGatewayService.getPlatformHealthTrendSummary
       .mockReset()

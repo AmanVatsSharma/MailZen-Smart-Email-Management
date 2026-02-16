@@ -8,6 +8,18 @@ import { User } from '../user/entities/user.entity';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
 
 type AlertSeverity = 'WARNING' | 'CRITICAL';
+export type AgentPlatformHealthAlertCheckResult = {
+  alertsEnabled: boolean;
+  evaluatedAtIso: string;
+  windowHours: number;
+  baselineWindowHours: number;
+  cooldownMinutes: number;
+  minSampleCount: number;
+  severity?: AlertSeverity | null;
+  reasons: string[];
+  recipientCount: number;
+  publishedCount: number;
+};
 
 @Injectable()
 export class AiAgentPlatformHealthAlertScheduler {
@@ -36,40 +48,73 @@ export class AiAgentPlatformHealthAlertScheduler {
 
   @Cron('*/15 * * * *')
   async monitorPlatformHealthAlerts(): Promise<void> {
-    if (!this.isAlertsEnabled()) {
-      this.logger.log('agent-platform-alerts: disabled by env');
-      return;
-    }
+    await this.runHealthAlertCheck({});
+  }
 
+  async runHealthAlertCheck(input: {
+    windowHours?: number | null;
+    baselineWindowHours?: number | null;
+    cooldownMinutes?: number | null;
+    minSampleCount?: number | null;
+    anomalyMultiplier?: number | null;
+    anomalyMinErrorDeltaPercent?: number | null;
+    anomalyMinLatencyDeltaMs?: number | null;
+  }): Promise<AgentPlatformHealthAlertCheckResult> {
+    const evaluatedAtIso = new Date().toISOString();
+    const alertsEnabled = this.isAlertsEnabled();
     const windowHours = this.resolvePositiveInteger({
-      rawValue: process.env.AI_AGENT_HEALTH_ALERT_WINDOW_HOURS,
+      rawValue:
+        input.windowHours ?? process.env.AI_AGENT_HEALTH_ALERT_WINDOW_HOURS,
       fallbackValue: AiAgentPlatformHealthAlertScheduler.DEFAULT_WINDOW_HOURS,
       minimumValue: 1,
       maximumValue: 24 * 14,
     });
     const baselineWindowHours = this.resolvePositiveInteger({
-      rawValue: process.env.AI_AGENT_HEALTH_ALERT_BASELINE_WINDOW_HOURS,
+      rawValue:
+        input.baselineWindowHours ??
+        process.env.AI_AGENT_HEALTH_ALERT_BASELINE_WINDOW_HOURS,
       fallbackValue:
         AiAgentPlatformHealthAlertScheduler.DEFAULT_BASELINE_WINDOW_HOURS,
       minimumValue: windowHours,
       maximumValue: 24 * 90,
     });
     const cooldownMinutes = this.resolvePositiveInteger({
-      rawValue: process.env.AI_AGENT_HEALTH_ALERT_COOLDOWN_MINUTES,
+      rawValue:
+        input.cooldownMinutes ??
+        process.env.AI_AGENT_HEALTH_ALERT_COOLDOWN_MINUTES,
       fallbackValue:
         AiAgentPlatformHealthAlertScheduler.DEFAULT_COOLDOWN_MINUTES,
       minimumValue: 1,
       maximumValue: 24 * 7 * 60,
     });
     const minSampleCount = this.resolvePositiveInteger({
-      rawValue: process.env.AI_AGENT_HEALTH_ALERT_MIN_SAMPLE_COUNT,
+      rawValue:
+        input.minSampleCount ??
+        process.env.AI_AGENT_HEALTH_ALERT_MIN_SAMPLE_COUNT,
       fallbackValue:
         AiAgentPlatformHealthAlertScheduler.DEFAULT_MIN_SAMPLE_COUNT,
       minimumValue: 1,
       maximumValue: 1000,
     });
+    if (!alertsEnabled) {
+      this.logger.log('agent-platform-alerts: disabled by env');
+      return {
+        alertsEnabled: false,
+        evaluatedAtIso,
+        windowHours,
+        baselineWindowHours,
+        cooldownMinutes,
+        minSampleCount,
+        severity: null,
+        reasons: ['alerts-disabled'],
+        recipientCount: 0,
+        publishedCount: 0,
+      };
+    }
     const anomalyMultiplier = this.resolvePositiveFloat({
-      rawValue: process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MULTIPLIER,
+      rawValue:
+        input.anomalyMultiplier ??
+        process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MULTIPLIER,
       fallbackValue:
         AiAgentPlatformHealthAlertScheduler.DEFAULT_ANOMALY_MULTIPLIER,
       minimumValue: 1.1,
@@ -77,6 +122,7 @@ export class AiAgentPlatformHealthAlertScheduler {
     });
     const anomalyMinErrorDeltaPercent = this.resolvePositiveFloat({
       rawValue:
+        input.anomalyMinErrorDeltaPercent ??
         process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_ERROR_RATE_DELTA_PERCENT,
       fallbackValue:
         AiAgentPlatformHealthAlertScheduler.DEFAULT_ANOMALY_MIN_ERROR_RATE_DELTA_PERCENT,
@@ -84,7 +130,9 @@ export class AiAgentPlatformHealthAlertScheduler {
       maximumValue: 100,
     });
     const anomalyMinLatencyDeltaMs = this.resolvePositiveFloat({
-      rawValue: process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_LATENCY_DELTA_MS,
+      rawValue:
+        input.anomalyMinLatencyDeltaMs ??
+        process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_LATENCY_DELTA_MS,
       fallbackValue:
         AiAgentPlatformHealthAlertScheduler.DEFAULT_ANOMALY_MIN_LATENCY_DELTA_MS,
       minimumValue: 0,
@@ -104,7 +152,18 @@ export class AiAgentPlatformHealthAlertScheduler {
       this.logger.log(
         `agent-platform-alerts: skipped due to insufficient samples sampleCount=${currentSummary.sampleCount} min=${minSampleCount}`,
       );
-      return;
+      return {
+        alertsEnabled: true,
+        evaluatedAtIso,
+        windowHours,
+        baselineWindowHours,
+        cooldownMinutes,
+        minSampleCount,
+        severity: null,
+        reasons: ['insufficient-samples'],
+        recipientCount: 0,
+        publishedCount: 0,
+      };
     }
 
     const alertAssessment = this.assessAlertState({
@@ -119,7 +178,18 @@ export class AiAgentPlatformHealthAlertScheduler {
       this.logger.log(
         `agent-platform-alerts: no alert currentState healthy sampleCount=${currentSummary.sampleCount}`,
       );
-      return;
+      return {
+        alertsEnabled: true,
+        evaluatedAtIso,
+        windowHours,
+        baselineWindowHours,
+        cooldownMinutes,
+        minSampleCount,
+        severity: null,
+        reasons: alertAssessment.reasons,
+        recipientCount: 0,
+        publishedCount: 0,
+      };
     }
 
     const recipientUserIds = await this.resolveRecipientUserIds();
@@ -127,7 +197,18 @@ export class AiAgentPlatformHealthAlertScheduler {
       this.logger.warn(
         `agent-platform-alerts: no recipients configured severity=${alertAssessment.severity}`,
       );
-      return;
+      return {
+        alertsEnabled: true,
+        evaluatedAtIso,
+        windowHours,
+        baselineWindowHours,
+        cooldownMinutes,
+        minSampleCount,
+        severity: alertAssessment.severity,
+        reasons: alertAssessment.reasons,
+        recipientCount: 0,
+        publishedCount: 0,
+      };
     }
 
     const fingerprint = [
@@ -179,6 +260,18 @@ export class AiAgentPlatformHealthAlertScheduler {
     this.logger.warn(
       `agent-platform-alerts: evaluated severity=${alertAssessment.severity} recipients=${recipientUserIds.length} published=${publishedCount}`,
     );
+    return {
+      alertsEnabled: true,
+      evaluatedAtIso,
+      windowHours,
+      baselineWindowHours,
+      cooldownMinutes,
+      minSampleCount,
+      severity: alertAssessment.severity,
+      reasons: alertAssessment.reasons,
+      recipientCount: recipientUserIds.length,
+      publishedCount,
+    };
   }
 
   private isAlertsEnabled(): boolean {
@@ -377,7 +470,7 @@ export class AiAgentPlatformHealthAlertScheduler {
   }
 
   private resolvePositiveInteger(input: {
-    rawValue?: string;
+    rawValue?: string | number | null;
     fallbackValue: number;
     minimumValue: number;
     maximumValue: number;
@@ -392,7 +485,7 @@ export class AiAgentPlatformHealthAlertScheduler {
   }
 
   private resolvePositiveFloat(input: {
-    rawValue?: string;
+    rawValue?: string | number | null;
     fallbackValue: number;
     minimumValue: number;
     maximumValue: number;

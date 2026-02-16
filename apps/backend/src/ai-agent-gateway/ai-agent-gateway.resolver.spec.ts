@@ -18,7 +18,13 @@ describe('AiAgentGatewayResolver', () => {
     exportAgentActionDataForUser: jest.fn(),
     purgeAgentActionAuditRetentionData: jest.fn(),
   };
-  const resolver = new AiAgentGatewayResolver(gatewayService as never);
+  const healthAlertScheduler = {
+    runHealthAlertCheck: jest.fn(),
+  };
+  const resolver = new AiAgentGatewayResolver(
+    gatewayService as never,
+    healthAlertScheduler as never,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -278,6 +284,41 @@ describe('AiAgentGatewayResolver', () => {
     expect(result).toEqual(
       expect.objectContaining({
         generatedAtIso: '2026-02-16T00:00:00.000Z',
+      }),
+    );
+  });
+
+  it('delegates runAgentPlatformHealthAlertCheck to health alert scheduler', async () => {
+    healthAlertScheduler.runHealthAlertCheck.mockResolvedValue({
+      alertsEnabled: true,
+      evaluatedAtIso: '2026-02-16T00:00:00.000Z',
+      windowHours: 6,
+      baselineWindowHours: 72,
+      cooldownMinutes: 60,
+      minSampleCount: 4,
+      severity: 'WARNING',
+      reasons: ['warn-samples-detected'],
+      recipientCount: 2,
+      publishedCount: 1,
+    });
+
+    const result = await resolver.runAgentPlatformHealthAlertCheck(
+      6,
+      72,
+      60,
+      4,
+    );
+
+    expect(healthAlertScheduler.runHealthAlertCheck).toHaveBeenCalledWith({
+      windowHours: 6,
+      baselineWindowHours: 72,
+      cooldownMinutes: 60,
+      minSampleCount: 4,
+    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        alertsEnabled: true,
+        publishedCount: 1,
       }),
     );
   });
