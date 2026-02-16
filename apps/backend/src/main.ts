@@ -319,6 +319,10 @@ async function bootstrap() {
       '/mailbox/inbound/events',
     ],
   );
+  const webhookRateLimitEnforcedMethods = parseCsvEnv(
+    process.env.WEBHOOK_RATE_LIMIT_ENFORCED_METHODS,
+    ['POST'],
+  );
   app.use(
     createHttpWebhookRateLimitMiddleware(
       {
@@ -326,6 +330,7 @@ async function bootstrap() {
         windowMs: webhookRateLimitWindowMs,
         maxRequests: webhookRateLimitMaxRequests,
         webhookPaths: webhookRateLimitPaths,
+        enforceMethods: webhookRateLimitEnforcedMethods,
       },
       bootstrapLogger,
     ),

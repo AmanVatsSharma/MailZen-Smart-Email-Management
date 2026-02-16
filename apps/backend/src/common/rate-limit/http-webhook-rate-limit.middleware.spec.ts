@@ -52,6 +52,7 @@ describe('createHttpWebhookRateLimitMiddleware', () => {
         maxRequests: 1,
         windowMs: 60_000,
         webhookPaths: ['/gmail-sync/webhooks/push'],
+        enforceMethods: ['POST'],
       },
       logger,
     );
@@ -84,6 +85,7 @@ describe('createHttpWebhookRateLimitMiddleware', () => {
         maxRequests: 1,
         windowMs: 60_000,
         webhookPaths: ['/gmail-sync/webhooks/push'],
+        enforceMethods: ['POST'],
       },
       logger,
     );
@@ -112,6 +114,7 @@ describe('createHttpWebhookRateLimitMiddleware', () => {
         maxRequests: 1,
         windowMs: 60_000,
         webhookPaths: ['/billing/webhooks'],
+        enforceMethods: ['POST'],
       },
       logger,
     );
@@ -139,6 +142,7 @@ describe('createHttpWebhookRateLimitMiddleware', () => {
         maxRequests: 1,
         windowMs: 60_000,
         webhookPaths: [],
+        enforceMethods: ['POST'],
       },
       logger,
     );
@@ -161,5 +165,32 @@ describe('createHttpWebhookRateLimitMiddleware', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('http_webhook_rate_limit_paths_missing'),
     );
+  });
+
+  it('bypasses throttling for non-enforced methods', () => {
+    const middleware = createHttpWebhookRateLimitMiddleware(
+      {
+        enabled: true,
+        maxRequests: 1,
+        windowMs: 60_000,
+        webhookPaths: ['/gmail-sync/webhooks/push'],
+        enforceMethods: ['POST'],
+      },
+      logger,
+    );
+    const next = jest.fn();
+    const request = {
+      method: 'GET',
+      path: '/gmail-sync/webhooks/push',
+      originalUrl: '/gmail-sync/webhooks/push',
+      headers: {},
+      ip: '127.0.0.1',
+    } as never;
+
+    middleware(request, response as never, next);
+    middleware(request, response as never, next);
+
+    expect(next).toHaveBeenCalledTimes(2);
+    expect(response.status).not.toHaveBeenCalled();
   });
 });

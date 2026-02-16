@@ -71,10 +71,12 @@ Configured in `main.ts` and applied before global rate limiting:
 - `WEBHOOK_RATE_LIMIT_MAX_REQUESTS` (default `120`)
 - `WEBHOOK_RATE_LIMIT_PATHS`
   (default Gmail/Outlook push, billing webhook ingest, mailbox inbound ingest)
+- `WEBHOOK_RATE_LIMIT_ENFORCED_METHODS` (default `POST`)
 
 Behavior:
 - throttles only configured webhook routes (supports nested provider paths like
   `/billing/webhooks/:provider`)
+- applies only to configured HTTP methods (default `POST`)
 - emits structured warning event `http_webhook_rate_limited`
 - emits `http_webhook_rate_limit_paths_missing` when middleware is enabled but
   no webhook paths are configured

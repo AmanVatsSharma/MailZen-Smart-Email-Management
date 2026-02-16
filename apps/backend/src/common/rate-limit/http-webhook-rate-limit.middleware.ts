@@ -12,6 +12,7 @@ type HttpWebhookRateLimitConfig = {
   windowMs: number;
   maxRequests: number;
   webhookPaths: string[];
+  enforceMethods: string[];
 };
 
 function normalizePath(pathValue: string): string {
@@ -59,6 +60,15 @@ export function createHttpWebhookRateLimitMiddleware(
   const webhookPaths = new Set(
     (config.webhookPaths || []).map((pathValue) => normalizePath(pathValue)),
   );
+  const enforceMethods = new Set(
+    (config.enforceMethods || [])
+      .map((methodValue) =>
+        String(methodValue || '')
+          .trim()
+          .toUpperCase(),
+      )
+      .filter(Boolean),
+  );
   const hasConfiguredWebhookPaths = webhookPaths.size > 0;
   if (config.enabled && !hasConfiguredWebhookPaths) {
     logger.warn(
@@ -71,6 +81,9 @@ export function createHttpWebhookRateLimitMiddleware(
   return (req: Request, res: Response, next: NextFunction) => {
     if (!config.enabled) return next();
     if (!hasConfiguredWebhookPaths) return next();
+    if (enforceMethods.size && !enforceMethods.has(req.method.toUpperCase())) {
+      return next();
+    }
     if (req.method === 'OPTIONS') return next();
 
     const pathValue = resolveRequestPath(req);
