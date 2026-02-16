@@ -18,6 +18,8 @@ Provide shared cross-cutting backend utilities used by multiple modules
   bounded key-compaction.
 - `rate-limit/http-auth-callback-rate-limit.middleware.ts` — scoped
   callback-path throttling middleware for OAuth callback endpoints.
+- `rate-limit/http-webhook-rate-limit.middleware.ts` — scoped webhook-path
+  throttling middleware for high-risk inbound webhook endpoints.
 - `rate-limit/http-rate-limit.middleware.ts` — global HTTP rate-limit middleware
   that returns HTTP `429` with `retry-after` semantics.
 - `security/http-csrf-origin.middleware.ts` — cookie-session CSRF origin
@@ -57,6 +59,24 @@ Behavior:
 - includes callback-specific response headers:
   - `x-auth-callback-rate-limit-limit`
   - `x-auth-callback-rate-limit-remaining`
+
+## Webhook scoped rate limiting
+
+Configured in `main.ts` and applied before global rate limiting:
+
+- `WEBHOOK_RATE_LIMIT_ENABLED` (default `true`)
+- `WEBHOOK_RATE_LIMIT_WINDOW_MS` (default `60000`)
+- `WEBHOOK_RATE_LIMIT_MAX_REQUESTS` (default `120`)
+- `WEBHOOK_RATE_LIMIT_PATHS`
+  (default Gmail/Outlook push, billing webhook ingest, mailbox inbound ingest)
+
+Behavior:
+- throttles only configured webhook routes (supports nested provider paths like
+  `/billing/webhooks/:provider`)
+- emits structured warning event `http_webhook_rate_limited`
+- includes webhook-specific response headers:
+  - `x-webhook-rate-limit-limit`
+  - `x-webhook-rate-limit-remaining`
 
 ## Global CSRF origin protection (cookie sessions)
 
@@ -122,8 +142,12 @@ flowchart TD
   Correlation --> SecurityHeaders[Global HTTP security headers]
   SecurityHeaders --> StructLog[Structured request log with redaction]
   StructLog --> CsrfOrigin[CSRF origin protection]
-  CsrfOrigin -->|Allowed| RateLimit[Global HTTP rate limiter]
+  CsrfOrigin -->|Allowed| AuthCallbackLimit[Auth callback rate limiter]
   CsrfOrigin -->|Blocked| CsrfReject[HTTP 403 origin validation failed]
+  AuthCallbackLimit -->|Allowed| WebhookLimit[Webhook path rate limiter]
+  AuthCallbackLimit -->|Exceeded| AuthReject[HTTP 429 auth callback throttled]
+  WebhookLimit -->|Allowed| RateLimit[Global HTTP rate limiter]
+  WebhookLimit -->|Exceeded| WebhookReject[HTTP 429 webhook throttled]
   RateLimit -->|Allowed| Route[GraphQL/REST route handler]
   RateLimit -->|Exceeded| Reject[HTTP 429 + retry-after]
   Route --> Guards[Auth/Admin guards]

@@ -9,6 +9,7 @@ import {
   serializeStructuredLog,
 } from './common/logging/structured-log.util';
 import { createHttpAuthCallbackRateLimitMiddleware } from './common/rate-limit/http-auth-callback-rate-limit.middleware';
+import { createHttpWebhookRateLimitMiddleware } from './common/rate-limit/http-webhook-rate-limit.middleware';
 import { createHttpRateLimitMiddleware } from './common/rate-limit/http-rate-limit.middleware';
 import { createHttpCsrfOriginProtectionMiddleware } from './common/security/http-csrf-origin.middleware';
 import { createHttpSecurityHeadersMiddleware } from './common/security/http-security-headers.middleware';
@@ -276,6 +277,43 @@ async function bootstrap() {
         windowMs: authCallbackRateLimitWindowMs,
         maxRequests: authCallbackRateLimitMaxRequests,
         callbackPaths: authCallbackRateLimitPaths,
+      },
+      bootstrapLogger,
+    ),
+  );
+
+  const webhookRateLimitEnabled = parseBooleanEnv(
+    process.env.WEBHOOK_RATE_LIMIT_ENABLED,
+    true,
+  );
+  const webhookRateLimitWindowMs = parsePositiveIntegerEnv(
+    process.env.WEBHOOK_RATE_LIMIT_WINDOW_MS,
+    60_000,
+    1_000,
+    60 * 60 * 1_000,
+  );
+  const webhookRateLimitMaxRequests = parsePositiveIntegerEnv(
+    process.env.WEBHOOK_RATE_LIMIT_MAX_REQUESTS,
+    120,
+    1,
+    20_000,
+  );
+  const webhookRateLimitPaths = parseCsvEnv(
+    process.env.WEBHOOK_RATE_LIMIT_PATHS,
+    [
+      '/gmail-sync/webhooks/push',
+      '/outlook-sync/webhooks/push',
+      '/billing/webhooks',
+      '/mailbox/inbound/events',
+    ],
+  );
+  app.use(
+    createHttpWebhookRateLimitMiddleware(
+      {
+        enabled: webhookRateLimitEnabled,
+        windowMs: webhookRateLimitWindowMs,
+        maxRequests: webhookRateLimitMaxRequests,
+        webhookPaths: webhookRateLimitPaths,
       },
       bootstrapLogger,
     ),
