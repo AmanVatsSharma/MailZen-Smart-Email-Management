@@ -48,6 +48,7 @@ This module covers:
     - `myMailboxSyncRunSeries(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxSyncRunTrendPointResponse!]!`
     - `myMailboxSyncIncidentStats(mailboxId?: String, workspaceId?: String, windowHours?: Int): MailboxSyncIncidentStatsResponse!`
     - `myMailboxSyncIncidentSeries(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxSyncIncidentTrendPointResponse!]!`
+    - `myMailboxSyncIncidentDataExport(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): MailboxSyncIncidentDataExportResponse!`
     - `myMailboxSyncDataExport(mailboxId?: String, workspaceId?: String, limit?: Int, windowHours?: Int, bucketMinutes?: Int): MailboxSyncDataExportResponse!`
     - `purgeMyMailboxSyncRunRetentionData(retentionDays?: Int): MailboxSyncRunRetentionPurgeResponse!`
     - `purgeMyMailboxInboundRetentionData(retentionDays?: Int): MailboxInboundRetentionPurgeResponse!`
@@ -344,6 +345,8 @@ flowchart TD
   - returns failed/partial sync incident summary and incident-rate for rolling windows
 - `myMailboxSyncIncidentSeries`
   - returns bucketed failed/partial sync incident trend points for alert dashboards
+- `myMailboxSyncIncidentDataExport`
+  - exports sync incident analytics snapshot (stats + trend) as JSON payload
 - `myMailboxSyncDataExport`
   - exports sync run observability payload (stats + trend + recent runs) as JSON
 - `purgeMyMailboxSyncRunRetentionData`

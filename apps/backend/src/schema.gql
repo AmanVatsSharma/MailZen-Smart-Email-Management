@@ -1212,6 +1212,12 @@ extend type Query {
     windowHours: Int
     bucketMinutes: Int
   ): [MailboxSyncIncidentTrendPointResponse!]!
+  myMailboxSyncIncidentDataExport(
+    mailboxId: String
+    workspaceId: String
+    windowHours: Int
+    bucketMinutes: Int
+  ): MailboxSyncIncidentDataExportResponse!
   myMailboxSyncDataExport(
     mailboxId: String
     workspaceId: String
@@ -1613,6 +1619,11 @@ type MailboxSyncIncidentTrendPointResponse {
   incidentRuns: Int!
   failedRuns: Int!
   partialRuns: Int!
+}
+
+type MailboxSyncIncidentDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
 }
 
 type MailboxSyncDataExportResponse {

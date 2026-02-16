@@ -25,6 +25,7 @@ describe('MailboxResolver', () => {
     exportMailboxSyncDataForUser: jest.fn(),
     getMailboxSyncIncidentStatsForUser: jest.fn(),
     getMailboxSyncIncidentSeriesForUser: jest.fn(),
+    exportMailboxSyncIncidentDataForUser: jest.fn(),
     purgeMailboxSyncRunRetentionData: jest.fn(),
   };
 
@@ -501,6 +502,34 @@ describe('MailboxResolver', () => {
       bucketMinutes: 60,
     });
     expect(result[0]?.incidentRuns).toBe(1);
+  });
+
+  it('exports mailbox sync incident analytics payload for current user', async () => {
+    mailboxSyncServiceMock.exportMailboxSyncIncidentDataForUser.mockResolvedValue(
+      {
+        generatedAtIso: '2026-02-16T00:00:00.000Z',
+        dataJson: '{"stats":{"incidentRuns":2}}',
+      },
+    );
+
+    const result = await resolver.myMailboxSyncIncidentDataExport(
+      ctx as any,
+      'mailbox-1',
+      'workspace-1',
+      24,
+      60,
+    );
+
+    expect(
+      mailboxSyncServiceMock.exportMailboxSyncIncidentDataForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+    expect(result.generatedAtIso).toBe('2026-02-16T00:00:00.000Z');
   });
 
   it('triggers mailbox pull sync for current user', async () => {

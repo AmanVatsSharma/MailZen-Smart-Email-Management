@@ -1488,6 +1488,58 @@ export class MailboxSyncService {
     }));
   }
 
+  async exportMailboxSyncIncidentDataForUser(input: {
+    userId: string;
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const windowHours = this.normalizeSyncObservabilityWindowHours(
+      input.windowHours,
+    );
+    const bucketMinutes = this.normalizeSyncObservabilityBucketMinutes(
+      input.bucketMinutes,
+    );
+    const [stats, series] = await Promise.all([
+      this.getMailboxSyncIncidentStatsForUser({
+        userId: input.userId,
+        mailboxId: input.mailboxId || null,
+        workspaceId: input.workspaceId || null,
+        windowHours,
+      }),
+      this.getMailboxSyncIncidentSeriesForUser({
+        userId: input.userId,
+        mailboxId: input.mailboxId || null,
+        workspaceId: input.workspaceId || null,
+        windowHours,
+        bucketMinutes,
+      }),
+    ]);
+    const generatedAtIso = new Date().toISOString();
+    return {
+      generatedAtIso,
+      dataJson: JSON.stringify({
+        generatedAtIso,
+        mailboxId: stats.mailboxId || null,
+        workspaceId: stats.workspaceId || null,
+        windowHours,
+        bucketMinutes,
+        stats,
+        series: series.map((point) => ({
+          bucketStartIso: point.bucketStart.toISOString(),
+          totalRuns: point.totalRuns,
+          incidentRuns: point.incidentRuns,
+          failedRuns: point.failedRuns,
+          partialRuns: point.partialRuns,
+        })),
+      }),
+    };
+  }
+
   async exportMailboxSyncDataForUser(input: {
     userId: string;
     mailboxId?: string | null;

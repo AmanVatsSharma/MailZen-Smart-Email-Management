@@ -799,6 +799,50 @@ describe('MailboxSyncService', () => {
     expect(populated?.failedRuns).toBe(1);
   });
 
+  it('exports mailbox sync incident analytics payload', async () => {
+    const incidentStatsSpy = jest
+      .spyOn(service, 'getMailboxSyncIncidentStatsForUser')
+      .mockResolvedValue({
+        mailboxId: 'mailbox-1',
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        totalRuns: 5,
+        incidentRuns: 2,
+        failedRuns: 1,
+        partialRuns: 1,
+        incidentRatePercent: 40,
+        lastIncidentAtIso: '2026-02-16T00:30:00.000Z',
+      });
+    const incidentSeriesSpy = jest
+      .spyOn(service, 'getMailboxSyncIncidentSeriesForUser')
+      .mockResolvedValue([
+        {
+          bucketStart: new Date('2026-02-16T00:00:00.000Z'),
+          totalRuns: 3,
+          incidentRuns: 1,
+          failedRuns: 1,
+          partialRuns: 0,
+        },
+      ]);
+
+    const exported = await service.exportMailboxSyncIncidentDataForUser({
+      userId: 'user-1',
+      mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+
+    expect(incidentStatsSpy).toHaveBeenCalledTimes(1);
+    expect(incidentSeriesSpy).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(exported.dataJson) as {
+      stats: { incidentRuns: number };
+      series: Array<{ incidentRuns: number }>;
+    };
+    expect(payload.stats.incidentRuns).toBe(2);
+    expect(payload.series[0]?.incidentRuns).toBe(1);
+  });
+
   it('purges mailbox sync run retention rows for a scoped user', async () => {
     mailboxSyncRunRepo.delete.mockResolvedValue({ affected: 4 } as never);
 

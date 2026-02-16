@@ -11,6 +11,7 @@ import {
 } from './dto/mailbox-inbound-event-observability.response';
 import { MailboxInboundRetentionPurgeResponse } from './dto/mailbox-inbound-retention-purge.response';
 import { MailboxSyncDataExportResponse } from './dto/mailbox-sync-data-export.response';
+import { MailboxSyncIncidentDataExportResponse } from './dto/mailbox-sync-incident-data-export.response';
 import {
   MailboxSyncIncidentStatsResponse,
   MailboxSyncIncidentTrendPointResponse,
@@ -264,6 +265,25 @@ export class MailboxResolver {
     bucketMinutes?: number,
   ): Promise<MailboxSyncIncidentTrendPointResponse[]> {
     return this.mailboxSyncService.getMailboxSyncIncidentSeriesForUser({
+      userId: ctx.req.user.id,
+      mailboxId: mailboxId || null,
+      workspaceId: workspaceId || null,
+      windowHours: windowHours ?? null,
+      bucketMinutes: bucketMinutes ?? null,
+    });
+  }
+
+  @Query(() => MailboxSyncIncidentDataExportResponse)
+  async myMailboxSyncIncidentDataExport(
+    @Context() ctx: RequestContext,
+    @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<MailboxSyncIncidentDataExportResponse> {
+    return this.mailboxSyncService.exportMailboxSyncIncidentDataForUser({
       userId: ctx.req.user.id,
       mailboxId: mailboxId || null,
       workspaceId: workspaceId || null,
