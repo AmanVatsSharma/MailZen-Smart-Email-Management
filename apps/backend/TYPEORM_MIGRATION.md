@@ -973,6 +973,44 @@ ORDER BY "updatedAt" DESC
 LIMIT 50;
 ```
 
+## Smart Reply History Rollout Notes (2026-02-16)
+
+New migration: `20260216073000-smart-reply-history.ts`
+
+This migration introduces:
+
+- table `smart_reply_history`
+- indexes:
+  - `IDX_smart_reply_history_user_createdAt`
+  - `IDX_smart_reply_history_userId`
+
+The table stores user-scoped smart-reply generation history snapshots
+for observability and user-controlled history export/deletion workflows.
+
+### Safe rollout sequence
+
+1. Deploy backend containing migration + smart-reply history persistence.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- smart-replies/smart-reply.service.spec.ts smart-replies/smart-reply.resolver.spec.ts`
+   - `npm run build`
+
+### Staging verification SQL
+
+```sql
+SELECT
+  id,
+  "userId",
+  source,
+  "blockedSensitive",
+  "fallbackUsed",
+  "createdAt"
+FROM smart_reply_history
+ORDER BY "createdAt" DESC
+LIMIT 50;
+```
+
 ## Gmail Push Watch State Rollout Notes (2026-02-16)
 
 New migration: `20260216035000-email-provider-gmail-watch-state.ts`

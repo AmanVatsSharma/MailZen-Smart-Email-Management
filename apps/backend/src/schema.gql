@@ -402,6 +402,8 @@ type Query {
 
   """Get suggested replies for an email"""
   getSuggestedReplies(emailBody: String!, count: Int! = 3): [String!]!
+  smartReplySettings: SmartReplySettings!
+  mySmartReplyHistory(limit: Int! = 20): [SmartReplyHistory!]!
   agentPlatformHealth: AgentPlatformHealthResponse!
   myAgentActionAudits(limit: Int): [AgentActionAudit!]!
 }
@@ -422,6 +424,20 @@ input EmailSortInput {
 
 input SmartReplyInput {
   conversation: String!
+}
+
+input UpdateSmartReplySettingsInput {
+  enabled: Boolean
+  defaultTone: String
+  defaultLength: String
+  aiModel: String
+  includeSignature: Boolean
+  personalization: Int
+  creativityLevel: Int
+  maxSuggestions: Int
+  customInstructions: String
+  keepHistory: Boolean
+  historyLength: Int
 }
 
 input AgentMessageInput {
@@ -514,6 +530,40 @@ type AgentActionAudit {
   updatedAt: DateTime!
 }
 
+type SmartReplySettings {
+  id: ID!
+  userId: String!
+  enabled: Boolean!
+  defaultTone: String!
+  defaultLength: String!
+  aiModel: String!
+  includeSignature: Boolean!
+  personalization: Int!
+  creativityLevel: Int!
+  maxSuggestions: Int!
+  customInstructions: String
+  keepHistory: Boolean!
+  historyLength: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type SmartReplyHistory {
+  id: ID!
+  userId: String!
+  conversationPreview: String!
+  suggestions: [String!]!
+  source: String!
+  blockedSensitive: Boolean!
+  fallbackUsed: Boolean!
+  createdAt: DateTime!
+}
+
+type SmartReplyHistoryPurgeResponse {
+  purgedRows: Int!
+  executedAtIso: String!
+}
+
 type Mutation {
   createUser(createUserInput: CreateUserInput!): User!
   updateUser(updateUserInput: UpdateUserInput!): User!
@@ -590,6 +640,8 @@ type Mutation {
   setActiveInbox(input: SetActiveInboxInput!): [Inbox!]!
   syncMyInboxes(workspaceId: String): InboxSyncRunResponse!
   updateEmail(id: String!, input: EmailUpdateInput!): EmailThread!
+  updateSmartReplySettings(input: UpdateSmartReplySettingsInput!): SmartReplySettings!
+  purgeMySmartReplyHistory: SmartReplyHistoryPurgeResponse!
   agentAssist(input: AgentAssistInput!): AgentAssistResponse!
 }
 

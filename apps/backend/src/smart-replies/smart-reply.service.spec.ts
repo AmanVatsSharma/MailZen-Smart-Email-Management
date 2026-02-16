@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Repository } from 'typeorm';
+import { DeleteResult, Repository } from 'typeorm';
 import { SmartReplyExternalModelAdapter } from './smart-reply-external-model.adapter';
+import { SmartReplyHistory } from './entities/smart-reply-history.entity';
 import { SmartReplyModelProvider } from './smart-reply-model.provider';
 import { SmartReplyService } from './smart-reply.service';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
@@ -10,6 +11,7 @@ import { SmartReplySettings } from './entities/smart-reply-settings.entity';
 describe('SmartReplyService', () => {
   let service: SmartReplyService;
   let settingsRepo: jest.Mocked<Repository<SmartReplySettings>>;
+  let historyRepo: jest.Mocked<Repository<SmartReplyHistory>>;
   let modelProvider: jest.Mocked<SmartReplyModelProvider>;
   let externalModelAdapter: jest.Mocked<SmartReplyExternalModelAdapter>;
 
@@ -20,6 +22,12 @@ describe('SmartReplyService', () => {
       save: jest.fn(),
       merge: jest.fn(),
     } as unknown as jest.Mocked<Repository<SmartReplySettings>>;
+    const historyRepoMock = {
+      find: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+    } as unknown as jest.Mocked<Repository<SmartReplyHistory>>;
     const modelProviderMock = {
       generateSuggestions: jest.fn(),
     } as unknown as jest.Mocked<SmartReplyModelProvider>;
@@ -31,6 +39,10 @@ describe('SmartReplyService', () => {
       providers: [
         SmartReplyService,
         { provide: getRepositoryToken(SmartReplySettings), useValue: repoMock },
+        {
+          provide: getRepositoryToken(SmartReplyHistory),
+          useValue: historyRepoMock,
+        },
         { provide: SmartReplyModelProvider, useValue: modelProviderMock },
         {
           provide: SmartReplyExternalModelAdapter,
@@ -41,8 +53,17 @@ describe('SmartReplyService', () => {
 
     service = module.get<SmartReplyService>(SmartReplyService);
     settingsRepo = module.get(getRepositoryToken(SmartReplySettings));
+    historyRepo = module.get(getRepositoryToken(SmartReplyHistory));
     modelProvider = module.get(SmartReplyModelProvider);
     externalModelAdapter = module.get(SmartReplyExternalModelAdapter);
+    historyRepo.create.mockImplementation(
+      (value) => value as SmartReplyHistory,
+    );
+    historyRepo.save.mockImplementation((value) =>
+      Promise.resolve(value as SmartReplyHistory),
+    );
+    historyRepo.delete.mockResolvedValue({ affected: 0 } as DeleteResult);
+    historyRepo.find.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -74,6 +95,12 @@ describe('SmartReplyService', () => {
 
     expect(modelProvider.generateSuggestions).toHaveBeenCalled();
     expect(result).toBe('Deterministic suggestion');
+    expect(historyRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        source: 'internal',
+      }),
+    );
   });
 
   it('returns safety reply when sensitive content is present', async () => {
@@ -96,6 +123,11 @@ describe('SmartReplyService', () => {
 
     expect(modelProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(result).toContain('security reasons');
+    expect(historyRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        blockedSensitive: true,
+      }),
+    );
   });
 
   it('returns existing settings when present', async () => {
@@ -205,5 +237,62 @@ describe('SmartReplyService', () => {
     expect(externalModelAdapter.generateSuggestions).toHaveBeenCalled();
     expect(modelProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(result).toBe('External model suggestion');
+    expect(historyRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'external',
+      }),
+    );
+  });
+
+  it('does not persist history when keepHistory disabled', async () => {
+    settingsRepo.findOne.mockResolvedValue({
+      id: 'settings-1',
+      userId: 'user-1',
+      enabled: true,
+      defaultTone: 'professional',
+      defaultLength: 'medium',
+      includeSignature: false,
+      maxSuggestions: 3,
+      keepHistory: false,
+    } as SmartReplySettings);
+    modelProvider.generateSuggestions.mockReturnValue(['Reply one']);
+    externalModelAdapter.generateSuggestions.mockResolvedValue([]);
+
+    await service.generateReply(
+      {
+        conversation: 'Can we close this by tomorrow?',
+      },
+      'user-1',
+    );
+
+    expect(historyRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('lists smart reply history for current user with bounded limit', async () => {
+    historyRepo.find.mockResolvedValue([
+      {
+        id: 'history-1',
+        userId: 'user-1',
+      } as SmartReplyHistory,
+    ]);
+
+    const result = await service.listHistory('user-1', 1000);
+
+    expect(historyRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1' },
+        take: 100,
+      }),
+    );
+    expect(result).toHaveLength(1);
+  });
+
+  it('purges smart reply history for current user', async () => {
+    historyRepo.delete.mockResolvedValue({ affected: 7 } as DeleteResult);
+
+    const result = await service.purgeHistory('user-1');
+
+    expect(historyRepo.delete).toHaveBeenCalledWith({ userId: 'user-1' });
+    expect(result).toEqual({ purgedRows: 7 });
   });
 });

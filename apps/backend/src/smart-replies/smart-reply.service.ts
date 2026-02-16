@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThan } from 'typeorm';
 import { SmartReplyInput } from './dto/smart-reply.input';
 import { SmartReplyExternalModelAdapter } from './smart-reply-external-model.adapter';
+import { SmartReplyHistory } from './entities/smart-reply-history.entity';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
 import { UpdateSmartReplySettingsInput } from './dto/update-smart-reply-settings.input';
 import { SmartReplyModelProvider } from './smart-reply-model.provider';
@@ -10,6 +11,8 @@ import { SmartReplyModelProvider } from './smart-reply-model.provider';
 @Injectable()
 export class SmartReplyService {
   private readonly logger = new Logger(SmartReplyService.name);
+  private static readonly MIN_HISTORY_LIMIT = 1;
+  private static readonly MAX_HISTORY_LIMIT = 100;
   private readonly safeFallbackReply =
     'Thank you for your message. I will review this and follow up shortly.';
   private readonly disabledReply =
@@ -18,6 +21,8 @@ export class SmartReplyService {
   constructor(
     @InjectRepository(SmartReplySettings)
     private readonly settingsRepo: Repository<SmartReplySettings>,
+    @InjectRepository(SmartReplyHistory)
+    private readonly historyRepo: Repository<SmartReplyHistory>,
     private readonly modelProvider: SmartReplyModelProvider,
     private readonly externalModelAdapter: SmartReplyExternalModelAdapter,
   ) {}
@@ -39,6 +44,15 @@ export class SmartReplyService {
         this.logger.warn(
           `smart-reply-service: sensitive context blocked userId=${userId}`,
         );
+        await this.persistHistoryRecord({
+          userId,
+          settings,
+          conversation: normalizedConversation,
+          suggestions: [this.getSafetyBlockedReply()],
+          source: 'safety',
+          blockedSensitive: true,
+          fallbackUsed: false,
+        });
         return this.getSafetyBlockedReply();
       }
 
@@ -46,13 +60,21 @@ export class SmartReplyService {
         `smart-reply-service: generating reply userId=${userId} tone=${settings.defaultTone} length=${settings.defaultLength}`,
       );
 
-      this.storeConversation(normalizedConversation, userId);
-      const suggestions = await this.generateModelSuggestions(
+      const generated = await this.generateModelSuggestions(
         normalizedConversation,
         settings,
         Math.max(1, settings.maxSuggestions),
       );
-      const first = suggestions[0];
+      const first = generated.suggestions[0];
+      await this.persistHistoryRecord({
+        userId,
+        settings,
+        conversation: normalizedConversation,
+        suggestions: generated.suggestions,
+        source: generated.source,
+        blockedSensitive: false,
+        fallbackUsed: generated.fallbackUsed,
+      });
       if (!first) {
         this.logger.warn(
           `smart-reply-service: provider returned no suggestions userId=${userId}`,
@@ -69,26 +91,6 @@ export class SmartReplyService {
         stack,
       );
       return this.safeFallbackReply;
-    }
-  }
-
-  private storeConversation(conversation: string, userId: string): void {
-    try {
-      // In future iterations this can be persisted to a dedicated conversation history table.
-      /*
-      await this.conversationLogRepo.save(
-        this.conversationLogRepo.create({ text: conversation, timestamp: new Date() }),
-      );
-      */
-
-      this.logger.debug(
-        `smart-reply-service: conversation observed for training userId=${userId} chars=${conversation.length}`,
-      );
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `smart-reply-service: failed to track conversation userId=${userId} message=${message}`,
-      );
     }
   }
 
@@ -119,13 +121,22 @@ export class SmartReplyService {
     const requestedCount = Math.max(1, Math.min(count, maxAllowedSuggestions));
 
     try {
-      const suggestions = await this.generateModelSuggestions(
+      const generated = await this.generateModelSuggestions(
         normalizedConversation,
         settings,
         requestedCount,
       );
-      if (!suggestions.length) return [this.safeFallbackReply];
-      return suggestions;
+      await this.persistHistoryRecord({
+        userId,
+        settings,
+        conversation: normalizedConversation,
+        suggestions: generated.suggestions,
+        source: generated.source,
+        blockedSensitive: false,
+        fallbackUsed: generated.fallbackUsed,
+      });
+      if (!generated.suggestions.length) return [this.safeFallbackReply];
+      return generated.suggestions;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
@@ -155,7 +166,11 @@ export class SmartReplyService {
     conversation: string,
     settings: SmartReplySettings,
     count: number,
-  ): Promise<string[]> {
+  ): Promise<{
+    suggestions: string[];
+    source: 'external' | 'internal';
+    fallbackUsed: boolean;
+  }> {
     const externalPreferred = ['accurate', 'advanced'].includes(
       String(settings.aiModel || '').toLowerCase(),
     );
@@ -168,17 +183,104 @@ export class SmartReplyService {
           tone: settings.defaultTone,
           length: settings.defaultLength,
         });
-      if (externalSuggestions.length) return externalSuggestions;
+      if (externalSuggestions.length) {
+        return {
+          suggestions: externalSuggestions,
+          source: 'external',
+          fallbackUsed: false,
+        };
+      }
     }
 
-    return this.modelProvider.generateSuggestions({
-      conversation,
-      tone: settings.defaultTone,
-      length: settings.defaultLength,
-      count,
-      includeSignature: settings.includeSignature,
-      customInstructions: settings.customInstructions || undefined,
+    return {
+      suggestions: this.modelProvider.generateSuggestions({
+        conversation,
+        tone: settings.defaultTone,
+        length: settings.defaultLength,
+        count,
+        includeSignature: settings.includeSignature,
+        customInstructions: settings.customInstructions || undefined,
+      }),
+      source: 'internal',
+      fallbackUsed: externalPreferred,
+    };
+  }
+
+  private resolveHistoryRetentionDays(settings: SmartReplySettings): number {
+    const configured = Number(settings.historyLength || 30);
+    if (!Number.isFinite(configured)) return 30;
+    if (configured < 1) return 1;
+    if (configured > 365) return 365;
+    return Math.trunc(configured);
+  }
+
+  private async persistHistoryRecord(input: {
+    userId: string;
+    settings: SmartReplySettings;
+    conversation: string;
+    suggestions: string[];
+    source: string;
+    blockedSensitive: boolean;
+    fallbackUsed: boolean;
+  }): Promise<void> {
+    if (input.settings.keepHistory === false) return;
+
+    try {
+      const conversationPreview = input.conversation.slice(0, 800);
+      const normalizedSuggestions = (input.suggestions || [])
+        .map((suggestion) => String(suggestion || '').trim())
+        .filter(Boolean)
+        .slice(0, 5)
+        .map((suggestion) => suggestion.slice(0, 500));
+
+      const record = this.historyRepo.create({
+        userId: input.userId,
+        conversationPreview,
+        suggestions: normalizedSuggestions,
+        source: String(input.source || 'internal').slice(0, 64),
+        blockedSensitive: Boolean(input.blockedSensitive),
+        fallbackUsed: Boolean(input.fallbackUsed),
+      });
+      await this.historyRepo.save(record);
+      const retentionDays = this.resolveHistoryRetentionDays(input.settings);
+      const retentionCutoff = new Date(
+        Date.now() - retentionDays * 24 * 60 * 60 * 1000,
+      );
+      await this.historyRepo.delete({
+        userId: input.userId,
+        createdAt: LessThan(retentionCutoff),
+      });
+      this.logger.debug(
+        `smart-reply-service: history persisted userId=${input.userId} source=${record.source} suggestions=${record.suggestions.length}`,
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `smart-reply-service: failed history persistence userId=${input.userId} message=${message}`,
+      );
+    }
+  }
+
+  async listHistory(
+    userId: string,
+    limit: number = 20,
+  ): Promise<SmartReplyHistory[]> {
+    const normalizedLimit = Math.max(
+      SmartReplyService.MIN_HISTORY_LIMIT,
+      Math.min(SmartReplyService.MAX_HISTORY_LIMIT, Math.trunc(limit || 20)),
+    );
+    return this.historyRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: normalizedLimit,
     });
+  }
+
+  async purgeHistory(userId: string): Promise<{ purgedRows: number }> {
+    const result = await this.historyRepo.delete({ userId });
+    return {
+      purgedRows: Number(result.affected || 0),
+    };
   }
 
   async getSettings(userId: string): Promise<SmartReplySettings> {

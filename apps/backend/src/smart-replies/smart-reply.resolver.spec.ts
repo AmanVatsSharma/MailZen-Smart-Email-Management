@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Test, TestingModule } from '@nestjs/testing';
 import { SmartReplyResolver } from './smart-reply.resolver';
 import { SmartReplyService } from './smart-reply.service';
@@ -23,6 +24,18 @@ describe('SmartReplyResolver', () => {
           .map((_, i) => `Suggestion ${i + 1}`),
       ),
     ),
+    getSettings: jest.fn().mockResolvedValue({
+      id: 'settings-1',
+      userId: 'user-1',
+      enabled: true,
+    }),
+    updateSettings: jest.fn().mockResolvedValue({
+      id: 'settings-1',
+      userId: 'user-1',
+      enabled: false,
+    }),
+    listHistory: jest.fn().mockResolvedValue([]),
+    purgeHistory: jest.fn().mockResolvedValue({ purgedRows: 0 }),
   };
 
   beforeEach(async () => {
@@ -104,6 +117,49 @@ describe('SmartReplyResolver', () => {
         3,
         'user-1',
       );
+    });
+  });
+
+  describe('history APIs', () => {
+    it('should return smart reply history for current user', async () => {
+      const context = { req: { user: { id: 'user-1' } } };
+      mockSmartReplyService.listHistory.mockResolvedValue([
+        {
+          id: 'history-1',
+          userId: 'user-1',
+          conversationPreview: 'Need timeline update',
+          suggestions: ['Sure, sharing timeline shortly.'],
+        },
+      ]);
+
+      await expect(
+        resolver.mySmartReplyHistory(10, context as any),
+      ).resolves.toEqual([
+        expect.objectContaining({
+          id: 'history-1',
+        }),
+      ]);
+      expect(mockSmartReplyService.listHistory).toHaveBeenCalledWith(
+        'user-1',
+        10,
+      );
+    });
+
+    it('should purge smart reply history for current user', async () => {
+      const context = { req: { user: { id: 'user-1' } } };
+      mockSmartReplyService.purgeHistory.mockResolvedValue({
+        purgedRows: 4,
+      });
+
+      await expect(
+        resolver.purgeMySmartReplyHistory(context as any),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          purgedRows: 4,
+          executedAtIso: expect.any(String),
+        }),
+      );
+      expect(mockSmartReplyService.purgeHistory).toHaveBeenCalledWith('user-1');
     });
   });
 });

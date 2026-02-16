@@ -61,6 +61,8 @@
   - `20260216052000-mailbox-inbound-sync-lease-state.ts`
 - Added mailbox inbound sync lifecycle-state migration:
   - `20260216061000-mailbox-inbound-sync-lifecycle-state.ts`
+- Added smart reply history migration:
+  - `20260216073000-smart-reply-history.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

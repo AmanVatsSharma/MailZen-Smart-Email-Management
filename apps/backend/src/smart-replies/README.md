@@ -10,6 +10,7 @@ The Smart Replies module provides AI-powered response suggestions for emails and
 - **Suggested Replies**: Get multiple suggested replies for an email
 - **Context-Aware Responses**: Responses are tailored to the content of the message
 - **Conversation Logging**: Store conversations for future training and improvement
+- **History Persistence Controls**: Persist smart reply history per-user with retention controls (`keepHistory`, `historyLength`)
 - **Safety Guardrails**: Sensitive credential-like content is blocked with a safe response
 
 ## Architecture
@@ -22,6 +23,8 @@ The Smart Replies module follows a clean architecture pattern with the following
 - **SmartReplyResolver**: GraphQL API for exposing functionality
 - **DTOs**: Data Transfer Objects for input validation
 - **TypeORM Integration**: Database-backed settings and conversation-related persistence
+  - `smart_reply_settings`
+  - `smart_reply_history`
 
 ## Flow
 
@@ -37,6 +40,8 @@ flowchart TD
   ModelRouter -->|no| ModelProvider[SmartReplyModelProvider]
   ExternalAdapter -->|fallback| ModelProvider
   ModelProvider --> DeterministicCandidates[Deterministic candidate generation]
+  DeterministicCandidates --> History[Persist smart_reply_history when keepHistory=true]
+  History --> Retention[Prune history older than historyLength days]
   DeterministicCandidates --> Service
   Service --> Client
 ```
@@ -55,9 +60,11 @@ flowchart TD
 
 ```graphql
 query {
-  generateSmartReply(input: {
-    conversation: "Hello, I'm interested in your product. Can you tell me more about pricing?"
-  })
+  generateSmartReply(
+    input: {
+      conversation: "Hello, I'm interested in your product. Can you tell me more about pricing?"
+    }
+  )
 }
 ```
 
@@ -68,13 +75,55 @@ Returns a single smart reply string.
 ```graphql
 query {
   getSuggestedReplies(
-    emailBody: "When can we schedule a meeting to discuss the project?",
+    emailBody: "When can we schedule a meeting to discuss the project?"
     count: 3
   )
 }
 ```
 
 Returns an array of suggested reply strings.
+
+#### My Smart Reply History
+
+```graphql
+query {
+  mySmartReplyHistory(limit: 20) {
+    id
+    conversationPreview
+    suggestions
+    source
+    blockedSensitive
+    fallbackUsed
+    createdAt
+  }
+}
+```
+
+Returns user-scoped smart-reply generation history rows.
+
+#### Purge My Smart Reply History
+
+```graphql
+mutation {
+  purgeMySmartReplyHistory {
+    purgedRows
+    executedAtIso
+  }
+}
+```
+
+Purges all smart-reply history records for the authenticated user.
+
+## Operational runbook: smart reply history
+
+1. Validate settings via `smartReplySettings`:
+   - `keepHistory=true`
+   - `historyLength` set to expected retention window (days)
+2. Trigger generation with `generateSmartReply` or `getSuggestedReplies`.
+3. Verify persisted rows in `mySmartReplyHistory(limit)`.
+4. If records exceed retention policy:
+   - verify history pruning by creating test rows older than retention cutoff
+   - or run `purgeMySmartReplyHistory` for user-requested data deletion.
 
 ## Usage
 
@@ -124,4 +173,4 @@ export class EmailService {
 - NestJS framework
 - TypeORM
 - GraphQL
-- Class Validator 
+- Class Validator
