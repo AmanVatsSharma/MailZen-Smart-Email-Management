@@ -32,6 +32,8 @@ Provide a persistent notification foundation for user-visible product events
   warning/critical incident counts and last-alert timestamp for SLA alerts
 - `myMailboxInboundSlaIncidentSeries(workspaceId?, windowHours?, bucketMinutes?)` →
   bucketed warning/critical incident trend points for dashboards
+- `myMailboxInboundSlaIncidentDataExport(workspaceId?, windowHours?, bucketMinutes?)` →
+  export SLA alert incident stats + trend as JSON payload
 - `myUnreadNotificationCount(workspaceId?)` → unread badge count (workspace + global scope)
 - `myNotificationPreferences` → get per-user notification channel settings
 - `myNotificationDataExport(limit?)` → export notification history/preferences JSON

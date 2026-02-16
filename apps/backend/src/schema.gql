@@ -1252,6 +1252,7 @@ extend type Query {
   ): MailboxSyncDataExportResponse!
   myMailboxInboundSlaIncidentStats(workspaceId: String, windowHours: Int): MailboxInboundSlaIncidentStatsResponse!
   myMailboxInboundSlaIncidentSeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [MailboxInboundSlaIncidentTrendPointResponse!]!
+  myMailboxInboundSlaIncidentDataExport(workspaceId: String, windowHours: Int, bucketMinutes: Int): MailboxInboundSlaIncidentDataExportResponse!
   myUnreadNotificationCount(workspaceId: String): Int!
   myNotificationPreferences: UserNotificationPreference!
   myNotificationPushSubscriptions(workspaceId: String): [NotificationPushSubscription!]!
@@ -1777,6 +1778,11 @@ type MailboxInboundSlaIncidentTrendPointResponse {
   totalCount: Int!
   warningCount: Int!
   criticalCount: Int!
+}
+
+type MailboxInboundSlaIncidentDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
 }
 
 type UserNotificationPreference {

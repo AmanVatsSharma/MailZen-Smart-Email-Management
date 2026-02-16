@@ -6,6 +6,7 @@ import { NotificationDataExportResponse } from './dto/notification-data-export.r
 import { NotificationRetentionPurgeResponse } from './dto/notification-retention-purge.response';
 import { RegisterNotificationPushSubscriptionInput } from './dto/register-notification-push-subscription.input';
 import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
+import { MailboxInboundSlaIncidentDataExportResponse } from './dto/mailbox-inbound-sla-incident-data-export.response';
 import {
   MailboxInboundSlaIncidentStatsResponse,
   MailboxInboundSlaIncidentTrendPointResponse,
@@ -94,6 +95,26 @@ export class NotificationResolver {
     @Context() ctx: RequestContext,
   ) {
     return this.notificationService.getMailboxInboundSlaIncidentSeries({
+      userId: ctx.req.user.id,
+      workspaceId,
+      windowHours,
+      bucketMinutes,
+    });
+  }
+
+  @Query(() => MailboxInboundSlaIncidentDataExportResponse, {
+    description:
+      'Export mailbox inbound SLA alert incident analytics for current user as JSON payload',
+  })
+  async myMailboxInboundSlaIncidentDataExport(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes: number,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.notificationService.exportMailboxInboundSlaIncidentData({
       userId: ctx.req.user.id,
       workspaceId,
       windowHours,

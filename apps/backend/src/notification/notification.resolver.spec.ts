@@ -6,6 +6,7 @@ describe('NotificationResolver', () => {
     listNotificationsForUser: jest.fn(),
     getMailboxInboundSlaIncidentStats: jest.fn(),
     getMailboxInboundSlaIncidentSeries: jest.fn(),
+    exportMailboxInboundSlaIncidentData: jest.fn(),
     markNotificationsRead: jest.fn(),
     getUnreadCount: jest.fn(),
     getOrCreatePreferences: jest.fn(),
@@ -113,6 +114,29 @@ describe('NotificationResolver', () => {
 
     expect(
       notificationService.getMailboxInboundSlaIncidentSeries,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+  });
+
+  it('forwards SLA incident data export query arguments', async () => {
+    notificationService.exportMailboxInboundSlaIncidentData.mockResolvedValue({
+      generatedAtIso: '2026-02-16T00:00:00.000Z',
+      dataJson: '{"stats":{"totalCount":3}}',
+    });
+
+    await resolver.myMailboxInboundSlaIncidentDataExport(
+      'workspace-1',
+      24,
+      60,
+      context as never,
+    );
+
+    expect(
+      notificationService.exportMailboxInboundSlaIncidentData,
     ).toHaveBeenCalledWith({
       userId: 'user-1',
       workspaceId: 'workspace-1',

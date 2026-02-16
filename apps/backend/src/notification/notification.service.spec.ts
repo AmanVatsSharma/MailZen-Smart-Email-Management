@@ -763,6 +763,45 @@ describe('NotificationService', () => {
     expect(series.some((point) => point.criticalCount > 0)).toBe(true);
   });
 
+  it('exports mailbox inbound SLA incident analytics payload', async () => {
+    const statsSpy = jest
+      .spyOn(service, 'getMailboxInboundSlaIncidentStats')
+      .mockResolvedValue({
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        totalCount: 3,
+        warningCount: 2,
+        criticalCount: 1,
+        lastAlertAt: new Date('2026-02-16T02:00:00.000Z'),
+      });
+    const seriesSpy = jest
+      .spyOn(service, 'getMailboxInboundSlaIncidentSeries')
+      .mockResolvedValue([
+        {
+          bucketStart: new Date('2026-02-16T01:00:00.000Z'),
+          totalCount: 2,
+          warningCount: 1,
+          criticalCount: 1,
+        },
+      ]);
+
+    const exported = await service.exportMailboxInboundSlaIncidentData({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+
+    expect(statsSpy).toHaveBeenCalledTimes(1);
+    expect(seriesSpy).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(exported.dataJson) as {
+      stats: { totalCount: number };
+      series: Array<{ totalCount: number }>;
+    };
+    expect(payload.stats.totalCount).toBe(3);
+    expect(payload.series[0]?.totalCount).toBe(2);
+  });
+
   it('counts unread notifications scoped to workspace plus global rows', async () => {
     notificationRepo.count.mockResolvedValue(3);
 

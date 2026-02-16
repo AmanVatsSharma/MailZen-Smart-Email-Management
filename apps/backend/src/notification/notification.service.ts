@@ -984,6 +984,58 @@ export class NotificationService {
     return series;
   }
 
+  async exportMailboxInboundSlaIncidentData(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const normalizedWorkspaceId =
+      String(input.workspaceId || '').trim() || null;
+    const windowHours = this.normalizeIncidentWindowHours(input.windowHours);
+    const bucketMinutes = this.normalizeIncidentBucketMinutes(
+      input.bucketMinutes,
+    );
+    const [stats, series] = await Promise.all([
+      this.getMailboxInboundSlaIncidentStats({
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId,
+        windowHours,
+      }),
+      this.getMailboxInboundSlaIncidentSeries({
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId,
+        windowHours,
+        bucketMinutes,
+      }),
+    ]);
+    const generatedAtIso = new Date().toISOString();
+    return {
+      generatedAtIso,
+      dataJson: JSON.stringify({
+        generatedAtIso,
+        workspaceId: normalizedWorkspaceId,
+        windowHours,
+        bucketMinutes,
+        stats: {
+          ...stats,
+          lastAlertAtIso: stats.lastAlertAt
+            ? stats.lastAlertAt.toISOString()
+            : null,
+        },
+        series: series.map((point) => ({
+          bucketStartIso: point.bucketStart.toISOString(),
+          totalCount: point.totalCount,
+          warningCount: point.warningCount,
+          criticalCount: point.criticalCount,
+        })),
+      }),
+    };
+  }
+
   async updateMailboxInboundSlaAlertState(input: {
     userId: string;
     status: MailboxInboundSlaStatus | null;
