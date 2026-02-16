@@ -228,13 +228,17 @@ if [[ "${STATUS_RUNTIME_CHECKS}" == false ]] &&
   { [[ "${STATUS_SKIP_HOST_READINESS}" == true ]] || [[ "${STATUS_SKIP_DNS_CHECK}" == true ]] || [[ "${STATUS_SKIP_SSL_CHECK}" == true ]] || [[ "${STATUS_SKIP_PORTS_CHECK}" == true ]]; }; then
   log_warn "[LAUNCH] status runtime skip flags were provided without --status-runtime-checks; skip flags will be ignored."
 fi
+status_ports_check_enabled=false
+if [[ "${STATUS_RUNTIME_CHECKS}" == true ]] && [[ "${STATUS_SKIP_PORTS_CHECK}" == false ]]; then
+  status_ports_check_enabled=true
+fi
 if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${RUN_PORTS_CHECK}" == false ]] && [[ "${STATUS_RUNTIME_CHECKS}" == false ]]; then
   log_warn "[LAUNCH] --ports-check-ports has no effect when both direct ports check and status runtime checks are disabled."
 fi
-if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${RUN_PORTS_CHECK}" == false ]] && [[ "${STATUS_RUNTIME_CHECKS}" == true ]]; then
+if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${RUN_PORTS_CHECK}" == false ]] && [[ "${status_ports_check_enabled}" == false ]]; then
   log_warn "[LAUNCH] --ports-check-ports has no effect because ports checks are skipped in both direct and status runtime paths."
 fi
-if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${STATUS_RUNTIME_CHECKS}" == true ]] && [[ "${STATUS_SKIP_PORTS_CHECK}" == true ]] && [[ "${RUN_PORTS_CHECK}" == true ]]; then
+if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${RUN_PORTS_CHECK}" == true ]] && [[ "${status_ports_check_enabled}" == false ]]; then
   log_warn "[LAUNCH] --ports-check-ports has no effect in the status runtime path when --status-skip-ports-check is enabled."
 fi
 

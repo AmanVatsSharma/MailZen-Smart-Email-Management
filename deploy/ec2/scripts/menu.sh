@@ -105,6 +105,9 @@ while true; do
   case "${choice}" in
   1)
     launch_args=()
+    launch_direct_ports_enabled=true
+    launch_status_runtime_enabled=false
+    launch_status_skip_ports=false
     if prompt_yes_no "Skip setup step" "no"; then
       launch_args+=(--skip-setup)
     fi
@@ -119,6 +122,7 @@ while true; do
     fi
     if prompt_yes_no "Skip host ports check" "no"; then
       launch_args+=(--skip-ports-check)
+      launch_direct_ports_enabled=false
     fi
     if prompt_yes_no "Run preflight in config-only mode" "no"; then
       launch_args+=(--preflight-config-only)
@@ -130,6 +134,7 @@ while true; do
       launch_args+=(--skip-verify)
     fi
     if prompt_yes_no "Enable runtime checks in final status step" "no"; then
+      launch_status_runtime_enabled=true
       launch_args+=(--status-runtime-checks)
       if prompt_yes_no "Skip host readiness inside status runtime checks" "no"; then
         launch_args+=(--status-skip-host-readiness)
@@ -142,14 +147,17 @@ while true; do
       fi
       if prompt_yes_no "Skip ports check inside status runtime checks" "no"; then
         launch_args+=(--status-skip-ports-check)
+        launch_status_skip_ports=true
       fi
     fi
     if prompt_yes_no "Enable strict status mode (fail when daemon unavailable)" "no"; then
       launch_args+=(--status-strict)
     fi
-    launch_ports="$(prompt_with_default "Custom ports-check targets for launch flow (blank = default)" "")"
-    if [[ -n "${launch_ports}" ]]; then
-      launch_args+=(--ports-check-ports "${launch_ports}")
+    if [[ "${launch_direct_ports_enabled}" == true ]] || { [[ "${launch_status_runtime_enabled}" == true ]] && [[ "${launch_status_skip_ports}" == false ]]; }; then
+      launch_ports="$(prompt_with_default "Custom ports-check targets for launch flow (blank = default)" "")"
+      if [[ -n "${launch_ports}" ]]; then
+        launch_args+=(--ports-check-ports "${launch_ports}")
+      fi
     fi
     run_step "launch.sh" "${launch_args[@]}"
     ;;
@@ -223,6 +231,7 @@ while true; do
     ;;
   9)
     update_args=()
+    update_status_skip_ports=false
     if prompt_yes_no "Run preflight in config-only mode" "no"; then
       update_args+=(--preflight-config-only)
     fi
@@ -263,6 +272,7 @@ while true; do
         fi
         if prompt_yes_no "Skip ports check inside status runtime checks" "no"; then
           update_args+=(--status-skip-ports-check)
+          update_status_skip_ports=true
         fi
       fi
       if prompt_yes_no "Enable strict status mode" "no"; then
@@ -270,7 +280,7 @@ while true; do
       fi
     fi
 
-    if [[ "${status_runtime_enabled}" == true ]]; then
+    if [[ "${status_runtime_enabled}" == true ]] && [[ "${update_status_skip_ports}" == false ]]; then
       update_ports="$(prompt_with_default "Custom ports-check targets for status runtime checks (blank = default)" "")"
       if [[ -n "${update_ports}" ]]; then
         update_args+=(--ports-check-ports "${update_ports}")
