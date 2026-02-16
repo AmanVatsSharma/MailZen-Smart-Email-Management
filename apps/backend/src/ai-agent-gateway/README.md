@@ -46,6 +46,8 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - returns warn/critical incident totals for the rolling window.
   - `agentPlatformHealthIncidentSeries(windowHours?, bucketMinutes?)`
   - returns warn/critical incident trend buckets for alert analytics.
+  - `agentPlatformHealthIncidentDataExport(windowHours?, bucketMinutes?)`
+  - returns JSON incident analytics payload for external pipelines.
 - Expose `myAgentActionDataExport(limit?)` for authenticated JSON export of
   agent action audit history.
 - Expose admin retention control:
@@ -129,3 +131,4 @@ flowchart TD
 - 2026-02-16: Added health trend summary query for executive monitoring rollups.
 - 2026-02-16: Added bucketed health trend series query for observability dashboards.
 - 2026-02-16: Added warn/critical incident stats + trend series queries for AI platform health.
+- 2026-02-16: Added warn/critical incident analytics data export query.

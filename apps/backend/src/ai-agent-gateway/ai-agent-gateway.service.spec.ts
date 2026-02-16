@@ -720,6 +720,36 @@ describe('AiAgentGatewayService', () => {
     );
   });
 
+  it('exports incident analytics payload with stats and series', async () => {
+    const service = createService();
+    findHealthSamplesMock
+      .mockResolvedValueOnce([
+        {
+          alertingState: 'warn',
+          checkedAt: new Date('2026-02-16T00:05:00.000Z'),
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          alertingState: 'warn',
+          checkedAt: new Date('2026-02-16T00:05:00.000Z'),
+        },
+      ]);
+
+    const result = await service.exportPlatformHealthIncidentData({
+      windowHours: 24,
+      bucketMinutes: 30,
+    });
+    const payload = JSON.parse(result.dataJson) as {
+      stats: { totalCount: number };
+      series: Array<{ totalCount: number }>;
+    };
+
+    expect(payload.stats.totalCount).toBe(1);
+    expect(payload.series.length).toBeGreaterThan(0);
+    expect(payload.series.some((point) => point.totalCount > 0)).toBe(true);
+  });
+
   it('hydrates persisted runtime stats from database on module init', async () => {
     process.env.AI_AGENT_GATEWAY_USE_REDIS = 'false';
     findEndpointRuntimeStatsMock.mockResolvedValueOnce([

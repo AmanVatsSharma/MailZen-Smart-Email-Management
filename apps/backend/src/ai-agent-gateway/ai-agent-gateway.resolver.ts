@@ -19,6 +19,7 @@ import { AgentAssistInput } from './dto/agent-assist.input';
 import { AgentAssistResponse } from './dto/agent-assist.response';
 import { AgentActionDataExportResponse } from './dto/agent-action-data-export.response';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
+import { AgentPlatformHealthIncidentDataExportResponse } from './dto/agent-platform-health-incident-data-export.response';
 import { AgentPlatformHealthSampleDataExportResponse } from './dto/agent-platform-health-sample-data-export.response';
 import { AgentPlatformHealthSampleResponse } from './dto/agent-platform-health-sample.response';
 import { AgentPlatformHealthSampleRetentionPurgeResponse } from './dto/agent-platform-health-sample-retention-purge.response';
@@ -157,6 +158,23 @@ export class AiAgentGatewayResolver {
     bucketMinutes?: number,
   ): Promise<AgentPlatformHealthIncidentTrendPointResponse[]> {
     return this.gatewayService.getPlatformHealthIncidentSeries({
+      windowHours,
+      bucketMinutes,
+    });
+  }
+
+  @Query(() => AgentPlatformHealthIncidentDataExportResponse, {
+    description:
+      'Export warn/critical AI platform health incident analytics as JSON payload',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async agentPlatformHealthIncidentDataExport(
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<AgentPlatformHealthIncidentDataExportResponse> {
+    return this.gatewayService.exportPlatformHealthIncidentData({
       windowHours,
       bucketMinutes,
     });

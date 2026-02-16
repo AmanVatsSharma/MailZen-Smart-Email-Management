@@ -10,6 +10,7 @@ describe('AiAgentGatewayResolver', () => {
     getPlatformHealthTrendSeries: jest.fn(),
     getPlatformHealthIncidentStats: jest.fn(),
     getPlatformHealthIncidentSeries: jest.fn(),
+    exportPlatformHealthIncidentData: jest.fn(),
     resetPlatformRuntimeStats: jest.fn(),
     resetSkillRuntimeStats: jest.fn(),
     purgePlatformHealthSampleRetentionData: jest.fn(),
@@ -258,6 +259,27 @@ describe('AiAgentGatewayResolver', () => {
         criticalCount: 1,
       }),
     ]);
+  });
+
+  it('delegates agentPlatformHealthIncidentDataExport to gateway service', async () => {
+    gatewayService.exportPlatformHealthIncidentData.mockResolvedValue({
+      generatedAtIso: '2026-02-16T00:00:00.000Z',
+      dataJson: '{"stats":{"totalCount":3}}',
+    });
+
+    const result = await resolver.agentPlatformHealthIncidentDataExport(24, 30);
+
+    expect(
+      gatewayService.exportPlatformHealthIncidentData,
+    ).toHaveBeenCalledWith({
+      windowHours: 24,
+      bucketMinutes: 30,
+    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        generatedAtIso: '2026-02-16T00:00:00.000Z',
+      }),
+    );
   });
 
   it('forwards user context to myAgentActionDataExport', async () => {

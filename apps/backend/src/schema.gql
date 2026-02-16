@@ -613,6 +613,11 @@ type AgentPlatformHealthIncidentTrendPointResponse {
   criticalCount: Int!
 }
 
+type AgentPlatformHealthIncidentDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
 type AgentPlatformEndpointStatResponse {
   endpointUrl: String!
   successCount: Int!
@@ -1097,6 +1102,10 @@ extend type Query {
     windowHours: Int
     bucketMinutes: Int
   ): [AgentPlatformHealthIncidentTrendPointResponse!]!
+  agentPlatformHealthIncidentDataExport(
+    windowHours: Int
+    bucketMinutes: Int
+  ): AgentPlatformHealthIncidentDataExportResponse!
   myWorkspaces: [Workspace!]!
   myActiveWorkspace: Workspace
   myWorkspaceDataExport(workspaceId: String!): WorkspaceDataExportResponse!
