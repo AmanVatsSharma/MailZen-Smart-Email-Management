@@ -126,6 +126,130 @@ export class MailboxSyncIncidentScheduler {
     };
   }
 
+  async runIncidentAlertCheck(input: {
+    userId: string;
+    windowHours?: number | null;
+    warningRatePercent?: number | null;
+    criticalRatePercent?: number | null;
+    minIncidentRuns?: number | null;
+  }): Promise<{
+    alertsEnabled: boolean;
+    evaluatedAtIso: string;
+    windowHours: number;
+    warningRatePercent: number;
+    criticalRatePercent: number;
+    minIncidentRuns: number;
+    status: string;
+    statusReason: string;
+    shouldAlert: boolean;
+    totalRuns: number;
+    incidentRuns: number;
+    failedRuns: number;
+    partialRuns: number;
+    incidentRatePercent: number;
+    lastIncidentAtIso?: string;
+  }> {
+    const baseConfig = this.resolveMonitorConfig();
+    const windowHours = this.resolvePositiveInteger({
+      rawValue:
+        typeof input.windowHours === 'number' &&
+        Number.isFinite(input.windowHours)
+          ? String(input.windowHours)
+          : undefined,
+      fallbackValue: baseConfig.windowHours,
+      minimumValue: 1,
+      maximumValue: 168,
+    });
+    const warningRatePercent = this.resolvePercentage({
+      rawValue:
+        typeof input.warningRatePercent === 'number' &&
+        Number.isFinite(input.warningRatePercent)
+          ? String(input.warningRatePercent)
+          : undefined,
+      fallbackValue: baseConfig.warningRatePercent,
+    });
+    const criticalRatePercent = Math.max(
+      warningRatePercent,
+      this.resolvePercentage({
+        rawValue:
+          typeof input.criticalRatePercent === 'number' &&
+          Number.isFinite(input.criticalRatePercent)
+            ? String(input.criticalRatePercent)
+            : undefined,
+        fallbackValue: baseConfig.criticalRatePercent,
+      }),
+    );
+    const minIncidentRuns = this.resolvePositiveInteger({
+      rawValue:
+        typeof input.minIncidentRuns === 'number' &&
+        Number.isFinite(input.minIncidentRuns)
+          ? String(input.minIncidentRuns)
+          : undefined,
+      fallbackValue: baseConfig.minIncidentRuns,
+      minimumValue: 1,
+      maximumValue: 5000,
+    });
+    const evaluatedAtIso = new Date().toISOString();
+    if (!baseConfig.alertsEnabled) {
+      return {
+        alertsEnabled: false,
+        evaluatedAtIso,
+        windowHours,
+        warningRatePercent,
+        criticalRatePercent,
+        minIncidentRuns,
+        status: 'NO_DATA',
+        statusReason: 'alerts-disabled',
+        shouldAlert: false,
+        totalRuns: 0,
+        incidentRuns: 0,
+        failedRuns: 0,
+        partialRuns: 0,
+        incidentRatePercent: 0,
+      };
+    }
+
+    const stats =
+      await this.mailboxSyncService.getMailboxSyncIncidentStatsForUser({
+        userId: input.userId,
+        windowHours,
+      });
+    const resolvedStatus = this.resolveIncidentStatus({
+      totalRuns: stats.totalRuns,
+      incidentRuns: stats.incidentRuns,
+      incidentRatePercent: stats.incidentRatePercent,
+      warningRatePercent,
+      criticalRatePercent,
+      minIncidentRuns,
+    });
+    return {
+      alertsEnabled: true,
+      evaluatedAtIso,
+      windowHours,
+      warningRatePercent,
+      criticalRatePercent,
+      minIncidentRuns,
+      status: resolvedStatus,
+      statusReason: this.resolveIncidentStatusReason({
+        status: resolvedStatus,
+        totalRuns: stats.totalRuns,
+        incidentRuns: stats.incidentRuns,
+        incidentRatePercent: stats.incidentRatePercent,
+        warningRatePercent,
+        criticalRatePercent,
+        minIncidentRuns,
+      }),
+      shouldAlert:
+        MailboxSyncIncidentScheduler.ALERTABLE_STATUSES.has(resolvedStatus),
+      totalRuns: stats.totalRuns,
+      incidentRuns: stats.incidentRuns,
+      failedRuns: stats.failedRuns,
+      partialRuns: stats.partialRuns,
+      incidentRatePercent: stats.incidentRatePercent,
+      lastIncidentAtIso: stats.lastIncidentAtIso,
+    };
+  }
+
   @Cron('*/15 * * * *')
   async monitorMailboxSyncIncidents(): Promise<void> {
     const config = this.resolveMonitorConfig();
@@ -329,6 +453,28 @@ export class MailboxSyncIncidentScheduler {
       return 'WARNING';
     }
     return 'HEALTHY';
+  }
+
+  private resolveIncidentStatusReason(input: {
+    status: MailboxSyncIncidentStatus;
+    totalRuns: number;
+    incidentRuns: number;
+    incidentRatePercent: number;
+    warningRatePercent: number;
+    criticalRatePercent: number;
+    minIncidentRuns: number;
+  }): string {
+    if (input.status === 'NO_DATA') return 'no-data';
+    if (input.incidentRuns < input.minIncidentRuns) {
+      return 'below-min-incident-runs';
+    }
+    if (input.status === 'CRITICAL') {
+      return `incident-rate ${input.incidentRatePercent}% >= ${input.criticalRatePercent}%`;
+    }
+    if (input.status === 'WARNING') {
+      return `incident-rate ${input.incidentRatePercent}% >= ${input.warningRatePercent}%`;
+    }
+    return 'incident-rate-healthy';
   }
 
   private isCooldownActive(

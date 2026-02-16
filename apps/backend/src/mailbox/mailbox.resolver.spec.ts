@@ -34,6 +34,7 @@ describe('MailboxResolver', () => {
   };
   const mailboxSyncIncidentSchedulerMock = {
     getIncidentAlertConfigSnapshot: jest.fn(),
+    runIncidentAlertCheck: jest.fn(),
   };
 
   const ctx = {
@@ -561,6 +562,46 @@ describe('MailboxResolver', () => {
     ).toHaveBeenCalledTimes(1);
     expect(result.alertsEnabled).toBe(true);
     expect(result.windowHours).toBe(24);
+  });
+
+  it('runs mailbox sync incident alert check for current user', async () => {
+    mailboxSyncIncidentSchedulerMock.runIncidentAlertCheck.mockResolvedValue({
+      alertsEnabled: true,
+      evaluatedAtIso: '2026-02-16T00:00:00.000Z',
+      windowHours: 24,
+      warningRatePercent: 10,
+      criticalRatePercent: 25,
+      minIncidentRuns: 1,
+      status: 'WARNING',
+      statusReason: 'incident-rate 12% >= 10%',
+      shouldAlert: true,
+      totalRuns: 10,
+      incidentRuns: 2,
+      failedRuns: 1,
+      partialRuns: 1,
+      incidentRatePercent: 20,
+      lastIncidentAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    const result = await resolver.runMyMailboxSyncIncidentAlertCheck(
+      ctx as any,
+      24,
+      10,
+      25,
+      1,
+    );
+
+    expect(
+      mailboxSyncIncidentSchedulerMock.runIncidentAlertCheck,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      windowHours: 24,
+      warningRatePercent: 10,
+      criticalRatePercent: 25,
+      minIncidentRuns: 1,
+    });
+    expect(result.shouldAlert).toBe(true);
+    expect(result.status).toBe('WARNING');
   });
 
   it('returns mailbox sync incident alert delivery stats for current user', async () => {

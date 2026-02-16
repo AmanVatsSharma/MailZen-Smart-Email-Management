@@ -53,6 +53,7 @@ This module covers:
     - `myMailboxSyncIncidentAlertDeliveryStats(workspaceId?: String, windowHours?: Int): MailboxSyncIncidentAlertDeliveryStatsResponse!`
     - `myMailboxSyncIncidentAlertDeliverySeries(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxSyncIncidentAlertDeliveryTrendPointResponse!]!`
     - `myMailboxSyncIncidentAlertDeliveryDataExport(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): MailboxSyncIncidentAlertDeliveryDataExportResponse!`
+    - `runMyMailboxSyncIncidentAlertCheck(windowHours?: Int, warningRatePercent?: Float, criticalRatePercent?: Float, minIncidentRuns?: Int): MailboxSyncIncidentAlertCheckResponse!`
     - `myMailboxSyncDataExport(mailboxId?: String, workspaceId?: String, limit?: Int, windowHours?: Int, bucketMinutes?: Int): MailboxSyncDataExportResponse!`
     - `purgeMyMailboxSyncRunRetentionData(retentionDays?: Int): MailboxSyncRunRetentionPurgeResponse!`
     - `purgeMyMailboxInboundRetentionData(retentionDays?: Int): MailboxInboundRetentionPurgeResponse!`
@@ -371,6 +372,9 @@ flowchart TD
   - exports sync incident analytics snapshot (stats + trend) as JSON payload
 - `myMailboxSyncIncidentAlertConfig`
   - returns resolved mailbox sync incident alert scheduler configuration snapshot
+- `runMyMailboxSyncIncidentAlertCheck`
+  - evaluates current user mailbox sync incident status on-demand with optional threshold overrides
+  - returns status reason, incident rates, and whether alert conditions are met
 - `myMailboxSyncIncidentAlertDeliveryStats`
   - returns aggregate counts over emitted `MAILBOX_SYNC_INCIDENT_ALERT` notifications
 - `myMailboxSyncIncidentAlertDeliverySeries`

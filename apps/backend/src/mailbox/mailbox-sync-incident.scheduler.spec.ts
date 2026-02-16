@@ -23,9 +23,28 @@ describe('MailboxSyncIncidentScheduler', () => {
   >;
   const originalIncidentAlertsEnabledEnv =
     process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERTS_ENABLED;
+  const originalWindowHoursEnv =
+    process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_WINDOW_HOURS;
+  const originalCooldownMinutesEnv =
+    process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_COOLDOWN_MINUTES;
+  const originalMaxUsersPerRunEnv =
+    process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_MAX_USERS_PER_RUN;
+  const originalWarningRateEnv =
+    process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_WARNING_RATE_PERCENT;
+  const originalCriticalRateEnv =
+    process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_CRITICAL_RATE_PERCENT;
+  const originalMinIncidentRunsEnv =
+    process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_MIN_INCIDENT_RUNS;
 
   beforeEach(() => {
     delete process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERTS_ENABLED;
+    delete process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_WINDOW_HOURS;
+    delete process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_COOLDOWN_MINUTES;
+    delete process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_MAX_USERS_PER_RUN;
+    delete process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_WARNING_RATE_PERCENT;
+    delete process.env
+      .MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_CRITICAL_RATE_PERCENT;
+    delete process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_MIN_INCIDENT_RUNS;
     mailboxSyncRunRepo = {
       createQueryBuilder: jest.fn(),
     } as unknown as jest.Mocked<Repository<MailboxSyncRun>>;
@@ -71,6 +90,44 @@ describe('MailboxSyncIncidentScheduler', () => {
       return;
     }
     delete process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERTS_ENABLED;
+    if (typeof originalWindowHoursEnv === 'string') {
+      process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_WINDOW_HOURS =
+        originalWindowHoursEnv;
+    } else {
+      delete process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_WINDOW_HOURS;
+    }
+    if (typeof originalCooldownMinutesEnv === 'string') {
+      process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_COOLDOWN_MINUTES =
+        originalCooldownMinutesEnv;
+    } else {
+      delete process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_COOLDOWN_MINUTES;
+    }
+    if (typeof originalMaxUsersPerRunEnv === 'string') {
+      process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_MAX_USERS_PER_RUN =
+        originalMaxUsersPerRunEnv;
+    } else {
+      delete process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_MAX_USERS_PER_RUN;
+    }
+    if (typeof originalWarningRateEnv === 'string') {
+      process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_WARNING_RATE_PERCENT =
+        originalWarningRateEnv;
+    } else {
+      delete process.env
+        .MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_WARNING_RATE_PERCENT;
+    }
+    if (typeof originalCriticalRateEnv === 'string') {
+      process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_CRITICAL_RATE_PERCENT =
+        originalCriticalRateEnv;
+    } else {
+      delete process.env
+        .MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_CRITICAL_RATE_PERCENT;
+    }
+    if (typeof originalMinIncidentRunsEnv === 'string') {
+      process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_MIN_INCIDENT_RUNS =
+        originalMinIncidentRunsEnv;
+    } else {
+      delete process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_MIN_INCIDENT_RUNS;
+    }
   });
 
   const basePreference = {
@@ -204,5 +261,41 @@ describe('MailboxSyncIncidentScheduler', () => {
     expect(config.criticalRatePercent).toBe(19.5);
     expect(config.minIncidentRuns).toBe(3);
     expect(config.evaluatedAtIso).toEqual(expect.any(String));
+  });
+
+  it('runs incident alert check with resolved status payload', async () => {
+    notificationService.getOrCreatePreferences.mockResolvedValue(
+      basePreference,
+    );
+    mailboxSyncService.getMailboxSyncIncidentStatsForUser.mockResolvedValue(
+      criticalIncidentStats as any,
+    );
+
+    const result = await scheduler.runIncidentAlertCheck({
+      userId: 'user-1',
+      windowHours: 24,
+      warningRatePercent: 10,
+      criticalRatePercent: 25,
+      minIncidentRuns: 1,
+    });
+
+    expect(result.alertsEnabled).toBe(true);
+    expect(result.status).toBe('CRITICAL');
+    expect(result.shouldAlert).toBe(true);
+    expect(result.incidentRuns).toBe(8);
+  });
+
+  it('returns disabled check payload when alerts are disabled', async () => {
+    process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERTS_ENABLED = 'false';
+
+    const result = await scheduler.runIncidentAlertCheck({
+      userId: 'user-1',
+    });
+
+    expect(result.alertsEnabled).toBe(false);
+    expect(result.statusReason).toBe('alerts-disabled');
+    expect(
+      mailboxSyncService.getMailboxSyncIncidentStatsForUser,
+    ).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,12 @@
-import { Resolver, Mutation, Args, Query, Context, Int } from '@nestjs/graphql';
+import {
+  Resolver,
+  Mutation,
+  Args,
+  Query,
+  Context,
+  Float,
+  Int,
+} from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { MailboxService } from './mailbox.service';
@@ -13,6 +21,7 @@ import {
 import { MailboxInboundRetentionPurgeResponse } from './dto/mailbox-inbound-retention-purge.response';
 import { MailboxSyncDataExportResponse } from './dto/mailbox-sync-data-export.response';
 import { MailboxSyncIncidentAlertConfigResponse } from './dto/mailbox-sync-incident-alert-config.response';
+import { MailboxSyncIncidentAlertCheckResponse } from './dto/mailbox-sync-incident-alert-check.response';
 import { MailboxSyncIncidentAlertDeliveryDataExportResponse } from './dto/mailbox-sync-incident-alert-delivery-data-export.response';
 import {
   MailboxSyncIncidentAlertDeliveryStatsResponse,
@@ -303,6 +312,27 @@ export class MailboxResolver {
   @Query(() => MailboxSyncIncidentAlertConfigResponse)
   myMailboxSyncIncidentAlertConfig(): MailboxSyncIncidentAlertConfigResponse {
     return this.mailboxSyncIncidentScheduler.getIncidentAlertConfigSnapshot();
+  }
+
+  @Mutation(() => MailboxSyncIncidentAlertCheckResponse)
+  async runMyMailboxSyncIncidentAlertCheck(
+    @Context() ctx: RequestContext,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('warningRatePercent', { type: () => Float, nullable: true })
+    warningRatePercent?: number,
+    @Args('criticalRatePercent', { type: () => Float, nullable: true })
+    criticalRatePercent?: number,
+    @Args('minIncidentRuns', { type: () => Int, nullable: true })
+    minIncidentRuns?: number,
+  ): Promise<MailboxSyncIncidentAlertCheckResponse> {
+    return this.mailboxSyncIncidentScheduler.runIncidentAlertCheck({
+      userId: ctx.req.user.id,
+      windowHours: windowHours ?? null,
+      warningRatePercent: warningRatePercent ?? null,
+      criticalRatePercent: criticalRatePercent ?? null,
+      minIncidentRuns: minIncidentRuns ?? null,
+    });
   }
 
   @Query(() => MailboxSyncIncidentAlertDeliveryStatsResponse)

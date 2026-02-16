@@ -1387,6 +1387,12 @@ extend type Mutation {
   purgeMyMailboxSyncRunRetentionData(
     retentionDays: Int
   ): MailboxSyncRunRetentionPurgeResponse!
+  runMyMailboxSyncIncidentAlertCheck(
+    windowHours: Int
+    warningRatePercent: Float
+    criticalRatePercent: Float
+    minIncidentRuns: Int
+  ): MailboxSyncIncidentAlertCheckResponse!
   syncMyMailboxPull(
     mailboxId: String
     workspaceId: String
@@ -1650,6 +1656,24 @@ type MailboxSyncIncidentAlertConfigResponse {
   criticalRatePercent: Float!
   minIncidentRuns: Int!
   evaluatedAtIso: String!
+}
+
+type MailboxSyncIncidentAlertCheckResponse {
+  alertsEnabled: Boolean!
+  evaluatedAtIso: String!
+  windowHours: Int!
+  warningRatePercent: Float!
+  criticalRatePercent: Float!
+  minIncidentRuns: Int!
+  status: String!
+  statusReason: String!
+  shouldAlert: Boolean!
+  totalRuns: Int!
+  incidentRuns: Int!
+  failedRuns: Int!
+  partialRuns: Int!
+  incidentRatePercent: Float!
+  lastIncidentAtIso: String
 }
 
 type MailboxSyncIncidentAlertDeliveryStatsResponse {
