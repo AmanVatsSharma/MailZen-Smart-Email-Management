@@ -135,7 +135,7 @@ Behavior:
   `console.log/info/warn/error/debug/trace` calls are introduced in source
   files, preserving structured logging consistency.
 - CI guard `npm run check:structured-logger-usage` fails when runtime
-  `logger.log/warn/error/debug/verbose` calls bypass
+  `logger.log/warn/error/debug/verbose/fatal` calls bypass
   `serializeStructuredLog(...)` (or
   when `logger.*(JSON.stringify())` payloads are introduced).
 - CI guard `npm run check:doc:flowcharts` verifies module-local README
