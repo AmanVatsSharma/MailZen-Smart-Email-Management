@@ -219,6 +219,42 @@ type ProviderSyncIncidentAlertCheckResponse {
   errorProviderPercent: Float!
 }
 
+type ProviderSyncIncidentAlertDeliveryStatsResponse {
+  workspaceId: String
+  windowHours: Int!
+  totalAlerts: Int!
+  warningAlerts: Int!
+  criticalAlerts: Int!
+  lastAlertAtIso: String
+}
+
+type ProviderSyncIncidentAlertDeliveryTrendPointResponse {
+  bucketStart: DateTime!
+  totalAlerts: Int!
+  warningAlerts: Int!
+  criticalAlerts: Int!
+}
+
+type ProviderSyncIncidentAlertResponse {
+  notificationId: String!
+  workspaceId: String
+  status: String!
+  title: String!
+  message: String!
+  errorProviderPercent: Float!
+  errorProviders: Int!
+  totalProviders: Int!
+  warningErrorProviderPercent: Float!
+  criticalErrorProviderPercent: Float!
+  minErrorProviders: Int!
+  createdAt: DateTime!
+}
+
+type ProviderSyncIncidentAlertDeliveryDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
 type InboxMessage {
   id: ID!
   providerId: String!
@@ -454,6 +490,10 @@ type Query {
   myProviderSyncAlerts(workspaceId: String, windowHours: Int, limit: Int): [ProviderSyncAlertResponse!]!
   myProviderSyncAlertDeliveryDataExport(workspaceId: String, windowHours: Int, bucketMinutes: Int, limit: Int): ProviderSyncAlertDeliveryDataExportResponse!
   myProviderSyncIncidentAlertConfig: ProviderSyncIncidentAlertConfigResponse!
+  myProviderSyncIncidentAlertDeliveryStats(workspaceId: String, windowHours: Int): ProviderSyncIncidentAlertDeliveryStatsResponse!
+  myProviderSyncIncidentAlertDeliverySeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [ProviderSyncIncidentAlertDeliveryTrendPointResponse!]!
+  myProviderSyncIncidentAlerts(workspaceId: String, windowHours: Int, limit: Int): [ProviderSyncIncidentAlertResponse!]!
+  myProviderSyncIncidentAlertDeliveryDataExport(workspaceId: String, windowHours: Int, bucketMinutes: Int, limit: Int): ProviderSyncIncidentAlertDeliveryDataExportResponse!
   getInboxMessages(inboxType: String!, inboxId: String!, limit: Int, offset: Int): [InboxMessage!]!
   myMailboxes(workspaceId: String): [String!]!
   myMailboxInboundEvents(mailboxId: String, workspaceId: String, status: String, limit: Int): [MailboxInboundEventObservabilityResponse!]!

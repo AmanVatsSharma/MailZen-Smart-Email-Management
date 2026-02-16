@@ -21,6 +21,10 @@ describe('EmailProviderConnectResolver', () => {
     getProviderSyncAlertDeliverySeriesForUser: jest.fn(),
     getProviderSyncAlertsForUser: jest.fn(),
     exportProviderSyncAlertDeliveryDataForUser: jest.fn(),
+    getProviderSyncIncidentAlertDeliveryStatsForUser: jest.fn(),
+    getProviderSyncIncidentAlertDeliverySeriesForUser: jest.fn(),
+    getProviderSyncIncidentAlertsForUser: jest.fn(),
+    exportProviderSyncIncidentAlertDeliveryDataForUser: jest.fn(),
     listProvidersUi: jest.fn(),
   };
   const providerSyncIncidentSchedulerMock = {
@@ -265,6 +269,114 @@ describe('EmailProviderConnectResolver', () => {
     );
     expect(
       emailProviderServiceMock.exportProviderSyncAlertDeliveryDataForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+      limit: 100,
+    });
+  });
+
+  it('delegates provider sync incident alert delivery stats query to service', async () => {
+    emailProviderServiceMock.getProviderSyncIncidentAlertDeliveryStatsForUser.mockResolvedValue(
+      {
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        totalAlerts: 3,
+        warningAlerts: 2,
+        criticalAlerts: 1,
+        lastAlertAtIso: '2026-02-16T00:00:00.000Z',
+      },
+    );
+    const context = { req: { user: { id: 'user-1' } } };
+
+    const result = await resolver.myProviderSyncIncidentAlertDeliveryStats(
+      'workspace-1',
+      24,
+      context,
+    );
+
+    expect(result).toEqual(expect.objectContaining({ totalAlerts: 3 }));
+    expect(
+      emailProviderServiceMock.getProviderSyncIncidentAlertDeliveryStatsForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+    });
+  });
+
+  it('delegates provider sync incident alert delivery series query to service', async () => {
+    emailProviderServiceMock.getProviderSyncIncidentAlertDeliverySeriesForUser.mockResolvedValue(
+      [],
+    );
+    const context = { req: { user: { id: 'user-1' } } };
+
+    await resolver.myProviderSyncIncidentAlertDeliverySeries(
+      'workspace-1',
+      24,
+      60,
+      context,
+    );
+
+    expect(
+      emailProviderServiceMock.getProviderSyncIncidentAlertDeliverySeriesForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+  });
+
+  it('delegates provider sync incident alerts query to service', async () => {
+    emailProviderServiceMock.getProviderSyncIncidentAlertsForUser.mockResolvedValue(
+      [],
+    );
+    const context = { req: { user: { id: 'user-1' } } };
+
+    await resolver.myProviderSyncIncidentAlerts(
+      'workspace-1',
+      24,
+      100,
+      context,
+    );
+
+    expect(
+      emailProviderServiceMock.getProviderSyncIncidentAlertsForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      limit: 100,
+    });
+  });
+
+  it('delegates provider sync incident alert delivery export query to service', async () => {
+    emailProviderServiceMock.exportProviderSyncIncidentAlertDeliveryDataForUser.mockResolvedValue(
+      {
+        generatedAtIso: '2026-02-16T00:00:00.000Z',
+        dataJson: '{"stats":{"totalAlerts":3}}',
+      },
+    );
+    const context = { req: { user: { id: 'user-1' } } };
+
+    const result = await resolver.myProviderSyncIncidentAlertDeliveryDataExport(
+      'workspace-1',
+      24,
+      60,
+      100,
+      context,
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        generatedAtIso: '2026-02-16T00:00:00.000Z',
+      }),
+    );
+    expect(
+      emailProviderServiceMock.exportProviderSyncIncidentAlertDeliveryDataForUser,
     ).toHaveBeenCalledWith({
       userId: 'user-1',
       workspaceId: 'workspace-1',

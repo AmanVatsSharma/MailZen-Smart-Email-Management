@@ -1073,6 +1073,317 @@ export class EmailProviderService {
     };
   }
 
+  private resolveProviderSyncIncidentAlertStatus(
+    notification: UserNotification,
+  ): 'WARNING' | 'CRITICAL' | 'UNKNOWN' {
+    const rawStatus = notification.metadata?.status;
+    if (typeof rawStatus !== 'string') return 'UNKNOWN';
+    const normalized = rawStatus.trim().toUpperCase();
+    if (normalized === 'WARNING') return 'WARNING';
+    if (normalized === 'CRITICAL') return 'CRITICAL';
+    return 'UNKNOWN';
+  }
+
+  private resolveProviderSyncIncidentAlertFloatMetadata(
+    notification: UserNotification,
+    key: string,
+  ): number {
+    const rawValue = notification.metadata?.[key];
+    const numericValue = Number(rawValue);
+    if (!Number.isFinite(numericValue)) return 0;
+    return Math.round(numericValue * 100) / 100;
+  }
+
+  private resolveProviderSyncIncidentAlertIntMetadata(
+    notification: UserNotification,
+    key: string,
+  ): number {
+    const rawValue = notification.metadata?.[key];
+    const numericValue = Number(rawValue);
+    if (!Number.isFinite(numericValue)) return 0;
+    return Math.trunc(numericValue);
+  }
+
+  private async listProviderSyncIncidentAlertNotifications(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    order?: 'ASC' | 'DESC';
+    limit?: number | null;
+  }): Promise<UserNotification[]> {
+    const normalizedWorkspaceId = String(input.workspaceId || '').trim();
+    const normalizedWindowHours = this.normalizeSyncStatsWindowHours(
+      input.windowHours,
+    );
+    const windowStart = new Date(
+      Date.now() - normalizedWindowHours * 60 * 60 * 1000,
+    );
+    const baseWhere = {
+      userId: input.userId,
+      type: 'PROVIDER_SYNC_INCIDENT_ALERT',
+      createdAt: MoreThanOrEqual(windowStart),
+    };
+    const whereClause = normalizedWorkspaceId
+      ? [
+          { ...baseWhere, workspaceId: normalizedWorkspaceId },
+          { ...baseWhere, workspaceId: IsNull() },
+        ]
+      : baseWhere;
+    const normalizedOrder = input.order === 'ASC' ? 'ASC' : 'DESC';
+    const normalizedLimit =
+      typeof input.limit === 'number' && Number.isFinite(input.limit)
+        ? this.normalizeProviderSyncAlertHistoryLimit(input.limit)
+        : null;
+    return this.notificationRepository.find({
+      where: whereClause,
+      order: { createdAt: normalizedOrder },
+      take: normalizedLimit || undefined,
+    });
+  }
+
+  async getProviderSyncIncidentAlertDeliveryStatsForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+  }): Promise<{
+    workspaceId?: string | null;
+    windowHours: number;
+    totalAlerts: number;
+    warningAlerts: number;
+    criticalAlerts: number;
+    lastAlertAtIso?: string | null;
+  }> {
+    const normalizedWorkspaceId = String(input.workspaceId || '').trim();
+    const normalizedWindowHours = this.normalizeSyncStatsWindowHours(
+      input.windowHours,
+    );
+    const notifications = await this.listProviderSyncIncidentAlertNotifications({
+      userId: input.userId,
+      workspaceId: normalizedWorkspaceId || null,
+      windowHours: normalizedWindowHours,
+      order: 'ASC',
+    });
+    let warningAlerts = 0;
+    let criticalAlerts = 0;
+    for (const notification of notifications) {
+      const status = this.resolveProviderSyncIncidentAlertStatus(notification);
+      if (status === 'WARNING') warningAlerts += 1;
+      if (status === 'CRITICAL') criticalAlerts += 1;
+    }
+    const lastNotification = notifications[notifications.length - 1];
+    return {
+      workspaceId: normalizedWorkspaceId || null,
+      windowHours: normalizedWindowHours,
+      totalAlerts: notifications.length,
+      warningAlerts,
+      criticalAlerts,
+      lastAlertAtIso: lastNotification
+        ? lastNotification.createdAt.toISOString()
+        : null,
+    };
+  }
+
+  async getProviderSyncIncidentAlertDeliverySeriesForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<
+    Array<{
+      bucketStart: Date;
+      totalAlerts: number;
+      warningAlerts: number;
+      criticalAlerts: number;
+    }>
+  > {
+    const normalizedWindowHours = this.normalizeSyncStatsWindowHours(
+      input.windowHours,
+    );
+    const normalizedBucketMinutes =
+      this.normalizeProviderSyncAlertBucketMinutes(input.bucketMinutes);
+    const notifications = await this.listProviderSyncIncidentAlertNotifications({
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+      windowHours: normalizedWindowHours,
+      order: 'ASC',
+    });
+    const bucketSizeMs = normalizedBucketMinutes * 60 * 1000;
+    const nowMs = Date.now();
+    const windowStartDate = new Date(
+      nowMs - normalizedWindowHours * 60 * 60 * 1000,
+    );
+    const windowStartMs =
+      Math.floor(windowStartDate.getTime() / bucketSizeMs) * bucketSizeMs;
+    const accumulator = new Map<
+      number,
+      { totalAlerts: number; warningAlerts: number; criticalAlerts: number }
+    >();
+    for (const notification of notifications) {
+      const bucketStartMs =
+        Math.floor(notification.createdAt.getTime() / bucketSizeMs) *
+        bucketSizeMs;
+      const bucket = accumulator.get(bucketStartMs) || {
+        totalAlerts: 0,
+        warningAlerts: 0,
+        criticalAlerts: 0,
+      };
+      bucket.totalAlerts += 1;
+      const status = this.resolveProviderSyncIncidentAlertStatus(notification);
+      if (status === 'WARNING') bucket.warningAlerts += 1;
+      if (status === 'CRITICAL') bucket.criticalAlerts += 1;
+      accumulator.set(bucketStartMs, bucket);
+    }
+
+    const series: Array<{
+      bucketStart: Date;
+      totalAlerts: number;
+      warningAlerts: number;
+      criticalAlerts: number;
+    }> = [];
+    for (let cursor = windowStartMs; cursor <= nowMs; cursor += bucketSizeMs) {
+      const bucket = accumulator.get(cursor) || {
+        totalAlerts: 0,
+        warningAlerts: 0,
+        criticalAlerts: 0,
+      };
+      series.push({
+        bucketStart: new Date(cursor),
+        totalAlerts: bucket.totalAlerts,
+        warningAlerts: bucket.warningAlerts,
+        criticalAlerts: bucket.criticalAlerts,
+      });
+    }
+    return series;
+  }
+
+  async getProviderSyncIncidentAlertsForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    limit?: number | null;
+  }): Promise<
+    Array<{
+      notificationId: string;
+      workspaceId?: string | null;
+      status: string;
+      title: string;
+      message: string;
+      errorProviderPercent: number;
+      errorProviders: number;
+      totalProviders: number;
+      warningErrorProviderPercent: number;
+      criticalErrorProviderPercent: number;
+      minErrorProviders: number;
+      createdAt: Date;
+    }>
+  > {
+    const normalizedLimit = this.normalizeProviderSyncAlertHistoryLimit(
+      input.limit,
+    );
+    const notifications = await this.listProviderSyncIncidentAlertNotifications({
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+      windowHours: input.windowHours,
+      order: 'DESC',
+      limit: normalizedLimit,
+    });
+    return notifications.map((notification) => ({
+      notificationId: notification.id,
+      workspaceId: notification.workspaceId || null,
+      status: this.resolveProviderSyncIncidentAlertStatus(notification),
+      title: notification.title,
+      message: notification.message,
+      errorProviderPercent: this.resolveProviderSyncIncidentAlertFloatMetadata(
+        notification,
+        'errorProviderPercent',
+      ),
+      errorProviders: this.resolveProviderSyncIncidentAlertIntMetadata(
+        notification,
+        'errorProviders',
+      ),
+      totalProviders: this.resolveProviderSyncIncidentAlertIntMetadata(
+        notification,
+        'totalProviders',
+      ),
+      warningErrorProviderPercent:
+        this.resolveProviderSyncIncidentAlertFloatMetadata(
+          notification,
+          'warningErrorProviderPercent',
+        ),
+      criticalErrorProviderPercent:
+        this.resolveProviderSyncIncidentAlertFloatMetadata(
+          notification,
+          'criticalErrorProviderPercent',
+        ),
+      minErrorProviders: this.resolveProviderSyncIncidentAlertIntMetadata(
+        notification,
+        'minErrorProviders',
+      ),
+      createdAt: notification.createdAt,
+    }));
+  }
+
+  async exportProviderSyncIncidentAlertDeliveryDataForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+    limit?: number | null;
+  }): Promise<{ generatedAtIso: string; dataJson: string }> {
+    const normalizedWorkspaceId =
+      String(input.workspaceId || '').trim() || null;
+    const normalizedWindowHours = this.normalizeSyncStatsWindowHours(
+      input.windowHours,
+    );
+    const normalizedBucketMinutes =
+      this.normalizeProviderSyncAlertBucketMinutes(input.bucketMinutes);
+    const normalizedLimit = this.normalizeProviderSyncAlertHistoryLimit(
+      input.limit,
+    );
+    const [stats, series, alerts] = await Promise.all([
+      this.getProviderSyncIncidentAlertDeliveryStatsForUser({
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId,
+        windowHours: normalizedWindowHours,
+      }),
+      this.getProviderSyncIncidentAlertDeliverySeriesForUser({
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId,
+        windowHours: normalizedWindowHours,
+        bucketMinutes: normalizedBucketMinutes,
+      }),
+      this.getProviderSyncIncidentAlertsForUser({
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId,
+        windowHours: normalizedWindowHours,
+        limit: normalizedLimit,
+      }),
+    ]);
+    const generatedAtIso = new Date().toISOString();
+    return {
+      generatedAtIso,
+      dataJson: JSON.stringify({
+        generatedAtIso,
+        workspaceId: normalizedWorkspaceId,
+        windowHours: normalizedWindowHours,
+        bucketMinutes: normalizedBucketMinutes,
+        limit: normalizedLimit,
+        stats,
+        series: series.map((point) => ({
+          bucketStartIso: point.bucketStart.toISOString(),
+          totalAlerts: point.totalAlerts,
+          warningAlerts: point.warningAlerts,
+          criticalAlerts: point.criticalAlerts,
+        })),
+        alertCount: alerts.length,
+        alerts: alerts.map((alert) => ({
+          ...alert,
+          createdAtIso: alert.createdAt.toISOString(),
+        })),
+      }),
+    };
+  }
+
   async listProvidersUi(userId: string, workspaceId?: string | null) {
     const normalizedWorkspaceId = String(workspaceId || '').trim();
     const providers = await this.providerRepository.find({
