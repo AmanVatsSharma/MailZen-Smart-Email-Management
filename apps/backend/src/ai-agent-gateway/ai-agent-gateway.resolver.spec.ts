@@ -5,6 +5,7 @@ describe('AiAgentGatewayResolver', () => {
     assist: jest.fn(),
     getPlatformHealth: jest.fn(),
     listAgentActionAuditsForUser: jest.fn(),
+    exportAgentActionDataForUser: jest.fn(),
   };
   const resolver = new AiAgentGatewayResolver(gatewayService as never);
 
@@ -29,6 +30,34 @@ describe('AiAgentGatewayResolver', () => {
     expect(gatewayService.listAgentActionAuditsForUser).toHaveBeenCalledWith({
       userId: 'user-1',
       limit: 15,
+    });
+  });
+
+  it('forwards user context to myAgentActionDataExport', async () => {
+    gatewayService.exportAgentActionDataForUser.mockResolvedValue({
+      generatedAtIso: '2026-02-16T00:00:00.000Z',
+      dataJson: '{"summary":{"totalAudits":1}}',
+    });
+
+    const result = await resolver.myAgentActionDataExport(
+      {
+        req: {
+          user: {
+            id: 'user-1',
+          },
+        },
+      },
+      150,
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        generatedAtIso: '2026-02-16T00:00:00.000Z',
+      }),
+    );
+    expect(gatewayService.exportAgentActionDataForUser).toHaveBeenCalledWith({
+      userId: 'user-1',
+      limit: 150,
     });
   });
 });

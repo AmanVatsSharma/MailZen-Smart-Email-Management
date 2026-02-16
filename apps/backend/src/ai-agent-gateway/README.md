@@ -20,6 +20,8 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - Persist executed agent-action audits (`agent_action_audits`) for compliance and debugging.
 - Provide `agentPlatformHealth` GraphQL probe with gateway metrics snapshot.
 - Expose `myAgentActionAudits(limit?)` query for authenticated audit review.
+- Expose `myAgentActionDataExport(limit?)` for authenticated JSON export of
+  agent action audit history.
 - Include current-period AI credit balance (`aiCreditsMonthlyLimit`,
   `aiCreditsUsed`, `aiCreditsRemaining`) in authenticated `agentAssist` responses.
 
@@ -49,9 +51,10 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - `inbox.summarize_thread`
   - `inbox.compose_reply_draft`
   - `inbox.schedule_followup`
-  with thread-aware summary/draft generation from synced messages.
+    with thread-aware summary/draft generation from synced messages.
 - 2026-02-15: Enriched follow-up action notifications with workspace/provider
   context metadata (`workspaceId`, `providerId`) for workspace-aware UX.
 - 2026-02-15: Added approval-token controls for non-trivial inbox actions.
 - 2026-02-15: Added agent action audit persistence with request correlation IDs.
 - 2026-02-16: Added billing-backed AI credit consumption enforcement.
+- 2026-02-16: Added user-scoped agent action audit data export query.

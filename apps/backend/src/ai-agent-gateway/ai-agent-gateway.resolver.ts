@@ -8,13 +8,14 @@
  * - Exposes a mutation for skill-scoped assistant interactions.
  * - Read agentAssist() first.
  */
-import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { randomUUID } from 'crypto';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
 import { AgentAssistInput } from './dto/agent-assist.input';
 import { AgentAssistResponse } from './dto/agent-assist.response';
+import { AgentActionDataExportResponse } from './dto/agent-action-data-export.response';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
 
@@ -66,6 +67,21 @@ export class AiAgentGatewayResolver {
     return this.gatewayService.listAgentActionAuditsForUser({
       userId,
       limit: typeof limit === 'number' ? limit : undefined,
+    });
+  }
+
+  @Query(() => AgentActionDataExportResponse, {
+    description: 'Export current user agent action audits',
+  })
+  @UseGuards(JwtAuthGuard)
+  async myAgentActionDataExport(
+    @Context() ctx: RequestContext,
+    @Args('limit', { type: () => Int, defaultValue: 200 }) limit: number,
+  ): Promise<AgentActionDataExportResponse> {
+    const userId = String(ctx.req?.user?.id || '').trim();
+    return this.gatewayService.exportAgentActionDataForUser({
+      userId,
+      limit,
     });
   }
 }

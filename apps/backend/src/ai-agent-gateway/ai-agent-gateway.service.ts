@@ -113,6 +113,8 @@ interface GatewayMetrics {
 @Injectable()
 export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AiAgentGatewayService.name);
+  private static readonly MIN_AUDIT_EXPORT_LIMIT = 1;
+  private static readonly MAX_AUDIT_EXPORT_LIMIT = 500;
   private readonly rateLimitWindowMs = 60_000;
   private readonly fallbackRateLimitCounters = new Map<
     string,
@@ -228,14 +230,12 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const userId = this.enforceSkillAccess(skill, requestMeta?.headers);
-      let aiCreditBalance:
-        | {
-            allowed: boolean;
-            monthlyLimit: number;
-            usedCredits: number;
-            remainingCredits: number;
-          }
-        | null = null;
+      let aiCreditBalance: {
+        allowed: boolean;
+        monthlyLimit: number;
+        usedCredits: number;
+        remainingCredits: number;
+      } | null = null;
       await this.enforceRateLimit(skill, requestMeta?.ip || 'unknown');
 
       const sanitizedPayload = this.buildSanitizedPayload(
@@ -443,6 +443,66 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       order: { createdAt: 'DESC' },
       take: limit,
     });
+  }
+
+  private normalizeAuditExportLimit(limit?: number): number {
+    if (typeof limit !== 'number' || !Number.isFinite(limit)) {
+      return 200;
+    }
+    const rounded = Math.trunc(limit);
+    if (rounded < AiAgentGatewayService.MIN_AUDIT_EXPORT_LIMIT) {
+      return AiAgentGatewayService.MIN_AUDIT_EXPORT_LIMIT;
+    }
+    if (rounded > AiAgentGatewayService.MAX_AUDIT_EXPORT_LIMIT) {
+      return AiAgentGatewayService.MAX_AUDIT_EXPORT_LIMIT;
+    }
+    return rounded;
+  }
+
+  async exportAgentActionDataForUser(input: {
+    userId: string;
+    limit?: number;
+  }): Promise<{ generatedAtIso: string; dataJson: string }> {
+    const userId = String(input.userId || '').trim();
+    if (!userId) {
+      throw new BadRequestException('Authenticated user id is required');
+    }
+    const limit = this.normalizeAuditExportLimit(input.limit);
+    const audits = await this.agentActionAuditRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+    const generatedAtIso = new Date().toISOString();
+    const dataJson = JSON.stringify({
+      exportVersion: 'v1',
+      generatedAtIso,
+      userId,
+      summary: {
+        totalAudits: audits.length,
+        executedCount: audits.filter((audit) => audit.executed).length,
+        blockedCount: audits.filter((audit) => !audit.executed).length,
+        approvalRequiredCount: audits.filter((audit) => audit.approvalRequired)
+          .length,
+      },
+      audits: audits.map((audit) => ({
+        id: audit.id,
+        requestId: audit.requestId,
+        skill: audit.skill,
+        action: audit.action,
+        executed: audit.executed,
+        approvalRequired: audit.approvalRequired,
+        approvalTokenSuffix: audit.approvalTokenSuffix || null,
+        message: audit.message,
+        metadata: audit.metadata || null,
+        createdAtIso: audit.createdAt.toISOString(),
+        updatedAtIso: audit.updatedAt.toISOString(),
+      })),
+    });
+    return {
+      generatedAtIso,
+      dataJson,
+    };
   }
 
   private enforceSkillAccess(

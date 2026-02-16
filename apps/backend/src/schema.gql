@@ -413,6 +413,7 @@ type Query {
   mySmartReplyDataExport(limit: Int! = 200): SmartReplyDataExportResponse!
   agentPlatformHealth: AgentPlatformHealthResponse!
   myAgentActionAudits(limit: Int): [AgentActionAudit!]!
+  myAgentActionDataExport(limit: Int! = 200): AgentActionDataExportResponse!
 }
 
 input EmailFilterInput {
@@ -535,6 +536,11 @@ type AgentActionAudit {
   metadata: String
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+type AgentActionDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
 }
 
 type SmartReplySettings {

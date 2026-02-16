@@ -667,4 +667,48 @@ describe('AiAgentGatewayService', () => {
       }),
     );
   });
+
+  it('exports user-scoped agent action audits snapshot', async () => {
+    const service = createService();
+    findAgentActionAuditMock.mockResolvedValue([
+      {
+        id: 'audit-1',
+        userId: 'user-1',
+        requestId: 'req-1',
+        skill: 'inbox',
+        action: 'inbox.compose_reply_draft',
+        executed: true,
+        approvalRequired: true,
+        approvalTokenSuffix: 'abcd1234',
+        message: 'Draft created',
+        metadata: { threadId: 'thread-1' },
+        createdAt: new Date('2026-02-16T00:00:00.000Z'),
+        updatedAt: new Date('2026-02-16T00:00:00.000Z'),
+      },
+    ] as AgentActionAudit[]);
+
+    const result = await service.exportAgentActionDataForUser({
+      userId: 'user-1',
+      limit: 9999,
+    });
+    const payload = JSON.parse(result.dataJson) as {
+      summary: { totalAudits: number; executedCount: number };
+      audits: Array<{ id: string; executed: boolean }>;
+    };
+
+    expect(findAgentActionAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1' },
+        take: 500,
+      }),
+    );
+    expect(payload.summary.totalAudits).toBe(1);
+    expect(payload.summary.executedCount).toBe(1);
+    expect(payload.audits).toEqual([
+      expect.objectContaining({
+        id: 'audit-1',
+        executed: true,
+      }),
+    ]);
+  });
 });
