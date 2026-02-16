@@ -269,4 +269,25 @@ describe('dispatchSmsOtp', () => {
     expect(result.provider).toBe('TWILIO');
     expect(result.failureReason).toContain('status 503');
   });
+
+  it('throws in strict mode when twilio delivery fails', async () => {
+    process.env.MAILZEN_SMS_PROVIDER = 'TWILIO';
+    process.env.MAILZEN_SMS_STRICT_DELIVERY = 'true';
+    process.env.MAILZEN_SMS_TWILIO_ACCOUNT_SID = 'AC123';
+    process.env.MAILZEN_SMS_TWILIO_AUTH_TOKEN = 'token-abc';
+    process.env.MAILZEN_SMS_TWILIO_FROM_NUMBER = '+15551110000';
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 502,
+      text: () => Promise.resolve('down'),
+    } as Response);
+
+    await expect(
+      dispatchSmsOtp({
+        phoneNumber: '+15550000000',
+        code: '101010',
+        purpose: 'PHONE_VERIFY_OTP',
+      }),
+    ).rejects.toThrow('SMS delivery failed');
+  });
 });
