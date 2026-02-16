@@ -15,14 +15,22 @@ set -Eeuo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 DOMAIN=""
+DOMAIN_FLAG_SET=false
+DOMAIN_FLAG_VALUE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --domain)
-    DOMAIN="${2:-}"
-    if [[ -z "${DOMAIN}" ]]; then
+    domain_arg="${2:-}"
+    if [[ -z "${domain_arg}" ]]; then
       log_error "--domain requires a value."
       exit 1
     fi
+    if [[ "${DOMAIN_FLAG_SET}" == true ]] && [[ "${domain_arg}" != "${DOMAIN_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --domain '${DOMAIN_FLAG_VALUE}' overridden by --domain '${domain_arg}'."
+    fi
+    DOMAIN="${domain_arg}"
+    DOMAIN_FLAG_SET=true
+    DOMAIN_FLAG_VALUE="${domain_arg}"
     shift 2
     ;;
   *)

@@ -19,6 +19,10 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 DOMAIN=""
 EXPECTED_IP=""
+DOMAIN_FLAG_SET=false
+DOMAIN_FLAG_VALUE=""
+EXPECTED_IP_FLAG_SET=false
+EXPECTED_IP_FLAG_VALUE=""
 
 is_valid_ipv4() {
   local ip="$1"
@@ -40,19 +44,31 @@ is_valid_ipv4() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --domain)
-    DOMAIN="${2:-}"
-    if [[ -z "${DOMAIN}" ]]; then
+    domain_arg="${2:-}"
+    if [[ -z "${domain_arg}" ]]; then
       log_error "--domain requires a value."
       exit 1
     fi
+    if [[ "${DOMAIN_FLAG_SET}" == true ]] && [[ "${domain_arg}" != "${DOMAIN_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --domain '${DOMAIN_FLAG_VALUE}' overridden by --domain '${domain_arg}'."
+    fi
+    DOMAIN="${domain_arg}"
+    DOMAIN_FLAG_SET=true
+    DOMAIN_FLAG_VALUE="${domain_arg}"
     shift 2
     ;;
   --expected-ip)
-    EXPECTED_IP="${2:-}"
-    if [[ -z "${EXPECTED_IP}" ]]; then
+    expected_ip_arg="${2:-}"
+    if [[ -z "${expected_ip_arg}" ]]; then
       log_error "--expected-ip requires a value."
       exit 1
     fi
+    if [[ "${EXPECTED_IP_FLAG_SET}" == true ]] && [[ "${expected_ip_arg}" != "${EXPECTED_IP_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --expected-ip '${EXPECTED_IP_FLAG_VALUE}' overridden by --expected-ip '${expected_ip_arg}'."
+    fi
+    EXPECTED_IP="${expected_ip_arg}"
+    EXPECTED_IP_FLAG_SET=true
+    EXPECTED_IP_FLAG_VALUE="${expected_ip_arg}"
     shift 2
     ;;
   *)
@@ -100,7 +116,7 @@ printf '%s\n' "${resolved_ips}" | while IFS= read -r ip; do
 done
 
 if [[ -n "${EXPECTED_IP}" ]]; then
-  if printf '%s\n' "${resolved_ips}" | grep -qx "${EXPECTED_IP}"; then
+  if printf '%s\n' "${resolved_ips}" | awk -v expected="${EXPECTED_IP}" '$0 == expected {found=1} END {exit found ? 0 : 1}'; then
     log_info "Expected IP match confirmed: ${EXPECTED_IP}"
   else
     log_error "Expected IP not found in DNS answers: ${EXPECTED_IP}"
