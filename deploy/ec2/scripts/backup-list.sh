@@ -20,6 +20,10 @@ BACKUP_DIR="${DEPLOY_DIR}/backups"
 LATEST_ONLY=false
 MAX_COUNT=""
 LABEL_FILTER=""
+COUNT_FLAG_SET=false
+COUNT_FLAG_VALUE=""
+LABEL_FLAG_SET=false
+LABEL_FLAG_VALUE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -28,19 +32,31 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --count)
-    MAX_COUNT="${2:-}"
-    if [[ -z "${MAX_COUNT}" ]]; then
+    count_arg="${2:-}"
+    if [[ -z "${count_arg}" ]]; then
       log_error "--count requires a value."
       exit 1
     fi
+    if [[ "${COUNT_FLAG_SET}" == true ]] && [[ "${count_arg}" != "${COUNT_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --count '${COUNT_FLAG_VALUE}' overridden by --count '${count_arg}'."
+    fi
+    MAX_COUNT="${count_arg}"
+    COUNT_FLAG_SET=true
+    COUNT_FLAG_VALUE="${count_arg}"
     shift 2
     ;;
   --label)
-    LABEL_FILTER="${2:-}"
-    if [[ -z "${LABEL_FILTER}" ]]; then
+    label_arg="${2:-}"
+    if [[ -z "${label_arg}" ]]; then
       log_error "--label requires a value."
       exit 1
     fi
+    if [[ "${LABEL_FLAG_SET}" == true ]] && [[ "${label_arg}" != "${LABEL_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --label '${LABEL_FLAG_VALUE}' overridden by --label '${label_arg}'."
+    fi
+    LABEL_FILTER="${label_arg}"
+    LABEL_FLAG_SET=true
+    LABEL_FLAG_VALUE="${label_arg}"
     shift 2
     ;;
   *)
