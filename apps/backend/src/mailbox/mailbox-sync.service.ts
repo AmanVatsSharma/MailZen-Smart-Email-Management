@@ -2169,6 +2169,21 @@ export class MailboxSyncService {
         rejectedMessages: summary.rejectedMessages,
       }),
     );
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'mailbox_sync_manual_poll_requested',
+      metadata: {
+        workspaceId: normalizedWorkspaceId,
+        mailboxId: normalizedMailboxId,
+        polledMailboxes: summary.polledMailboxes,
+        skippedMailboxes: summary.skippedMailboxes,
+        failedMailboxes: summary.failedMailboxes,
+        fetchedMessages: summary.fetchedMessages,
+        acceptedMessages: summary.acceptedMessages,
+        deduplicatedMessages: summary.deduplicatedMessages,
+        rejectedMessages: summary.rejectedMessages,
+      },
+    });
     return summary;
   }
 }

@@ -1139,6 +1139,12 @@ describe('MailboxSyncService', () => {
       deduplicatedMessages: 0,
       rejectedMessages: 0,
     });
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'mailbox_sync_manual_poll_requested',
+      }),
+    );
   });
 
   it('throws when explicit mailbox id is not owned by user', async () => {

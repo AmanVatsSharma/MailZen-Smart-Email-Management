@@ -466,6 +466,7 @@ flowchart TD
   - `mailbox_inbound_data_export_requested`
   - `mailbox_inbound_retention_purged`
   - `mailbox_sync_run_retention_purged`
+  - `mailbox_sync_manual_poll_requested`
   - `mailbox_sync_data_export_requested`
   - `mailbox_sync_incident_data_export_requested`
   - `mailbox_sync_incident_alert_history_export_requested`
