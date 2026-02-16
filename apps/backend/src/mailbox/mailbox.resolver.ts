@@ -8,6 +8,7 @@ import {
   Int,
 } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
+import { AdminGuard } from '../common/guards/admin.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { MailboxService } from './mailbox.service';
 import { MailboxInboundSlaScheduler } from './mailbox-inbound-sla.scheduler';
@@ -252,6 +253,30 @@ export class MailboxResolver {
   ): Promise<MailboxSyncDataExportResponse> {
     return this.mailboxSyncService.exportMailboxSyncDataForUser({
       userId: ctx.req.user.id,
+      mailboxId: mailboxId || null,
+      workspaceId: workspaceId || null,
+      limit: limit ?? null,
+      windowHours: windowHours ?? null,
+      bucketMinutes: bucketMinutes ?? null,
+    });
+  }
+
+  @Query(() => MailboxSyncDataExportResponse)
+  @UseGuards(AdminGuard)
+  async userMailboxSyncDataExport(
+    @Context() ctx: RequestContext,
+    @Args('userId') userId: string,
+    @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<MailboxSyncDataExportResponse> {
+    return this.mailboxSyncService.exportMailboxSyncDataForAdmin({
+      targetUserId: userId,
+      actorUserId: ctx.req.user.id,
       mailboxId: mailboxId || null,
       workspaceId: workspaceId || null,
       limit: limit ?? null,

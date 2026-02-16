@@ -25,6 +25,7 @@ describe('MailboxResolver', () => {
     getMailboxSyncRunStatsForUser: jest.fn(),
     getMailboxSyncRunSeriesForUser: jest.fn(),
     exportMailboxSyncDataForUser: jest.fn(),
+    exportMailboxSyncDataForAdmin: jest.fn(),
     getMailboxSyncIncidentStatsForUser: jest.fn(),
     getMailboxSyncIncidentSeriesForUser: jest.fn(),
     exportMailboxSyncIncidentDataForUser: jest.fn(),
@@ -431,6 +432,36 @@ describe('MailboxResolver', () => {
       bucketMinutes: 60,
     });
     expect(result.generatedAtIso).toBe('2026-02-16T00:00:00.000Z');
+  });
+
+  it('exports mailbox sync observability payload for target user as admin', async () => {
+    mailboxSyncServiceMock.exportMailboxSyncDataForAdmin.mockResolvedValue({
+      generatedAtIso: '2026-02-16T01:00:00.000Z',
+      dataJson: '{"stats":{"totalRuns":4}}',
+    });
+
+    const result = await resolver.userMailboxSyncDataExport(
+      ctx as any,
+      'user-2',
+      'mailbox-2',
+      'workspace-1',
+      40,
+      24,
+      60,
+    );
+
+    expect(
+      mailboxSyncServiceMock.exportMailboxSyncDataForAdmin,
+    ).toHaveBeenCalledWith({
+      targetUserId: 'user-2',
+      actorUserId: 'user-1',
+      mailboxId: 'mailbox-2',
+      workspaceId: 'workspace-1',
+      limit: 40,
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+    expect(result.generatedAtIso).toBe('2026-02-16T01:00:00.000Z');
   });
 
   it('purges mailbox sync run retention rows for current user', async () => {

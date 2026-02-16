@@ -58,6 +58,7 @@ This module covers:
     - `runMyMailboxInboundSlaAlertCheck(windowHours?: Int): MailboxInboundSlaAlertCheckResponse!`
     - `runMyMailboxSyncIncidentAlertCheck(windowHours?: Int, warningRatePercent?: Float, criticalRatePercent?: Float, minIncidentRuns?: Int): MailboxSyncIncidentAlertCheckResponse!`
     - `myMailboxSyncDataExport(mailboxId?: String, workspaceId?: String, limit?: Int, windowHours?: Int, bucketMinutes?: Int): MailboxSyncDataExportResponse!`
+    - `userMailboxSyncDataExport(userId: String!, mailboxId?: String, workspaceId?: String, limit?: Int, windowHours?: Int, bucketMinutes?: Int): MailboxSyncDataExportResponse!` (admin)
     - `purgeMyMailboxSyncRunRetentionData(retentionDays?: Int): MailboxSyncRunRetentionPurgeResponse!`
     - `purgeMyMailboxInboundRetentionData(retentionDays?: Int): MailboxInboundRetentionPurgeResponse!`
     - `syncMyMailboxPull(mailboxId?: String, workspaceId?: String): MailboxSyncRunResponse!`
@@ -422,6 +423,8 @@ flowchart TD
   - exports sync incident alert delivery analytics snapshot (stats + trend)
 - `myMailboxSyncDataExport`
   - exports sync run observability payload (stats + trend + recent runs) as JSON
+- `userMailboxSyncDataExport` (admin)
+  - exports target-user sync run observability payload for legal/compliance workflows
 - `purgeMyMailboxSyncRunRetentionData`
   - purges persisted mailbox sync run observability rows older than retention cutoff
 - `syncMyMailboxPull`
@@ -458,6 +461,8 @@ flowchart TD
 - `MailboxSyncService` emits structured pull-retry event:
   - `mailbox_sync_pull_retry_scheduled`
   - `mailbox_sync_audit_log_write_failed`
+  - `mailbox_sync_data_export_admin_start`
+  - `mailbox_sync_data_export_admin_completed`
 - `MailboxSyncRunRetentionScheduler` emits audit resilience event:
   - `mailbox_sync_run_retention_scheduler_audit_log_write_failed`
 - `MailboxInboundRetentionScheduler` emits audit resilience event:
@@ -488,6 +493,7 @@ flowchart TD
   - `mailbox_sync_run_retention_autopurge_skipped`
   - `mailbox_sync_manual_poll_requested`
   - `mailbox_sync_data_export_requested`
+  - `mailbox_sync_data_export_requested_by_admin`
   - `mailbox_sync_incident_data_export_requested`
   - `mailbox_sync_incident_alert_history_export_requested`
   - `mailbox_sync_incident_alert_delivery_export_requested`

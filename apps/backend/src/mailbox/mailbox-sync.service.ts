@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
@@ -2027,6 +2032,69 @@ export class MailboxSyncService {
         })),
       }),
     };
+  }
+
+  async exportMailboxSyncDataForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+    limit?: number | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const targetUserId = String(input.targetUserId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!targetUserId) {
+      throw new BadRequestException('Target user id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+    const normalizedMailboxId = String(input.mailboxId || '').trim() || null;
+    const normalizedWorkspaceId =
+      String(input.workspaceId || '').trim() || null;
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'mailbox_sync_data_export_admin_start',
+        actorUserId,
+        targetUserId,
+        mailboxId: normalizedMailboxId,
+        workspaceId: normalizedWorkspaceId,
+      }),
+    );
+    const exportPayload = await this.exportMailboxSyncDataForUser({
+      userId: targetUserId,
+      mailboxId: normalizedMailboxId,
+      workspaceId: normalizedWorkspaceId,
+      limit: input.limit ?? null,
+      windowHours: input.windowHours ?? null,
+      bucketMinutes: input.bucketMinutes ?? null,
+    });
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'mailbox_sync_data_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        mailboxId: normalizedMailboxId,
+        workspaceId: normalizedWorkspaceId,
+        generatedAtIso: exportPayload.generatedAtIso,
+        selfRequested: actorUserId === targetUserId,
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'mailbox_sync_data_export_admin_completed',
+        actorUserId,
+        targetUserId,
+        mailboxId: normalizedMailboxId,
+        workspaceId: normalizedWorkspaceId,
+      }),
+    );
+    return exportPayload;
   }
 
   async purgeMailboxSyncRunRetentionData(input: {

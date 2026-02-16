@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { BadRequestException } from '@nestjs/common';
 import axios from 'axios';
 import { Repository, UpdateResult } from 'typeorm';
 import { AuditLog } from '../auth/entities/audit-log.entity';
@@ -743,6 +744,117 @@ describe('MailboxSyncService', () => {
         action: 'mailbox_sync_data_export_requested',
       }),
     );
+  });
+
+  it('exports mailbox sync observability payload for admin legal request', async () => {
+    const statsSpy = jest
+      .spyOn(service, 'getMailboxSyncRunStatsForUser')
+      .mockResolvedValue({
+        mailboxId: 'mailbox-1',
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        totalRuns: 2,
+        successRuns: 2,
+        partialRuns: 0,
+        failedRuns: 0,
+        skippedRuns: 0,
+        schedulerRuns: 2,
+        manualRuns: 0,
+        fetchedMessages: 5,
+        acceptedMessages: 5,
+        deduplicatedMessages: 0,
+        rejectedMessages: 0,
+        avgDurationMs: 100,
+        latestCompletedAtIso: '2026-02-16T00:00:00.000Z',
+      });
+    const seriesSpy = jest
+      .spyOn(service, 'getMailboxSyncRunSeriesForUser')
+      .mockResolvedValue([]);
+    const runsSpy = jest
+      .spyOn(service, 'getMailboxSyncRunsForUser')
+      .mockResolvedValue([]);
+
+    const exported = await service.exportMailboxSyncDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
+      limit: 25,
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+
+    expect(statsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+      }),
+    );
+    expect(seriesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+      }),
+    );
+    expect(runsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+      }),
+    );
+    expect(exported.dataJson).toContain('"stats"');
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'mailbox_sync_data_export_requested_by_admin',
+        metadata: expect.objectContaining({
+          targetUserId: 'user-2',
+        }),
+      }),
+    );
+  });
+
+  it('does not fail admin mailbox sync export when admin audit write fails', async () => {
+    jest.spyOn(service, 'getMailboxSyncRunStatsForUser').mockResolvedValue({
+      mailboxId: null,
+      workspaceId: null,
+      windowHours: 24,
+      totalRuns: 0,
+      successRuns: 0,
+      partialRuns: 0,
+      failedRuns: 0,
+      skippedRuns: 0,
+      schedulerRuns: 0,
+      manualRuns: 0,
+      fetchedMessages: 0,
+      acceptedMessages: 0,
+      deduplicatedMessages: 0,
+      rejectedMessages: 0,
+      avgDurationMs: 0,
+      latestCompletedAtIso: undefined,
+    });
+    jest.spyOn(service, 'getMailboxSyncRunSeriesForUser').mockResolvedValue([]);
+    jest.spyOn(service, 'getMailboxSyncRunsForUser').mockResolvedValue([]);
+    auditLogRepo.save
+      .mockResolvedValueOnce({ id: 'audit-log-1' } as AuditLog)
+      .mockRejectedValueOnce(new Error('audit datastore unavailable'));
+
+    const exported = await service.exportMailboxSyncDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      limit: 10,
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+
+    expect(exported.generatedAtIso).toBeTruthy();
+    expect(exported.dataJson).toContain('"stats"');
+  });
+
+  it('rejects admin mailbox sync export when actor user id is missing', async () => {
+    await expect(
+      service.exportMailboxSyncDataForAdmin({
+        targetUserId: 'user-2',
+        actorUserId: '',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('returns mailbox sync incident stats for user', async () => {
