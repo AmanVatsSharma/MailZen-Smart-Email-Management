@@ -64,7 +64,12 @@ flowchart TD
 
 - Always run `preflight.sh` before deploy/update.
 - Prefer `verify.sh` immediately after deploy/update.
-- Take a fresh `backup-db.sh --label <change>` before risky changes.
+- Take a fresh labeled backup before risky changes:
+  - `backup-db.sh --label <change>`
+- Use label-aware recovery/scoping when needed:
+  - `backup-list.sh --label <change> --count 5`
+  - `backup-prune.sh --label <change> --keep-count 5 --dry-run`
+  - `rollback-latest.sh --label <change> --dry-run`
 - Use dry-run guards for destructive/data-affecting operations:
   - `backup-db.sh --dry-run`
   - `restore-db.sh --dry-run`
@@ -76,6 +81,8 @@ flowchart TD
 - Run `env-audit.sh` whenever secrets/domains are updated.
 - Run `doctor.sh` and share report output during incident triage.
 - Run `support-bundle.sh` to package diagnostics for escalation/support.
+- Use `rotate-app-secrets.sh --keys <k1,k2> --dry-run` before live secret
+  rotations.
 - Use seeded diagnostics for CI/offline validation:
   - `doctor.sh --seed-env`
   - `support-bundle.sh --seed-env`
