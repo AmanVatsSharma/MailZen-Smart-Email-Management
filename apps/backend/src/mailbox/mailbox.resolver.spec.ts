@@ -14,6 +14,7 @@ describe('MailboxResolver', () => {
     getInboundEventSeries: jest.fn(),
     exportInboundEventData: jest.fn(),
     purgeInboundEventRetentionData: jest.fn(),
+    getProvisioningHealthSummary: jest.fn(),
   };
   const mailboxSyncServiceMock = {
     listMailboxSyncStatesForUser: jest.fn(),
@@ -64,6 +65,34 @@ describe('MailboxResolver', () => {
       'workspace-1',
     );
     expect(result).toEqual(['sales@mailzen.com', 'ops@mailzen.com']);
+  });
+
+  it('returns mailbox provisioning health summary for current user', () => {
+    mailboxServiceMock.getProvisioningHealthSummary.mockReturnValue({
+      provider: 'GENERIC',
+      provisioningRequired: true,
+      adminApiConfigured: true,
+      configuredEndpointCount: 2,
+      configuredEndpoints: [
+        'https://mail-admin-a.local',
+        'https://mail-admin-b.local',
+      ],
+      failoverEnabled: true,
+      requestTimeoutMs: 5000,
+      maxRetries: 2,
+      retryBackoffMs: 300,
+      retryJitterMs: 150,
+      mailcowQuotaDefaultMb: 51200,
+      evaluatedAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    const result = resolver.myMailboxProvisioningHealth();
+
+    expect(
+      mailboxServiceMock.getProvisioningHealthSummary,
+    ).toHaveBeenCalledTimes(1);
+    expect(result.failoverEnabled).toBe(true);
+    expect(result.configuredEndpointCount).toBe(2);
   });
 
   it('forwards mailbox inbound event filters to service', async () => {

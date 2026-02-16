@@ -992,6 +992,7 @@ extend type Query {
     windowHours: Int
     bucketMinutes: Int
   ): MailboxInboundDataExportResponse!
+  myMailboxProvisioningHealth: MailboxProvisioningHealthResponse!
   myMailboxSyncStates(
     workspaceId: String
   ): [MailboxSyncStateResponse!]!
@@ -1243,6 +1244,21 @@ type MailboxSyncStateResponse {
   inboundSyncLastError: String
   inboundSyncLastErrorAt: DateTime
   inboundSyncLeaseExpiresAt: DateTime
+}
+
+type MailboxProvisioningHealthResponse {
+  provider: String!
+  provisioningRequired: Boolean!
+  adminApiConfigured: Boolean!
+  configuredEndpointCount: Int!
+  configuredEndpoints: [String!]!
+  failoverEnabled: Boolean!
+  requestTimeoutMs: Int!
+  maxRetries: Int!
+  retryBackoffMs: Int!
+  retryJitterMs: Int!
+  mailcowQuotaDefaultMb: Int!
+  evaluatedAtIso: String!
 }
 
 type MailboxSyncRunResponse {

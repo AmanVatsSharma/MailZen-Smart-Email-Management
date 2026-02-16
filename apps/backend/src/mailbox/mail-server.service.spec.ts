@@ -27,9 +27,11 @@ describe('MailServerService', () => {
     delete process.env.MAILZEN_MAIL_ADMIN_API_TOKEN;
     delete process.env.MAILZEN_MAIL_ADMIN_PROVIDER;
     delete process.env.MAILZEN_MAIL_ADMIN_REQUIRED;
+    delete process.env.MAILZEN_MAIL_ADMIN_API_TIMEOUT_MS;
     delete process.env.MAILZEN_MAIL_ADMIN_API_RETRIES;
     delete process.env.MAILZEN_MAIL_ADMIN_API_RETRY_BACKOFF_MS;
     delete process.env.MAILZEN_MAIL_ADMIN_API_RETRY_JITTER_MS;
+    delete process.env.MAILZEN_MAIL_ADMIN_MAILCOW_QUOTA_MB;
     delete process.env.MAILZEN_MAIL_ADMIN_API_TOKEN_HEADER;
     mockedAxios.isAxiosError.mockImplementation((value: unknown) =>
       Boolean((value as { isAxiosError?: boolean } | null)?.isAxiosError),
@@ -88,6 +90,39 @@ describe('MailServerService', () => {
       InternalServerErrorException,
     );
     expect(mailboxRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('returns provisioning health snapshot with endpoint normalization', () => {
+    process.env.MAILZEN_MAIL_ADMIN_API_URLS =
+      'https://mail-admin-a.local/, https://mail-admin-a.local, https://mail-admin-b.local//';
+    process.env.MAILZEN_MAIL_ADMIN_PROVIDER = 'MAILCOW';
+    process.env.MAILZEN_MAIL_ADMIN_REQUIRED = 'true';
+    process.env.MAILZEN_MAIL_ADMIN_API_TIMEOUT_MS = '7200';
+    process.env.MAILZEN_MAIL_ADMIN_API_RETRIES = '4';
+    process.env.MAILZEN_MAIL_ADMIN_API_RETRY_BACKOFF_MS = '450';
+    process.env.MAILZEN_MAIL_ADMIN_API_RETRY_JITTER_MS = '200';
+    process.env.MAILZEN_MAIL_ADMIN_MAILCOW_QUOTA_MB = '64000';
+    const service = new MailServerService(
+      mailboxRepo as unknown as Repository<Mailbox>,
+    );
+
+    const snapshot = service.getProvisioningHealthSnapshot();
+
+    expect(snapshot.provider).toBe('MAILCOW');
+    expect(snapshot.provisioningRequired).toBe(true);
+    expect(snapshot.adminApiConfigured).toBe(true);
+    expect(snapshot.configuredEndpointCount).toBe(2);
+    expect(snapshot.configuredEndpoints).toEqual([
+      'https://mail-admin-a.local',
+      'https://mail-admin-b.local',
+    ]);
+    expect(snapshot.failoverEnabled).toBe(true);
+    expect(snapshot.requestTimeoutMs).toBe(7200);
+    expect(snapshot.maxRetries).toBe(4);
+    expect(snapshot.retryBackoffMs).toBe(450);
+    expect(snapshot.retryJitterMs).toBe(200);
+    expect(snapshot.mailcowQuotaDefaultMb).toBe(64000);
+    expect(snapshot.evaluatedAtIso).toEqual(expect.any(String));
   });
 
   it('throws when mailbox row cannot be updated', async () => {
@@ -170,17 +205,13 @@ describe('MailServerService', () => {
     expect(mockedAxios.post).toHaveBeenCalledTimes(2);
     expect(mockedAxios.post).toHaveBeenNthCalledWith(
       1,
-      expect.stringMatching(
-        /^https:\/\/mail-admin-a\.local\/mailboxes$/,
-      ),
+      expect.stringMatching(/^https:\/\/mail-admin-a\.local\/mailboxes$/),
       expect.any(Object),
       expect.any(Object),
     );
     expect(mockedAxios.post).toHaveBeenNthCalledWith(
       2,
-      expect.stringMatching(
-        /^https:\/\/mail-admin-b\.local\/mailboxes$/,
-      ),
+      expect.stringMatching(/^https:\/\/mail-admin-b\.local\/mailboxes$/),
       expect.any(Object),
       expect.any(Object),
     );

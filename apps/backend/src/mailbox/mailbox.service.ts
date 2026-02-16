@@ -12,7 +12,10 @@ import {
   BillingService,
 } from '../billing/billing.service';
 import { WorkspaceService } from '../workspace/workspace.service';
-import { MailServerService } from './mail-server.service';
+import {
+  MailboxProvisioningHealthSnapshot,
+  MailServerService,
+} from './mail-server.service';
 import { Mailbox } from './entities/mailbox.entity';
 import { User } from '../user/entities/user.entity';
 import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
@@ -185,6 +188,10 @@ export class MailboxService {
         : { userId },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  getProvisioningHealthSummary(): MailboxProvisioningHealthSnapshot {
+    return this.mailServer.getProvisioningHealthSnapshot();
   }
 
   async getInboundEvents(

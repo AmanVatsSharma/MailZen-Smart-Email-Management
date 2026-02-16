@@ -25,6 +25,7 @@ describe('MailboxService', () => {
   };
   const mailServer = {
     provisionMailbox: jest.fn(),
+    getProvisioningHealthSnapshot: jest.fn(),
   };
   const billingService = {
     getEntitlements: jest.fn().mockResolvedValue({
@@ -90,6 +91,20 @@ describe('MailboxService', () => {
       aiCreditsPerMonth: 500,
       mailboxStorageLimitMb: 10240,
     });
+    mailServer.getProvisioningHealthSnapshot.mockReturnValue({
+      provider: 'GENERIC',
+      provisioningRequired: false,
+      adminApiConfigured: false,
+      configuredEndpointCount: 0,
+      configuredEndpoints: [],
+      failoverEnabled: false,
+      requestTimeoutMs: 5000,
+      maxRetries: 2,
+      retryBackoffMs: 300,
+      retryJitterMs: 150,
+      mailcowQuotaDefaultMb: 51200,
+      evaluatedAtIso: '2026-02-16T00:00:00.000Z',
+    });
   });
 
   afterEach(() => {
@@ -111,6 +126,19 @@ describe('MailboxService', () => {
     } else {
       delete process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT;
     }
+  });
+
+  it('returns mailbox provisioning health summary from mail server service', () => {
+    const result = service.getProvisioningHealthSummary();
+
+    expect(mailServer.getProvisioningHealthSnapshot).toHaveBeenCalledTimes(1);
+    expect(result).toEqual(
+      expect.objectContaining({
+        provider: 'GENERIC',
+        configuredEndpointCount: 0,
+        failoverEnabled: false,
+      }),
+    );
   });
 
   it('rejects invalid desired local part', async () => {

@@ -37,6 +37,7 @@ This module covers:
   - GraphQL:
     - `createMyMailbox(desiredLocalPart?: String): String!`
     - `myMailboxes(workspaceId?: String): [String!]!`
+    - `myMailboxProvisioningHealth: MailboxProvisioningHealthResponse!`
     - `myMailboxInboundEvents(mailboxId?: String, workspaceId?: String, status?: String, limit?: Int): [MailboxInboundEventObservabilityResponse!]!`
     - `myMailboxInboundEventStats(mailboxId?: String, workspaceId?: String, windowHours?: Int): MailboxInboundEventStatsResponse!`
     - `myMailboxInboundEventSeries(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxInboundEventTrendPointResponse!]!`

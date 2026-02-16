@@ -12,6 +12,7 @@ import {
 import { MailboxInboundRetentionPurgeResponse } from './dto/mailbox-inbound-retention-purge.response';
 import { MailboxSyncStateResponse } from './dto/mailbox-sync-state.response';
 import { MailboxSyncRunResponse } from './dto/mailbox-sync-run.response';
+import { MailboxProvisioningHealthResponse } from './dto/mailbox-provisioning-health.response';
 
 interface RequestContext {
   req: { user: { id: string } };
@@ -48,6 +49,14 @@ export class MailboxResolver {
       workspaceId,
     );
     return boxes.map((b) => b.email);
+  }
+
+  @Query(() => MailboxProvisioningHealthResponse, {
+    description:
+      'Get mailbox provisioning admin API readiness and failover configuration',
+  })
+  myMailboxProvisioningHealth(): MailboxProvisioningHealthResponse {
+    return this.mailboxService.getProvisioningHealthSummary();
   }
 
   @Query(() => [MailboxInboundEventObservabilityResponse])

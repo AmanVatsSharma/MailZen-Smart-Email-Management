@@ -14,6 +14,21 @@ import {
   resolveProviderSecretsKeyring,
 } from '../common/provider-secrets.util';
 
+export interface MailboxProvisioningHealthSnapshot {
+  provider: string;
+  provisioningRequired: boolean;
+  adminApiConfigured: boolean;
+  configuredEndpointCount: number;
+  configuredEndpoints: string[];
+  failoverEnabled: boolean;
+  requestTimeoutMs: number;
+  maxRetries: number;
+  retryBackoffMs: number;
+  retryJitterMs: number;
+  mailcowQuotaDefaultMb: number;
+  evaluatedAtIso: string;
+}
+
 @Injectable()
 export class MailServerService {
   private readonly logger = new Logger(MailServerService.name);
@@ -474,6 +489,24 @@ export class MailServerService {
         );
       }
     }
+  }
+
+  getProvisioningHealthSnapshot(): MailboxProvisioningHealthSnapshot {
+    const configuredEndpoints = this.resolveAdminApiBaseUrls();
+    return {
+      provider: this.resolveMailAdminProvider(),
+      provisioningRequired: this.isExternalProvisioningRequired(),
+      adminApiConfigured: configuredEndpoints.length > 0,
+      configuredEndpointCount: configuredEndpoints.length,
+      configuredEndpoints,
+      failoverEnabled: configuredEndpoints.length > 1,
+      requestTimeoutMs: this.getAdminApiTimeoutMs(),
+      maxRetries: this.getAdminApiRetries(),
+      retryBackoffMs: this.getAdminApiBackoffMs(),
+      retryJitterMs: this.getAdminApiJitterMs(),
+      mailcowQuotaDefaultMb: this.resolveMailcowQuotaMb(),
+      evaluatedAtIso: new Date().toISOString(),
+    };
   }
 
   // Provision a mailbox on a self-hosted stack and store encrypted IMAP/SMTP credentials.
