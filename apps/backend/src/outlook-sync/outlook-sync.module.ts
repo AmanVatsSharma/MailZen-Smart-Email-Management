@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
@@ -15,6 +16,7 @@ import { OutlookSyncWebhookController } from './outlook-sync-webhook.controller'
       EmailProvider,
       ExternalEmailLabel,
       ExternalEmailMessage,
+      AuditLog,
     ]),
     NotificationModule,
   ],

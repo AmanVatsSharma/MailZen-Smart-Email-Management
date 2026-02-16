@@ -10,6 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
 import { OAuth2Client } from 'google-auth-library';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import {
   decryptProviderSecret,
   encryptProviderSecret,
@@ -84,6 +85,8 @@ export class GmailSyncService {
     private readonly externalEmailLabelRepo: Repository<ExternalEmailLabel>,
     @InjectRepository(ExternalEmailMessage)
     private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly providerSyncLease: ProviderSyncLeaseService,
   ) {
     this.providerSecretsKeyring = resolveProviderSecretsKeyring();
@@ -94,6 +97,30 @@ export class GmailSyncService {
       process.env.GOOGLE_PROVIDER_REDIRECT_URI ||
         process.env.GOOGLE_REDIRECT_URI,
     );
+  }
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'gmail_sync_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
   }
 
   private async ensureFreshGmailAccessToken(provider: any): Promise<string> {
@@ -512,12 +539,36 @@ export class GmailSyncService {
       }
 
       try {
-        await this.syncGmailProvider(provider.id, provider.userId, maxMessages);
+        const syncResult = await this.syncGmailProvider(
+          provider.id,
+          provider.userId,
+          maxMessages,
+        );
+        await this.writeAuditLog({
+          userId: provider.userId,
+          action: 'gmail_push_notification_processed',
+          metadata: {
+            providerId: provider.id,
+            webhookHistoryId,
+            maxMessages,
+            importedMessages: syncResult.imported,
+          },
+        });
         processedProviders += 1;
       } catch (error: unknown) {
         skippedProviders += 1;
         const errorMessage =
           error instanceof Error ? error.message : String(error);
+        await this.writeAuditLog({
+          userId: provider.userId,
+          action: 'gmail_push_notification_failed',
+          metadata: {
+            providerId: provider.id,
+            webhookHistoryId,
+            maxMessages,
+            error: errorMessage,
+          },
+        });
         this.logger.warn(
           serializeStructuredLog({
             event: 'gmail_push_notification_provider_failed',

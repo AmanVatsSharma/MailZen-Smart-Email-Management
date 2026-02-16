@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument */
 import axios from 'axios';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
@@ -22,6 +23,7 @@ describe('GmailSyncService', () => {
   let emailProviderRepo: jest.Mocked<Repository<EmailProvider>>;
   let labelRepo: jest.Mocked<Repository<ExternalEmailLabel>>;
   let messageRepo: jest.Mocked<Repository<ExternalEmailMessage>>;
+  let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
   let providerSyncLease: jest.Mocked<
     Pick<ProviderSyncLeaseService, 'acquireProviderSyncLease'>
   >;
@@ -40,6 +42,10 @@ describe('GmailSyncService', () => {
       upsert: jest.fn(),
       find: jest.fn(),
     } as unknown as jest.Mocked<Repository<ExternalEmailMessage>>;
+    auditLogRepo = {
+      create: jest.fn((payload: unknown) => payload as AuditLog),
+      save: jest.fn().mockResolvedValue({} as AuditLog),
+    } as unknown as jest.Mocked<Repository<AuditLog>>;
     providerSyncLease = {
       acquireProviderSyncLease: jest.fn().mockResolvedValue(true),
     };
@@ -48,6 +54,7 @@ describe('GmailSyncService', () => {
       emailProviderRepo,
       labelRepo,
       messageRepo,
+      auditLogRepo,
       providerSyncLease as unknown as ProviderSyncLeaseService,
     );
   });
@@ -258,6 +265,12 @@ describe('GmailSyncService', () => {
       { gmailHistoryId: '120' },
     );
     expect(syncSpy).toHaveBeenCalledWith(providerId, userId, 25);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId,
+        action: 'gmail_push_notification_processed',
+      }),
+    );
   });
 
   it('skips processing when provider lease cannot be acquired', async () => {
@@ -285,6 +298,37 @@ describe('GmailSyncService', () => {
       skippedProviders: 1,
     });
     expect(syncSpy).not.toHaveBeenCalled();
+  });
+
+  it('records failed push processing audit action when sync throws', async () => {
+    emailProviderRepo.find.mockResolvedValue([
+      {
+        id: providerId,
+        userId,
+        type: 'GMAIL',
+        email: 'founder@mailzen.com',
+        isActive: true,
+      } as any,
+    ]);
+    jest
+      .spyOn(service, 'syncGmailProvider')
+      .mockRejectedValue(new Error('sync unavailable'));
+
+    const result = await service.processPushNotification({
+      emailAddress: 'founder@mailzen.com',
+      historyId: '121',
+    });
+
+    expect(result).toEqual({
+      processedProviders: 0,
+      skippedProviders: 1,
+    });
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId,
+        action: 'gmail_push_notification_failed',
+      }),
+    );
   });
 
   it('renews gmail push watch for provider when topic configured', async () => {

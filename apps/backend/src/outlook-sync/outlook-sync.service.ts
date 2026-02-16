@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import {
   decryptProviderSecret,
   encryptProviderSecret,
@@ -74,9 +75,36 @@ export class OutlookSyncService {
     private readonly externalEmailLabelRepo: Repository<ExternalEmailLabel>,
     @InjectRepository(ExternalEmailMessage)
     private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly providerSyncLease: ProviderSyncLeaseService,
   ) {
     this.providerSecretsKeyring = resolveProviderSecretsKeyring();
+  }
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'outlook_sync_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: message,
+        }),
+      );
+    }
   }
 
   private resolvePushSyncMaxMessages(): number {
@@ -548,16 +576,34 @@ export class OutlookSyncService {
       }
 
       try {
-        await this.syncOutlookProvider(
+        const syncResult = await this.syncOutlookProvider(
           provider.id,
           provider.userId,
           maxMessages,
         );
+        await this.writeAuditLog({
+          userId: provider.userId,
+          action: 'outlook_push_notification_processed',
+          metadata: {
+            providerId: provider.id,
+            maxMessages,
+            importedMessages: syncResult.imported,
+          },
+        });
         processedProviders += 1;
       } catch (error: unknown) {
         skippedProviders += 1;
         const errorMessage =
           error instanceof Error ? error.message : String(error);
+        await this.writeAuditLog({
+          userId: provider.userId,
+          action: 'outlook_push_notification_failed',
+          metadata: {
+            providerId: provider.id,
+            maxMessages,
+            error: errorMessage,
+          },
+        });
         this.logger.warn(
           serializeStructuredLog({
             event: 'outlook_push_notification_provider_failed',

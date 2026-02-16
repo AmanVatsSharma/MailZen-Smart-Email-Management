@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import axios from 'axios';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
@@ -27,6 +28,7 @@ describe('OutlookSyncService', () => {
   let emailProviderRepo: jest.Mocked<Repository<EmailProvider>>;
   let labelRepo: jest.Mocked<Repository<ExternalEmailLabel>>;
   let messageRepo: jest.Mocked<Repository<ExternalEmailMessage>>;
+  let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
   let providerSyncLease: jest.Mocked<
     Pick<ProviderSyncLeaseService, 'acquireProviderSyncLease'>
   >;
@@ -45,6 +47,10 @@ describe('OutlookSyncService', () => {
       upsert: jest.fn(),
       delete: jest.fn(),
     } as unknown as jest.Mocked<Repository<ExternalEmailMessage>>;
+    auditLogRepo = {
+      create: jest.fn((payload: unknown) => payload as AuditLog),
+      save: jest.fn().mockResolvedValue({} as AuditLog),
+    } as unknown as jest.Mocked<Repository<AuditLog>>;
     providerSyncLease = {
       acquireProviderSyncLease: jest.fn().mockResolvedValue(true),
     };
@@ -53,6 +59,7 @@ describe('OutlookSyncService', () => {
       emailProviderRepo,
       labelRepo,
       messageRepo,
+      auditLogRepo,
       providerSyncLease as unknown as ProviderSyncLeaseService,
     );
   });
@@ -356,6 +363,12 @@ describe('OutlookSyncService', () => {
       providerType: 'OUTLOOK',
     });
     expect(syncSpy).toHaveBeenCalledWith(providerId, userId, 25);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId,
+        action: 'outlook_push_notification_processed',
+      }),
+    );
   });
 
   it('skips push processing when lease is not acquired', async () => {
@@ -382,6 +395,36 @@ describe('OutlookSyncService', () => {
       skippedProviders: 1,
     });
     expect(syncSpy).not.toHaveBeenCalled();
+  });
+
+  it('records failed push processing audit action when provider sync fails', async () => {
+    emailProviderRepo.find.mockResolvedValue([
+      {
+        id: providerId,
+        userId,
+        type: 'OUTLOOK',
+        email: 'founder@mailzen.com',
+        isActive: true,
+      } as unknown as EmailProvider,
+    ]);
+    jest
+      .spyOn(service, 'syncOutlookProvider')
+      .mockRejectedValue(new Error('sync unavailable'));
+
+    const result = await service.processPushNotification({
+      emailAddress: 'founder@mailzen.com',
+    });
+
+    expect(result).toEqual({
+      processedProviders: 0,
+      skippedProviders: 1,
+    });
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId,
+        action: 'outlook_push_notification_failed',
+      }),
+    );
   });
 
   it('renews Outlook push subscription when id already exists', async () => {

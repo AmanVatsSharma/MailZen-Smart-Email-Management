@@ -50,11 +50,18 @@ label metadata into `ExternalEmailLabel`, similar to Gmail sync.
   - `outlook_sync_subscription_create_failed`
   - `outlook_push_notification_ignored_no_provider`
   - `outlook_push_notification_provider_failed`
+  - `outlook_sync_audit_log_write_failed`
 - structured scheduler logs (`outlook_sync_scheduler_start`,
   `outlook_sync_scheduler_retry`, `outlook_sync_scheduler_provider_failed`,
   `outlook_sync_subscription_refresh_start`,
   `outlook_sync_subscription_refresh_failed`) provide run-level retry and lease
   diagnostics
+
+## Compliance / Audit Trail
+
+- Persisted audit actions:
+  - `outlook_push_notification_processed`
+  - `outlook_push_notification_failed`
 
 ## Graph API flow
 
