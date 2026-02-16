@@ -24,6 +24,8 @@ POSITIONAL_KEEP_COUNT=""
 POSITIONAL_KEEP_COUNT_SET=false
 KEEP_COUNT_FLAG_SET=false
 KEEP_COUNT_FLAG_VALUE=""
+LABEL_FLAG_SET=false
+LABEL_FLAG_VALUE=""
 
 if [[ $# -gt 0 ]] && [[ ! "$1" =~ ^-- ]]; then
   KEEP_COUNT="$1"
@@ -56,11 +58,17 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --label)
-    LABEL_FILTER="${2:-}"
-    if [[ -z "${LABEL_FILTER}" ]]; then
+    label_arg="${2:-}"
+    if [[ -z "${label_arg}" ]]; then
       log_error "--label requires a value."
       exit 1
     fi
+    if [[ "${LABEL_FLAG_SET}" == true ]] && [[ "${label_arg}" != "${LABEL_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --label '${LABEL_FLAG_VALUE}' overridden by --label '${label_arg}'."
+    fi
+    LABEL_FILTER="${label_arg}"
+    LABEL_FLAG_SET=true
+    LABEL_FLAG_VALUE="${label_arg}"
     shift 2
     ;;
   *)
