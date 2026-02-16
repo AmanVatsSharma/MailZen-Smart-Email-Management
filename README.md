@@ -234,6 +234,9 @@ For production-style EC2 deployment, use the deployment module:
 # Optional: launch with custom runtime ports-check targets
 ./deploy/ec2/scripts/launch.sh --ports-check-ports 80,443,8100
 
+# Optional: launch status runtime checks while skipping DNS/SSL in final status step
+./deploy/ec2/scripts/launch.sh --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
+
 # Optional: interactive menu for non-technical operators
 ./deploy/ec2/scripts/menu.sh
 

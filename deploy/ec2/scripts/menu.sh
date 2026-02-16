@@ -131,6 +131,18 @@ while true; do
     fi
     if prompt_yes_no "Enable runtime checks in final status step" "no"; then
       launch_args+=(--status-runtime-checks)
+      if prompt_yes_no "Skip host readiness inside status runtime checks" "no"; then
+        launch_args+=(--status-skip-host-readiness)
+      fi
+      if prompt_yes_no "Skip DNS check inside status runtime checks" "yes"; then
+        launch_args+=(--status-skip-dns-check)
+      fi
+      if prompt_yes_no "Skip SSL check inside status runtime checks" "yes"; then
+        launch_args+=(--status-skip-ssl-check)
+      fi
+      if prompt_yes_no "Skip ports check inside status runtime checks" "no"; then
+        launch_args+=(--status-skip-ports-check)
+      fi
     fi
     if prompt_yes_no "Enable strict status mode (fail when daemon unavailable)" "no"; then
       launch_args+=(--status-strict)

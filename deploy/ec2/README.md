@@ -111,6 +111,12 @@ From repository root:
 ./deploy/ec2/scripts/launch.sh \
   --ports-check-ports 80,443,8100
 
+# Launch with runtime status checks while skipping DNS/SSL in final status step
+./deploy/ec2/scripts/launch.sh \
+  --status-runtime-checks \
+  --status-skip-dns-check \
+  --status-skip-ssl-check
+
 # Launch with explicit domain/email and skip daemon check during setup
 ./deploy/ec2/scripts/launch.sh \
   --domain mail.example.com \
