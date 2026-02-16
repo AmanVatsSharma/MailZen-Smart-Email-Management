@@ -254,20 +254,22 @@ while true; do
     ;;
   5)
     deploy_args=()
-    if prompt_yes_no "Skip image build (--no-build)" "no"; then
-      deploy_args+=(--no-build)
-    fi
-    if prompt_yes_no "Always pull newer base images (--pull)" "no"; then
-      deploy_args+=(--pull)
-    fi
-    if prompt_yes_no "Force recreate containers (--force-recreate)" "no"; then
-      deploy_args+=(--force-recreate)
-    fi
-    if prompt_yes_no "Run deploy in dry-run mode" "no"; then
-      deploy_args+=(--dry-run)
-    fi
     if prompt_yes_no "Validate compose config only (--config-only)" "no"; then
       deploy_args+=(--config-only)
+      echo "[mailzen-deploy][MENU][INFO] Skipping runtime deploy prompts because config-only mode is enabled."
+    else
+      if prompt_yes_no "Skip image build (--no-build)" "no"; then
+        deploy_args+=(--no-build)
+      fi
+      if prompt_yes_no "Always pull newer base images (--pull)" "no"; then
+        deploy_args+=(--pull)
+      fi
+      if prompt_yes_no "Force recreate containers (--force-recreate)" "no"; then
+        deploy_args+=(--force-recreate)
+      fi
+      if prompt_yes_no "Run deploy in dry-run mode" "no"; then
+        deploy_args+=(--dry-run)
+      fi
     fi
     run_step "deploy.sh" "${deploy_args[@]}"
     ;;
