@@ -18,6 +18,8 @@ DRY_RUN=false
 WAIT_SECONDS=0
 POSITIONAL_SERVICE=""
 POSITIONAL_SERVICE_SET=false
+SERVICE_FLAG_SET=false
+SERVICE_FLAG_VALUE=""
 
 if [[ -n "${SERVICE_NAME}" ]] && [[ "${SERVICE_NAME}" =~ ^-- ]]; then
   SERVICE_NAME=""
@@ -37,10 +39,15 @@ while [[ $# -gt 0 ]]; do
       log_error "--service requires a value."
       exit 1
     fi
+    if [[ "${SERVICE_FLAG_SET}" == true ]] && [[ "${service_arg}" != "${SERVICE_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --service '${SERVICE_FLAG_VALUE}' overridden by --service '${service_arg}'."
+    fi
     if [[ "${POSITIONAL_SERVICE_SET}" == true ]] && [[ "${service_arg}" != "${POSITIONAL_SERVICE}" ]]; then
       log_warn "Positional service '${POSITIONAL_SERVICE}' overridden by --service '${service_arg}'."
     fi
     SERVICE_NAME="${service_arg}"
+    SERVICE_FLAG_SET=true
+    SERVICE_FLAG_VALUE="${service_arg}"
     shift 2
     ;;
   --dry-run)

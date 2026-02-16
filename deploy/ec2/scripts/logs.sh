@@ -23,6 +23,10 @@ POSITIONAL_SERVICE=""
 POSITIONAL_TAIL=""
 POSITIONAL_SERVICE_SET=false
 POSITIONAL_TAIL_SET=false
+SERVICE_FLAG_SET=false
+SERVICE_FLAG_VALUE=""
+TAIL_FLAG_SET=false
+TAIL_FLAG_VALUE=""
 
 # Backward-compatible positional arguments:
 #   logs.sh [service] [tail]
@@ -47,10 +51,15 @@ while [[ $# -gt 0 ]]; do
       log_error "--service requires a value."
       exit 1
     fi
+    if [[ "${SERVICE_FLAG_SET}" == true ]] && [[ "${service_arg}" != "${SERVICE_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --service '${SERVICE_FLAG_VALUE}' overridden by --service '${service_arg}'."
+    fi
     if [[ "${POSITIONAL_SERVICE_SET}" == true ]] && [[ "${service_arg}" != "${POSITIONAL_SERVICE}" ]]; then
       log_warn "Positional service '${POSITIONAL_SERVICE}' overridden by --service '${service_arg}'."
     fi
     SERVICE_NAME="${service_arg}"
+    SERVICE_FLAG_SET=true
+    SERVICE_FLAG_VALUE="${service_arg}"
     shift 2
     ;;
   --tail)
@@ -59,10 +68,15 @@ while [[ $# -gt 0 ]]; do
       log_error "--tail requires a value."
       exit 1
     fi
+    if [[ "${TAIL_FLAG_SET}" == true ]] && [[ "${tail_arg}" != "${TAIL_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --tail '${TAIL_FLAG_VALUE}' overridden by --tail '${tail_arg}'."
+    fi
     if [[ "${POSITIONAL_TAIL_SET}" == true ]] && [[ "${tail_arg}" != "${POSITIONAL_TAIL}" ]]; then
       log_warn "Positional tail '${POSITIONAL_TAIL}' overridden by --tail '${tail_arg}'."
     fi
     TAIL_LINES="${tail_arg}"
+    TAIL_FLAG_SET=true
+    TAIL_FLAG_VALUE="${tail_arg}"
     shift 2
     ;;
   --since)
