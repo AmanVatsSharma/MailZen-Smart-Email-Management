@@ -1218,6 +1218,7 @@ extend type Query {
     windowHours: Int
     bucketMinutes: Int
   ): MailboxSyncIncidentDataExportResponse!
+  myMailboxSyncIncidentAlertConfig: MailboxSyncIncidentAlertConfigResponse!
   myMailboxSyncIncidentAlertDeliveryStats(
     workspaceId: String
     windowHours: Int
@@ -1638,6 +1639,17 @@ type MailboxSyncIncidentTrendPointResponse {
 type MailboxSyncIncidentDataExportResponse {
   generatedAtIso: String!
   dataJson: String!
+}
+
+type MailboxSyncIncidentAlertConfigResponse {
+  alertsEnabled: Boolean!
+  windowHours: Int!
+  cooldownMinutes: Int!
+  maxUsersPerRun: Int!
+  warningRatePercent: Float!
+  criticalRatePercent: Float!
+  minIncidentRuns: Int!
+  evaluatedAtIso: String!
 }
 
 type MailboxSyncIncidentAlertDeliveryStatsResponse {

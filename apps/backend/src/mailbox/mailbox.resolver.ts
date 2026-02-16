@@ -2,6 +2,7 @@ import { Resolver, Mutation, Args, Query, Context, Int } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { MailboxService } from './mailbox.service';
+import { MailboxSyncIncidentScheduler } from './mailbox-sync-incident.scheduler';
 import { MailboxSyncService } from './mailbox-sync.service';
 import { MailboxInboundDataExportResponse } from './dto/mailbox-inbound-data-export.response';
 import {
@@ -11,6 +12,7 @@ import {
 } from './dto/mailbox-inbound-event-observability.response';
 import { MailboxInboundRetentionPurgeResponse } from './dto/mailbox-inbound-retention-purge.response';
 import { MailboxSyncDataExportResponse } from './dto/mailbox-sync-data-export.response';
+import { MailboxSyncIncidentAlertConfigResponse } from './dto/mailbox-sync-incident-alert-config.response';
 import { MailboxSyncIncidentAlertDeliveryDataExportResponse } from './dto/mailbox-sync-incident-alert-delivery-data-export.response';
 import {
   MailboxSyncIncidentAlertDeliveryStatsResponse,
@@ -41,6 +43,7 @@ export class MailboxResolver {
   constructor(
     private readonly mailboxService: MailboxService,
     private readonly mailboxSyncService: MailboxSyncService,
+    private readonly mailboxSyncIncidentScheduler: MailboxSyncIncidentScheduler,
   ) {}
 
   @Mutation(() => String)
@@ -295,6 +298,11 @@ export class MailboxResolver {
       windowHours: windowHours ?? null,
       bucketMinutes: bucketMinutes ?? null,
     });
+  }
+
+  @Query(() => MailboxSyncIncidentAlertConfigResponse)
+  myMailboxSyncIncidentAlertConfig(): MailboxSyncIncidentAlertConfigResponse {
+    return this.mailboxSyncIncidentScheduler.getIncidentAlertConfigSnapshot();
   }
 
   @Query(() => MailboxSyncIncidentAlertDeliveryStatsResponse)

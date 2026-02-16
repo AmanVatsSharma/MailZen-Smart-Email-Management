@@ -49,6 +49,7 @@ This module covers:
     - `myMailboxSyncIncidentStats(mailboxId?: String, workspaceId?: String, windowHours?: Int): MailboxSyncIncidentStatsResponse!`
     - `myMailboxSyncIncidentSeries(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxSyncIncidentTrendPointResponse!]!`
     - `myMailboxSyncIncidentDataExport(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): MailboxSyncIncidentDataExportResponse!`
+    - `myMailboxSyncIncidentAlertConfig: MailboxSyncIncidentAlertConfigResponse!`
     - `myMailboxSyncIncidentAlertDeliveryStats(workspaceId?: String, windowHours?: Int): MailboxSyncIncidentAlertDeliveryStatsResponse!`
     - `myMailboxSyncIncidentAlertDeliverySeries(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxSyncIncidentAlertDeliveryTrendPointResponse!]!`
     - `myMailboxSyncIncidentAlertDeliveryDataExport(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): MailboxSyncIncidentAlertDeliveryDataExportResponse!`
@@ -193,6 +194,8 @@ flowchart TD
   - retention horizon for persisted `mailbox_sync_runs` observability rows
 - `MAILZEN_MAILBOX_SYNC_RUN_AUTOPURGE_ENABLED` (default `true`)
   - enables daily automatic purge of stale mailbox sync run observability rows
+- `MAILZEN_MAILBOX_SYNC_INCIDENT_ALERTS_ENABLED` (default `true`)
+  - enables/disables mailbox sync incident alert scheduler globally
 - `MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_WINDOW_HOURS` (default `24`)
   - rolling window used to evaluate sync incident rates for alerting
 - `MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_COOLDOWN_MINUTES` (default `60`)
@@ -366,6 +369,8 @@ flowchart TD
   - returns bucketed failed/partial sync incident trend points for alert dashboards
 - `myMailboxSyncIncidentDataExport`
   - exports sync incident analytics snapshot (stats + trend) as JSON payload
+- `myMailboxSyncIncidentAlertConfig`
+  - returns resolved mailbox sync incident alert scheduler configuration snapshot
 - `myMailboxSyncIncidentAlertDeliveryStats`
   - returns aggregate counts over emitted `MAILBOX_SYNC_INCIDENT_ALERT` notifications
 - `myMailboxSyncIncidentAlertDeliverySeries`

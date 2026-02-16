@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { MailboxResolver } from './mailbox.resolver';
+import { MailboxSyncIncidentScheduler } from './mailbox-sync-incident.scheduler';
 import { MailboxService } from './mailbox.service';
 import { MailboxSyncService } from './mailbox-sync.service';
 
@@ -31,6 +32,9 @@ describe('MailboxResolver', () => {
     exportMailboxSyncIncidentAlertDeliveryDataForUser: jest.fn(),
     purgeMailboxSyncRunRetentionData: jest.fn(),
   };
+  const mailboxSyncIncidentSchedulerMock = {
+    getIncidentAlertConfigSnapshot: jest.fn(),
+  };
 
   const ctx = {
     req: {
@@ -45,6 +49,7 @@ describe('MailboxResolver', () => {
     resolver = new MailboxResolver(
       mailboxServiceMock as unknown as MailboxService,
       mailboxSyncServiceMock as unknown as MailboxSyncService,
+      mailboxSyncIncidentSchedulerMock as unknown as MailboxSyncIncidentScheduler,
     );
   });
 
@@ -533,6 +538,29 @@ describe('MailboxResolver', () => {
       bucketMinutes: 60,
     });
     expect(result.generatedAtIso).toBe('2026-02-16T00:00:00.000Z');
+  });
+
+  it('returns mailbox sync incident alert config snapshot', () => {
+    mailboxSyncIncidentSchedulerMock.getIncidentAlertConfigSnapshot.mockReturnValue(
+      {
+        alertsEnabled: true,
+        windowHours: 24,
+        cooldownMinutes: 60,
+        maxUsersPerRun: 500,
+        warningRatePercent: 10,
+        criticalRatePercent: 25,
+        minIncidentRuns: 1,
+        evaluatedAtIso: '2026-02-16T00:00:00.000Z',
+      },
+    );
+
+    const result = resolver.myMailboxSyncIncidentAlertConfig();
+
+    expect(
+      mailboxSyncIncidentSchedulerMock.getIncidentAlertConfigSnapshot,
+    ).toHaveBeenCalledTimes(1);
+    expect(result.alertsEnabled).toBe(true);
+    expect(result.windowHours).toBe(24);
   });
 
   it('returns mailbox sync incident alert delivery stats for current user', async () => {

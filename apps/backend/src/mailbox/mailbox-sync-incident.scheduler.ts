@@ -10,6 +10,15 @@ import { MailboxSyncRun } from './entities/mailbox-sync-run.entity';
 import { MailboxSyncService } from './mailbox-sync.service';
 
 type MailboxSyncIncidentStatus = 'WARNING' | 'CRITICAL' | 'HEALTHY' | 'NO_DATA';
+type MailboxSyncIncidentMonitorConfig = {
+  alertsEnabled: boolean;
+  windowHours: number;
+  cooldownMinutes: number;
+  maxUsersPerRun: number;
+  warningRatePercent: number;
+  criticalRatePercent: number;
+  minIncidentRuns: number;
+};
 
 @Injectable()
 export class MailboxSyncIncidentScheduler {
@@ -32,8 +41,16 @@ export class MailboxSyncIncidentScheduler {
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
 
-  @Cron('*/15 * * * *')
-  async monitorMailboxSyncIncidents(): Promise<void> {
+  private isIncidentAlertsEnabled(): boolean {
+    const normalized = String(
+      process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERTS_ENABLED || 'true',
+    )
+      .trim()
+      .toLowerCase();
+    return !['false', '0', 'off', 'no'].includes(normalized);
+  }
+
+  private resolveMonitorConfig(): MailboxSyncIncidentMonitorConfig {
     const windowHours = this.resolvePositiveInteger({
       rawValue: process.env.MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_WINDOW_HOURS,
       fallbackValue: MailboxSyncIncidentScheduler.DEFAULT_WINDOW_HOURS,
@@ -75,9 +92,50 @@ export class MailboxSyncIncidentScheduler {
       minimumValue: 1,
       maximumValue: 5000,
     });
-    const monitoredUserIds = await this.resolveMonitoredUserIds({
+    return {
+      alertsEnabled: this.isIncidentAlertsEnabled(),
       windowHours,
+      cooldownMinutes,
       maxUsersPerRun,
+      warningRatePercent,
+      criticalRatePercent,
+      minIncidentRuns,
+    };
+  }
+
+  getIncidentAlertConfigSnapshot(): {
+    alertsEnabled: boolean;
+    windowHours: number;
+    cooldownMinutes: number;
+    maxUsersPerRun: number;
+    warningRatePercent: number;
+    criticalRatePercent: number;
+    minIncidentRuns: number;
+    evaluatedAtIso: string;
+  } {
+    const config = this.resolveMonitorConfig();
+    return {
+      alertsEnabled: config.alertsEnabled,
+      windowHours: config.windowHours,
+      cooldownMinutes: config.cooldownMinutes,
+      maxUsersPerRun: config.maxUsersPerRun,
+      warningRatePercent: config.warningRatePercent,
+      criticalRatePercent: config.criticalRatePercent,
+      minIncidentRuns: config.minIncidentRuns,
+      evaluatedAtIso: new Date().toISOString(),
+    };
+  }
+
+  @Cron('*/15 * * * *')
+  async monitorMailboxSyncIncidents(): Promise<void> {
+    const config = this.resolveMonitorConfig();
+    if (!config.alertsEnabled) {
+      this.logger.log('mailbox-sync-incident: alerts disabled by env');
+      return;
+    }
+    const monitoredUserIds = await this.resolveMonitoredUserIds({
+      windowHours: config.windowHours,
+      maxUsersPerRun: config.maxUsersPerRun,
     });
     if (!monitoredUserIds.length) return;
 
@@ -85,22 +143,22 @@ export class MailboxSyncIncidentScheduler {
       serializeStructuredLog({
         event: 'mailbox_sync_incident_monitor_start',
         monitoredUsers: monitoredUserIds.length,
-        windowHours,
-        cooldownMinutes,
-        warningRatePercent,
-        criticalRatePercent,
-        minIncidentRuns,
+        windowHours: config.windowHours,
+        cooldownMinutes: config.cooldownMinutes,
+        warningRatePercent: config.warningRatePercent,
+        criticalRatePercent: config.criticalRatePercent,
+        minIncidentRuns: config.minIncidentRuns,
       }),
     );
 
     for (const userId of monitoredUserIds) {
       await this.monitorUserMailboxSyncIncidents({
         userId,
-        windowHours,
-        cooldownMinutes,
-        warningRatePercent,
-        criticalRatePercent,
-        minIncidentRuns,
+        windowHours: config.windowHours,
+        cooldownMinutes: config.cooldownMinutes,
+        warningRatePercent: config.warningRatePercent,
+        criticalRatePercent: config.criticalRatePercent,
+        minIncidentRuns: config.minIncidentRuns,
       });
     }
   }
