@@ -54,4 +54,5 @@ flowchart TD
 - Always run `preflight.sh` before deploy/update.
 - Prefer `verify.sh` immediately after deploy/update.
 - Take a fresh `backup-db.sh` before risky changes.
+- Periodically run `backup-prune.sh` to enforce backup retention.
 - Use `self-check.sh` after editing deployment scripts.

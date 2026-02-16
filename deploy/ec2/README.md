@@ -34,6 +34,7 @@ Additional deployment flowcharts:
   - `dns-check.sh` (domain DNS readiness validation)
   - `self-check.sh` (validate deployment script integrity)
   - `backup-db.sh` (database backup)
+  - `backup-prune.sh` (backup retention cleanup)
   - `restore-db.sh` (database restore with confirmation)
   - `status.sh`
   - `logs.sh`
@@ -119,6 +120,12 @@ The setup script:
 
 # Create DB backup with label
 ./deploy/ec2/scripts/backup-db.sh before-release
+
+# Keep only latest 10 backups (default)
+./deploy/ec2/scripts/backup-prune.sh
+
+# Keep only latest 20 backups
+./deploy/ec2/scripts/backup-prune.sh 20
 
 # Restore DB backup (destructive: drops and recreates DB)
 ./deploy/ec2/scripts/restore-db.sh deploy/ec2/backups/your-backup.sql.gz

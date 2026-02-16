@@ -28,6 +28,7 @@ scripts=(
   "restart.sh"
   "stop.sh"
   "backup-db.sh"
+  "backup-prune.sh"
   "restore-db.sh"
 )
 

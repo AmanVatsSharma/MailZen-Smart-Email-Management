@@ -244,6 +244,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # 8) Validate deployment scripts integrity
 ./deploy/ec2/scripts/self-check.sh
+
+# 9) Optional backup retention cleanup (keep latest 10)
+./deploy/ec2/scripts/backup-prune.sh
 ```
 
 This stack includes by default:
