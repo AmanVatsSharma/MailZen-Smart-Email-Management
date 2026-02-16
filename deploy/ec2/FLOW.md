@@ -85,6 +85,10 @@ flowchart TD
   - `ports-check.sh --ports 80,443,8100`
   - `preflight.sh --with-runtime-checks --ports-check-ports 80,443,8100`
   - `status.sh --with-runtime-checks --ports-check-ports 80,443,8100`
+- For launch/update runtime checks, scope expensive probes explicitly:
+  - `launch.sh --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check`
+  - `launch.sh --status-runtime-checks --status-skip-host-readiness --status-skip-ports-check`
+  - `update.sh --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check`
 - Use diagnostics custom ports targeting to keep triage aligned with host policy:
   - `doctor.sh --ports-check-ports 80,443,8100`
   - `support-bundle.sh --ports-check-ports 80,443,8100`

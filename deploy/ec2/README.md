@@ -117,6 +117,12 @@ From repository root:
   --status-skip-dns-check \
   --status-skip-ssl-check
 
+# Launch with runtime status checks while skipping host/ports in final status step
+./deploy/ec2/scripts/launch.sh \
+  --status-runtime-checks \
+  --status-skip-host-readiness \
+  --status-skip-ports-check
+
 # Launch with explicit domain/email and skip daemon check during setup
 ./deploy/ec2/scripts/launch.sh \
   --domain mail.example.com \

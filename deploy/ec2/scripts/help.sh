@@ -30,6 +30,7 @@ Primary flow:
   ./deploy/ec2/scripts/launch.sh --preflight-config-only --deploy-dry-run --skip-verify
   ./deploy/ec2/scripts/launch.sh --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/launch.sh --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
+  ./deploy/ec2/scripts/launch.sh --status-runtime-checks --status-skip-host-readiness --status-skip-ports-check
   ./deploy/ec2/scripts/preflight.sh
   ./deploy/ec2/scripts/preflight.sh --with-runtime-checks --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/deploy.sh

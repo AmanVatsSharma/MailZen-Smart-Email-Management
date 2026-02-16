@@ -237,6 +237,9 @@ For production-style EC2 deployment, use the deployment module:
 # Optional: launch status runtime checks while skipping DNS/SSL in final status step
 ./deploy/ec2/scripts/launch.sh --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
 
+# Optional: launch status runtime checks while skipping host/ports in final status step
+./deploy/ec2/scripts/launch.sh --status-runtime-checks --status-skip-host-readiness --status-skip-ports-check
+
 # Optional: interactive menu for non-technical operators
 ./deploy/ec2/scripts/menu.sh
 
