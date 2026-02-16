@@ -57,7 +57,7 @@ prompt_yes_no() {
 show_menu() {
   cat <<'MENU'
 =========================== MailZen EC2 Operator Menu ==========================
-1) One-command launch (guided flags)
+1) One-command launch (fully guided)
 2) Bootstrap Docker on Ubuntu (run with sudo)
 3) Setup environment (.env.ec2)
 4) Preflight checks (prompt runtime + skip options)
@@ -65,7 +65,7 @@ show_menu() {
 6) Verify deployment (smoke checks)
 7) Show status (prompt runtime/strict/skip options)
 8) Show logs (all services)
-9) Update stack (guided flags)
+9) Update stack (fully guided)
 10) Backup database
 11) List backups (optional latest/count filters)
 12) Prune old backups (prompt keep-count + dry-run)
@@ -132,6 +132,34 @@ while true; do
     fi
     if prompt_yes_no "Skip verify step" "no"; then
       launch_args+=(--skip-verify)
+    else
+      launch_verify_max_retries="$(prompt_with_default "Verify max retries (blank = default)" "")"
+      if [[ -n "${launch_verify_max_retries}" ]]; then
+        if [[ "${launch_verify_max_retries}" =~ ^[0-9]+$ ]] && [[ "${launch_verify_max_retries}" -gt 0 ]]; then
+          launch_args+=(--verify-max-retries "${launch_verify_max_retries}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid verify max retries value: ${launch_verify_max_retries}"
+        fi
+      fi
+      launch_verify_retry_sleep="$(prompt_with_default "Verify retry sleep seconds (blank = default)" "")"
+      if [[ -n "${launch_verify_retry_sleep}" ]]; then
+        if [[ "${launch_verify_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${launch_verify_retry_sleep}" -gt 0 ]]; then
+          launch_args+=(--verify-retry-sleep "${launch_verify_retry_sleep}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid verify retry sleep value: ${launch_verify_retry_sleep}"
+        fi
+      fi
+    fi
+    if prompt_yes_no "Skip docker daemon check during setup step" "no"; then
+      launch_args+=(--setup-skip-daemon)
+    fi
+    launch_domain="$(prompt_with_default "Setup domain override (blank = default env/template value)" "")"
+    if [[ -n "${launch_domain}" ]]; then
+      launch_args+=(--domain "${launch_domain}")
+    fi
+    launch_acme_email="$(prompt_with_default "Setup ACME email override (blank = default env/template value)" "")"
+    if [[ -n "${launch_acme_email}" ]]; then
+      launch_args+=(--acme-email "${launch_acme_email}")
     fi
     if prompt_yes_no "Enable runtime checks in final status step" "no"; then
       launch_status_runtime_enabled=true
@@ -242,6 +270,22 @@ while true; do
     if prompt_yes_no "Skip verify step" "no"; then
       update_args+=(--skip-verify)
     else
+      update_verify_max_retries="$(prompt_with_default "Verify max retries (blank = default)" "")"
+      if [[ -n "${update_verify_max_retries}" ]]; then
+        if [[ "${update_verify_max_retries}" =~ ^[0-9]+$ ]] && [[ "${update_verify_max_retries}" -gt 0 ]]; then
+          update_args+=(--verify-max-retries "${update_verify_max_retries}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid verify max retries value: ${update_verify_max_retries}"
+        fi
+      fi
+      update_verify_retry_sleep="$(prompt_with_default "Verify retry sleep seconds (blank = default)" "")"
+      if [[ -n "${update_verify_retry_sleep}" ]]; then
+        if [[ "${update_verify_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${update_verify_retry_sleep}" -gt 0 ]]; then
+          update_args+=(--verify-retry-sleep "${update_verify_retry_sleep}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid verify retry sleep value: ${update_verify_retry_sleep}"
+        fi
+      fi
       if prompt_yes_no "Skip OAuth check in verify step" "no"; then
         update_args+=(--verify-skip-oauth-check)
       fi

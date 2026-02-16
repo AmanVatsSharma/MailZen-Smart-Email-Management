@@ -202,6 +202,13 @@ if [[ -n "${VERIFY_RETRY_SLEEP}" ]] && { [[ ! "${VERIFY_RETRY_SLEEP}" =~ ^[0-9]+
   exit 1
 fi
 
+if [[ "${RUN_VERIFY}" == false ]] && { [[ -n "${VERIFY_MAX_RETRIES}" ]] || [[ -n "${VERIFY_RETRY_SLEEP}" ]]; }; then
+  log_warn "[LAUNCH] verify-related flags were provided while --skip-verify is enabled; verify flags will be ignored."
+fi
+if [[ "${RUN_VERIFY}" == true ]] && [[ "${DEPLOY_DRY_RUN}" == true ]] && { [[ -n "${VERIFY_MAX_RETRIES}" ]] || [[ -n "${VERIFY_RETRY_SLEEP}" ]]; }; then
+  log_warn "[LAUNCH] verify-related flags were provided while --deploy-dry-run is enabled; verify step will be skipped."
+fi
+
 if [[ "${RUN_SETUP}" == true ]] && [[ ! -t 0 ]]; then
   log_info "[LAUNCH] non-interactive terminal detected; setup will run in non-interactive mode."
 fi
