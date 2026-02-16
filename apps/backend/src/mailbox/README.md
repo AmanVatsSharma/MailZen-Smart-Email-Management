@@ -52,6 +52,7 @@ This module covers:
     - `myMailboxSyncIncidentAlertConfig: MailboxSyncIncidentAlertConfigResponse!`
     - `myMailboxSyncIncidentAlertDeliveryStats(workspaceId?: String, windowHours?: Int): MailboxSyncIncidentAlertDeliveryStatsResponse!`
     - `myMailboxSyncIncidentAlerts(workspaceId?: String, windowHours?: Int, limit?: Int): [MailboxSyncIncidentAlertResponse!]!`
+    - `myMailboxSyncIncidentAlertHistoryDataExport(workspaceId?: String, windowHours?: Int, limit?: Int): MailboxSyncIncidentAlertHistoryDataExportResponse!`
     - `myMailboxSyncIncidentAlertDeliverySeries(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxSyncIncidentAlertDeliveryTrendPointResponse!]!`
     - `myMailboxSyncIncidentAlertDeliveryDataExport(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): MailboxSyncIncidentAlertDeliveryDataExportResponse!`
     - `runMyMailboxSyncIncidentAlertCheck(windowHours?: Int, warningRatePercent?: Float, criticalRatePercent?: Float, minIncidentRuns?: Int): MailboxSyncIncidentAlertCheckResponse!`
@@ -380,6 +381,8 @@ flowchart TD
   - returns aggregate counts over emitted `MAILBOX_SYNC_INCIDENT_ALERT` notifications
 - `myMailboxSyncIncidentAlerts`
   - returns recent emitted sync incident alert notifications with incident metadata context
+- `myMailboxSyncIncidentAlertHistoryDataExport`
+  - exports recent sync incident alert history as JSON payload
 - `myMailboxSyncIncidentAlertDeliverySeries`
   - returns bucketed delivery trend for emitted sync incident alerts
 - `myMailboxSyncIncidentAlertDeliveryDataExport`

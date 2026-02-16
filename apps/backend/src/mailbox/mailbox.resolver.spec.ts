@@ -29,6 +29,7 @@ describe('MailboxResolver', () => {
     exportMailboxSyncIncidentDataForUser: jest.fn(),
     getMailboxSyncIncidentAlertDeliveryStatsForUser: jest.fn(),
     getMailboxSyncIncidentAlertsForUser: jest.fn(),
+    exportMailboxSyncIncidentAlertHistoryDataForUser: jest.fn(),
     getMailboxSyncIncidentAlertDeliverySeriesForUser: jest.fn(),
     exportMailboxSyncIncidentAlertDeliveryDataForUser: jest.fn(),
     purgeMailboxSyncRunRetentionData: jest.fn(),
@@ -669,6 +670,32 @@ describe('MailboxResolver', () => {
     });
     expect(result[0]?.notificationId).toBe('notif-1');
     expect(result[0]?.status).toBe('WARNING');
+  });
+
+  it('exports mailbox sync incident alert history payload for current user', async () => {
+    mailboxSyncServiceMock.exportMailboxSyncIncidentAlertHistoryDataForUser.mockResolvedValue(
+      {
+        generatedAtIso: '2026-02-16T00:00:00.000Z',
+        dataJson: '{"alertCount":1}',
+      },
+    );
+
+    const result = await resolver.myMailboxSyncIncidentAlertHistoryDataExport(
+      ctx as any,
+      'workspace-1',
+      24,
+      50,
+    );
+
+    expect(
+      mailboxSyncServiceMock.exportMailboxSyncIncidentAlertHistoryDataForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      limit: 50,
+    });
+    expect(result.generatedAtIso).toBe('2026-02-16T00:00:00.000Z');
   });
 
   it('returns mailbox sync incident alert delivery series for current user', async () => {

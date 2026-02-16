@@ -22,6 +22,7 @@ import { MailboxInboundRetentionPurgeResponse } from './dto/mailbox-inbound-rete
 import { MailboxSyncDataExportResponse } from './dto/mailbox-sync-data-export.response';
 import { MailboxSyncIncidentAlertConfigResponse } from './dto/mailbox-sync-incident-alert-config.response';
 import { MailboxSyncIncidentAlertCheckResponse } from './dto/mailbox-sync-incident-alert-check.response';
+import { MailboxSyncIncidentAlertHistoryDataExportResponse } from './dto/mailbox-sync-incident-alert-history-data-export.response';
 import { MailboxSyncIncidentAlertDeliveryDataExportResponse } from './dto/mailbox-sync-incident-alert-delivery-data-export.response';
 import {
   MailboxSyncIncidentAlertDeliveryStatsResponse,
@@ -366,6 +367,24 @@ export class MailboxResolver {
       windowHours: windowHours ?? null,
       limit: limit ?? null,
     });
+  }
+
+  @Query(() => MailboxSyncIncidentAlertHistoryDataExportResponse)
+  async myMailboxSyncIncidentAlertHistoryDataExport(
+    @Context() ctx: RequestContext,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+  ): Promise<MailboxSyncIncidentAlertHistoryDataExportResponse> {
+    return this.mailboxSyncService.exportMailboxSyncIncidentAlertHistoryDataForUser(
+      {
+        userId: ctx.req.user.id,
+        workspaceId: workspaceId || null,
+        windowHours: windowHours ?? null,
+        limit: limit ?? null,
+      },
+    );
   }
 
   @Query(() => [MailboxSyncIncidentAlertDeliveryTrendPointResponse])

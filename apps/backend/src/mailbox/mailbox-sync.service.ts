@@ -1703,6 +1703,42 @@ export class MailboxSyncService {
     }));
   }
 
+  async exportMailboxSyncIncidentAlertHistoryDataForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    limit?: number | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const windowHours = this.normalizeSyncObservabilityWindowHours(
+      input.windowHours,
+    );
+    const limit = this.normalizeSyncRunHistoryLimit(input.limit);
+    const alerts = await this.getMailboxSyncIncidentAlertsForUser({
+      userId: input.userId,
+      workspaceId: input.workspaceId || null,
+      windowHours,
+      limit,
+    });
+    const generatedAtIso = new Date().toISOString();
+    return {
+      generatedAtIso,
+      dataJson: JSON.stringify({
+        generatedAtIso,
+        workspaceId: this.normalizeWorkspaceId(input.workspaceId),
+        windowHours,
+        limit,
+        alertCount: alerts.length,
+        alerts: alerts.map((alert) => ({
+          ...alert,
+          createdAtIso: alert.createdAt.toISOString(),
+        })),
+      }),
+    };
+  }
+
   async getMailboxSyncIncidentAlertDeliverySeriesForUser(input: {
     userId: string;
     workspaceId?: string | null;

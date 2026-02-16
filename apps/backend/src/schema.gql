@@ -1228,6 +1228,11 @@ extend type Query {
     windowHours: Int
     limit: Int
   ): [MailboxSyncIncidentAlertResponse!]!
+  myMailboxSyncIncidentAlertHistoryDataExport(
+    workspaceId: String
+    windowHours: Int
+    limit: Int
+  ): MailboxSyncIncidentAlertHistoryDataExportResponse!
   myMailboxSyncIncidentAlertDeliverySeries(
     workspaceId: String
     windowHours: Int
@@ -1702,6 +1707,11 @@ type MailboxSyncIncidentAlertResponse {
   warningRatePercent: Float!
   criticalRatePercent: Float!
   createdAt: DateTime!
+}
+
+type MailboxSyncIncidentAlertHistoryDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
 }
 
 type MailboxSyncIncidentAlertDeliveryTrendPointResponse {

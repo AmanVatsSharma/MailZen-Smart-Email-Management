@@ -33,6 +33,7 @@ const requiredContracts = [
   'myMailboxSyncIncidentAlertConfig',
   'myMailboxSyncIncidentAlertDeliveryStats',
   'myMailboxSyncIncidentAlerts',
+  'myMailboxSyncIncidentAlertHistoryDataExport',
   'myMailboxSyncIncidentAlertDeliverySeries',
   'myMailboxSyncIncidentAlertDeliveryDataExport',
   'runMyMailboxSyncIncidentAlertCheck',

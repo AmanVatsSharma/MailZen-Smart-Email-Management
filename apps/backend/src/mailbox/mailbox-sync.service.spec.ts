@@ -922,6 +922,42 @@ describe('MailboxSyncService', () => {
     ]);
   });
 
+  it('exports mailbox sync incident alert history payload', async () => {
+    const alertsSpy = jest
+      .spyOn(service, 'getMailboxSyncIncidentAlertsForUser')
+      .mockResolvedValue([
+        {
+          notificationId: 'notif-1',
+          workspaceId: 'workspace-1',
+          status: 'WARNING',
+          title: 'Mailbox sync incidents warning',
+          message: 'incident warning',
+          incidentRatePercent: 12,
+          incidentRuns: 2,
+          totalRuns: 10,
+          warningRatePercent: 10,
+          criticalRatePercent: 25,
+          createdAt: new Date('2026-02-16T00:15:00.000Z'),
+        },
+      ]);
+
+    const exported =
+      await service.exportMailboxSyncIncidentAlertHistoryDataForUser({
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        limit: 25,
+      });
+
+    expect(alertsSpy).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(exported.dataJson) as {
+      alertCount: number;
+      alerts: Array<{ notificationId: string }>;
+    };
+    expect(payload.alertCount).toBe(1);
+    expect(payload.alerts[0]?.notificationId).toBe('notif-1');
+  });
+
   it('returns mailbox sync incident alert delivery series', async () => {
     notificationRepo.find.mockResolvedValue([
       {
