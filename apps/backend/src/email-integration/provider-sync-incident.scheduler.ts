@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import {
   resolveCorrelationId,
   serializeStructuredLog,
@@ -44,10 +45,36 @@ export class ProviderSyncIncidentScheduler {
     private readonly providerRepository: Repository<EmailProvider>,
     @InjectRepository(UserNotification)
     private readonly notificationRepository: Repository<UserNotification>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly emailProviderService: EmailProviderService,
     private readonly notificationService: NotificationService,
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'provider_sync_incident_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
+  }
 
   private isIncidentAlertsEnabled(): boolean {
     const normalized = String(
@@ -284,7 +311,7 @@ export class ProviderSyncIncidentScheduler {
         : (await this.notificationService.getOrCreatePreferences(input.userId))
             .syncFailureEnabled;
     if (!baseConfig.alertsEnabled) {
-      return {
+      const disabledResult = {
         alertsEnabled: false,
         syncFailureEnabled,
         evaluatedAtIso,
@@ -301,6 +328,28 @@ export class ProviderSyncIncidentScheduler {
         errorProviders: 0,
         errorProviderPercent: 0,
       };
+      await this.writeAuditLog({
+        userId: input.userId,
+        action: 'provider_sync_incident_alert_check_requested',
+        metadata: {
+          alertsEnabled: disabledResult.alertsEnabled,
+          syncFailureEnabled: disabledResult.syncFailureEnabled,
+          windowHours: disabledResult.windowHours,
+          warningErrorProviderPercent: disabledResult.warningErrorProviderPercent,
+          criticalErrorProviderPercent:
+            disabledResult.criticalErrorProviderPercent,
+          minErrorProviders: disabledResult.minErrorProviders,
+          status: disabledResult.status,
+          statusReason: disabledResult.statusReason,
+          shouldAlert: disabledResult.shouldAlert,
+          totalProviders: disabledResult.totalProviders,
+          connectedProviders: disabledResult.connectedProviders,
+          syncingProviders: disabledResult.syncingProviders,
+          errorProviders: disabledResult.errorProviders,
+          errorProviderPercent: disabledResult.errorProviderPercent,
+        },
+      });
+      return disabledResult;
     }
 
     const stats = await this.emailProviderService.getProviderSyncStatsForUser({
@@ -333,7 +382,7 @@ export class ProviderSyncIncidentScheduler {
             criticalErrorProviderPercent,
             minErrorProviders,
           });
-    return {
+    const result = {
       alertsEnabled: true,
       syncFailureEnabled,
       evaluatedAtIso,
@@ -352,6 +401,27 @@ export class ProviderSyncIncidentScheduler {
       errorProviders: stats.errorProviders,
       errorProviderPercent,
     };
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'provider_sync_incident_alert_check_requested',
+      metadata: {
+        alertsEnabled: result.alertsEnabled,
+        syncFailureEnabled: result.syncFailureEnabled,
+        windowHours: result.windowHours,
+        warningErrorProviderPercent: result.warningErrorProviderPercent,
+        criticalErrorProviderPercent: result.criticalErrorProviderPercent,
+        minErrorProviders: result.minErrorProviders,
+        status: result.status,
+        statusReason: result.statusReason,
+        shouldAlert: result.shouldAlert,
+        totalProviders: result.totalProviders,
+        connectedProviders: result.connectedProviders,
+        syncingProviders: result.syncingProviders,
+        errorProviders: result.errorProviders,
+        errorProviderPercent: result.errorProviderPercent,
+      },
+    });
+    return result;
   }
 
   @Cron('*/15 * * * *')

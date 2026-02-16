@@ -202,6 +202,7 @@ Login OAuth (backend redirect) uses:
     - `provider_sync_alert_delivery_export_requested`
     - `provider_sync_incident_alert_history_export_requested`
     - `provider_sync_incident_alert_delivery_export_requested`
+    - `provider_sync_incident_alert_check_requested`
 
 ## Mermaid: connect provider via OAuth code
 
@@ -382,6 +383,7 @@ Scheduler emits structured observability events such as:
 - `provider_sync_incident_alert_suppressed_by_cooldown`
 - `provider_sync_incident_alert_emitted`
 - `provider_sync_incident_monitor_user_failed`
+- `provider_sync_incident_audit_log_write_failed`
 
 Configuration:
 

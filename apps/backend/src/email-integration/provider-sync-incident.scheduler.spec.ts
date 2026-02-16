@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/unbound-method */
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { NotificationService } from '../notification/notification.service';
 import { UserNotification } from '../notification/entities/user-notification.entity';
@@ -12,6 +13,7 @@ describe('ProviderSyncIncidentScheduler', () => {
   let scheduler: ProviderSyncIncidentScheduler;
   let providerRepository: jest.Mocked<Repository<EmailProvider>>;
   let notificationRepository: jest.Mocked<Repository<UserNotification>>;
+  let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
   let emailProviderService: jest.Mocked<
     Pick<EmailProviderService, 'getProviderSyncStatsForUser'>
   >;
@@ -33,6 +35,10 @@ describe('ProviderSyncIncidentScheduler', () => {
     notificationRepository = {
       findOne: jest.fn(),
     } as unknown as jest.Mocked<Repository<UserNotification>>;
+    auditLogRepo = {
+      create: jest.fn((payload: unknown) => payload as AuditLog),
+      save: jest.fn().mockResolvedValue({} as AuditLog),
+    } as unknown as jest.Mocked<Repository<AuditLog>>;
     emailProviderService = {
       getProviderSyncStatsForUser: jest.fn(),
     };
@@ -58,6 +64,7 @@ describe('ProviderSyncIncidentScheduler', () => {
     scheduler = new ProviderSyncIncidentScheduler(
       providerRepository,
       notificationRepository,
+      auditLogRepo,
       emailProviderService as unknown as EmailProviderService,
       notificationService as unknown as NotificationService,
       notificationEventBus as unknown as NotificationEventBusService,
@@ -157,6 +164,12 @@ describe('ProviderSyncIncidentScheduler', () => {
     expect(result.status).toBe('WARNING');
     expect(result.shouldAlert).toBe(true);
     expect(result.errorProviderPercent).toBeCloseTo(33.33, 2);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'provider_sync_incident_alert_check_requested',
+      }),
+    );
   });
 
   it('returns non-alertable incident check when sync failure preference is disabled', async () => {
@@ -195,5 +208,11 @@ describe('ProviderSyncIncidentScheduler', () => {
     expect(result.syncFailureEnabled).toBe(true);
     expect(result.statusReason).toBe('alerts-disabled-by-env');
     expect(result.shouldAlert).toBe(false);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'provider_sync_incident_alert_check_requested',
+      }),
+    );
   });
 });
