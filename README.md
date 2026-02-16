@@ -206,6 +206,9 @@ For production-style EC2 deployment, use the deployment module:
 ### Quick start
 
 ```bash
+# Optional on fresh Ubuntu EC2: install Docker + Compose
+sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
+
 # 1) Prepare production env safely
 ./deploy/ec2/scripts/setup.sh
 
@@ -217,6 +220,9 @@ For production-style EC2 deployment, use the deployment module:
 
 # 4) Check status
 ./deploy/ec2/scripts/status.sh
+
+# 5) Future updates
+./deploy/ec2/scripts/update.sh
 ```
 
 This stack includes by default:

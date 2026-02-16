@@ -19,9 +19,11 @@ on an EC2 instance using Docker Compose, a public domain, and HTTPS.
   Production env template.
 - `scripts/`  
   Non-technical-friendly operational scripts:
+  - `bootstrap-ubuntu.sh` (optional, install Docker on Ubuntu)
   - `setup.sh`
   - `preflight.sh`
   - `deploy.sh`
+  - `update.sh`
   - `status.sh`
   - `logs.sh`
   - `restart.sh`
@@ -45,6 +47,9 @@ flowchart TD
 From repository root:
 
 ```bash
+# Optional (Ubuntu EC2 only): install Docker + Compose
+sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
+
 ./deploy/ec2/scripts/setup.sh
 ./deploy/ec2/scripts/preflight.sh
 ./deploy/ec2/scripts/deploy.sh
@@ -69,6 +74,9 @@ The setup script:
 
 # Validate env + compose config before deploy
 ./deploy/ec2/scripts/preflight.sh
+
+# Pull updates and recreate all services
+./deploy/ec2/scripts/update.sh
 
 # Logs (all services)
 ./deploy/ec2/scripts/logs.sh
