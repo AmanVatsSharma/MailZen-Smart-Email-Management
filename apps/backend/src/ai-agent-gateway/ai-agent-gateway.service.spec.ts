@@ -513,6 +513,66 @@ describe('AiAgentGatewayService', () => {
     );
   });
 
+  it('executes inbox open-thread action when suggested and requested', async () => {
+    const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'inbox',
+        assistantText: 'I can open this thread.',
+        intent: 'thread_open',
+        confidence: 0.9,
+        suggestedActions: [
+          {
+            name: 'inbox.open_thread',
+            label: 'Open thread',
+            payload: {},
+          },
+        ],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+    findExternalMessagesMock.mockResolvedValue([
+      {
+        threadId: 'thread-open-1',
+        subject: 'Quarterly planning',
+        from: 'ops@example.com',
+        snippet: 'Sharing the timeline and owners.',
+      },
+    ]);
+
+    const response = await service.assist(
+      {
+        skill: 'inbox',
+        messages: [{ role: 'user', content: 'Open this thread.' }],
+        context: {
+          surface: 'inbox',
+          locale: 'en-IN',
+          metadataJson: JSON.stringify({ threadId: 'thread-open-1' }),
+        },
+        allowedActions: ['inbox.open_thread'],
+        requestedAction: 'inbox.open_thread',
+        executeRequestedAction: true,
+      },
+      {
+        requestId: 'req-open-thread-1',
+        headers: { authorization: 'Bearer token-1' },
+      },
+    );
+
+    expect(response.executedAction?.executed).toBe(true);
+    expect(response.executedAction?.message).toContain(
+      'Opened thread "Quarterly planning"',
+    );
+    expect(saveAgentActionAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'inbox.open_thread',
+        executed: true,
+      }),
+    );
+  });
+
   it('adds runtime memory context for authenticated inbox requests', async () => {
     const service = createService();
     mockedAxios.post.mockResolvedValueOnce({

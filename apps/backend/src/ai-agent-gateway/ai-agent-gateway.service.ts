@@ -187,6 +187,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         'inbox.prioritize_thread',
         'inbox.compose_reply_draft',
         'inbox.schedule_followup',
+        'inbox.open_thread',
       ]),
       humanApprovalActions: new Set([
         'inbox.compose_reply_draft',
@@ -1558,6 +1559,41 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
+    if (requestedAction === 'inbox.open_thread') {
+      if (!userId) {
+        throw new BadRequestException(
+          'Authenticated user is required for inbox open-thread action',
+        );
+      }
+
+      const metadata = this.parseContextMetadata(input.context?.metadataJson);
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        '';
+      const openedThread = await this.openThreadForUser(
+        userId,
+        threadId || undefined,
+      );
+
+      return this.finalizeActionExecution({
+        action: requestedAction,
+        executed: true,
+        message: openedThread.message,
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          threadId: openedThread.threadId,
+          threadMessageCount: openedThread.messageCount,
+          threadSubject: openedThread.subject,
+        },
+      });
+    }
+
     if (requestedAction === 'inbox.compose_reply_draft') {
       if (!userId) {
         throw new BadRequestException(
@@ -1912,6 +1948,70 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       .join(' ');
 
     return `Thread "${subject}" summary: ${bulletPoints}`;
+  }
+
+  private async openThreadForUser(
+    userId: string,
+    threadId?: string,
+  ): Promise<{
+    threadId: string | null;
+    messageCount: number;
+    subject: string | null;
+    message: string;
+  }> {
+    let resolvedThreadId = String(threadId || '').trim();
+    if (!resolvedThreadId) {
+      const recentMessages = this.normalizeExternalMessages(
+        await this.externalEmailMessageRepo.find({
+          where: { userId },
+          order: { internalDate: 'DESC', createdAt: 'DESC' },
+          take: 1,
+        }),
+      );
+      resolvedThreadId = String(recentMessages[0]?.threadId || '').trim();
+    }
+
+    if (!resolvedThreadId) {
+      return {
+        threadId: null,
+        messageCount: 0,
+        subject: null,
+        message:
+          'No thread is available to open yet. Sync your inbox and try again.',
+      };
+    }
+
+    const messages = await this.loadThreadMessagesForUser({
+      userId,
+      threadId: resolvedThreadId,
+      take: 8,
+    });
+    if (!messages.length) {
+      return {
+        threadId: resolvedThreadId,
+        messageCount: 0,
+        subject: null,
+        message: `Thread ${resolvedThreadId} was requested, but no messages are currently accessible for it.`,
+      };
+    }
+
+    const subject = String(messages[0]?.subject || 'Untitled thread').trim();
+    const participants = Array.from(
+      new Set(
+        messages
+          .map((message) => String(message.from || '').trim())
+          .filter(Boolean),
+      ),
+    ).slice(0, 3);
+    const participantSummary = participants.length
+      ? `participants: ${participants.join(', ')}`
+      : 'participants are unavailable';
+    return {
+      threadId: resolvedThreadId,
+      messageCount: messages.length,
+      subject,
+      message: `Opened thread "${subject}" (${messages.length} recent messages; ${participantSummary}).`,
+    };
   }
 
   private async composeReplyDraftForUser(
