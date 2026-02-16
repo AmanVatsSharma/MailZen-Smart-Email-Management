@@ -12,7 +12,8 @@ flowchart TD
   EnvOK -- no --> FixEnv[Fix env inputs/placeholders]
   FixEnv --> Setup
   EnvOK -- yes --> DnsCheck[dns-check.sh]
-  DnsCheck --> Preflight[preflight.sh]
+  DnsCheck --> PortsCheck[ports-check.sh]
+  PortsCheck --> Preflight[preflight.sh]
   Preflight --> ComposeConfig{compose config ok?}
   ComposeConfig -- no --> FixConfig[Fix env or compose file]
   FixConfig --> Preflight

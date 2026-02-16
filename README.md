@@ -227,6 +227,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: confirm domain DNS resolution before cutover
 ./deploy/ec2/scripts/dns-check.sh
 
+# Optional: ensure host ports 80/443 are free before first deploy
+./deploy/ec2/scripts/ports-check.sh
+
 # Optional: redacted audit of critical deploy env keys
 ./deploy/ec2/scripts/env-audit.sh
 

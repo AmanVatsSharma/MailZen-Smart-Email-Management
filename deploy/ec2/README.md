@@ -38,6 +38,7 @@ Additional deployment flowcharts:
   - `backup-prune.sh` (backup retention cleanup)
   - `restore-db.sh` (database restore with confirmation)
   - `rollback-latest.sh` (restore newest backup quickly)
+  - `ports-check.sh` (check host port conflicts for 80/443)
   - `env-audit.sh` (redacted critical env audit)
 - `backups/`  
   Local backup dump directory (tracked folder; dump files ignored by git).
@@ -116,6 +117,9 @@ The setup script:
 
 # Validate DNS points to a specific public IP
 ./deploy/ec2/scripts/dns-check.sh --expected-ip 203.0.113.10
+
+# Validate host ports 80/443 are available
+./deploy/ec2/scripts/ports-check.sh
 
 # Redacted audit of critical env keys
 ./deploy/ec2/scripts/env-audit.sh
