@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { SmartReplyAnthropicAdapter } from './smart-reply-anthropic.adapter';
+import { SmartReplyAzureOpenAiAdapter } from './smart-reply-azure-openai.adapter';
 import { SmartReplyExternalModelAdapter } from './smart-reply-external-model.adapter';
 import { SmartReplyModelProvider } from './smart-reply-model.provider';
 import { SmartReplyOpenAiAdapter } from './smart-reply-openai.adapter';
@@ -15,6 +16,10 @@ describe('SmartReplyProviderRouter', () => {
     providerId: 'openai',
     generateSuggestions: jest.fn(),
   } as unknown as jest.Mocked<SmartReplyOpenAiAdapter>;
+  const azureOpenAiProvider: jest.Mocked<SmartReplyAzureOpenAiAdapter> = {
+    providerId: 'azure-openai',
+    generateSuggestions: jest.fn(),
+  } as unknown as jest.Mocked<SmartReplyAzureOpenAiAdapter>;
   const anthropicProvider: jest.Mocked<SmartReplyAnthropicAdapter> = {
     providerId: 'anthropic',
     generateSuggestions: jest.fn(),
@@ -33,6 +38,7 @@ describe('SmartReplyProviderRouter', () => {
     router = new SmartReplyProviderRouter(
       templateProvider,
       openAiProvider,
+      azureOpenAiProvider,
       anthropicProvider,
       externalProvider,
     );
@@ -53,6 +59,9 @@ describe('SmartReplyProviderRouter', () => {
 
   it('uses openai provider first in hybrid mode for advanced model', async () => {
     openAiProvider.generateSuggestions.mockResolvedValue(['OpenAI reply']);
+    azureOpenAiProvider.generateSuggestions.mockResolvedValue([
+      'Azure OpenAI reply',
+    ]);
     anthropicProvider.generateSuggestions.mockResolvedValue([
       'Anthropic reply',
     ]);
@@ -73,6 +82,7 @@ describe('SmartReplyProviderRouter', () => {
     });
 
     expect(openAiProvider.generateSuggestions).toHaveBeenCalled();
+    expect(azureOpenAiProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(anthropicProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(externalProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(templateProvider.generateSuggestions).not.toHaveBeenCalled();
@@ -85,6 +95,9 @@ describe('SmartReplyProviderRouter', () => {
 
   it('uses template provider in hybrid mode for balanced model', async () => {
     openAiProvider.generateSuggestions.mockResolvedValue(['OpenAI reply']);
+    azureOpenAiProvider.generateSuggestions.mockResolvedValue([
+      'Azure OpenAI reply',
+    ]);
     anthropicProvider.generateSuggestions.mockResolvedValue([
       'Anthropic reply',
     ]);
@@ -103,6 +116,7 @@ describe('SmartReplyProviderRouter', () => {
     });
 
     expect(openAiProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(azureOpenAiProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(anthropicProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(externalProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(templateProvider.generateSuggestions).toHaveBeenCalled();
@@ -116,6 +130,9 @@ describe('SmartReplyProviderRouter', () => {
   it('falls back to template provider in agent-platform mode', async () => {
     process.env.SMART_REPLY_PROVIDER_MODE = 'agent_platform';
     openAiProvider.generateSuggestions.mockResolvedValue(['OpenAI reply']);
+    azureOpenAiProvider.generateSuggestions.mockResolvedValue([
+      'Azure OpenAI reply',
+    ]);
     anthropicProvider.generateSuggestions.mockResolvedValue([
       'Anthropic reply',
     ]);
@@ -134,6 +151,7 @@ describe('SmartReplyProviderRouter', () => {
     });
 
     expect(openAiProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(azureOpenAiProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(anthropicProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(externalProvider.generateSuggestions).toHaveBeenCalled();
     expect(templateProvider.generateSuggestions).toHaveBeenCalled();
@@ -147,6 +165,9 @@ describe('SmartReplyProviderRouter', () => {
   it('forces template mode regardless of aiModel preference', async () => {
     process.env.SMART_REPLY_PROVIDER_MODE = 'template';
     openAiProvider.generateSuggestions.mockResolvedValue(['OpenAI reply']);
+    azureOpenAiProvider.generateSuggestions.mockResolvedValue([
+      'Azure OpenAI reply',
+    ]);
     anthropicProvider.generateSuggestions.mockResolvedValue([
       'Anthropic reply',
     ]);
@@ -165,6 +186,7 @@ describe('SmartReplyProviderRouter', () => {
     });
 
     expect(openAiProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(azureOpenAiProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(anthropicProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(externalProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(templateProvider.generateSuggestions).toHaveBeenCalled();
@@ -178,6 +200,9 @@ describe('SmartReplyProviderRouter', () => {
   it('uses openai mode regardless of model preference', async () => {
     process.env.SMART_REPLY_PROVIDER_MODE = 'openai';
     openAiProvider.generateSuggestions.mockResolvedValue(['OpenAI reply']);
+    azureOpenAiProvider.generateSuggestions.mockResolvedValue([
+      'Azure OpenAI reply',
+    ]);
     anthropicProvider.generateSuggestions.mockResolvedValue([
       'Anthropic reply',
     ]);
@@ -196,6 +221,7 @@ describe('SmartReplyProviderRouter', () => {
     });
 
     expect(openAiProvider.generateSuggestions).toHaveBeenCalled();
+    expect(azureOpenAiProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(anthropicProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(externalProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(templateProvider.generateSuggestions).not.toHaveBeenCalled();
@@ -208,6 +234,7 @@ describe('SmartReplyProviderRouter', () => {
 
   it('falls back from openai to external in hybrid mode', async () => {
     openAiProvider.generateSuggestions.mockResolvedValue([]);
+    azureOpenAiProvider.generateSuggestions.mockResolvedValue([]);
     anthropicProvider.generateSuggestions.mockResolvedValue([]);
     externalProvider.generateSuggestions.mockResolvedValue(['External reply']);
     templateProvider.generateSuggestions.mockReturnValue(['Template reply']);
@@ -224,6 +251,7 @@ describe('SmartReplyProviderRouter', () => {
     });
 
     expect(openAiProvider.generateSuggestions).toHaveBeenCalled();
+    expect(azureOpenAiProvider.generateSuggestions).toHaveBeenCalled();
     expect(anthropicProvider.generateSuggestions).toHaveBeenCalled();
     expect(externalProvider.generateSuggestions).toHaveBeenCalled();
     expect(templateProvider.generateSuggestions).not.toHaveBeenCalled();
@@ -237,6 +265,9 @@ describe('SmartReplyProviderRouter', () => {
   it('uses anthropic mode regardless of model preference', async () => {
     process.env.SMART_REPLY_PROVIDER_MODE = 'anthropic';
     openAiProvider.generateSuggestions.mockResolvedValue(['OpenAI reply']);
+    azureOpenAiProvider.generateSuggestions.mockResolvedValue([
+      'Azure OpenAI reply',
+    ]);
     anthropicProvider.generateSuggestions.mockResolvedValue([
       'Anthropic reply',
     ]);
@@ -255,6 +286,7 @@ describe('SmartReplyProviderRouter', () => {
     });
 
     expect(openAiProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(azureOpenAiProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(anthropicProvider.generateSuggestions).toHaveBeenCalled();
     expect(externalProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(templateProvider.generateSuggestions).not.toHaveBeenCalled();
@@ -268,6 +300,9 @@ describe('SmartReplyProviderRouter', () => {
   it('uses anthropic as hybrid primary when configured', async () => {
     process.env.SMART_REPLY_HYBRID_PRIMARY = 'anthropic';
     openAiProvider.generateSuggestions.mockResolvedValue(['OpenAI reply']);
+    azureOpenAiProvider.generateSuggestions.mockResolvedValue([
+      'Azure OpenAI reply',
+    ]);
     anthropicProvider.generateSuggestions.mockResolvedValue([
       'Anthropic reply',
     ]);
@@ -287,9 +322,78 @@ describe('SmartReplyProviderRouter', () => {
 
     expect(anthropicProvider.generateSuggestions).toHaveBeenCalled();
     expect(openAiProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(azureOpenAiProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(result).toEqual({
       suggestions: ['Anthropic reply'],
       source: 'anthropic',
+      fallbackUsed: false,
+    });
+  });
+
+  it('uses azure_openai mode regardless of model preference', async () => {
+    process.env.SMART_REPLY_PROVIDER_MODE = 'azure_openai';
+    openAiProvider.generateSuggestions.mockResolvedValue(['OpenAI reply']);
+    azureOpenAiProvider.generateSuggestions.mockResolvedValue([
+      'Azure OpenAI reply',
+    ]);
+    anthropicProvider.generateSuggestions.mockResolvedValue([
+      'Anthropic reply',
+    ]);
+    externalProvider.generateSuggestions.mockResolvedValue(['External reply']);
+    templateProvider.generateSuggestions.mockReturnValue(['Template reply']);
+
+    const result = await router.generateSuggestions({
+      aiModel: 'balanced',
+      request: {
+        conversation: 'Please share enterprise pricing next steps.',
+        tone: 'professional',
+        length: 'medium',
+        count: 2,
+        includeSignature: false,
+      },
+    });
+
+    expect(openAiProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(azureOpenAiProvider.generateSuggestions).toHaveBeenCalled();
+    expect(anthropicProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(externalProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(templateProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      suggestions: ['Azure OpenAI reply'],
+      source: 'azure_openai',
+      fallbackUsed: false,
+    });
+  });
+
+  it('uses azure_openai as hybrid primary when configured', async () => {
+    process.env.SMART_REPLY_HYBRID_PRIMARY = 'azure_openai';
+    openAiProvider.generateSuggestions.mockResolvedValue(['OpenAI reply']);
+    azureOpenAiProvider.generateSuggestions.mockResolvedValue([
+      'Azure OpenAI reply',
+    ]);
+    anthropicProvider.generateSuggestions.mockResolvedValue([
+      'Anthropic reply',
+    ]);
+    externalProvider.generateSuggestions.mockResolvedValue(['External reply']);
+    templateProvider.generateSuggestions.mockReturnValue(['Template reply']);
+
+    const result = await router.generateSuggestions({
+      aiModel: 'advanced',
+      request: {
+        conversation: 'Need escalation response draft with crisp tone.',
+        tone: 'formal',
+        length: 'short',
+        count: 1,
+        includeSignature: false,
+      },
+    });
+
+    expect(azureOpenAiProvider.generateSuggestions).toHaveBeenCalled();
+    expect(openAiProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(anthropicProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      suggestions: ['Azure OpenAI reply'],
+      source: 'azure_openai',
       fallbackUsed: false,
     });
   });

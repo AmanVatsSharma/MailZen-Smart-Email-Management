@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SmartReplyAnthropicAdapter } from './smart-reply-anthropic.adapter';
+import { SmartReplyAzureOpenAiAdapter } from './smart-reply-azure-openai.adapter';
 import { SmartReplyExternalModelAdapter } from './smart-reply-external-model.adapter';
 import { SmartReplyModelProvider } from './smart-reply-model.provider';
 import { SmartReplyOpenAiAdapter } from './smart-reply-openai.adapter';
@@ -9,10 +10,11 @@ type SmartReplyProviderMode =
   | 'template'
   | 'agent_platform'
   | 'openai'
+  | 'azure_openai'
   | 'anthropic'
   | 'hybrid';
 
-type RoutedProvider = 'openai' | 'anthropic' | 'external';
+type RoutedProvider = 'openai' | 'azure_openai' | 'anthropic' | 'external';
 
 @Injectable()
 export class SmartReplyProviderRouter {
@@ -21,6 +23,7 @@ export class SmartReplyProviderRouter {
   constructor(
     private readonly templateProvider: SmartReplyModelProvider,
     private readonly openAiProvider: SmartReplyOpenAiAdapter,
+    private readonly azureOpenAiProvider: SmartReplyAzureOpenAiAdapter,
     private readonly anthropicProvider: SmartReplyAnthropicAdapter,
     private readonly externalProvider: SmartReplyExternalModelAdapter,
   ) {}
@@ -32,6 +35,7 @@ export class SmartReplyProviderRouter {
     if (normalized === 'template') return 'template';
     if (normalized === 'agent_platform') return 'agent_platform';
     if (normalized === 'openai') return 'openai';
+    if (normalized === 'azure_openai') return 'azure_openai';
     if (normalized === 'anthropic') return 'anthropic';
     if (normalized === 'hybrid') return 'hybrid';
 
@@ -55,12 +59,15 @@ export class SmartReplyProviderRouter {
       .trim()
       .toLowerCase();
     if (normalizedPrimary === 'anthropic') {
-      return ['anthropic', 'openai', 'external'];
+      return ['anthropic', 'openai', 'azure_openai', 'external'];
+    }
+    if (normalizedPrimary === 'azure_openai') {
+      return ['azure_openai', 'openai', 'anthropic', 'external'];
     }
     if (normalizedPrimary === 'agent_platform') {
-      return ['external', 'openai', 'anthropic'];
+      return ['external', 'openai', 'azure_openai', 'anthropic'];
     }
-    return ['openai', 'anthropic', 'external'];
+    return ['openai', 'azure_openai', 'anthropic', 'external'];
   }
 
   private shouldTryExternalProvider(input: {
@@ -70,6 +77,7 @@ export class SmartReplyProviderRouter {
     if (mode === 'template') return [];
     if (mode === 'agent_platform') return ['external'];
     if (mode === 'openai') return ['openai'];
+    if (mode === 'azure_openai') return ['azure_openai'];
     if (mode === 'anthropic') return ['anthropic'];
     if (!this.shouldPreferExternalByModel(input.aiModel)) return [];
     return this.resolveHybridProviderPriority();
@@ -82,6 +90,9 @@ export class SmartReplyProviderRouter {
     if (provider === 'openai') {
       return this.openAiProvider.generateSuggestions(request);
     }
+    if (provider === 'azure_openai') {
+      return this.azureOpenAiProvider.generateSuggestions(request);
+    }
     if (provider === 'anthropic') {
       return this.anthropicProvider.generateSuggestions(request);
     }
@@ -93,7 +104,7 @@ export class SmartReplyProviderRouter {
     request: SmartReplyProviderRequest;
   }): Promise<{
     suggestions: string[];
-    source: 'external' | 'internal' | 'openai' | 'anthropic';
+    source: 'external' | 'internal' | 'openai' | 'azure_openai' | 'anthropic';
     fallbackUsed: boolean;
   }> {
     const routedProviders = this.shouldTryExternalProvider({
@@ -106,9 +117,11 @@ export class SmartReplyProviderRouter {
         const source =
           provider === 'openai'
             ? 'openai'
-            : provider === 'anthropic'
-              ? 'anthropic'
-              : 'external';
+            : provider === 'azure_openai'
+              ? 'azure_openai'
+              : provider === 'anthropic'
+                ? 'anthropic'
+                : 'external';
         const fallbackUsed = index > 0;
         this.logger.debug(
           `smart-reply-provider-router: selected source=${source} suggestions=${suggestions.length} fallbackUsed=${fallbackUsed}`,

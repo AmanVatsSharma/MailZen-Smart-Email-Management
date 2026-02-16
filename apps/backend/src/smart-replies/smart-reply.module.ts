@@ -9,6 +9,7 @@ import { SmartReplySettings } from './entities/smart-reply-settings.entity';
 import { SmartReplyModelProvider } from './smart-reply-model.provider';
 import { SmartReplyProviderRouter } from './smart-reply-provider.router';
 import { SmartReplyAnthropicAdapter } from './smart-reply-anthropic.adapter';
+import { SmartReplyAzureOpenAiAdapter } from './smart-reply-azure-openai.adapter';
 import { SmartReplyOpenAiAdapter } from './smart-reply-openai.adapter';
 
 @Module({
@@ -19,6 +20,7 @@ import { SmartReplyOpenAiAdapter } from './smart-reply-openai.adapter';
     SmartReplyRetentionScheduler,
     SmartReplyModelProvider,
     SmartReplyOpenAiAdapter,
+    SmartReplyAzureOpenAiAdapter,
     SmartReplyAnthropicAdapter,
     SmartReplyExternalModelAdapter,
     SmartReplyProviderRouter,
