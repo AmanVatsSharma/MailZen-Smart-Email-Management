@@ -60,10 +60,10 @@ show_menu() {
 1) One-command launch (guided flags)
 2) Bootstrap Docker on Ubuntu (run with sudo)
 3) Setup environment (.env.ec2)
-4) Preflight checks (prompt runtime options)
+4) Preflight checks (prompt runtime + skip options)
 5) Deploy stack
 6) Verify deployment (smoke checks)
-7) Show status (prompt runtime/strict options)
+7) Show status (prompt runtime/strict/skip options)
 8) Show logs (all services)
 9) Update stack (guided flags)
 10) Backup database
@@ -151,8 +151,24 @@ while true; do
     preflight_args=()
     if prompt_yes_no "Enable runtime checks during preflight" "no"; then
       preflight_args+=(--with-runtime-checks)
-      preflight_ports="$(prompt_with_default "Ports for runtime ports-check (comma-separated)" "80,443")"
-      preflight_args+=(--ports-check-ports "${preflight_ports}")
+      if prompt_yes_no "Skip host readiness during runtime checks" "no"; then
+        preflight_args+=(--skip-host-readiness)
+      fi
+      if prompt_yes_no "Skip DNS check during runtime checks" "no"; then
+        preflight_args+=(--skip-dns-check)
+      fi
+      if prompt_yes_no "Skip SSL check during runtime checks" "no"; then
+        preflight_args+=(--skip-ssl-check)
+      fi
+      preflight_skip_ports=false
+      if prompt_yes_no "Skip ports check during runtime checks" "no"; then
+        preflight_skip_ports=true
+        preflight_args+=(--skip-ports-check)
+      fi
+      if [[ "${preflight_skip_ports}" == false ]]; then
+        preflight_ports="$(prompt_with_default "Ports for runtime ports-check (comma-separated)" "80,443")"
+        preflight_args+=(--ports-check-ports "${preflight_ports}")
+      fi
     fi
     run_step "preflight.sh" "${preflight_args[@]}"
     ;;
@@ -166,8 +182,24 @@ while true; do
     status_args=()
     if prompt_yes_no "Enable runtime checks in status" "no"; then
       status_args+=(--with-runtime-checks)
-      status_ports="$(prompt_with_default "Ports for runtime ports-check (comma-separated)" "80,443")"
-      status_args+=(--ports-check-ports "${status_ports}")
+      if prompt_yes_no "Skip host readiness during runtime checks" "no"; then
+        status_args+=(--skip-host-readiness)
+      fi
+      if prompt_yes_no "Skip DNS check during runtime checks" "no"; then
+        status_args+=(--skip-dns-check)
+      fi
+      if prompt_yes_no "Skip SSL check during runtime checks" "no"; then
+        status_args+=(--skip-ssl-check)
+      fi
+      status_skip_ports=false
+      if prompt_yes_no "Skip ports check during runtime checks" "no"; then
+        status_skip_ports=true
+        status_args+=(--skip-ports-check)
+      fi
+      if [[ "${status_skip_ports}" == false ]]; then
+        status_ports="$(prompt_with_default "Ports for runtime ports-check (comma-separated)" "80,443")"
+        status_args+=(--ports-check-ports "${status_ports}")
+      fi
     fi
     if prompt_yes_no "Enable strict mode (fail when daemon unavailable)" "no"; then
       status_args+=(--strict)
