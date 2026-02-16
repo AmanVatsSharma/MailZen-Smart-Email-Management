@@ -352,6 +352,50 @@ describe('EmailProviderService', () => {
         password: expect.stringMatching(/^enc:v2:/),
       }),
     );
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'provider_credentials_updated',
+      }),
+    );
+  });
+
+  it('records audit log when provider active state is toggled', async () => {
+    providerRepository.findOne
+      .mockResolvedValueOnce({
+        id: 'provider-1',
+        type: 'GMAIL',
+        email: 'founder@mailzen.com',
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+      } as EmailProvider)
+      .mockResolvedValueOnce({
+        id: 'provider-1',
+        type: 'GMAIL',
+        email: 'founder@mailzen.com',
+        userId: 'user-1',
+        displayName: 'Gmail - founder@mailzen.com',
+        isActive: true,
+        status: 'connected',
+        workspaceId: 'workspace-1',
+      } as EmailProvider);
+    providerRepository.update.mockResolvedValue({} as any);
+
+    await service.setActiveProvider('provider-1', 'user-1', true);
+
+    expect(providerRepository.update).toHaveBeenCalledWith(
+      { userId: 'user-1' },
+      { isActive: false },
+    );
+    expect(providerRepository.update).toHaveBeenCalledWith('provider-1', {
+      isActive: true,
+    });
+    expect(auditLogRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'provider_active_state_updated',
+      }),
+    );
   });
 
   it('creates SMTP transporter with enterprise pooling config', async () => {

@@ -119,6 +119,14 @@ export class EmailProviderService {
     }
   }
 
+  private resolveAccountFingerprint(email?: string | null): string | null {
+    const normalizedEmail = String(email || '')
+      .trim()
+      .toLowerCase();
+    if (!normalizedEmail) return null;
+    return fingerprintIdentifier(normalizedEmail);
+  }
+
   private async resolveDefaultWorkspaceId(userId: string): Promise<string> {
     const workspaces = await this.workspaceService.listMyWorkspaces(userId);
     const preferredWorkspace =
@@ -534,6 +542,19 @@ export class EmailProviderService {
         await this.providerRepository.update(providerId, { isActive: true });
       } else if (isActive === false) {
         await this.providerRepository.update(providerId, { isActive: false });
+      }
+      if (typeof isActive === 'boolean') {
+        await this.writeAuditLog({
+          userId,
+          action: 'provider_active_state_updated',
+          metadata: {
+            providerId: provider.id,
+            providerType: provider.type,
+            workspaceId: provider.workspaceId || null,
+          accountFingerprint: this.resolveAccountFingerprint(provider.email),
+            isActive,
+          },
+        });
       }
 
       return this.getProviderUi(providerId, userId);
@@ -1785,7 +1806,9 @@ export class EmailProviderService {
           providerId: configuredProvider.id,
           providerType: configuredProvider.type,
           workspaceId: configuredProvider.workspaceId || null,
-          accountFingerprint: fingerprintIdentifier(configuredProvider.email),
+          accountFingerprint: this.resolveAccountFingerprint(
+            configuredProvider.email,
+          ),
         },
       });
 
@@ -2062,7 +2085,7 @@ export class EmailProviderService {
           providerId: provider.id,
           providerType: provider.type,
           workspaceId: provider.workspaceId || null,
-          accountFingerprint: fingerprintIdentifier(provider.email),
+          accountFingerprint: this.resolveAccountFingerprint(provider.email),
         },
       });
 
@@ -2130,7 +2153,24 @@ export class EmailProviderService {
 
       // Update the provider
       await this.providerRepository.update(id, updateData);
-      return await this.providerRepository.findOne({ where: { id } });
+      const updatedProvider = await this.providerRepository.findOne({
+        where: { id },
+      });
+      await this.writeAuditLog({
+        userId,
+        action: 'provider_credentials_updated',
+        metadata: {
+          providerId: provider.id,
+          providerType: provider.type,
+          workspaceId: provider.workspaceId || null,
+          accountFingerprint: this.resolveAccountFingerprint(provider.email),
+          changedFields: Object.keys(updateData),
+          hasAccessToken: Boolean(updatedData.accessToken),
+          hasRefreshToken: Boolean(updatedData.refreshToken),
+          hasPassword: Boolean(updatedData.password),
+        },
+      });
+      return updatedProvider;
     } catch (error) {
       this.logger.error(
         serializeStructuredLog({
