@@ -324,6 +324,37 @@ describe('NotificationService', () => {
     );
   });
 
+  it('applies sync failure preference gate to mailbox sync incident alerts', async () => {
+    const preferences = {
+      ...basePreference,
+      syncFailureEnabled: false,
+    } as UserNotificationPreference;
+    preferenceRepo.findOne.mockResolvedValue(preferences);
+    notificationRepo.create.mockImplementation(
+      (value: Partial<UserNotification>) =>
+        ({
+          id: 'notif-sync-incident-ignored',
+          ...value,
+        }) as UserNotification,
+    );
+    notificationRepo.save.mockImplementation((value: UserNotification) =>
+      Promise.resolve(value),
+    );
+
+    const result = await service.createNotification({
+      userId: 'user-1',
+      type: 'MAILBOX_SYNC_INCIDENT_ALERT',
+      title: 'Mailbox sync incidents warning',
+      message: 'incident detected',
+      metadata: { incidentStatus: 'WARNING' },
+    });
+
+    expect(result.isRead).toBe(true);
+    expect(result.metadata).toEqual(
+      expect.objectContaining({ ignoredByPreference: true }),
+    );
+  });
+
   it('marks notifications as read', async () => {
     notificationRepo.findOne.mockResolvedValue({
       id: 'notif-1',

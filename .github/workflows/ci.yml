@@ -77,6 +77,7 @@ jobs:
           mailbox/mailbox-sync.service.spec.ts
           mailbox/mailbox-sync.scheduler.spec.ts
           mailbox/mailbox-sync-run-retention.scheduler.spec.ts
+          mailbox/mailbox-sync-incident.scheduler.spec.ts
           mailbox/mailbox-inbound-sla.scheduler.spec.ts
           mailbox/mailbox-inbound-retention.scheduler.spec.ts
           mailbox/mailbox-inbound.service.spec.ts

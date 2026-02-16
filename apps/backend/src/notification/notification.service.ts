@@ -279,7 +279,9 @@ export class NotificationService {
     input: CreateNotificationInput,
   ): string | null {
     if (
-      ['SYNC_FAILED', 'SYNC_RECOVERED'].includes(input.type) &&
+      ['SYNC_FAILED', 'SYNC_RECOVERED', 'MAILBOX_SYNC_INCIDENT_ALERT'].includes(
+        input.type,
+      ) &&
       !preference.syncFailureEnabled
     ) {
       return 'syncFailureEnabled';

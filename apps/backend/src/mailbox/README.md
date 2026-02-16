@@ -83,6 +83,10 @@ This module covers:
 - `mailbox-sync-run-retention.scheduler.ts`
   - daily cron (`EVERY_DAY_AT_3AM`) for sync-run observability data retention purge
   - env-gated via `MAILZEN_MAILBOX_SYNC_RUN_AUTOPURGE_ENABLED`
+- `mailbox-sync-incident.scheduler.ts`
+  - cron (`*/15 * * * *`) for mailbox sync incident-rate monitoring + alert emission
+  - emits `MAILBOX_SYNC_INCIDENT_ALERT` notifications when warning/critical thresholds are breached
+  - deduplicates same-status alerts during cooldown windows
 
 ## Provisioning flow
 
@@ -186,6 +190,18 @@ flowchart TD
   - retention horizon for persisted `mailbox_sync_runs` observability rows
 - `MAILZEN_MAILBOX_SYNC_RUN_AUTOPURGE_ENABLED` (default `true`)
   - enables daily automatic purge of stale mailbox sync run observability rows
+- `MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_WINDOW_HOURS` (default `24`)
+  - rolling window used to evaluate sync incident rates for alerting
+- `MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_COOLDOWN_MINUTES` (default `60`)
+  - suppresses duplicate same-status sync incident alerts during cooldown
+- `MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_MAX_USERS_PER_RUN` (default `500`)
+  - safety cap for monitored users per sync incident alert scheduler run
+- `MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_WARNING_RATE_PERCENT` (default `10`)
+  - incident-rate threshold for warning alerts
+- `MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_CRITICAL_RATE_PERCENT` (default `25`)
+  - incident-rate threshold for critical alerts
+- `MAILZEN_MAILBOX_SYNC_INCIDENT_ALERT_MIN_INCIDENT_RUNS` (default `1`)
+  - minimum incident run count required before warning/critical alerting
 
 ### Inbound webhook authentication
 

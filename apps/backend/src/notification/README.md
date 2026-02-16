@@ -137,6 +137,9 @@ Delivery behavior:
 - `MailboxSyncService` publishes `SYNC_FAILED` domain events through
   `NotificationEventBusService` when mailbox pull-sync failures change error signature
   - publishes `SYNC_RECOVERED` when mailbox sync succeeds after prior mailbox error
+- `MailboxSyncIncidentScheduler` publishes `MAILBOX_SYNC_INCIDENT_ALERT`
+  domain events when rolling sync incident rates breach warning/critical thresholds
+  - duplicate same-status alerts are suppressed during cooldown windows
 - `AiAgentGatewayService` publishes `AGENT_ACTION_REQUIRED` domain events for
   follow-up reminders
 - `MailboxInboundSlaScheduler` publishes `MAILBOX_INBOUND_SLA_ALERT` domain
@@ -149,7 +152,7 @@ Delivery behavior:
 - `NotificationPushService` emits web-push messages for notification-created events
 - Emission respects stored user preferences:
   - `inAppEnabled`
-  - `syncFailureEnabled` (gates `SYNC_FAILED` + `SYNC_RECOVERED`)
+  - `syncFailureEnabled` (gates `SYNC_FAILED` + `SYNC_RECOVERED` + `MAILBOX_SYNC_INCIDENT_ALERT`)
   - `mailboxInboundAcceptedEnabled`
   - `mailboxInboundDeduplicatedEnabled`
   - `mailboxInboundRejectedEnabled`
@@ -166,6 +169,10 @@ Delivery behavior:
 Notification metadata is intentionally extensible. Current producers attach:
 
 - Sync failures: `providerId`, `providerType`, `workspaceId`
+- Mailbox sync incident alerts:
+  - `incidentStatus` (`WARNING` | `CRITICAL`)
+  - `incidentRatePercent`, `incidentRuns`, `totalRuns`
+  - `failedRuns`, `partialRuns`, `warningRatePercent`, `criticalRatePercent`
 - AI follow-up reminders: `threadId`, `followupAt`, `workspaceId`, `providerId`
 - Mailbox inbound alerts:
   - `inboundStatus` (`ACCEPTED` | `DEDUPLICATED` | `REJECTED`)
