@@ -2,6 +2,7 @@ import { Resolver, Mutation, Args, Query, Context, Int } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { MailboxService } from './mailbox.service';
+import { MailboxSyncService } from './mailbox-sync.service';
 import { MailboxInboundDataExportResponse } from './dto/mailbox-inbound-data-export.response';
 import {
   MailboxInboundEventObservabilityResponse,
@@ -9,6 +10,8 @@ import {
   MailboxInboundEventTrendPointResponse,
 } from './dto/mailbox-inbound-event-observability.response';
 import { MailboxInboundRetentionPurgeResponse } from './dto/mailbox-inbound-retention-purge.response';
+import { MailboxSyncStateResponse } from './dto/mailbox-sync-state.response';
+import { MailboxSyncRunResponse } from './dto/mailbox-sync-run.response';
 
 interface RequestContext {
   req: { user: { id: string } };
@@ -17,7 +20,10 @@ interface RequestContext {
 @Resolver('Mailbox')
 @UseGuards(JwtAuthGuard)
 export class MailboxResolver {
-  constructor(private readonly mailboxService: MailboxService) {}
+  constructor(
+    private readonly mailboxService: MailboxService,
+    private readonly mailboxSyncService: MailboxSyncService,
+  ) {}
 
   @Mutation(() => String)
   async createMyMailbox(
@@ -124,5 +130,33 @@ export class MailboxResolver {
       userId: ctx.req.user.id,
       retentionDays: retentionDays ?? null,
     });
+  }
+
+  @Query(() => [MailboxSyncStateResponse])
+  async myMailboxSyncStates(
+    @Context() ctx: RequestContext,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+  ): Promise<MailboxSyncStateResponse[]> {
+    return this.mailboxSyncService.listMailboxSyncStatesForUser({
+      userId: ctx.req.user.id,
+      workspaceId: workspaceId || null,
+    });
+  }
+
+  @Mutation(() => MailboxSyncRunResponse)
+  async syncMyMailboxPull(
+    @Context() ctx: RequestContext,
+    @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+  ): Promise<MailboxSyncRunResponse> {
+    const summary = await this.mailboxSyncService.pollUserMailboxes({
+      userId: ctx.req.user.id,
+      mailboxId: mailboxId || null,
+      workspaceId: workspaceId || null,
+    });
+    return {
+      ...summary,
+      executedAtIso: new Date().toISOString(),
+    };
   }
 }

@@ -796,6 +796,9 @@ extend type Query {
     windowHours: Int
     bucketMinutes: Int
   ): MailboxInboundDataExportResponse!
+  myMailboxSyncStates(
+    workspaceId: String
+  ): [MailboxSyncStateResponse!]!
   myMailboxInboundSlaIncidentStats(workspaceId: String, windowHours: Int): MailboxInboundSlaIncidentStatsResponse!
   myMailboxInboundSlaIncidentSeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [MailboxInboundSlaIncidentTrendPointResponse!]!
   myUnreadNotificationCount(workspaceId: String): Int!
@@ -861,6 +864,10 @@ extend type Mutation {
   purgeMyMailboxInboundRetentionData(
     retentionDays: Int
   ): MailboxInboundRetentionPurgeResponse!
+  syncMyMailboxPull(
+    mailboxId: String
+    workspaceId: String
+  ): MailboxSyncRunResponse!
 }
 
 type BillingPlan {
@@ -993,6 +1000,27 @@ type MailboxInboundDataExportResponse {
 type MailboxInboundRetentionPurgeResponse {
   deletedEvents: Int!
   retentionDays: Int!
+  executedAtIso: String!
+}
+
+type MailboxSyncStateResponse {
+  mailboxId: String!
+  mailboxEmail: String!
+  workspaceId: String
+  inboundSyncCursor: String
+  inboundSyncLastPolledAt: DateTime
+  inboundSyncLastError: String
+  inboundSyncLeaseExpiresAt: DateTime
+}
+
+type MailboxSyncRunResponse {
+  polledMailboxes: Int!
+  skippedMailboxes: Int!
+  failedMailboxes: Int!
+  fetchedMessages: Int!
+  acceptedMessages: Int!
+  deduplicatedMessages: Int!
+  rejectedMessages: Int!
   executedAtIso: String!
 }
 

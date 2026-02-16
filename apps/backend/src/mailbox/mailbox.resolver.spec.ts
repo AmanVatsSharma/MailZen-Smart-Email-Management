@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { MailboxResolver } from './mailbox.resolver';
 import { MailboxService } from './mailbox.service';
+import { MailboxSyncService } from './mailbox-sync.service';
 
 describe('MailboxResolver', () => {
   let resolver: MailboxResolver;
@@ -12,6 +14,10 @@ describe('MailboxResolver', () => {
     getInboundEventSeries: jest.fn(),
     exportInboundEventData: jest.fn(),
     purgeInboundEventRetentionData: jest.fn(),
+  };
+  const mailboxSyncServiceMock = {
+    listMailboxSyncStatesForUser: jest.fn(),
+    pollUserMailboxes: jest.fn(),
   };
 
   const ctx = {
@@ -26,6 +32,7 @@ describe('MailboxResolver', () => {
     jest.clearAllMocks();
     resolver = new MailboxResolver(
       mailboxServiceMock as unknown as MailboxService,
+      mailboxSyncServiceMock as unknown as MailboxSyncService,
     );
   });
 
@@ -191,5 +198,60 @@ describe('MailboxResolver', () => {
       retentionDays: 180,
     });
     expect(result.deletedEvents).toBe(12);
+  });
+
+  it('returns mailbox sync states for current user', async () => {
+    mailboxSyncServiceMock.listMailboxSyncStatesForUser.mockResolvedValue([
+      {
+        mailboxId: 'mailbox-1',
+        mailboxEmail: 'sales@mailzen.com',
+        workspaceId: 'workspace-1',
+        inboundSyncCursor: 'cursor-1',
+        inboundSyncLastPolledAt: new Date('2026-02-16T00:00:00.000Z'),
+        inboundSyncLastError: null,
+        inboundSyncLeaseExpiresAt: null,
+      },
+    ]);
+
+    await expect(
+      resolver.myMailboxSyncStates(ctx as any, 'workspace-1'),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        mailboxId: 'mailbox-1',
+      }),
+    ]);
+    expect(
+      mailboxSyncServiceMock.listMailboxSyncStatesForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+    });
+  });
+
+  it('triggers mailbox pull sync for current user', async () => {
+    mailboxSyncServiceMock.pollUserMailboxes.mockResolvedValue({
+      polledMailboxes: 1,
+      skippedMailboxes: 0,
+      failedMailboxes: 0,
+      fetchedMessages: 4,
+      acceptedMessages: 3,
+      deduplicatedMessages: 1,
+      rejectedMessages: 0,
+    });
+
+    await expect(
+      resolver.syncMyMailboxPull(ctx as any, 'mailbox-1', 'workspace-1'),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        polledMailboxes: 1,
+        acceptedMessages: 3,
+        executedAtIso: expect.any(String),
+      }),
+    );
+    expect(mailboxSyncServiceMock.pollUserMailboxes).toHaveBeenCalledWith({
+      userId: 'user-1',
+      mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
+    });
   });
 });

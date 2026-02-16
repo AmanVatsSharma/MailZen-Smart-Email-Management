@@ -11,6 +11,7 @@ jest.mock('axios');
 describe('MailboxSyncService', () => {
   const mailboxRepo: jest.Mocked<Repository<Mailbox>> = {
     find: jest.fn(),
+    findOne: jest.fn(),
     update: jest.fn(),
     query: jest.fn(),
   } as unknown as jest.Mocked<Repository<Mailbox>>;
@@ -30,6 +31,7 @@ describe('MailboxSyncService', () => {
     mailboxRepo.update.mockResolvedValue({ affected: 1 } as UpdateResult);
     mailboxRepo.query.mockResolvedValue([{ id: 'mailbox-1' }] as never);
     mailboxRepo.find.mockResolvedValue([]);
+    mailboxRepo.findOne.mockResolvedValue(null);
     mailboxInboundServiceMock.ingestInboundEvent.mockResolvedValue({
       accepted: true,
       mailboxId: 'mailbox-1',
@@ -346,5 +348,86 @@ describe('MailboxSyncService', () => {
       deduplicatedMessages: 0,
       rejectedMessages: 0,
     });
+  });
+
+  it('lists mailbox sync states scoped to current user', async () => {
+    mailboxRepo.find.mockResolvedValue([
+      {
+        id: 'mailbox-1',
+        email: 'sales@mailzen.com',
+        workspaceId: 'workspace-1',
+        inboundSyncCursor: 'cursor-1',
+        inboundSyncLastPolledAt: new Date('2026-02-16T00:00:00.000Z'),
+        inboundSyncLastError: null,
+        inboundSyncLeaseExpiresAt: null,
+      } as Mailbox,
+    ]);
+
+    const states = await service.listMailboxSyncStatesForUser({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+    });
+
+    expect(mailboxRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1', workspaceId: 'workspace-1' },
+      }),
+    );
+    expect(states).toEqual([
+      expect.objectContaining({
+        mailboxId: 'mailbox-1',
+        mailboxEmail: 'sales@mailzen.com',
+        inboundSyncCursor: 'cursor-1',
+      }),
+    ]);
+  });
+
+  it('runs mailbox poll for explicit mailbox id', async () => {
+    mailboxRepo.findOne.mockResolvedValue({
+      id: 'mailbox-1',
+      userId: 'user-1',
+      email: 'sales@mailzen.com',
+      status: 'ACTIVE',
+    } as Mailbox);
+    mockedAxios.get.mockResolvedValue({
+      data: {
+        messages: [
+          {
+            from: 'lead@example.com',
+            subject: 'manual poll',
+            textBody: 'hello',
+            messageId: '<manual-1@example.com>',
+          },
+        ],
+        nextCursor: 'cursor-manual',
+      },
+    } as never);
+
+    const result = await service.pollUserMailboxes({
+      userId: 'user-1',
+      mailboxId: 'mailbox-1',
+      workspaceId: null,
+    });
+
+    expect(result).toEqual({
+      polledMailboxes: 1,
+      skippedMailboxes: 0,
+      failedMailboxes: 0,
+      fetchedMessages: 1,
+      acceptedMessages: 1,
+      deduplicatedMessages: 0,
+      rejectedMessages: 0,
+    });
+  });
+
+  it('throws when explicit mailbox id is not owned by user', async () => {
+    mailboxRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.pollUserMailboxes({
+        userId: 'user-1',
+        mailboxId: 'missing-mailbox',
+      }),
+    ).rejects.toThrow('Mailbox not found');
   });
 });

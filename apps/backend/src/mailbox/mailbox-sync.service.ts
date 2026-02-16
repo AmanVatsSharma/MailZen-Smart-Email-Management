@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
@@ -31,6 +31,16 @@ type MailboxSyncPollResult = {
   deduplicatedMessages: number;
   rejectedMessages: number;
   nextCursor: string | null;
+};
+
+type MailboxSyncAggregateResult = {
+  polledMailboxes: number;
+  skippedMailboxes: number;
+  failedMailboxes: number;
+  fetchedMessages: number;
+  acceptedMessages: number;
+  deduplicatedMessages: number;
+  rejectedMessages: number;
 };
 
 @Injectable()
@@ -399,6 +409,37 @@ export class MailboxSyncService {
     );
   }
 
+  private async pollMailboxWithLease(
+    mailbox: Mailbox,
+  ): Promise<
+    | { skipped: true; failed: false }
+    | { skipped: false; failed: true }
+    | { skipped: false; failed: false; result: MailboxSyncPollResult }
+  > {
+    const leaseResult = await this.acquireMailboxSyncLease({
+      mailboxId: mailbox.id,
+    });
+    if (!leaseResult.acquired) {
+      return { skipped: true, failed: false };
+    }
+
+    try {
+      const result = await this.pollMailbox(mailbox);
+      return { skipped: false, failed: false, result };
+    } catch (error: unknown) {
+      const errorMessage = this.describeSyncError(error);
+      this.logger.warn(
+        `mailbox-sync: mailbox poll failed mailboxId=${mailbox.id} email=${mailbox.email}: ${errorMessage}`,
+      );
+      return { skipped: false, failed: true };
+    } finally {
+      await this.releaseMailboxSyncLease({
+        mailboxId: mailbox.id,
+        leaseToken: leaseResult.leaseToken,
+      });
+    }
+  }
+
   async pollMailbox(mailbox: Mailbox): Promise<MailboxSyncPollResult> {
     const apiBaseUrl = this.resolveSyncApiBaseUrl();
     if (!apiBaseUrl) {
@@ -500,65 +541,145 @@ export class MailboxSyncService {
     }
   }
 
-  async pollActiveMailboxes(): Promise<{
-    polledMailboxes: number;
-    skippedMailboxes: number;
-    failedMailboxes: number;
-    fetchedMessages: number;
-    acceptedMessages: number;
-    deduplicatedMessages: number;
-    rejectedMessages: number;
-  }> {
+  async pollActiveMailboxes(): Promise<MailboxSyncAggregateResult> {
     const maxMailboxesPerRun = this.resolveSyncMaxMailboxesPerRun();
     const mailboxes = await this.mailboxRepo.find({
       where: { status: 'ACTIVE' },
       order: { updatedAt: 'DESC' },
       take: maxMailboxesPerRun,
     });
-    let skippedMailboxes = 0;
-    let failedMailboxes = 0;
-    let fetchedMessages = 0;
-    let acceptedMessages = 0;
-    let deduplicatedMessages = 0;
-    let rejectedMessages = 0;
+    const summary: MailboxSyncAggregateResult = {
+      polledMailboxes: mailboxes.length,
+      skippedMailboxes: 0,
+      failedMailboxes: 0,
+      fetchedMessages: 0,
+      acceptedMessages: 0,
+      deduplicatedMessages: 0,
+      rejectedMessages: 0,
+    };
 
     for (const mailbox of mailboxes) {
-      const leaseResult = await this.acquireMailboxSyncLease({
-        mailboxId: mailbox.id,
-      });
-      if (!leaseResult.acquired) {
-        skippedMailboxes += 1;
+      const pollOutcome = await this.pollMailboxWithLease(mailbox);
+      if (pollOutcome.skipped) {
+        summary.skippedMailboxes += 1;
         continue;
       }
-
-      try {
-        const mailboxResult = await this.pollMailbox(mailbox);
-        fetchedMessages += mailboxResult.fetchedMessages;
-        acceptedMessages += mailboxResult.acceptedMessages;
-        deduplicatedMessages += mailboxResult.deduplicatedMessages;
-        rejectedMessages += mailboxResult.rejectedMessages;
-      } catch (error: unknown) {
-        failedMailboxes += 1;
-        const errorMessage = this.describeSyncError(error);
-        this.logger.warn(
-          `mailbox-sync: mailbox poll failed mailboxId=${mailbox.id} email=${mailbox.email}: ${errorMessage}`,
-        );
-      } finally {
-        await this.releaseMailboxSyncLease({
-          mailboxId: mailbox.id,
-          leaseToken: leaseResult.leaseToken,
-        });
+      if (pollOutcome.failed) {
+        summary.failedMailboxes += 1;
+        continue;
       }
+      summary.fetchedMessages += pollOutcome.result.fetchedMessages;
+      summary.acceptedMessages += pollOutcome.result.acceptedMessages;
+      summary.deduplicatedMessages += pollOutcome.result.deduplicatedMessages;
+      summary.rejectedMessages += pollOutcome.result.rejectedMessages;
     }
+    return summary;
+  }
 
-    return {
+  async listMailboxSyncStatesForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+  }): Promise<
+    Array<{
+      mailboxId: string;
+      mailboxEmail: string;
+      workspaceId: string | null;
+      inboundSyncCursor: string | null;
+      inboundSyncLastPolledAt: Date | null;
+      inboundSyncLastError: string | null;
+      inboundSyncLeaseExpiresAt: Date | null;
+    }>
+  > {
+    const normalizedWorkspaceId =
+      String(input.workspaceId || '').trim() || null;
+    const mailboxes = await this.mailboxRepo.find({
+      where: normalizedWorkspaceId
+        ? { userId: input.userId, workspaceId: normalizedWorkspaceId }
+        : { userId: input.userId },
+      order: { updatedAt: 'DESC' },
+    });
+    return mailboxes.map((mailbox) => ({
+      mailboxId: mailbox.id,
+      mailboxEmail: mailbox.email,
+      workspaceId: mailbox.workspaceId || null,
+      inboundSyncCursor: mailbox.inboundSyncCursor || null,
+      inboundSyncLastPolledAt: mailbox.inboundSyncLastPolledAt || null,
+      inboundSyncLastError: mailbox.inboundSyncLastError || null,
+      inboundSyncLeaseExpiresAt: mailbox.inboundSyncLeaseExpiresAt || null,
+    }));
+  }
+
+  async pollUserMailboxes(input: {
+    userId: string;
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+  }): Promise<MailboxSyncAggregateResult> {
+    const normalizedMailboxId = String(input.mailboxId || '').trim() || null;
+    const normalizedWorkspaceId =
+      String(input.workspaceId || '').trim() || null;
+    const mailboxWhereBase = normalizedWorkspaceId
+      ? {
+          userId: input.userId,
+          workspaceId: normalizedWorkspaceId,
+          status: 'ACTIVE',
+        }
+      : {
+          userId: input.userId,
+          status: 'ACTIVE',
+        };
+    const mailboxes = normalizedMailboxId
+      ? (() => {
+          return [];
+        })()
+      : await this.mailboxRepo.find({
+          where: mailboxWhereBase,
+          order: { updatedAt: 'DESC' },
+          take: this.resolveSyncMaxMailboxesPerRun(),
+        });
+    if (normalizedMailboxId) {
+      const mailbox = await this.mailboxRepo.findOne({
+        where: normalizedWorkspaceId
+          ? {
+              id: normalizedMailboxId,
+              userId: input.userId,
+              workspaceId: normalizedWorkspaceId,
+              status: 'ACTIVE',
+            }
+          : {
+              id: normalizedMailboxId,
+              userId: input.userId,
+              status: 'ACTIVE',
+            },
+      });
+      if (!mailbox) {
+        throw new NotFoundException('Mailbox not found');
+      }
+      mailboxes.push(mailbox);
+    }
+    const summary: MailboxSyncAggregateResult = {
       polledMailboxes: mailboxes.length,
-      skippedMailboxes,
-      failedMailboxes,
-      fetchedMessages,
-      acceptedMessages,
-      deduplicatedMessages,
-      rejectedMessages,
+      skippedMailboxes: 0,
+      failedMailboxes: 0,
+      fetchedMessages: 0,
+      acceptedMessages: 0,
+      deduplicatedMessages: 0,
+      rejectedMessages: 0,
     };
+    for (const mailbox of mailboxes) {
+      const pollOutcome = await this.pollMailboxWithLease(mailbox);
+      if (pollOutcome.skipped) {
+        summary.skippedMailboxes += 1;
+        continue;
+      }
+      if (pollOutcome.failed) {
+        summary.failedMailboxes += 1;
+        continue;
+      }
+      summary.fetchedMessages += pollOutcome.result.fetchedMessages;
+      summary.acceptedMessages += pollOutcome.result.acceptedMessages;
+      summary.deduplicatedMessages += pollOutcome.result.deduplicatedMessages;
+      summary.rejectedMessages += pollOutcome.result.rejectedMessages;
+    }
+    return summary;
   }
 }

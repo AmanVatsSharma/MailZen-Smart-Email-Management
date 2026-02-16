@@ -37,7 +37,9 @@ This module covers:
     - `myMailboxInboundEventStats(mailboxId?: String, workspaceId?: String, windowHours?: Int): MailboxInboundEventStatsResponse!`
     - `myMailboxInboundEventSeries(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxInboundEventTrendPointResponse!]!`
     - `myMailboxInboundDataExport(mailboxId?: String, workspaceId?: String, limit?: Int, windowHours?: Int, bucketMinutes?: Int): MailboxInboundDataExportResponse!`
+    - `myMailboxSyncStates(workspaceId?: String): [MailboxSyncStateResponse!]!`
     - `purgeMyMailboxInboundRetentionData(retentionDays?: Int): MailboxInboundRetentionPurgeResponse!`
+    - `syncMyMailboxPull(mailboxId?: String, workspaceId?: String): MailboxSyncRunResponse!`
 - `mailbox-inbound.controller.ts`
   - REST:
     - `POST /mailbox/inbound/events`
@@ -56,6 +58,8 @@ This module covers:
   - polls optional mailbox-sync API endpoint for each active mailbox
   - converts pulled messages into trusted inbound ingest calls (`skipAuth=true`)
   - persists mailbox sync cursor/error state on mailbox row
+  - exposes authenticated manual poll trigger APIs (single mailbox or all active user mailboxes)
+  - exposes authenticated mailbox sync state query mapping
   - tracks accepted/deduplicated/rejected counters per poll run
 - `mailbox-sync.scheduler.ts`
   - cron (`*/10 * * * *`) for active mailbox polling
@@ -259,6 +263,12 @@ flowchart TD
   - exports mailbox inbound observability as JSON snapshot (events, stats, trend, retention policy)
 - `purgeMyMailboxInboundRetentionData`
   - purges authenticated user inbound observability rows older than retention cutoff
+- `myMailboxSyncStates`
+  - lists mailbox sync cursor, last-polled timestamp, last error, and lease expiry
+  - supports optional workspace filtering with strict user ownership
+- `syncMyMailboxPull`
+  - manually triggers pull sync for one mailbox or all active mailboxes for authenticated user
+  - result reports aggregate poll counters (polled/skipped/failed/fetched/accepted/deduplicated/rejected)
 
 ## Notes
 
