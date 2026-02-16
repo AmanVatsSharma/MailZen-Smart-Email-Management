@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Email } from './entities/email.entity';
@@ -8,6 +8,7 @@ import { EmailProviderService } from '../email-integration/email-provider.servic
 import { SendEmailInput } from './dto/send-email.input';
 import { MailerService } from '@nestjs-modules/mailer';
 import * as nodemailer from 'nodemailer';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 /**
  * EmailService - Handles email sending, tracking, and management
@@ -15,6 +16,8 @@ import * as nodemailer from 'nodemailer';
  */
 @Injectable()
 export class EmailService {
+  private readonly logger = new Logger(EmailService.name);
+
   constructor(
     @InjectRepository(Email)
     private readonly emailRepository: Repository<Email>,
@@ -33,7 +36,15 @@ export class EmailService {
    * @returns Created email entity
    */
   async sendEmail(input: SendEmailInput, userId: string) {
-    console.log('[EmailService] Sending email from user:', userId);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_send_start',
+        userId,
+        providerId: input.providerId,
+        recipientCount: input.to.length,
+        scheduled: Boolean(input.scheduledAt),
+      }),
+    );
 
     // First save the email in database
     const email = this.emailRepository.create({
@@ -48,7 +59,14 @@ export class EmailService {
     });
 
     const savedEmail = await this.emailRepository.save(email);
-    console.log('[EmailService] Email saved to database:', savedEmail.id);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_send_record_persisted',
+        userId,
+        emailId: savedEmail.id,
+        providerId: input.providerId,
+      }),
+    );
 
     // Create analytics entry
     const analytics = this.analyticsRepository.create({
@@ -57,11 +75,22 @@ export class EmailService {
       clickCount: 0,
     });
     await this.analyticsRepository.save(analytics);
-    console.log('[EmailService] Analytics entry created');
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_send_analytics_initialized',
+        emailId: savedEmail.id,
+      }),
+    );
 
     // If scheduled, return early
     if (input.scheduledAt) {
-      console.log('[EmailService] Email scheduled for:', input.scheduledAt);
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'email_send_scheduled',
+          emailId: savedEmail.id,
+          scheduledAtIso: input.scheduledAt.toISOString(),
+        }),
+      );
       return savedEmail;
     }
 
@@ -71,14 +100,28 @@ export class EmailService {
     });
 
     if (!provider) {
-      console.log('[EmailService] Provider not found:', input.providerId);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'email_send_provider_missing',
+          userId,
+          providerId: input.providerId,
+          emailId: savedEmail.id,
+        }),
+      );
       throw new Error('Email provider not found');
     }
 
-    console.log('[EmailService] Using provider:', provider.type);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_send_provider_selected',
+        emailId: savedEmail.id,
+        providerId: provider.id,
+        providerType: provider.type,
+      }),
+    );
 
     // Configure transport based on provider type
-    let transportConfig;
+    let transportConfig: Record<string, unknown>;
     switch (provider.type) {
       case 'GMAIL':
       case 'OUTLOOK':
@@ -106,7 +149,9 @@ export class EmailService {
     }
 
     // Create transport and send email
-    const transporter = nodemailer.createTransport(transportConfig);
+    const transporter = nodemailer.createTransport(
+      transportConfig as nodemailer.TransportOptions,
+    );
 
     try {
       // Add tracking pixel for open tracking
@@ -127,12 +172,27 @@ export class EmailService {
       });
 
       // Update email status
-      console.log('[EmailService] Email sent successfully');
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'email_send_completed',
+          emailId: savedEmail.id,
+          providerId: provider.id,
+          providerType: provider.type,
+        }),
+      );
       await this.emailRepository.update(savedEmail.id, { status: 'SENT' });
       return this.emailRepository.findOne({ where: { id: savedEmail.id } });
-    } catch (error) {
+    } catch (error: unknown) {
       // Update email status on failure
-      console.error('[EmailService] Failed to send email:', error);
+      this.logger.error(
+        serializeStructuredLog({
+          event: 'email_send_failed',
+          emailId: savedEmail.id,
+          providerId: provider.id,
+          providerType: provider.type,
+          error: error instanceof Error ? error.message : 'unknown send error',
+        }),
+      );
       await this.emailRepository.update(savedEmail.id, { status: 'FAILED' });
       throw error;
     }
@@ -149,29 +209,57 @@ export class EmailService {
   async sendTemplateEmail(
     template: string,
     to: string[],
-    context: any,
+    context: { subject: string; [key: string]: unknown },
     userId: string,
   ) {
-    console.log('[EmailService] Sending template email:', template);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_template_send_start',
+        userId,
+        template,
+        recipientCount: to.length,
+      }),
+    );
 
-    const email = await this.mailerService.sendMail({
+    const emailResponse: unknown = await this.mailerService.sendMail({
       to: to.join(','),
       subject: context.subject,
       template,
       context,
     });
+    const normalizedEmailResponse =
+      emailResponse &&
+      typeof emailResponse === 'object' &&
+      !Array.isArray(emailResponse)
+        ? (emailResponse as Record<string, unknown>)
+        : {};
+    const responseHtml =
+      typeof normalizedEmailResponse.html === 'string'
+        ? normalizedEmailResponse.html
+        : '';
+    const responseFrom =
+      typeof normalizedEmailResponse.from === 'string'
+        ? normalizedEmailResponse.from
+        : '';
 
     const savedEmail = this.emailRepository.create({
       subject: context.subject,
-      body: email.html,
-      from: email.from,
+      body: responseHtml,
+      from: responseFrom,
       to,
       status: 'SENT',
       userId,
     });
 
     const result = await this.emailRepository.save(savedEmail);
-    console.log('[EmailService] Template email sent:', result.id);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_template_send_completed',
+        userId,
+        emailId: result.id,
+        template,
+      }),
+    );
 
     return result;
   }
@@ -190,7 +278,12 @@ export class EmailService {
    * @returns Updated analytics
    */
   async trackOpen(emailId: string) {
-    console.log('[EmailService] Tracking email open:', emailId);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_track_open_start',
+        emailId,
+      }),
+    );
 
     const analytics = await this.analyticsRepository.findOne({
       where: { emailId },
@@ -208,7 +301,12 @@ export class EmailService {
    * @returns Updated analytics
    */
   async trackClick(emailId: string) {
-    console.log('[EmailService] Tracking email click:', emailId);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_track_click_start',
+        emailId,
+      }),
+    );
 
     const analytics = await this.analyticsRepository.findOne({
       where: { emailId },
@@ -227,9 +325,15 @@ export class EmailService {
    * @returns Array of emails with relations
    */
   async getEmailsByUser(userId: string, providerId?: string | null) {
-    console.log('[EmailService] Fetching emails for user:', userId);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_list_by_user_start',
+        userId,
+        providerId: providerId || null,
+      }),
+    );
 
-    const where: any = { userId };
+    const where: { userId: string; providerId?: string } = { userId };
     if (providerId) {
       where.providerId = providerId;
     }
@@ -240,7 +344,14 @@ export class EmailService {
       order: { createdAt: 'DESC' },
     });
 
-    console.log('[EmailService] Found', emails.length, 'emails');
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_list_by_user_completed',
+        userId,
+        providerId: providerId || null,
+        resultCount: emails.length,
+      }),
+    );
     return emails;
   }
 
@@ -251,7 +362,13 @@ export class EmailService {
    * @returns Email with relations
    */
   async getEmailById(id: string, userId: string) {
-    console.log('[EmailService] Fetching email:', id);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_get_by_id_start',
+        emailId: id,
+        userId,
+      }),
+    );
 
     return this.emailRepository.findOne({
       where: { id, userId },
@@ -265,7 +382,12 @@ export class EmailService {
    * @returns Updated email
    */
   async markEmailRead(emailId: string) {
-    console.log('[EmailService] Marking email as read:', emailId);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_mark_read_start',
+        emailId,
+      }),
+    );
 
     await this.emailRepository.update(emailId, { status: 'READ' });
     return this.emailRepository.findOne({ where: { id: emailId } });

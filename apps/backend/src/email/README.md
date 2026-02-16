@@ -87,6 +87,26 @@ The Email Module is a comprehensive solution for managing email operations withi
 - Track email opens and clicks
 - Support for HTML content
 - Attachment handling
+- Structured observability logs in `EmailService`:
+  - send lifecycle:
+    - `email_send_start`
+    - `email_send_record_persisted`
+    - `email_send_analytics_initialized`
+    - `email_send_scheduled`
+    - `email_send_provider_missing`
+    - `email_send_provider_selected`
+    - `email_send_completed`
+    - `email_send_failed`
+  - template lifecycle:
+    - `email_template_send_start`
+    - `email_template_send_completed`
+  - tracking/query lifecycle:
+    - `email_track_open_start`
+    - `email_track_click_start`
+    - `email_list_by_user_start`
+    - `email_list_by_user_completed`
+    - `email_get_by_id_start`
+    - `email_mark_read_start`
 
 ### Email Filtering
 
