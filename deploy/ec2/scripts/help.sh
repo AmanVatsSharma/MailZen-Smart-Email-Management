@@ -58,6 +58,7 @@ Readiness checks:
 
 Operations:
   ./deploy/ec2/scripts/update.sh
+  ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify --skip-status
   ./deploy/ec2/scripts/update.sh --verify-skip-oauth-check --status-runtime-checks
   ./deploy/ec2/scripts/update.sh --verify-max-retries 10 --verify-retry-sleep 5
   ./deploy/ec2/scripts/update.sh --status-runtime-checks --ports-check-ports 80,443,8100

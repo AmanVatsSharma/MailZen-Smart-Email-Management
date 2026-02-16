@@ -228,6 +228,9 @@ Example:
 # Config-only preflight + deploy dry-run update simulation
 ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify
 
+# Config-only preflight + deploy dry-run update simulation without final status step
+./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify --skip-status
+
 # Deploy command dry-run (prints command only)
 ./deploy/ec2/scripts/deploy.sh --dry-run
 

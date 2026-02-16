@@ -362,6 +362,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: update dry-run simulation
 ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify
 
+# Optional: update dry-run simulation without final status step
+./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify --skip-status
+
 # Optional: update with verify skip flags and runtime status checks
 ./deploy/ec2/scripts/update.sh --verify-skip-ssl-check --verify-skip-oauth-check --status-runtime-checks
 
