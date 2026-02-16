@@ -258,11 +258,17 @@ Example:
 # Run diagnostics with a temporary seeded env (CI-friendly)
 ./deploy/ec2/scripts/doctor.sh --seed-env
 
+# Run diagnostics with custom ports-check targets
+./deploy/ec2/scripts/doctor.sh --ports-check-ports 80,443,8100
+
 # Generate compressed support bundle archive
 ./deploy/ec2/scripts/support-bundle.sh
 
 # Generate support bundle with seeded temporary env (CI-friendly)
 ./deploy/ec2/scripts/support-bundle.sh --seed-env
+
+# Generate support bundle with custom ports-check targets
+./deploy/ec2/scripts/support-bundle.sh --ports-check-ports 80,443,8100
 
 # Keep support bundle temp work directory for deep debugging
 ./deploy/ec2/scripts/support-bundle.sh --seed-env --keep-work-dir
@@ -296,6 +302,9 @@ Example:
 
 # Run pipeline checks with seeded temporary env (CI-friendly)
 ./deploy/ec2/scripts/pipeline-check.sh --seed-env
+
+# Run pipeline checks with custom ports-check targets
+./deploy/ec2/scripts/pipeline-check.sh --ports-check-ports 80,443,8100
 
 # Show command quick-reference
 ./deploy/ec2/scripts/help.sh

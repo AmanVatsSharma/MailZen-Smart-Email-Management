@@ -76,11 +76,14 @@ Backup and recovery:
 Diagnostics:
   ./deploy/ec2/scripts/doctor.sh
   ./deploy/ec2/scripts/doctor.sh --seed-env
+  ./deploy/ec2/scripts/doctor.sh --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/support-bundle.sh
   ./deploy/ec2/scripts/support-bundle.sh --seed-env
+  ./deploy/ec2/scripts/support-bundle.sh --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/support-bundle.sh --seed-env --keep-work-dir
   ./deploy/ec2/scripts/pipeline-check.sh
   ./deploy/ec2/scripts/pipeline-check.sh --seed-env
+  ./deploy/ec2/scripts/pipeline-check.sh --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/reports-prune.sh --keep-count 50 --dry-run
   ./deploy/ec2/scripts/reports-prune.sh 20
   ./deploy/ec2/scripts/self-check.sh

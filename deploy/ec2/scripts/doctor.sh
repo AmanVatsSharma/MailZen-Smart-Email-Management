@@ -9,6 +9,7 @@
 #   ./deploy/ec2/scripts/doctor.sh
 #   ./deploy/ec2/scripts/doctor.sh --strict
 #   ./deploy/ec2/scripts/doctor.sh --seed-env
+#   ./deploy/ec2/scripts/doctor.sh --ports-check-ports 80,443,8100
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -24,6 +25,7 @@ STRICT_MODE=false
 SEED_ENV=false
 KEEP_SEEDED_ENV=false
 SEEDED_ENV_FILE=""
+PORTS_CHECK_PORTS=""
 
 cleanup() {
   if [[ -n "${SEEDED_ENV_FILE}" ]] && [[ "${KEEP_SEEDED_ENV}" == false ]] && [[ -f "${SEEDED_ENV_FILE}" ]]; then
@@ -47,9 +49,17 @@ while [[ $# -gt 0 ]]; do
     KEEP_SEEDED_ENV=true
     shift
     ;;
+  --ports-check-ports)
+    PORTS_CHECK_PORTS="${2:-}"
+    if [[ -z "${PORTS_CHECK_PORTS}" ]]; then
+      echo "[mailzen-deploy][DOCTOR][ERROR] --ports-check-ports requires a value."
+      exit 1
+    fi
+    shift 2
+    ;;
   *)
     echo "[mailzen-deploy][DOCTOR][ERROR] Unknown argument: $1"
-    echo "[mailzen-deploy][DOCTOR][INFO] Supported flags: --strict --seed-env --keep-seeded-env"
+    echo "[mailzen-deploy][DOCTOR][INFO] Supported flags: --strict --seed-env --keep-seeded-env --ports-check-ports <p1,p2,...>"
     exit 1
     ;;
   esac
@@ -106,6 +116,7 @@ run_check() {
   echo "[mailzen-deploy][DOCTOR] report file: ${REPORT_FILE}"
   echo "[mailzen-deploy][DOCTOR] strict_mode: ${STRICT_MODE}"
   echo "[mailzen-deploy][DOCTOR] seed_env: ${SEED_ENV}"
+  echo "[mailzen-deploy][DOCTOR] ports_check_ports: ${PORTS_CHECK_PORTS:-default}"
 } | tee -a "${REPORT_FILE}"
 
 if [[ "${SEED_ENV}" == true ]]; then
@@ -133,9 +144,17 @@ run_check "env-audit-redacted" "\"${SCRIPT_DIR}/env-audit.sh\""
 run_check "dns-check" "\"${SCRIPT_DIR}/dns-check.sh\"" false
 run_check "ssl-check" "\"${SCRIPT_DIR}/ssl-check.sh\"" false
 run_check "host-readiness" "\"${SCRIPT_DIR}/host-readiness.sh\""
-run_check "ports-check" "\"${SCRIPT_DIR}/ports-check.sh\""
+ports_check_command="\"${SCRIPT_DIR}/ports-check.sh\""
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  ports_check_command="${ports_check_command} --ports \"${PORTS_CHECK_PORTS}\""
+fi
+run_check "ports-check" "${ports_check_command}"
 run_check "preflight-config-only" "\"${SCRIPT_DIR}/preflight.sh\" --config-only"
-run_check "pipeline-check" "\"${SCRIPT_DIR}/pipeline-check.sh\""
+pipeline_check_command="\"${SCRIPT_DIR}/pipeline-check.sh\""
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  pipeline_check_command="${pipeline_check_command} --ports-check-ports \"${PORTS_CHECK_PORTS}\""
+fi
+run_check "pipeline-check" "${pipeline_check_command}"
 run_check "docker-client-version" "docker --version"
 run_check "docker-compose-version" "docker compose version"
 run_check "docker-daemon-info" "docker info" false

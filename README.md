@@ -279,6 +279,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: CI-friendly diagnostics with seeded temporary env
 ./deploy/ec2/scripts/doctor.sh --seed-env
 
+# Optional: diagnostics with custom ports-check targets
+./deploy/ec2/scripts/doctor.sh --ports-check-ports 80,443,8100
+
 # Optional: strict diagnostics mode
 ./deploy/ec2/scripts/doctor.sh --strict
 
@@ -287,6 +290,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: support bundle with seeded temporary env
 ./deploy/ec2/scripts/support-bundle.sh --seed-env
+
+# Optional: support bundle with custom ports-check targets
+./deploy/ec2/scripts/support-bundle.sh --ports-check-ports 80,443,8100
 
 # Optional: keep support bundle temp work directory for troubleshooting
 ./deploy/ec2/scripts/support-bundle.sh --seed-env --keep-work-dir
@@ -304,6 +310,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: run pipeline checks with seeded temporary env
 ./deploy/ec2/scripts/pipeline-check.sh --seed-env
+
+# Optional: run pipeline checks with custom ports-check targets
+./deploy/ec2/scripts/pipeline-check.sh --ports-check-ports 80,443,8100
 
 # Optional: print deployment command quick-reference
 ./deploy/ec2/scripts/help.sh

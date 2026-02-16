@@ -21,6 +21,7 @@
 #   ./deploy/ec2/scripts/support-bundle.sh
 #   ./deploy/ec2/scripts/support-bundle.sh --seed-env
 #   ./deploy/ec2/scripts/support-bundle.sh --seed-env --keep-work-dir
+#   ./deploy/ec2/scripts/support-bundle.sh --ports-check-ports 80,443,8100
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -37,6 +38,7 @@ KEEP_SEEDED_ENV=false
 SEEDED_ENV_FILE=""
 KEEP_WORK_DIR=false
 BUNDLE_CREATED=false
+PORTS_CHECK_PORTS=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -52,9 +54,17 @@ while [[ $# -gt 0 ]]; do
     KEEP_WORK_DIR=true
     shift
     ;;
+  --ports-check-ports)
+    PORTS_CHECK_PORTS="${2:-}"
+    if [[ -z "${PORTS_CHECK_PORTS}" ]]; then
+      echo "[mailzen-deploy][SUPPORT-BUNDLE][ERROR] --ports-check-ports requires a value."
+      exit 1
+    fi
+    shift 2
+    ;;
   *)
     echo "[mailzen-deploy][SUPPORT-BUNDLE][ERROR] Unknown argument: $1"
-    echo "[mailzen-deploy][SUPPORT-BUNDLE][INFO] Supported flags: --seed-env --keep-seeded-env --keep-work-dir"
+    echo "[mailzen-deploy][SUPPORT-BUNDLE][INFO] Supported flags: --seed-env --keep-seeded-env --keep-work-dir --ports-check-ports <p1,p2,...>"
     exit 1
     ;;
   esac
@@ -111,6 +121,9 @@ active_env_file="$(get_env_file)"
 active_compose_file="$(get_compose_file)"
 log_bundle "Active env file: ${active_env_file}"
 log_bundle "Active compose file: ${active_compose_file}"
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  log_bundle "Custom ports-check targets: ${PORTS_CHECK_PORTS}"
+fi
 
 {
   echo "generated_at_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -119,6 +132,7 @@ log_bundle "Active compose file: ${active_compose_file}"
   echo "keep_work_dir=${KEEP_WORK_DIR}"
   echo "active_env_file=${active_env_file}"
   echo "active_compose_file=${active_compose_file}"
+  echo "ports_check_ports=${PORTS_CHECK_PORTS:-default}"
   echo "workspace_deploy_dir=${DEPLOY_DIR}"
 } >"${WORK_DIR}/bundle-manifest.txt"
 if command -v git >/dev/null 2>&1; then
@@ -138,7 +152,11 @@ run_capture "preflight-config-only" "\"${SCRIPT_DIR}/preflight.sh\" --config-onl
 run_capture "dns-check" "\"${SCRIPT_DIR}/dns-check.sh\""
 run_capture "ssl-check" "\"${SCRIPT_DIR}/ssl-check.sh\""
 run_capture "host-readiness" "\"${SCRIPT_DIR}/host-readiness.sh\""
-run_capture "ports-check" "\"${SCRIPT_DIR}/ports-check.sh\""
+ports_check_command="\"${SCRIPT_DIR}/ports-check.sh\""
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  ports_check_command="${ports_check_command} --ports \"${PORTS_CHECK_PORTS}\""
+fi
+run_capture "ports-check" "${ports_check_command}"
 
 doctor_args=()
 pipeline_args=()
@@ -151,6 +169,10 @@ if [[ "${SEED_ENV}" == true ]]; then
   if [[ "${KEEP_SEEDED_ENV}" == true ]]; then
     pipeline_args+=(--keep-seeded-env)
   fi
+fi
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  doctor_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
+  pipeline_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
 fi
 run_capture "doctor" "\"${SCRIPT_DIR}/doctor.sh\" ${doctor_args[*]}"
 run_capture "pipeline-check" "\"${SCRIPT_DIR}/pipeline-check.sh\" ${pipeline_args[*]}"
