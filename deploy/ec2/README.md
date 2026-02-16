@@ -39,6 +39,8 @@ Additional deployment flowcharts:
   - `restore-db.sh` (database restore with confirmation)
   - `rollback-latest.sh` (restore newest backup quickly)
   - `env-audit.sh` (redacted critical env audit)
+- `backups/`  
+  Local backup dump directory (tracked folder; dump files ignored by git).
   - `status.sh`
   - `logs.sh`
   - `restart.sh`
