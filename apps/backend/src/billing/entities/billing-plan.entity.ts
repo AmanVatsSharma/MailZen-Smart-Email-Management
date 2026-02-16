@@ -45,6 +45,10 @@ export class BillingPlan {
   workspaceLimit: number;
 
   @Field(() => Int)
+  @Column({ default: 3 })
+  workspaceMemberLimit: number;
+
+  @Field(() => Int)
   @Column({ default: 50 })
   aiCreditsPerMonth: number;
 

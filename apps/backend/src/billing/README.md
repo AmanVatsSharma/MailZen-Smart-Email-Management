@@ -86,6 +86,8 @@ flowchart TD
   - `MailboxService` applies plan-based `mailboxStorageLimitMb` to new aliases
   - `MailboxInboundService` enforces effective mailbox storage ceiling using
     `min(mailbox.quotaLimitMb, entitlement.mailboxStorageLimitMb)`
-  - `WorkspaceService` enforces `workspaceLimit`
+  - `WorkspaceService` enforces:
+    - `workspaceLimit` (owned workspace count)
+    - `workspaceMemberLimit` (active members per workspace)
   - `AiAgentGatewayService` consumes monthly AI credits via billing service
   - `NotificationEventBusService` stores `BILLING_UPGRADE_INTENT` intents

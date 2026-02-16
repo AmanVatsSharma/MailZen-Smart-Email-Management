@@ -12,6 +12,7 @@ organization features.
 - Track workspace members with role and invitation status
 - Enforce membership access checks for member listing/invites
 - Enforce billing entitlement limits for workspace count
+- Enforce billing entitlement limits for active members per workspace
 - Provide default workspace context for newly created providers/mailboxes
 
 ## GraphQL Surface
@@ -46,12 +47,13 @@ flowchart TD
   D --> E[Workspace visible in myWorkspaces]
 
   F[Invite member] --> G[Verify actor role OWNER/ADMIN]
-  G --> H[Resolve existing user by email]
+  G --> G1[Enforce active-member seat limit for workspace]
+  G1 --> H[Resolve existing user by email]
   H --> I[Create membership active/pending]
 
   J[User checks pending invitations] --> K[Filter memberships by user email and status pending]
   K --> L[respondWorkspaceInvitation]
-  L --> M[Set status active or declined + attach userId]
+  L --> M[Enforce seat limit on accept then set status active or declined + attach userId]
 
   N[Admin updates member role] --> O[Enforce OWNER-only owner promotion]
   O --> P[Prevent demoting last OWNER]
@@ -60,4 +62,3 @@ flowchart TD
   R[Admin removes member] --> S[Enforce owner removal safeguards]
   S --> T[Set membership status removed]
 ```
-

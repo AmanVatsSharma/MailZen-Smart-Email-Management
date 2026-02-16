@@ -22,6 +22,7 @@ export type BillingEntitlements = {
   providerLimit: number;
   mailboxLimit: number;
   workspaceLimit: number;
+  workspaceMemberLimit: number;
   aiCreditsPerMonth: number;
   mailboxStorageLimitMb: number;
 };
@@ -127,6 +128,7 @@ export class BillingService {
         providerLimit: 1,
         mailboxLimit: 1,
         workspaceLimit: 1,
+        workspaceMemberLimit: 3,
         aiCreditsPerMonth: 50,
         mailboxStorageLimitMb: 2048,
         isActive: true,
@@ -139,6 +141,7 @@ export class BillingService {
         providerLimit: 5,
         mailboxLimit: 5,
         workspaceLimit: 5,
+        workspaceMemberLimit: 25,
         aiCreditsPerMonth: 500,
         mailboxStorageLimitMb: 10240,
         isActive: true,
@@ -151,6 +154,7 @@ export class BillingService {
         providerLimit: 25,
         mailboxLimit: 25,
         workspaceLimit: 25,
+        workspaceMemberLimit: 200,
         aiCreditsPerMonth: 5000,
         mailboxStorageLimitMb: 51200,
         isActive: true,
@@ -269,6 +273,7 @@ export class BillingService {
       providerLimit: plan.providerLimit,
       mailboxLimit: plan.mailboxLimit,
       workspaceLimit: plan.workspaceLimit,
+      workspaceMemberLimit: plan.workspaceMemberLimit,
       aiCreditsPerMonth: plan.aiCreditsPerMonth,
       mailboxStorageLimitMb: plan.mailboxStorageLimitMb,
     };

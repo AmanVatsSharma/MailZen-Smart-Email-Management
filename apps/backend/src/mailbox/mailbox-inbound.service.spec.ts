@@ -56,6 +56,7 @@ describe('MailboxInboundService', () => {
         providerLimit: 5,
         mailboxLimit: 5,
         workspaceLimit: 5,
+        workspaceMemberLimit: 25,
         aiCreditsPerMonth: 500,
         mailboxStorageLimitMb: 51200,
       }),
@@ -351,6 +352,7 @@ describe('MailboxInboundService', () => {
       providerLimit: 1,
       mailboxLimit: 1,
       workspaceLimit: 1,
+      workspaceMemberLimit: 3,
       aiCreditsPerMonth: 50,
       mailboxStorageLimitMb: 1,
     });

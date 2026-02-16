@@ -52,6 +52,7 @@ describe('EmailProviderService', () => {
       providerLimit: 5,
       mailboxLimit: 5,
       workspaceLimit: 5,
+      workspaceMemberLimit: 25,
       aiCreditsPerMonth: 500,
       mailboxStorageLimitMb: 10240,
     }),

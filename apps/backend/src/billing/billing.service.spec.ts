@@ -174,6 +174,7 @@ describe('BillingService', () => {
       providerLimit: 25,
       mailboxLimit: 25,
       workspaceLimit: 25,
+      workspaceMemberLimit: 200,
       aiCreditsPerMonth: 5000,
       mailboxStorageLimitMb: 51200,
     } as BillingPlan);
@@ -216,6 +217,7 @@ describe('BillingService', () => {
       providerLimit: 5,
       mailboxLimit: 5,
       workspaceLimit: 5,
+      workspaceMemberLimit: 25,
       aiCreditsPerMonth: 500,
       mailboxStorageLimitMb: 10240,
     } as BillingPlan);
@@ -250,6 +252,7 @@ describe('BillingService', () => {
       providerLimit: 5,
       mailboxLimit: 5,
       workspaceLimit: 5,
+      workspaceMemberLimit: 25,
       aiCreditsPerMonth: 500,
       mailboxStorageLimitMb: 10240,
     } as BillingPlan);
@@ -259,6 +262,7 @@ describe('BillingService', () => {
     expect(entitlements).toEqual(
       expect.objectContaining({
         planCode: 'PRO',
+        workspaceMemberLimit: 25,
         mailboxStorageLimitMb: 10240,
       }),
     );
@@ -283,6 +287,7 @@ describe('BillingService', () => {
       providerLimit: 1,
       mailboxLimit: 1,
       workspaceLimit: 1,
+      workspaceMemberLimit: 3,
       aiCreditsPerMonth: 50,
       mailboxStorageLimitMb: 2048,
     } as BillingPlan);
@@ -347,6 +352,7 @@ describe('BillingService', () => {
       providerLimit: 5,
       mailboxLimit: 5,
       workspaceLimit: 5,
+      workspaceMemberLimit: 25,
       aiCreditsPerMonth: 500,
       mailboxStorageLimitMb: 10240,
     } as BillingPlan);

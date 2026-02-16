@@ -25,6 +25,7 @@ describe('WorkspaceService', () => {
     workspaceMemberRepo = {
       findOne: jest.fn(),
       find: jest.fn(),
+      count: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
     } as unknown as jest.Mocked<Repository<WorkspaceMember>>;
@@ -39,11 +40,13 @@ describe('WorkspaceService', () => {
         providerLimit: 5,
         mailboxLimit: 5,
         workspaceLimit: 5,
+        workspaceMemberLimit: 25,
         aiCreditsPerMonth: 500,
         mailboxStorageLimitMb: 10240,
       }),
     };
     workspaceRepo.count.mockResolvedValue(1);
+    workspaceMemberRepo.count.mockResolvedValue(1);
 
     service = new WorkspaceService(
       workspaceRepo,
@@ -111,6 +114,47 @@ describe('WorkspaceService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('rejects direct active member invite when workspace seat limit is reached', async () => {
+    billingService.getEntitlements.mockResolvedValue({
+      planCode: 'FREE',
+      providerLimit: 1,
+      mailboxLimit: 1,
+      workspaceLimit: 1,
+      workspaceMemberLimit: 2,
+      aiCreditsPerMonth: 50,
+      mailboxStorageLimitMb: 2048,
+    });
+    workspaceMemberRepo.findOne
+      .mockResolvedValueOnce({
+        id: 'actor-member-1',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        role: 'OWNER',
+        status: 'active',
+      } as WorkspaceMember)
+      .mockResolvedValueOnce(null);
+    workspaceRepo.findOne.mockResolvedValue({
+      id: 'workspace-1',
+      ownerUserId: 'owner-user-1',
+      name: 'Workspace One',
+      slug: 'workspace-one',
+      isPersonal: false,
+    } as Workspace);
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-2',
+      email: 'teammate@example.com',
+    } as User);
+    workspaceMemberRepo.count.mockResolvedValue(2);
+
+    await expect(
+      service.inviteWorkspaceMember(
+        'workspace-1',
+        'user-1',
+        'teammate@example.com',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('rejects workspace creation when entitlement limit reached', async () => {
     workspaceRepo.findOne.mockResolvedValue(null);
     workspaceRepo.count.mockResolvedValue(5);
@@ -119,6 +163,7 @@ describe('WorkspaceService', () => {
       providerLimit: 5,
       mailboxLimit: 5,
       workspaceLimit: 5,
+      workspaceMemberLimit: 25,
       aiCreditsPerMonth: 500,
       mailboxStorageLimitMb: 10240,
     });
@@ -203,12 +248,21 @@ describe('WorkspaceService', () => {
       id: 'user-1',
       email: 'invitee@mailzen.com',
     } as User);
-    workspaceMemberRepo.findOne.mockResolvedValue({
-      id: 'member-1',
-      workspaceId: 'workspace-1',
-      email: 'invitee@mailzen.com',
-      status: 'pending',
-    } as WorkspaceMember);
+    workspaceMemberRepo.findOne
+      .mockResolvedValueOnce({
+        id: 'member-1',
+        workspaceId: 'workspace-1',
+        email: 'invitee@mailzen.com',
+        status: 'pending',
+      } as WorkspaceMember)
+      .mockResolvedValueOnce(null);
+    workspaceRepo.findOne.mockResolvedValue({
+      id: 'workspace-1',
+      ownerUserId: 'owner-user-1',
+      name: 'Workspace One',
+      slug: 'workspace-one',
+      isPersonal: false,
+    } as Workspace);
     workspaceMemberRepo.save.mockImplementation((member: WorkspaceMember) =>
       Promise.resolve(member),
     );
@@ -221,6 +275,46 @@ describe('WorkspaceService', () => {
 
     expect(result.status).toBe('active');
     expect(result.userId).toBe('user-1');
+  });
+
+  it('rejects invitation accept when workspace member limit is reached', async () => {
+    billingService.getEntitlements.mockResolvedValue({
+      planCode: 'FREE',
+      providerLimit: 1,
+      mailboxLimit: 1,
+      workspaceLimit: 1,
+      workspaceMemberLimit: 2,
+      aiCreditsPerMonth: 50,
+      mailboxStorageLimitMb: 2048,
+    });
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-1',
+      email: 'invitee@mailzen.com',
+    } as User);
+    workspaceMemberRepo.findOne
+      .mockResolvedValueOnce({
+        id: 'member-1',
+        workspaceId: 'workspace-1',
+        email: 'invitee@mailzen.com',
+        status: 'pending',
+      } as WorkspaceMember)
+      .mockResolvedValueOnce(null);
+    workspaceRepo.findOne.mockResolvedValue({
+      id: 'workspace-1',
+      ownerUserId: 'owner-user-1',
+      name: 'Workspace One',
+      slug: 'workspace-one',
+      isPersonal: false,
+    } as Workspace);
+    workspaceMemberRepo.count.mockResolvedValue(2);
+
+    await expect(
+      service.respondToWorkspaceInvitation({
+        workspaceMemberId: 'member-1',
+        userId: 'user-1',
+        accept: true,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('exports workspace membership snapshot for authorized user', async () => {

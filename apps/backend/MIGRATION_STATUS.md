@@ -67,6 +67,8 @@
   - `20260216081000-billing-mailbox-storage-limit.ts`
 - Added agent-action audit retention index migration:
   - `20260216083000-agent-action-audit-retention-index.ts`
+- Added billing workspace-member entitlement migration:
+  - `20260216090000-billing-workspace-member-limit.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

@@ -1118,3 +1118,41 @@ FROM pg_indexes
 WHERE tablename = 'agent_action_audits'
   AND indexname = 'IDX_agent_action_audits_createdAt';
 ```
+
+## Billing Workspace Member Limit Rollout Notes (2026-02-16)
+
+New migration: `20260216090000-billing-workspace-member-limit.ts`
+
+This migration introduces:
+
+- `billing_plans.workspaceMemberLimit`
+  - per-workspace active-member entitlement ceiling used by workspace invite and
+    invitation-accept flows.
+- plan-default backfill:
+  - `FREE=3`
+  - `PRO=25`
+  - `BUSINESS=200`
+
+### Safe rollout sequence
+
+1. Deploy backend containing migration + workspace member entitlement checks.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- workspace/workspace.service.spec.ts billing/billing.service.spec.ts`
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Validate runtime behavior:
+   - inviting existing users to a workspace enforces active-member cap.
+   - accepting pending invitations enforces cap at activation time.
+
+### Staging verification SQL
+
+```sql
+SELECT
+  code,
+  "workspaceLimit",
+  "workspaceMemberLimit"
+FROM billing_plans
+ORDER BY code;
+```

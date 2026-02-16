@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,6 +15,8 @@ import { WorkspaceMember } from './entities/workspace-member.entity';
 
 @Injectable()
 export class WorkspaceService {
+  private readonly logger = new Logger(WorkspaceService.name);
+
   constructor(
     @InjectRepository(Workspace)
     private readonly workspaceRepo: Repository<Workspace>,
@@ -332,6 +335,12 @@ export class WorkspaceService {
     });
     if (existingMember) {
       if (['declined', 'removed'].includes(existingMember.status)) {
+        if (user) {
+          await this.enforceWorkspaceMemberLimit(workspace.ownerUserId, {
+            workspaceId,
+            excludeMemberId: existingMember.id,
+          });
+        }
         existingMember.role = normalizedRole;
         existingMember.status = user ? 'active' : 'pending';
         existingMember.invitedByUserId = actorUserId;
@@ -339,6 +348,11 @@ export class WorkspaceService {
         return this.workspaceMemberRepo.save(existingMember);
       }
       return existingMember;
+    }
+    if (user) {
+      await this.enforceWorkspaceMemberLimit(workspace.ownerUserId, {
+        workspaceId,
+      });
     }
     const member = this.workspaceMemberRepo.create({
       workspaceId,
@@ -383,6 +397,19 @@ export class WorkspaceService {
       throw new ForbiddenException(
         'You can only respond to invitations sent to your email',
       );
+    }
+
+    if (input.accept) {
+      const workspace = await this.workspaceRepo.findOne({
+        where: { id: invitation.workspaceId },
+      });
+      if (!workspace) {
+        throw new NotFoundException('Workspace not found');
+      }
+      await this.enforceWorkspaceMemberLimit(workspace.ownerUserId, {
+        workspaceId: invitation.workspaceId,
+        excludeMemberId: invitation.id,
+      });
     }
 
     invitation.userId = input.userId;
@@ -493,5 +520,41 @@ export class WorkspaceService {
         `Plan limit reached. Your ${entitlements.planCode} plan supports up to ${entitlements.workspaceLimit} workspaces.`,
       );
     }
+  }
+
+  private async enforceWorkspaceMemberLimit(
+    ownerUserId: string,
+    input: {
+      workspaceId: string;
+      excludeMemberId?: string;
+    },
+  ): Promise<void> {
+    const entitlements = await this.billingService.getEntitlements(ownerUserId);
+    let activeMemberCount = await this.workspaceMemberRepo.count({
+      where: { workspaceId: input.workspaceId, status: 'active' },
+    });
+    const normalizedExcludeMemberId = String(
+      input.excludeMemberId || '',
+    ).trim();
+    if (normalizedExcludeMemberId) {
+      const excludedMember = await this.workspaceMemberRepo.findOne({
+        where: {
+          id: normalizedExcludeMemberId,
+          workspaceId: input.workspaceId,
+          status: 'active',
+        },
+      });
+      if (excludedMember && activeMemberCount > 0) {
+        activeMemberCount -= 1;
+      }
+    }
+    if (activeMemberCount < entitlements.workspaceMemberLimit) return;
+
+    this.logger.warn(
+      `workspace-member-limit: reached workspaceId=${input.workspaceId} ownerUserId=${ownerUserId} activeMembers=${activeMemberCount} limit=${entitlements.workspaceMemberLimit}`,
+    );
+    throw new BadRequestException(
+      `Plan limit reached. Your ${entitlements.planCode} plan supports up to ${entitlements.workspaceMemberLimit} active members per workspace.`,
+    );
   }
 }

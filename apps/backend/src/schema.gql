@@ -1030,6 +1030,8 @@ type BillingPlan {
   currency: String!
   providerLimit: Int!
   mailboxLimit: Int!
+  workspaceLimit: Int!
+  workspaceMemberLimit: Int!
   aiCreditsPerMonth: Int!
   mailboxStorageLimitMb: Int!
   isActive: Boolean!
