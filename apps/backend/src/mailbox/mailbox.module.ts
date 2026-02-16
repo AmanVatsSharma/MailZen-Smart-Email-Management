@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { Mailbox } from './entities/mailbox.entity';
 import { MailboxService } from './mailbox.service';
 import { MailboxResolver } from './mailbox.resolver';
@@ -36,6 +37,7 @@ import { UserNotificationPreference } from '../notification/entities/user-notifi
       MailboxSyncRun,
       UserNotificationPreference,
       UserNotification,
+      AuditLog,
     ]),
     MailServerModule,
     BillingModule,

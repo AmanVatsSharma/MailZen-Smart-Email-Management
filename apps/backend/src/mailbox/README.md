@@ -453,12 +453,16 @@ flowchart TD
 - `MailboxService` emits structured lifecycle resilience events:
   - `mailbox_create_provisioning_failed_rollback`
   - `mailbox_create_active_inbox_update_failed`
+  - `mailbox_audit_log_write_failed`
 - `MailboxSyncService` emits structured pull-retry event:
   - `mailbox_sync_pull_retry_scheduled`
 - `MailboxInboundService` emits structured auth fallback event:
   - `mailbox_inbound_auth_bypass_non_production`
 - Each inbound request emits structured log events (`mailbox_inbound_*`) through
   common structured logging utilities, with recursive PII redaction and request correlation id propagation.
+- Compliance/audit actions persisted in `audit_logs`:
+  - `mailbox_created`
+  - `mailbox_inbound_retention_purged`
 
 ## Inbound ingestion flow
 

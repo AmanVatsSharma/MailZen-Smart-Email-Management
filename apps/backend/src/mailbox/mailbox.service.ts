@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import {
   BillingEntitlements,
   BillingService,
@@ -65,10 +66,37 @@ export class MailboxService {
     private readonly mailboxInboundEventRepo: Repository<MailboxInboundEvent>,
     @InjectRepository(UserNotificationPreference)
     private readonly notificationPreferenceRepo: Repository<UserNotificationPreference>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly mailServer: MailServerService,
     private readonly billingService: BillingService,
     private readonly workspaceService: WorkspaceService,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.auditLogRepo.save(
+        this.auditLogRepo.create({
+          userId: input.userId,
+          action: input.action,
+          metadata: input.metadata || {},
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'mailbox_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
+  }
 
   private normalizeHandle(raw: string): string {
     return raw.trim().toLowerCase();
@@ -192,6 +220,16 @@ export class MailboxService {
         );
       }
     }
+    await this.writeAuditLog({
+      userId,
+      action: 'mailbox_created',
+      metadata: {
+        mailboxId: created.id,
+        workspaceId: created.workspaceId || null,
+        accountFingerprint: fingerprintIdentifier(created.email),
+        quotaLimitMb: created.quotaLimitMb,
+      },
+    });
     return { email: created.email, id: created.id };
   }
 
@@ -665,6 +703,17 @@ export class MailboxService {
     }
     const deleteResult = await deleteQuery.execute();
     const deletedEvents = Number(deleteResult.affected || 0);
+    if (normalizedUserId) {
+      await this.writeAuditLog({
+        userId: normalizedUserId,
+        action: 'mailbox_inbound_retention_purged',
+        metadata: {
+          deletedEvents,
+          retentionDays,
+          scopedToUser: true,
+        },
+      });
+    }
 
     return {
       deletedEvents,

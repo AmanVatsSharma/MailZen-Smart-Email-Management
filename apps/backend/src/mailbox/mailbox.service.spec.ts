@@ -19,6 +19,10 @@ describe('MailboxService', () => {
   const notificationPreferenceRepo = {
     findOne: jest.fn(),
   };
+  const auditLogRepo = {
+    create: jest.fn(),
+    save: jest.fn(),
+  };
   const userRepo = {
     findOne: jest.fn(),
     update: jest.fn(),
@@ -58,6 +62,7 @@ describe('MailboxService', () => {
     userRepo as any,
     mailboxInboundEventRepo as any,
     notificationPreferenceRepo as any,
+    auditLogRepo as any,
     mailServer as any,
     billingService as any,
     workspaceService as any,
@@ -74,6 +79,8 @@ describe('MailboxService', () => {
     notificationPreferenceRepo.findOne.mockResolvedValue(null);
     mailboxInboundEventRepo.find.mockResolvedValue([]);
     mailboxInboundEventRepo.findOne.mockResolvedValue(null);
+    auditLogRepo.create.mockImplementation((value) => value);
+    auditLogRepo.save.mockResolvedValue({ id: 'audit-log-1' });
     mailboxInboundEventRepo.createQueryBuilder.mockReturnValue({
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
@@ -201,6 +208,12 @@ describe('MailboxService', () => {
       activeInboxType: 'MAILBOX',
       activeInboxId: 'mailbox-1',
     });
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'mailbox_created',
+      }),
+    );
     expect(result).toEqual({ id: 'mailbox-1', email: 'sales@mailzen.com' });
   });
 
@@ -572,5 +585,34 @@ describe('MailboxService', () => {
     expect(deleteBuilder.andWhere).toHaveBeenCalledWith('"userId" = :userId', {
       userId: 'user-1',
     });
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'mailbox_inbound_retention_purged',
+      }),
+    );
+  });
+
+  it('continues mailbox creation when audit log persistence fails', async () => {
+    userRepo.findOne.mockResolvedValue({ id: 'user-1' });
+    mailboxRepo.findOne.mockResolvedValue(null);
+    mailboxRepo.create.mockImplementation((data) => data);
+    mailboxRepo.save.mockResolvedValue({
+      id: 'mailbox-5',
+      email: 'auditfail@mailzen.com',
+      workspaceId: 'workspace-1',
+      quotaLimitMb: 10240,
+    });
+    mailServer.provisionMailbox.mockResolvedValue(undefined);
+    auditLogRepo.save.mockRejectedValue(
+      new Error('audit datastore unavailable'),
+    );
+
+    await expect(service.createMailbox('user-1', 'auditfail')).resolves.toEqual(
+      {
+        id: 'mailbox-5',
+        email: 'auditfail@mailzen.com',
+      },
+    );
   });
 });
