@@ -21,6 +21,7 @@ describe('MailboxService', () => {
   };
   const userRepo = {
     findOne: jest.fn(),
+    update: jest.fn(),
   };
   const mailServer = {
     provisionMailbox: jest.fn(),
@@ -66,6 +67,7 @@ describe('MailboxService', () => {
     delete process.env.MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT;
     mailboxRepo.count.mockResolvedValue(0);
     mailboxRepo.delete.mockResolvedValue({ affected: 1 });
+    userRepo.update.mockResolvedValue({ affected: 1 });
     notificationPreferenceRepo.findOne.mockResolvedValue(null);
     mailboxInboundEventRepo.find.mockResolvedValue([]);
     mailboxInboundEventRepo.findOne.mockResolvedValue(null);
@@ -158,7 +160,31 @@ describe('MailboxService', () => {
       }),
     );
     expect(mailServer.provisionMailbox).toHaveBeenCalledWith('user-1', 'sales');
+    expect(userRepo.update).toHaveBeenCalledWith('user-1', {
+      activeInboxType: 'MAILBOX',
+      activeInboxId: 'mailbox-1',
+    });
     expect(result).toEqual({ id: 'mailbox-1', email: 'sales@mailzen.com' });
+  });
+
+  it('does not overwrite existing active inbox when creating mailbox', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: 'user-1',
+      activeInboxType: 'PROVIDER',
+      activeInboxId: 'provider-1',
+    });
+    mailboxRepo.findOne.mockResolvedValue(null);
+    mailboxRepo.create.mockImplementation((data) => data);
+    mailboxRepo.save.mockResolvedValue({
+      id: 'mailbox-2',
+      email: 'ops@mailzen.com',
+    });
+    mailServer.provisionMailbox.mockResolvedValue(undefined);
+
+    const result = await service.createMailbox('user-1', 'ops');
+
+    expect(userRepo.update).not.toHaveBeenCalled();
+    expect(result).toEqual({ id: 'mailbox-2', email: 'ops@mailzen.com' });
   });
 
   it('rolls back mailbox row when provisioning fails', async () => {

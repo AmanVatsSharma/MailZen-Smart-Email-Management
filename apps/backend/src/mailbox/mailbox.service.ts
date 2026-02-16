@@ -151,6 +151,20 @@ export class MailboxService {
       await this.mailboxRepo.delete({ id: created.id, userId });
       throw error;
     }
+    if (!user.activeInboxType || !user.activeInboxId) {
+      try {
+        await this.userRepo.update(userId, {
+          activeInboxType: 'MAILBOX',
+          activeInboxId: created.id,
+        });
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Failed to set active inbox pointer after mailbox create for user=${userId} mailboxId=${created.id}: ${errorMessage}`,
+        );
+      }
+    }
     return { email: created.email, id: created.id };
   }
 
