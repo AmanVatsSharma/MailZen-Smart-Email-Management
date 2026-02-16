@@ -320,6 +320,7 @@ Example:
 
 # Restore DB backup (destructive: drops and recreates DB)
 ./deploy/ec2/scripts/restore-db.sh deploy/ec2/backups/your-backup.sql.gz
+# (script verifies gzip integrity before making DB changes)
 
 # Restore DB backup non-interactively (automation)
 ./deploy/ec2/scripts/restore-db.sh --yes deploy/ec2/backups/your-backup.sql.gz

@@ -65,8 +65,14 @@ if [[ "${BACKUP_FILE}" != *.gz ]]; then
 fi
 
 require_cmd docker
+require_cmd gzip
 ensure_required_files_exist
 validate_core_env
+
+if ! gzip -t "${BACKUP_FILE}" >/dev/null 2>&1; then
+  log_error "Backup archive integrity check failed (gzip -t): ${BACKUP_FILE}"
+  exit 1
+fi
 
 db_name="$(read_env_value "POSTGRES_DB")"
 db_user="$(read_env_value "POSTGRES_USER")"
