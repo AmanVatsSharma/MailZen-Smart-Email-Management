@@ -2,6 +2,7 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import axios from 'axios';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { Mailbox } from './entities/mailbox.entity';
 import { MailServerService } from './mail-server.service';
 
@@ -13,10 +14,22 @@ describe('MailServerService', () => {
   } = {
     update: jest.fn(),
   };
+  const auditLogRepo: {
+    create: jest.Mock;
+    save: jest.Mock;
+  } = {
+    create: jest.fn((value: unknown) => value),
+    save: jest.fn(),
+  };
 
   const mockedAxios = axios as jest.Mocked<typeof axios>;
 
   const originalEnv = process.env;
+  const createServiceWithAudit = () =>
+    new MailServerService(
+      mailboxRepo as unknown as Repository<Mailbox>,
+      auditLogRepo as unknown as Repository<AuditLog>,
+    );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -36,6 +49,7 @@ describe('MailServerService', () => {
     mockedAxios.isAxiosError.mockImplementation((value: unknown) =>
       Boolean((value as { isAxiosError?: boolean } | null)?.isAxiosError),
     );
+    auditLogRepo.save.mockResolvedValue({} as AuditLog);
   });
 
   afterAll(() => {
@@ -44,9 +58,7 @@ describe('MailServerService', () => {
 
   it('stores encrypted mailbox credentials when external API is disabled', async () => {
     mailboxRepo.update.mockResolvedValue({ affected: 1 });
-    const service = new MailServerService(
-      mailboxRepo as unknown as Repository<Mailbox>,
-    );
+    const service = createServiceWithAudit();
 
     await service.provisionMailbox('user-1', 'sales');
 
@@ -64,6 +76,18 @@ describe('MailServerService', () => {
     expect(updateInput.username).toBe('sales@mailzen.com');
     expect(updateInput.passwordEnc).toEqual(expect.stringMatching(/^enc:v2:/));
     expect(updateInput.passwordIv).toBeUndefined();
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'mailbox_provisioning_requested',
+      }),
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'mailbox_provisioning_completed',
+      }),
+    );
   });
 
   it('fails provisioning when external admin API is required but not configured', async () => {
@@ -77,6 +101,17 @@ describe('MailServerService', () => {
       InternalServerErrorException,
     );
     expect(mailboxRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('does not fail mailbox provisioning when audit writes fail', async () => {
+    mailboxRepo.update.mockResolvedValue({ affected: 1 });
+    auditLogRepo.save.mockRejectedValueOnce(new Error('audit unavailable'));
+    const service = createServiceWithAudit();
+
+    await expect(service.provisionMailbox('user-1', 'sales')).resolves.toBe(
+      undefined,
+    );
+    expect(mailboxRepo.update).toHaveBeenCalledTimes(1);
   });
 
   it('defaults to strict provisioning in production when env flag is unset', async () => {
@@ -265,9 +300,7 @@ describe('MailServerService', () => {
     mockedAxios.post.mockResolvedValue({ data: { ok: true } } as never);
     mockedAxios.delete.mockResolvedValue({ data: { ok: true } } as never);
     mailboxRepo.update.mockResolvedValue({ affected: 0 });
-    const service = new MailServerService(
-      mailboxRepo as unknown as Repository<Mailbox>,
-    );
+    const service = createServiceWithAudit();
 
     await expect(service.provisionMailbox('user-1', 'sales')).rejects.toThrow(
       InternalServerErrorException,
@@ -277,6 +310,12 @@ describe('MailServerService', () => {
         /^https:\/\/mail-admin\.local\/mailboxes\/sales%40mailzen\.com$/,
       ),
       expect.any(Object),
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'mailbox_provisioning_failed',
+      }),
     );
   });
 

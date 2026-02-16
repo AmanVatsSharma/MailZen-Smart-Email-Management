@@ -450,6 +450,7 @@ flowchart TD
   - `mailbox_external_rollback_failed`
   - `mailbox_credential_persistence_failed`
   - `mailbox_provision_completed`
+  - `mail_server_audit_log_write_failed`
 - `MailboxService` emits structured lifecycle resilience events:
   - `mailbox_create_provisioning_failed_rollback`
   - `mailbox_create_active_inbox_update_failed`
@@ -462,6 +463,9 @@ flowchart TD
 - Each inbound request emits structured log events (`mailbox_inbound_*`) through
   common structured logging utilities, with recursive PII redaction and request correlation id propagation.
 - Compliance/audit actions persisted in `audit_logs`:
+  - `mailbox_provisioning_requested`
+  - `mailbox_provisioning_completed`
+  - `mailbox_provisioning_failed`
   - `mailbox_created`
   - `mailbox_inbound_data_export_requested`
   - `mailbox_inbound_retention_purged`

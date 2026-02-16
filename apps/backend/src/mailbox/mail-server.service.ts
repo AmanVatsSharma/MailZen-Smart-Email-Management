@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import axios from 'axios';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { Mailbox } from './entities/mailbox.entity';
 import {
   encryptProviderSecret,
@@ -43,6 +44,8 @@ export class MailServerService {
   constructor(
     @InjectRepository(Mailbox)
     private readonly mailboxRepo: Repository<Mailbox>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo?: Repository<AuditLog>,
   ) {
     try {
       this.providerSecretsKeyring = resolveProviderSecretsKeyring();
@@ -56,6 +59,31 @@ export class MailServerService {
       );
       throw new InternalServerErrorException(
         'Mailbox credential encryption keyring is misconfigured',
+      );
+    }
+  }
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    if (!this.auditLogRepo) return;
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'mail_server_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
       );
     }
   }
@@ -590,59 +618,96 @@ export class MailServerService {
   ): Promise<void> {
     const password = crypto.randomBytes(16).toString('base64url');
     const mailboxEmail = `${localPart}@${MailServerService.MAILZEN_DOMAIN}`;
-
-    await this.provisionMailboxOnExternalServer({
-      mailboxEmail,
-      localPart,
-      domain: MailServerService.MAILZEN_DOMAIN,
-      generatedPassword: password,
-      quotaLimitMb,
+    const mailboxFingerprint = this.fingerprintMailbox(mailboxEmail);
+    await this.writeAuditLog({
+      userId,
+      action: 'mailbox_provisioning_requested',
+      metadata: {
+        mailboxFingerprint,
+        localPart,
+        domain: MailServerService.MAILZEN_DOMAIN,
+        quotaLimitMb: quotaLimitMb ?? null,
+      },
     });
 
-    const encryptedPassword = encryptProviderSecret(
-      password,
-      this.providerSecretsKeyring,
-    );
-    const connectionConfig = this.getConnectionConfig();
+    try {
+      await this.provisionMailboxOnExternalServer({
+        mailboxEmail,
+        localPart,
+        domain: MailServerService.MAILZEN_DOMAIN,
+        generatedPassword: password,
+        quotaLimitMb,
+      });
 
-    const updateResult = await this.mailboxRepo.update(
-      { userId, localPart, domain: MailServerService.MAILZEN_DOMAIN },
-      {
-        username: mailboxEmail,
-        passwordEnc: encryptedPassword,
-        passwordIv: undefined,
-        smtpHost: connectionConfig.smtpHost,
-        smtpPort: connectionConfig.smtpPort,
-        imapHost: connectionConfig.imapHost,
-        imapPort: connectionConfig.imapPort,
-      },
-    );
+      const encryptedPassword = encryptProviderSecret(
+        password,
+        this.providerSecretsKeyring,
+      );
+      const connectionConfig = this.getConnectionConfig();
 
-    if (!updateResult.affected) {
-      this.logger.error(
+      const updateResult = await this.mailboxRepo.update(
+        { userId, localPart, domain: MailServerService.MAILZEN_DOMAIN },
+        {
+          username: mailboxEmail,
+          passwordEnc: encryptedPassword,
+          passwordIv: undefined,
+          smtpHost: connectionConfig.smtpHost,
+          smtpPort: connectionConfig.smtpPort,
+          imapHost: connectionConfig.imapHost,
+          imapPort: connectionConfig.imapPort,
+        },
+      );
+
+      if (!updateResult.affected) {
+        this.logger.error(
+          serializeStructuredLog({
+            event: 'mailbox_credential_persistence_failed',
+            mailboxFingerprint,
+            userId,
+            localPart,
+            domain: MailServerService.MAILZEN_DOMAIN,
+            reason: 'mailbox_row_not_found',
+          }),
+        );
+        await this.attemptExternalRollback({ mailboxEmail });
+        throw new InternalServerErrorException(
+          'Mailbox credentials could not be persisted',
+        );
+      }
+
+      this.logger.log(
         serializeStructuredLog({
-          event: 'mailbox_credential_persistence_failed',
-          mailboxFingerprint: this.fingerprintMailbox(mailboxEmail),
+          event: 'mailbox_provision_completed',
+          mailboxFingerprint,
           userId,
           localPart,
           domain: MailServerService.MAILZEN_DOMAIN,
-          reason: 'mailbox_row_not_found',
         }),
       );
-      await this.attemptExternalRollback({ mailboxEmail });
-      throw new InternalServerErrorException(
-        'Mailbox credentials could not be persisted',
-      );
-    }
-
-    this.logger.log(
-      serializeStructuredLog({
-        event: 'mailbox_provision_completed',
-        mailboxFingerprint: this.fingerprintMailbox(mailboxEmail),
+      await this.writeAuditLog({
         userId,
-        localPart,
-        domain: MailServerService.MAILZEN_DOMAIN,
-      }),
-    );
+        action: 'mailbox_provisioning_completed',
+        metadata: {
+          mailboxFingerprint,
+          localPart,
+          domain: MailServerService.MAILZEN_DOMAIN,
+          quotaLimitMb: quotaLimitMb ?? null,
+        },
+      });
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message.slice(0, 300) : String(error);
+      await this.writeAuditLog({
+        userId,
+        action: 'mailbox_provisioning_failed',
+        metadata: {
+          mailboxFingerprint,
+          localPart,
+          domain: MailServerService.MAILZEN_DOMAIN,
+          reason,
+        },
+      });
+      throw error;
+    }
   }
 }
