@@ -16,8 +16,10 @@ describe('AuthResolver', () => {
       | 'rotateRefreshToken'
       | 'logout'
       | 'createVerificationToken'
+      | 'consumeVerificationToken'
       | 'createSignupOtp'
       | 'verifySignupOtp'
+      | 'recordSecurityAuditAction'
     >
   > = {
     login: jest.fn(),
@@ -25,8 +27,10 @@ describe('AuthResolver', () => {
     rotateRefreshToken: jest.fn(),
     logout: jest.fn(),
     createVerificationToken: jest.fn(),
+    consumeVerificationToken: jest.fn(),
     createSignupOtp: jest.fn(),
     verifySignupOtp: jest.fn(),
+    recordSecurityAuditAction: jest.fn(),
   };
   const userServiceMock: jest.Mocked<
     Pick<UserService, 'validateUser' | 'createUser' | 'getUser'>
@@ -111,7 +115,11 @@ describe('AuthResolver', () => {
   });
 
   it('enforces abuse limits for forgotPassword mutation', async () => {
-    userRepoMock.findOne.mockResolvedValue(null as never);
+    userRepoMock.findOne.mockResolvedValue({
+      id: 'user-1',
+      email: 'owner@mailzen.com',
+    } as User);
+    authServiceMock.createVerificationToken.mockResolvedValue('token-1');
 
     const result = await resolver.forgotPassword(
       { email: 'owner@mailzen.com' } as never,
@@ -130,7 +138,121 @@ describe('AuthResolver', () => {
         identifier: 'owner@mailzen.com',
       }),
     );
+    expect(authServiceMock.createVerificationToken).toHaveBeenCalledWith(
+      'user-1',
+      'PASSWORD_RESET',
+    );
+    expect(authServiceMock.recordSecurityAuditAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'auth_password_reset_requested',
+        userId: 'user-1',
+      }),
+    );
     expect(result).toBe(true);
+  });
+
+  it('records audit action on resetPassword completion', async () => {
+    authServiceMock.consumeVerificationToken.mockResolvedValue('user-1');
+    userRepoMock.update.mockResolvedValue({} as never);
+
+    const result = await resolver.resetPassword(
+      {
+        token: 'reset-token-1',
+        newPassword: 'new-password-1',
+      } as never,
+      {
+        req: {
+          headers: {
+            'x-forwarded-for': '198.51.100.14',
+          },
+        },
+      } as never,
+    );
+
+    expect(authServiceMock.consumeVerificationToken).toHaveBeenCalledWith(
+      'reset-token-1',
+      'PASSWORD_RESET',
+    );
+    expect(authServiceMock.recordSecurityAuditAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'auth_password_reset_completed',
+        userId: 'user-1',
+      }),
+    );
+    expect(result).toBe(true);
+  });
+
+  it('records audit action on verifyEmail completion', async () => {
+    authServiceMock.consumeVerificationToken.mockResolvedValue('user-2');
+    userRepoMock.update.mockResolvedValue({} as never);
+
+    const result = await resolver.verifyEmail({
+      token: 'verify-token-1',
+    } as never);
+
+    expect(authServiceMock.consumeVerificationToken).toHaveBeenCalledWith(
+      'verify-token-1',
+      'EMAIL_VERIFY',
+    );
+    expect(authServiceMock.recordSecurityAuditAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'auth_email_verification_completed',
+        userId: 'user-2',
+      }),
+    );
+    expect(result).toBe(true);
+  });
+
+  it('records audit action on successful phone signup', async () => {
+    authServiceMock.verifySignupOtp.mockResolvedValue(true);
+    userServiceMock.createUser.mockResolvedValue({
+      id: 'user-3',
+      email: 'phone@mailzen.com',
+      role: 'USER',
+    } as User);
+    mailboxServiceMock.createMailbox.mockResolvedValue({
+      id: 'mailbox-1',
+      email: 'sales@mailzen.com',
+    } as never);
+    authServiceMock.login.mockReturnValue({ accessToken: 'token-signup' });
+    authServiceMock.generateRefreshToken.mockResolvedValue('refresh-signup');
+    mailboxServiceMock.getUserMailboxes.mockResolvedValue([
+      'sales@mailzen.com',
+    ] as never[]);
+
+    const result = await resolver.signupVerify(
+      {
+        phoneNumber: '+15550000000',
+        code: '123456',
+        email: 'phone@mailzen.com',
+        password: 'password-1',
+        desiredLocalPart: 'sales',
+      } as never,
+      {
+        req: {
+          headers: {
+            'x-forwarded-for': '198.51.100.15',
+          },
+        },
+        res: {
+          cookie: jest.fn(),
+          clearCookie: jest.fn(),
+        },
+      } as never,
+    );
+
+    expect(authServiceMock.recordSecurityAuditAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'auth_phone_signup_completed',
+        userId: 'user-3',
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        token: 'token-signup',
+        refreshToken: 'refresh-signup',
+      }),
+    );
   });
 
   it('enforces abuse limits for signupSendOtp mutation', async () => {

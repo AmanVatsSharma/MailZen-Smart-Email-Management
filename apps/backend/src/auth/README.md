@@ -149,6 +149,10 @@ Google OAuth controller (`oauth.controller.ts`) structured events:
   - `auth_logout_completed`
   - `auth_verification_token_issued`
   - `auth_verification_token_consumed`
+  - `auth_password_reset_requested`
+  - `auth_password_reset_completed`
+  - `auth_email_verification_completed`
+  - `auth_phone_signup_completed`
   - `auth_signup_otp_requested`
   - `auth_signup_otp_verified`
   - `OAUTH_GOOGLE_SUCCESS`

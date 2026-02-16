@@ -61,6 +61,14 @@ export class AuthService {
     }
   }
 
+  async recordSecurityAuditAction(input: {
+    action: string;
+    userId?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    await this.writeAuditLog(input);
+  }
+
   /**
    * Resolve JWT expiration from env in a type-safe way.
    *

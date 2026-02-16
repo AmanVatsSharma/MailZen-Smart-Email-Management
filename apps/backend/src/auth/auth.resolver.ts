@@ -25,7 +25,10 @@ import { User } from '../user/entities/user.entity';
 import * as bcrypt from 'bcryptjs';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthMeResponse } from './dto/auth-me.response';
-import { serializeStructuredLog } from '../common/logging/structured-log.util';
+import {
+  fingerprintIdentifier,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 import { AuthAbuseProtectionService } from './auth-abuse-protection.service';
 
 interface RequestContext {
@@ -217,6 +220,13 @@ export class AuthResolver {
     const user = await this.userRepo.findOne({ where: { email: normalized } });
     if (user) {
       await this.authService.createVerificationToken(user.id, 'PASSWORD_RESET');
+      await this.authService.recordSecurityAuditAction({
+        action: 'auth_password_reset_requested',
+        userId: user.id,
+        metadata: {
+          emailFingerprint: fingerprintIdentifier(normalized),
+        },
+      });
     }
     return true;
   }
@@ -243,6 +253,10 @@ export class AuthResolver {
         passwordUpdatedAt: new Date(),
       },
     );
+    await this.authService.recordSecurityAuditAction({
+      action: 'auth_password_reset_completed',
+      userId,
+    });
     return true;
   }
 
@@ -258,6 +272,10 @@ export class AuthResolver {
         isEmailVerified: true,
       },
     );
+    await this.authService.recordSecurityAuditAction({
+      action: 'auth_email_verification_completed',
+      userId,
+    });
     return true;
   }
 
@@ -294,6 +312,13 @@ export class AuthResolver {
     });
     // Create mailbox (auto-suggest if not provided)
     await this.mailboxService.createMailbox(user.id, input.desiredLocalPart);
+    await this.authService.recordSecurityAuditAction({
+      action: 'auth_phone_signup_completed',
+      userId: user.id,
+      metadata: {
+        phoneFingerprint: fingerprintIdentifier(input.phoneNumber),
+      },
+    });
     // Issue tokens
     const { accessToken } = this.authService.login(user);
     const refreshToken = await this.authService.generateRefreshToken(user.id);
