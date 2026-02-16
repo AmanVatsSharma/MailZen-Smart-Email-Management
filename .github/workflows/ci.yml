@@ -57,7 +57,6 @@ jobs:
           ai-agent-gateway/ai-agent-platform-health-alert.scheduler.spec.ts
           ai-agent-gateway/ai-agent-platform-health-alert-run-retention.scheduler.spec.ts
           ai-agent-gateway/ai-agent-platform-health-sample-retention.scheduler.spec.ts
-          common/provider-secrets.util.spec.ts
           common/sms/sms-dispatcher.util.spec.ts
           common/logging/structured-log.util.spec.ts
           common/provider-secrets.util.spec.ts
@@ -75,6 +74,7 @@ jobs:
           email-integration/provider-sync-incident.scheduler.spec.ts
           gmail-sync/gmail-sync.service.spec.ts
           email-integration/email-provider.service.spec.ts
+          email-integration/provider-oauth.controller.spec.ts
           email-integration/email-provider.connect.resolver.spec.ts
           mailbox/mailbox.service.spec.ts
           mailbox/mailbox.resolver.spec.ts

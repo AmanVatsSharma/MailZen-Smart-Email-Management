@@ -152,6 +152,18 @@ Login OAuth (backend redirect) uses:
 
 - `GOOGLE_REDIRECT_URI=http://localhost:4000/auth/google/callback`
 
+### Provider OAuth controller observability events
+
+- `provider_oauth_start_config_missing`
+- `provider_oauth_start_redirect`
+- `provider_oauth_callback_provider_error`
+- `provider_oauth_callback_missing_code_or_state`
+- `provider_oauth_callback_invalid_state`
+- `provider_oauth_callback_missing_user`
+- `provider_oauth_callback_connect_success`
+- `provider_oauth_callback_connect_failed`
+- `provider_oauth_redirect_target_invalid`
+
 ## Mermaid: connect provider via OAuth code
 
 ```mermaid
