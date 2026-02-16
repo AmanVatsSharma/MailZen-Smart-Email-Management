@@ -72,6 +72,9 @@ done
 if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${WITH_RUNTIME_CHECKS}" == false ]]; then
   log_warn "--ports-check-ports provided without --with-runtime-checks; value will only apply when runtime checks are enabled."
 fi
+if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${WITH_RUNTIME_CHECKS}" == true ]] && [[ "${RUN_PORTS_CHECK}" == false ]]; then
+  log_warn "--ports-check-ports has no effect when --skip-ports-check is enabled."
+fi
 
 log_info "Checking MailZen deployment status..."
 log_info "Active env file: $(get_env_file)"
