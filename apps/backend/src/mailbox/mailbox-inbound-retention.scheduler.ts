@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { MailboxService } from './mailbox.service';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 @Injectable()
 export class MailboxInboundRetentionScheduler {
@@ -19,21 +23,45 @@ export class MailboxInboundRetentionScheduler {
 
   @Cron(CronExpression.EVERY_DAY_AT_4AM)
   async purgeMailboxInboundRetentionData(): Promise<void> {
+    const runCorrelationId = resolveCorrelationId(undefined);
     if (!this.isAutoPurgeEnabled()) {
-      this.logger.log('mailbox-retention: auto-purge disabled by env');
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'mailbox_inbound_retention_autopurge_disabled',
+          runCorrelationId,
+        }),
+      );
       return;
     }
 
     try {
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'mailbox_inbound_retention_autopurge_start',
+          runCorrelationId,
+        }),
+      );
       const result = await this.mailboxService.purgeInboundEventRetentionData(
         {},
       );
       this.logger.log(
-        `mailbox-retention: purgedEvents=${result.deletedEvents} retentionDays=${result.retentionDays}`,
+        serializeStructuredLog({
+          event: 'mailbox_inbound_retention_autopurge_completed',
+          runCorrelationId,
+          deletedEvents: result.deletedEvents,
+          retentionDays: result.retentionDays,
+          executedAtIso: result.executedAtIso,
+        }),
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown error';
-      this.logger.warn(`mailbox-retention: purge failed: ${message}`);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'mailbox_inbound_retention_autopurge_failed',
+          runCorrelationId,
+          error: message,
+        }),
+      );
     }
   }
 }

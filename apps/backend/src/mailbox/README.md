@@ -88,9 +88,19 @@ This module covers:
 - `mailbox-sync.scheduler.ts`
   - cron (`*/10 * * * *`) for active mailbox polling
   - env-gated via `MAILZEN_MAILBOX_SYNC_ENABLED`
+  - structured scheduler logs include run correlation id:
+    - `mailbox_sync_scheduler_disabled`
+    - `mailbox_sync_scheduler_start`
+    - `mailbox_sync_scheduler_completed`
+    - `mailbox_sync_scheduler_failed`
 - `mailbox-sync-run-retention.scheduler.ts`
   - daily cron (`EVERY_DAY_AT_3AM`) for sync-run observability data retention purge
   - env-gated via `MAILZEN_MAILBOX_SYNC_RUN_AUTOPURGE_ENABLED`
+  - structured retention logs include run correlation id:
+    - `mailbox_sync_run_retention_autopurge_disabled`
+    - `mailbox_sync_run_retention_autopurge_start`
+    - `mailbox_sync_run_retention_autopurge_completed`
+    - `mailbox_sync_run_retention_autopurge_failed`
 - `mailbox-sync-incident.scheduler.ts`
   - cron (`*/15 * * * *`) for mailbox sync incident-rate monitoring + alert emission
   - emits `MAILBOX_SYNC_INCIDENT_ALERT` notifications when warning/critical thresholds are breached
@@ -343,6 +353,11 @@ flowchart TD
   `mailbox_inbound_sla_monitor_user_failed`.
 - `MailboxInboundRetentionScheduler` runs daily and purges stale inbound-event
   observability rows according to retention policy env controls.
+  - structured retention logs include run correlation id:
+    - `mailbox_inbound_retention_autopurge_disabled`
+    - `mailbox_inbound_retention_autopurge_start`
+    - `mailbox_inbound_retention_autopurge_completed`
+    - `mailbox_inbound_retention_autopurge_failed`
 
 ## Inbound observability GraphQL queries
 
@@ -415,7 +430,7 @@ flowchart TD
 
 - `MailboxSyncRunRetentionScheduler`
   - runs daily to purge stale `mailbox_sync_runs` rows using retention policy defaults
-  - logs purge totals and failures for operational auditability
+  - emits structured logs for start/completion/failure and disabled env gating
 
 ## Notes
 
