@@ -5,6 +5,7 @@
 Sync **received Gmail messages** into Postgres so the frontend can render an inbox-like experience.
 
 This module stores messages in `ExternalEmailMessage` (TypeORM entity) and supports:
+
 - trigger sync
 - fetch synced messages (legacy list API)
 - sync provider label metadata (for UI labels)
@@ -15,9 +16,11 @@ This module stores messages in `ExternalEmailMessage` (TypeORM entity) and suppo
 ## Required Google scopes
 
 For inbox sync, your Google OAuth consent must include at least:
+
 - `https://www.googleapis.com/auth/gmail.readonly`
 
 If you also want SMTP send via OAuth (nodemailer), you may use the broader:
+
 - `https://mail.google.com/`
 
 ## GraphQL API
@@ -26,6 +29,7 @@ If you also want SMTP send via OAuth (nodemailer), you may use the broader:
 - `getInboxMessages(inboxType: String!, inboxId: String!, limit: Int, offset: Int): [InboxMessage!]!`
 
 Notes:
+
 - MVP supports `inboxType="PROVIDER"` only.
 - The unified inbox UI primarily uses `UnifiedInboxModule` (`emails/email/updateEmail/...`) rather than `getInboxMessages`.
 
@@ -37,15 +41,18 @@ On each `syncGmailProvider`, we best-effort sync Gmail labels into `ExternalEmai
 
 `GmailSyncScheduler` publishes `SYNC_FAILED` domain events through
 `NotificationEventBusService`, with metadata including:
+
 - `providerId`
 - `providerType`
 - `workspaceId` (when available)
 - `attempts` (number of retry attempts exhausted)
 
 Scheduler hardening features:
+
 - provider-level DB lease (`email_providers.syncLeaseExpiresAt`) to prevent duplicate workers
 - retry with backoff (`GMAIL_SYNC_SCHEDULER_RETRIES`, `GMAIL_SYNC_SCHEDULER_RETRY_BACKOFF_MS`)
 - per-provider jitter (`GMAIL_SYNC_SCHEDULER_JITTER_MS`) to reduce thundering-herd traffic
+- duplicate failure notification suppression when error signature is unchanged
 - sync lifecycle telemetry:
   - success updates `lastSyncedAt`
   - failures persist `lastSyncError` and `lastSyncErrorAt`
@@ -64,6 +71,7 @@ Scheduler hardening features:
     lease-guarded `processPushNotification` sync path.
 
 Push tuning env vars:
+
 - `GMAIL_PUSH_WEBHOOK_TOKEN` (optional shared secret query token)
 - `GMAIL_PUSH_SYNC_MAX_MESSAGES` (default `25`, clamped `1..200`)
 - `GMAIL_PUSH_TOPIC_NAME` (required to enable Gmail watch renewals)

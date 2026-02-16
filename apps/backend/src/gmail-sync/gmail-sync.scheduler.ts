@@ -111,6 +111,12 @@ export class GmailSyncScheduler {
     return Boolean(String(process.env.GMAIL_PUSH_TOPIC_NAME || '').trim());
   }
 
+  private normalizeSyncErrorSignature(value: unknown): string {
+    return String(value || '')
+      .trim()
+      .slice(0, 500);
+  }
+
   @Cron(CronExpression.EVERY_10_MINUTES)
   async syncActiveGmailProviders() {
     const providers: EmailProvider[] = await this.emailProviderRepo.find({
@@ -142,16 +148,24 @@ export class GmailSyncScheduler {
           syncResult.error instanceof Error
             ? syncResult.error.message
             : String(syncResult.error);
+        const normalizedErrorMessage =
+          this.normalizeSyncErrorSignature(message);
+        const previousErrorMessage = this.normalizeSyncErrorSignature(
+          p.lastSyncError,
+        );
         this.logger.warn(`Cron sync failed for provider=${p.id}: ${message}`);
         await this.emailProviderRepo.update(
           { id: p.id },
           {
             status: 'error',
             syncLeaseExpiresAt: null,
-            lastSyncError: message.slice(0, 500),
+            lastSyncError: normalizedErrorMessage,
             lastSyncErrorAt: new Date(),
           },
         );
+        if (normalizedErrorMessage === previousErrorMessage) {
+          continue;
+        }
         await this.notificationEventBus.publishSafely({
           userId: p.userId,
           type: 'SYNC_FAILED',
@@ -163,7 +177,7 @@ export class GmailSyncScheduler {
             providerType: 'GMAIL',
             workspaceId: p.workspaceId || null,
             attempts: syncResult.attempts,
-            error: message.slice(0, 240),
+            error: normalizedErrorMessage.slice(0, 240),
           },
         });
       } catch (notificationError: unknown) {

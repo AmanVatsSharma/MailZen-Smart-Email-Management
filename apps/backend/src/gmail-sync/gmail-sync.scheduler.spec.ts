@@ -89,6 +89,31 @@ describe('GmailSyncScheduler', () => {
     );
   });
 
+  it('suppresses duplicate sync-failure notifications when error signature is unchanged', async () => {
+    providerRepo.find.mockResolvedValue([
+      {
+        id: 'provider-1',
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        lastSyncError: 'sync failed',
+      } as EmailProvider,
+    ]);
+    gmailSync.syncGmailProvider.mockRejectedValue(new Error('sync failed'));
+    providerRepo.update.mockResolvedValue({} as UpdateResult);
+    notificationEventBus.publishSafely.mockResolvedValue(null);
+
+    await scheduler.syncActiveGmailProviders();
+
+    expect(providerRepo.update).toHaveBeenCalledWith(
+      { id: 'provider-1' },
+      expect.objectContaining({
+        lastSyncError: 'sync failed',
+        lastSyncErrorAt: expect.any(Date),
+      }),
+    );
+    expect(notificationEventBus.publishSafely).not.toHaveBeenCalled();
+  });
+
   it('skips provider sync when lease cannot be acquired', async () => {
     providerRepo.find.mockResolvedValue([
       {

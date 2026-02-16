@@ -128,8 +128,10 @@ Delivery behavior:
 
 - `GmailSyncScheduler` publishes `SYNC_FAILED` domain events through
   `NotificationEventBusService` on cron sync failure
+  - duplicate notifications are suppressed when error signature is unchanged
 - `OutlookSyncScheduler` publishes `SYNC_FAILED` domain events through
   `NotificationEventBusService` on cron sync failure
+  - duplicate notifications are suppressed when error signature is unchanged
 - `MailboxSyncService` publishes `SYNC_FAILED` domain events through
   `NotificationEventBusService` when mailbox pull-sync failures change error signature
 - `AiAgentGatewayService` publishes `AGENT_ACTION_REQUIRED` domain events for

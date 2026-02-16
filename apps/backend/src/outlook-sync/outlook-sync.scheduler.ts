@@ -107,6 +107,12 @@ export class OutlookSyncScheduler {
     );
   }
 
+  private normalizeSyncErrorSignature(value: unknown): string {
+    return String(value || '')
+      .trim()
+      .slice(0, 500);
+  }
+
   @Cron(CronExpression.EVERY_10_MINUTES)
   async syncActiveOutlookProviders() {
     const providers: EmailProvider[] = await this.emailProviderRepo.find({
@@ -140,6 +146,11 @@ export class OutlookSyncScheduler {
           syncResult.error instanceof Error
             ? syncResult.error.message
             : String(syncResult.error);
+        const normalizedErrorMessage =
+          this.normalizeSyncErrorSignature(message);
+        const previousErrorMessage = this.normalizeSyncErrorSignature(
+          provider.lastSyncError,
+        );
         this.logger.warn(
           `Cron Outlook sync failed provider=${provider.id}: ${message}`,
         );
@@ -148,10 +159,13 @@ export class OutlookSyncScheduler {
           {
             status: 'error',
             syncLeaseExpiresAt: null,
-            lastSyncError: message.slice(0, 500),
+            lastSyncError: normalizedErrorMessage,
             lastSyncErrorAt: new Date(),
           },
         );
+        if (normalizedErrorMessage === previousErrorMessage) {
+          continue;
+        }
         await this.notificationEventBus.publishSafely({
           userId: provider.userId,
           type: 'SYNC_FAILED',
@@ -163,7 +177,7 @@ export class OutlookSyncScheduler {
             providerType: 'OUTLOOK',
             workspaceId: provider.workspaceId || null,
             attempts: syncResult.attempts,
-            error: message.slice(0, 240),
+            error: normalizedErrorMessage.slice(0, 240),
           },
         });
       } catch (notificationError: unknown) {

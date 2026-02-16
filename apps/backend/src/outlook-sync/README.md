@@ -34,6 +34,7 @@ label metadata into `ExternalEmailLabel`, similar to Gmail sync.
 - retry with backoff (`OUTLOOK_SYNC_SCHEDULER_RETRIES`, `OUTLOOK_SYNC_SCHEDULER_RETRY_BACKOFF_MS`)
 - jitter (`OUTLOOK_SYNC_SCHEDULER_JITTER_MS`) to smooth burst traffic
 - failure notifications include `attempts` and short error context
+- duplicate failure notification suppression when error signature is unchanged
 - sync lifecycle telemetry:
   - success updates `lastSyncedAt`
   - failures persist `lastSyncError` and `lastSyncErrorAt`
@@ -98,4 +99,3 @@ Used during refresh token exchange when access tokens expire.
 - Scheduler publishes `SYNC_FAILED` domain events through
   `NotificationEventBusService` with `providerId`, `providerType`, and
   `workspaceId` metadata for workspace-aware alerting.
-
