@@ -23,6 +23,20 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     process.env.AI_AGENT_HEALTH_ALERT_SCAN_ADMIN_USERS;
   const originalCooldownEnv =
     process.env.AI_AGENT_HEALTH_ALERT_COOLDOWN_MINUTES;
+  const originalWindowEnv = process.env.AI_AGENT_HEALTH_ALERT_WINDOW_HOURS;
+  const originalBaselineWindowEnv =
+    process.env.AI_AGENT_HEALTH_ALERT_BASELINE_WINDOW_HOURS;
+  const originalMinSampleEnv =
+    process.env.AI_AGENT_HEALTH_ALERT_MIN_SAMPLE_COUNT;
+  const originalAnomalyMultiplierEnv =
+    process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MULTIPLIER;
+  const originalAnomalyErrorDeltaEnv =
+    process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_ERROR_RATE_DELTA_PERCENT;
+  const originalAnomalyLatencyDeltaEnv =
+    process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_LATENCY_DELTA_MS;
+  const originalAlertErrorRateEnv =
+    process.env.AI_AGENT_ALERT_ERROR_RATE_PERCENT;
+  const originalAlertLatencyEnv = process.env.AI_AGENT_ALERT_LATENCY_MS;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -83,6 +97,15 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     delete process.env.AI_AGENT_HEALTH_ALERT_RECIPIENT_USER_IDS;
     delete process.env.AI_AGENT_HEALTH_ALERT_SCAN_ADMIN_USERS;
     delete process.env.AI_AGENT_HEALTH_ALERT_COOLDOWN_MINUTES;
+    delete process.env.AI_AGENT_HEALTH_ALERT_WINDOW_HOURS;
+    delete process.env.AI_AGENT_HEALTH_ALERT_BASELINE_WINDOW_HOURS;
+    delete process.env.AI_AGENT_HEALTH_ALERT_MIN_SAMPLE_COUNT;
+    delete process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MULTIPLIER;
+    delete process.env
+      .AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_ERROR_RATE_DELTA_PERCENT;
+    delete process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_LATENCY_DELTA_MS;
+    delete process.env.AI_AGENT_ALERT_ERROR_RATE_PERCENT;
+    delete process.env.AI_AGENT_ALERT_LATENCY_MS;
   });
 
   afterAll(() => {
@@ -107,6 +130,51 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
       process.env.AI_AGENT_HEALTH_ALERT_COOLDOWN_MINUTES = originalCooldownEnv;
     } else {
       delete process.env.AI_AGENT_HEALTH_ALERT_COOLDOWN_MINUTES;
+    }
+    if (typeof originalWindowEnv === 'string') {
+      process.env.AI_AGENT_HEALTH_ALERT_WINDOW_HOURS = originalWindowEnv;
+    } else {
+      delete process.env.AI_AGENT_HEALTH_ALERT_WINDOW_HOURS;
+    }
+    if (typeof originalBaselineWindowEnv === 'string') {
+      process.env.AI_AGENT_HEALTH_ALERT_BASELINE_WINDOW_HOURS =
+        originalBaselineWindowEnv;
+    } else {
+      delete process.env.AI_AGENT_HEALTH_ALERT_BASELINE_WINDOW_HOURS;
+    }
+    if (typeof originalMinSampleEnv === 'string') {
+      process.env.AI_AGENT_HEALTH_ALERT_MIN_SAMPLE_COUNT = originalMinSampleEnv;
+    } else {
+      delete process.env.AI_AGENT_HEALTH_ALERT_MIN_SAMPLE_COUNT;
+    }
+    if (typeof originalAnomalyMultiplierEnv === 'string') {
+      process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MULTIPLIER =
+        originalAnomalyMultiplierEnv;
+    } else {
+      delete process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MULTIPLIER;
+    }
+    if (typeof originalAnomalyErrorDeltaEnv === 'string') {
+      process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_ERROR_RATE_DELTA_PERCENT =
+        originalAnomalyErrorDeltaEnv;
+    } else {
+      delete process.env
+        .AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_ERROR_RATE_DELTA_PERCENT;
+    }
+    if (typeof originalAnomalyLatencyDeltaEnv === 'string') {
+      process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_LATENCY_DELTA_MS =
+        originalAnomalyLatencyDeltaEnv;
+    } else {
+      delete process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_LATENCY_DELTA_MS;
+    }
+    if (typeof originalAlertErrorRateEnv === 'string') {
+      process.env.AI_AGENT_ALERT_ERROR_RATE_PERCENT = originalAlertErrorRateEnv;
+    } else {
+      delete process.env.AI_AGENT_ALERT_ERROR_RATE_PERCENT;
+    }
+    if (typeof originalAlertLatencyEnv === 'string') {
+      process.env.AI_AGENT_ALERT_LATENCY_MS = originalAlertLatencyEnv;
+    } else {
+      delete process.env.AI_AGENT_ALERT_LATENCY_MS;
     }
   });
 
@@ -138,6 +206,41 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
         severity: 'CRITICAL',
         recipientCount: 1,
         publishedCount: 1,
+      }),
+    );
+  });
+
+  it('returns resolved health alert scheduler config snapshot', () => {
+    process.env.AI_AGENT_HEALTH_ALERTS_ENABLED = 'true';
+    process.env.AI_AGENT_HEALTH_ALERT_SCAN_ADMIN_USERS = 'false';
+    process.env.AI_AGENT_HEALTH_ALERT_RECIPIENT_USER_IDS = 'ops-1,ops-2';
+    process.env.AI_AGENT_HEALTH_ALERT_WINDOW_HOURS = '8';
+    process.env.AI_AGENT_HEALTH_ALERT_BASELINE_WINDOW_HOURS = '96';
+    process.env.AI_AGENT_HEALTH_ALERT_COOLDOWN_MINUTES = '45';
+    process.env.AI_AGENT_HEALTH_ALERT_MIN_SAMPLE_COUNT = '6';
+    process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MULTIPLIER = '2.5';
+    process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_ERROR_RATE_DELTA_PERCENT =
+      '1.5';
+    process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_LATENCY_DELTA_MS = '200';
+    process.env.AI_AGENT_ALERT_ERROR_RATE_PERCENT = '7';
+    process.env.AI_AGENT_ALERT_LATENCY_MS = '1800';
+
+    const snapshot = scheduler.getAlertConfigSnapshot();
+
+    expect(snapshot).toEqual(
+      expect.objectContaining({
+        alertsEnabled: true,
+        scanAdminUsers: false,
+        configuredRecipientUserIds: ['ops-1', 'ops-2'],
+        windowHours: 8,
+        baselineWindowHours: 96,
+        cooldownMinutes: 45,
+        minSampleCount: 6,
+        anomalyMultiplier: 2.5,
+        anomalyMinErrorDeltaPercent: 1.5,
+        anomalyMinLatencyDeltaMs: 200,
+        errorRateWarnPercent: 7,
+        latencyWarnMs: 1800,
       }),
     );
   });

@@ -54,6 +54,8 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - returns bucketed delivered AI health alert trend points by severity/recipient spread.
   - `agentPlatformHealthAlertDeliveryDataExport(windowHours?, bucketMinutes?)`
   - returns JSON export payload for alert-delivery analytics pipelines.
+  - `agentPlatformHealthAlertConfig`
+  - returns resolved scheduler/env configuration snapshot for alert operations diagnostics.
   - `runAgentPlatformHealthAlertCheck(windowHours?, baselineWindowHours?, cooldownMinutes?, minSampleCount?)`
   - runs anomaly detection on-demand and returns publish diagnostics.
 - Expose `myAgentActionDataExport(limit?)` for authenticated JSON export of
@@ -174,3 +176,4 @@ flowchart TD
 - 2026-02-16: Added admin mutation to trigger AI health anomaly alert checks on demand.
 - 2026-02-16: Added delivered AI health alert stats/series queries for alert-ops observability.
 - 2026-02-16: Added delivered AI health alert data export query.
+- 2026-02-16: Added AI health alert config snapshot query for operational diagnostics.

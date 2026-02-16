@@ -20,6 +20,7 @@ import { AgentAssistInput } from './dto/agent-assist.input';
 import { AgentAssistResponse } from './dto/agent-assist.response';
 import { AgentActionDataExportResponse } from './dto/agent-action-data-export.response';
 import { AgentPlatformHealthAlertCheckResponse } from './dto/agent-platform-health-alert-check.response';
+import { AgentPlatformHealthAlertConfigResponse } from './dto/agent-platform-health-alert-config.response';
 import { AgentPlatformHealthAlertDeliveryDataExportResponse } from './dto/agent-platform-health-alert-delivery-data-export.response';
 import {
   AgentPlatformHealthAlertDeliveryStatsResponse,
@@ -236,6 +237,15 @@ export class AiAgentGatewayResolver {
       windowHours,
       bucketMinutes,
     });
+  }
+
+  @Query(() => AgentPlatformHealthAlertConfigResponse, {
+    description:
+      'Get resolved AI platform health alert scheduler configuration snapshot',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  agentPlatformHealthAlertConfig(): AgentPlatformHealthAlertConfigResponse {
+    return this.healthAlertScheduler.getAlertConfigSnapshot();
   }
 
   @Query(() => [AgentActionAudit], {

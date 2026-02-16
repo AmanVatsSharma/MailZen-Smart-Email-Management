@@ -56,6 +56,88 @@ export class AiAgentPlatformHealthAlertScheduler {
     await this.runHealthAlertCheck({});
   }
 
+  getAlertConfigSnapshot(): {
+    alertsEnabled: boolean;
+    scanAdminUsers: boolean;
+    configuredRecipientUserIds: string[];
+    windowHours: number;
+    baselineWindowHours: number;
+    cooldownMinutes: number;
+    minSampleCount: number;
+    anomalyMultiplier: number;
+    anomalyMinErrorDeltaPercent: number;
+    anomalyMinLatencyDeltaMs: number;
+    errorRateWarnPercent: number;
+    latencyWarnMs: number;
+    maxDeliverySampleScan: number;
+    evaluatedAtIso: string;
+  } {
+    const windowHours = this.resolvePositiveInteger({
+      rawValue: process.env.AI_AGENT_HEALTH_ALERT_WINDOW_HOURS,
+      fallbackValue: AiAgentPlatformHealthAlertScheduler.DEFAULT_WINDOW_HOURS,
+      minimumValue: 1,
+      maximumValue: 24 * 14,
+    });
+    return {
+      alertsEnabled: this.isAlertsEnabled(),
+      scanAdminUsers: this.isAdminRoleScanEnabled(),
+      configuredRecipientUserIds: this.normalizeCsv(
+        process.env.AI_AGENT_HEALTH_ALERT_RECIPIENT_USER_IDS,
+      ),
+      windowHours,
+      baselineWindowHours: this.resolvePositiveInteger({
+        rawValue: process.env.AI_AGENT_HEALTH_ALERT_BASELINE_WINDOW_HOURS,
+        fallbackValue:
+          AiAgentPlatformHealthAlertScheduler.DEFAULT_BASELINE_WINDOW_HOURS,
+        minimumValue: windowHours,
+        maximumValue: 24 * 90,
+      }),
+      cooldownMinutes: this.resolvePositiveInteger({
+        rawValue: process.env.AI_AGENT_HEALTH_ALERT_COOLDOWN_MINUTES,
+        fallbackValue:
+          AiAgentPlatformHealthAlertScheduler.DEFAULT_COOLDOWN_MINUTES,
+        minimumValue: 1,
+        maximumValue: 24 * 7 * 60,
+      }),
+      minSampleCount: this.resolvePositiveInteger({
+        rawValue: process.env.AI_AGENT_HEALTH_ALERT_MIN_SAMPLE_COUNT,
+        fallbackValue:
+          AiAgentPlatformHealthAlertScheduler.DEFAULT_MIN_SAMPLE_COUNT,
+        minimumValue: 1,
+        maximumValue: 1000,
+      }),
+      anomalyMultiplier: this.resolvePositiveFloat({
+        rawValue: process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MULTIPLIER,
+        fallbackValue:
+          AiAgentPlatformHealthAlertScheduler.DEFAULT_ANOMALY_MULTIPLIER,
+        minimumValue: 1.1,
+        maximumValue: 10,
+      }),
+      anomalyMinErrorDeltaPercent: this.resolvePositiveFloat({
+        rawValue:
+          process.env
+            .AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_ERROR_RATE_DELTA_PERCENT,
+        fallbackValue:
+          AiAgentPlatformHealthAlertScheduler.DEFAULT_ANOMALY_MIN_ERROR_RATE_DELTA_PERCENT,
+        minimumValue: 0,
+        maximumValue: 100,
+      }),
+      anomalyMinLatencyDeltaMs: this.resolvePositiveFloat({
+        rawValue:
+          process.env.AI_AGENT_HEALTH_ALERT_ANOMALY_MIN_LATENCY_DELTA_MS,
+        fallbackValue:
+          AiAgentPlatformHealthAlertScheduler.DEFAULT_ANOMALY_MIN_LATENCY_DELTA_MS,
+        minimumValue: 0,
+        maximumValue: 60_000,
+      }),
+      errorRateWarnPercent: this.resolveAlertErrorRateWarnPercent(),
+      latencyWarnMs: this.resolveAlertLatencyWarnMs(),
+      maxDeliverySampleScan:
+        AiAgentPlatformHealthAlertScheduler.MAX_ALERT_DELIVERY_SAMPLE_SCAN,
+      evaluatedAtIso: new Date().toISOString(),
+    };
+  }
+
   async runHealthAlertCheck(input: {
     windowHours?: number | null;
     baselineWindowHours?: number | null;
@@ -468,20 +550,8 @@ export class AiAgentPlatformHealthAlertScheduler {
     severity: AlertSeverity | null;
     reasons: string[];
   } {
-    const alertErrorRatePercent = this.resolvePositiveFloat({
-      rawValue: process.env.AI_AGENT_ALERT_ERROR_RATE_PERCENT,
-      fallbackValue:
-        AiAgentPlatformHealthAlertScheduler.DEFAULT_ALERT_ERROR_RATE_PERCENT,
-      minimumValue: 0,
-      maximumValue: 100,
-    });
-    const alertLatencyMs = this.resolvePositiveFloat({
-      rawValue: process.env.AI_AGENT_ALERT_LATENCY_MS,
-      fallbackValue:
-        AiAgentPlatformHealthAlertScheduler.DEFAULT_ALERT_LATENCY_MS,
-      minimumValue: 1,
-      maximumValue: 60_000,
-    });
+    const alertErrorRatePercent = this.resolveAlertErrorRateWarnPercent();
+    const alertLatencyMs = this.resolveAlertLatencyWarnMs();
 
     const reasons: string[] = [];
     if (input.currentSummary.criticalCount > 0) {
@@ -546,11 +616,7 @@ export class AiAgentPlatformHealthAlertScheduler {
     const configuredUserIds = this.normalizeCsv(
       process.env.AI_AGENT_HEALTH_ALERT_RECIPIENT_USER_IDS,
     );
-    const includeAdminRoleScan = !['false', '0', 'off', 'no'].includes(
-      String(process.env.AI_AGENT_HEALTH_ALERT_SCAN_ADMIN_USERS || 'true')
-        .trim()
-        .toLowerCase(),
-    );
+    const includeAdminRoleScan = this.isAdminRoleScanEnabled();
     if (!includeAdminRoleScan) {
       return configuredUserIds;
     }
@@ -671,6 +737,35 @@ export class AiAgentPlatformHealthAlertScheduler {
       .split(',')
       .map((value) => value.trim())
       .filter((value) => value.length > 0);
+  }
+
+  private isAdminRoleScanEnabled(): boolean {
+    const normalized = String(
+      process.env.AI_AGENT_HEALTH_ALERT_SCAN_ADMIN_USERS || 'true',
+    )
+      .trim()
+      .toLowerCase();
+    return !['false', '0', 'off', 'no'].includes(normalized);
+  }
+
+  private resolveAlertErrorRateWarnPercent(): number {
+    return this.resolvePositiveFloat({
+      rawValue: process.env.AI_AGENT_ALERT_ERROR_RATE_PERCENT,
+      fallbackValue:
+        AiAgentPlatformHealthAlertScheduler.DEFAULT_ALERT_ERROR_RATE_PERCENT,
+      minimumValue: 0,
+      maximumValue: 100,
+    });
+  }
+
+  private resolveAlertLatencyWarnMs(): number {
+    return this.resolvePositiveFloat({
+      rawValue: process.env.AI_AGENT_ALERT_LATENCY_MS,
+      fallbackValue:
+        AiAgentPlatformHealthAlertScheduler.DEFAULT_ALERT_LATENCY_MS,
+      minimumValue: 1,
+      maximumValue: 60_000,
+    });
   }
 
   private resolvePositiveInteger(input: {

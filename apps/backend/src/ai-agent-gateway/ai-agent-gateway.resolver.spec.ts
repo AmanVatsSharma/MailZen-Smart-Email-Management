@@ -20,6 +20,7 @@ describe('AiAgentGatewayResolver', () => {
   };
   const healthAlertScheduler = {
     runHealthAlertCheck: jest.fn(),
+    getAlertConfigSnapshot: jest.fn(),
     getAlertDeliveryStats: jest.fn(),
     getAlertDeliverySeries: jest.fn(),
     exportAlertDeliveryData: jest.fn(),
@@ -395,6 +396,35 @@ describe('AiAgentGatewayResolver', () => {
     expect(result).toEqual(
       expect.objectContaining({
         generatedAtIso: '2026-02-16T00:00:00.000Z',
+      }),
+    );
+  });
+
+  it('delegates agentPlatformHealthAlertConfig to health alert scheduler', () => {
+    healthAlertScheduler.getAlertConfigSnapshot.mockReturnValue({
+      alertsEnabled: true,
+      scanAdminUsers: true,
+      configuredRecipientUserIds: ['ops-1'],
+      windowHours: 6,
+      baselineWindowHours: 72,
+      cooldownMinutes: 60,
+      minSampleCount: 4,
+      anomalyMultiplier: 2,
+      anomalyMinErrorDeltaPercent: 1,
+      anomalyMinLatencyDeltaMs: 150,
+      errorRateWarnPercent: 5,
+      latencyWarnMs: 1500,
+      maxDeliverySampleScan: 10000,
+      evaluatedAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    const result = resolver.agentPlatformHealthAlertConfig();
+
+    expect(healthAlertScheduler.getAlertConfigSnapshot).toHaveBeenCalled();
+    expect(result).toEqual(
+      expect.objectContaining({
+        alertsEnabled: true,
+        windowHours: 6,
       }),
     );
   });
