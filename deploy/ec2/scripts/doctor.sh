@@ -104,6 +104,8 @@ run_check() {
 {
   echo "[mailzen-deploy][DOCTOR] report generated at: ${TIMESTAMP}"
   echo "[mailzen-deploy][DOCTOR] report file: ${REPORT_FILE}"
+  echo "[mailzen-deploy][DOCTOR] strict_mode: ${STRICT_MODE}"
+  echo "[mailzen-deploy][DOCTOR] seed_env: ${SEED_ENV}"
 } | tee -a "${REPORT_FILE}"
 
 if [[ "${SEED_ENV}" == true ]]; then
@@ -112,6 +114,10 @@ fi
 
 active_env_file="${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}"
 active_compose_file="${MAILZEN_DEPLOY_COMPOSE_FILE:-${DEPLOY_DIR}/docker-compose.yml}"
+{
+  echo "[mailzen-deploy][DOCTOR] active_env_file: ${active_env_file}"
+  echo "[mailzen-deploy][DOCTOR] active_compose_file: ${active_compose_file}"
+} | tee -a "${REPORT_FILE}"
 
 run_check "script-self-check" "\"${SCRIPT_DIR}/self-check.sh\""
 run_check "env-audit-redacted" "\"${SCRIPT_DIR}/env-audit.sh\""
