@@ -196,6 +196,9 @@ Gateway service structured resilience/retention events:
 - `agent_action_audit_retention_purge_completed`
 - `agent_action_audit_persist_failed`
 - `agent_gateway_audit_log_write_failed`
+- `agent_action_audit_retention_scheduler_audit_log_write_failed`
+- `agent_platform_health_sample_retention_scheduler_audit_log_write_failed`
+- `agent_platform_alert_run_retention_scheduler_audit_log_write_failed`
 - `agent_assist_runtime_context_resolve_failed`
 - `agent_assist_thread_context_cache_hit`
 - `agent_platform_runtime_stats_endpoint_persist_failed`
@@ -209,17 +212,29 @@ Gateway service structured resilience/retention events:
   export actions.
 - Persisted audit actions:
   - `agent_platform_health_sample_retention_purged`
+  - `agent_platform_health_sample_retention_autopurge_started`
+  - `agent_platform_health_sample_retention_autopurge_completed`
+  - `agent_platform_health_sample_retention_autopurge_failed`
+  - `agent_platform_health_sample_retention_autopurge_skipped`
   - `agent_platform_health_sample_data_export_requested`
   - `agent_platform_health_incident_data_export_requested`
   - `agent_platform_runtime_stats_reset`
   - `agent_platform_skill_runtime_stats_reset`
   - `agent_action_audit_data_export_requested`
   - `agent_action_audit_retention_purged`
+  - `agent_action_audit_retention_autopurge_started`
+  - `agent_action_audit_retention_autopurge_completed`
+  - `agent_action_audit_retention_autopurge_failed`
+  - `agent_action_audit_retention_autopurge_skipped`
   - `agent_platform_health_alert_check_requested`
   - `agent_platform_health_alert_delivery_export_requested`
   - `agent_platform_health_alert_run_history_export_requested`
   - `agent_platform_health_alert_run_trend_export_requested`
   - `agent_platform_health_alert_run_retention_purged`
+  - `agent_platform_alert_run_retention_autopurge_started`
+  - `agent_platform_alert_run_retention_autopurge_completed`
+  - `agent_platform_alert_run_retention_autopurge_failed`
+  - `agent_platform_alert_run_retention_autopurge_skipped`
 
 ## Changelog
 
