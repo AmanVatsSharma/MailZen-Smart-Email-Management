@@ -14,7 +14,7 @@ on an EC2 instance using Docker Compose, a public domain, and HTTPS.
   - `postgres`
   - `redis`
 - `Caddyfile`  
-  TLS termination + routing to frontend/backend by path.
+  TLS termination + routing to frontend/backend by path + security headers.
 - `.env.ec2.example`  
   Production env template.
 - `scripts/`  
@@ -181,3 +181,5 @@ Google/Outlook provider connection flows.
 - Backend migrations run automatically on backend container startup.
 - Use `stop.sh --purge-data` cautiously; it destroys persistent data volumes.
 - `restore-db.sh` is intentionally destructive and requires explicit confirmation.
+- Caddy sets baseline browser hardening headers (HSTS, X-Frame-Options,
+  X-Content-Type-Options, Referrer-Policy).
