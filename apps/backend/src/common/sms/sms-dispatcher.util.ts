@@ -1,3 +1,5 @@
+import * as crypto from 'crypto';
+
 type SmsDispatchPurpose = 'SIGNUP_OTP' | 'PHONE_VERIFY_OTP';
 
 export type SmsDispatchInput = {
@@ -59,16 +61,29 @@ async function dispatchViaWebhook(
   if (token) {
     headers.authorization = `Bearer ${token}`;
   }
+  const signingKey = String(
+    process.env.MAILZEN_SMS_WEBHOOK_SIGNING_KEY || '',
+  ).trim();
+  const timestamp = String(Date.now());
+  const payloadJson = JSON.stringify({
+    phoneNumber: input.phoneNumber,
+    code: input.code,
+    purpose: input.purpose,
+  });
+  if (signingKey) {
+    const signature = crypto
+      .createHmac('sha256', signingKey)
+      .update(`${timestamp}.${payloadJson}`)
+      .digest('hex');
+    headers['x-mailzen-sms-timestamp'] = timestamp;
+    headers['x-mailzen-sms-signature'] = signature;
+  }
 
   try {
     const response = await fetch(webhookUrl, {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        phoneNumber: input.phoneNumber,
-        code: input.code,
-        purpose: input.purpose,
-      }),
+      body: payloadJson,
       signal: controller.signal,
     });
     if (!response.ok) {

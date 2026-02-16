@@ -6,6 +6,7 @@ describe('dispatchSmsOtp', () => {
     provider: process.env.MAILZEN_SMS_PROVIDER,
     webhookUrl: process.env.MAILZEN_SMS_WEBHOOK_URL,
     webhookToken: process.env.MAILZEN_SMS_WEBHOOK_TOKEN,
+    webhookSigningKey: process.env.MAILZEN_SMS_WEBHOOK_SIGNING_KEY,
     twilioSid: process.env.MAILZEN_SMS_TWILIO_ACCOUNT_SID,
     twilioToken: process.env.MAILZEN_SMS_TWILIO_AUTH_TOKEN,
     twilioFrom: process.env.MAILZEN_SMS_TWILIO_FROM_NUMBER,
@@ -21,6 +22,7 @@ describe('dispatchSmsOtp', () => {
     delete process.env.MAILZEN_SMS_PROVIDER;
     delete process.env.MAILZEN_SMS_WEBHOOK_URL;
     delete process.env.MAILZEN_SMS_WEBHOOK_TOKEN;
+    delete process.env.MAILZEN_SMS_WEBHOOK_SIGNING_KEY;
     delete process.env.MAILZEN_SMS_TWILIO_ACCOUNT_SID;
     delete process.env.MAILZEN_SMS_TWILIO_AUTH_TOKEN;
     delete process.env.MAILZEN_SMS_TWILIO_FROM_NUMBER;
@@ -46,6 +48,11 @@ describe('dispatchSmsOtp', () => {
       process.env.MAILZEN_SMS_WEBHOOK_TOKEN = envBackup.webhookToken;
     } else {
       delete process.env.MAILZEN_SMS_WEBHOOK_TOKEN;
+    }
+    if (typeof envBackup.webhookSigningKey === 'string') {
+      process.env.MAILZEN_SMS_WEBHOOK_SIGNING_KEY = envBackup.webhookSigningKey;
+    } else {
+      delete process.env.MAILZEN_SMS_WEBHOOK_SIGNING_KEY;
     }
     if (typeof envBackup.twilioSid === 'string') {
       process.env.MAILZEN_SMS_TWILIO_ACCOUNT_SID = envBackup.twilioSid;
@@ -136,6 +143,33 @@ describe('dispatchSmsOtp', () => {
           authorization: 'Bearer token-1',
           'content-type': 'application/json',
         }),
+      }),
+    );
+  });
+
+  it('adds webhook signature headers when signing key is configured', async () => {
+    process.env.MAILZEN_SMS_PROVIDER = 'WEBHOOK';
+    process.env.MAILZEN_SMS_WEBHOOK_URL = 'https://sms.mailzen.test/send';
+    process.env.MAILZEN_SMS_WEBHOOK_SIGNING_KEY = 'sms-sign-key';
+    const fetchSpy: jest.SpiedFunction<typeof fetch> = jest.spyOn(
+      global,
+      'fetch',
+    );
+    fetchSpy.mockResolvedValue({ ok: true, status: 200 } as Response);
+
+    await dispatchSmsOtp({
+      phoneNumber: '+15550000000',
+      code: '123123',
+      purpose: 'SIGNUP_OTP',
+    });
+
+    const fetchHeaders = fetchSpy.mock.calls[0]?.[1] as {
+      headers?: Record<string, string>;
+    };
+    expect(fetchHeaders.headers).toEqual(
+      expect.objectContaining({
+        'x-mailzen-sms-timestamp': expect.any(String),
+        'x-mailzen-sms-signature': expect.stringMatching(/^[0-9a-f]{64}$/i),
       }),
     );
   });

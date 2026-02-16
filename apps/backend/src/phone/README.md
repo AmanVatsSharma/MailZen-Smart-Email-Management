@@ -29,6 +29,7 @@ Provide OTP-driven phone verification flows for authenticated users and phone-fi
   - required when `MAILZEN_SMS_PROVIDER=WEBHOOK`
 - `MAILZEN_SMS_WEBHOOK_TOKEN` (optional bearer token)
 - `MAILZEN_SMS_WEBHOOK_TIMEOUT_MS` (default `5000`)
+- `MAILZEN_SMS_WEBHOOK_SIGNING_KEY` (optional HMAC SHA256 signing key)
 - `MAILZEN_SMS_TWILIO_ACCOUNT_SID`
   - required when `MAILZEN_SMS_PROVIDER=TWILIO`
 - `MAILZEN_SMS_TWILIO_AUTH_TOKEN`
