@@ -273,6 +273,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: run config-only deployment pipeline checks
 ./deploy/ec2/scripts/pipeline-check.sh
 
+# Optional: print deployment command quick-reference
+./deploy/ec2/scripts/help.sh
+
 # 3) Build and run the stack
 ./deploy/ec2/scripts/deploy.sh
 

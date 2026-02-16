@@ -63,4 +63,5 @@ flowchart TD
 - Use `rotate-app-secrets.sh` for controlled JWT/OAuth/platform key rotation.
 - Run `pipeline-check.sh` for CI/config-only deployment validation.
 - Run `reports-prune.sh` periodically to keep diagnostics artifacts bounded.
+- Run `help.sh` for quick operator command lookup.
 - Use `self-check.sh` after editing deployment scripts.

@@ -41,6 +41,7 @@ Additional deployment flowcharts:
   - `rotate-app-secrets.sh` (rotate JWT/OAuth/platform secrets)
   - `pipeline-check.sh` (CI/config-only deployment validation sequence)
   - `reports-prune.sh` (report/support bundle retention cleanup)
+  - `help.sh` (command reference quick guide)
   - `self-check.sh` (validate deployment script integrity)
   - `status.sh`
   - `logs.sh`
@@ -220,6 +221,9 @@ Example:
 
 # Run config-only deployment pipeline checks
 ./deploy/ec2/scripts/pipeline-check.sh
+
+# Show command quick-reference
+./deploy/ec2/scripts/help.sh
 
 # Validate deployment scripts syntax/executable state
 ./deploy/ec2/scripts/self-check.sh
