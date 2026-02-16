@@ -583,12 +583,19 @@ describe('BillingService', () => {
     const result = await service.purgeExpiredBillingData({
       webhookRetentionDays: 180,
       aiUsageRetentionMonths: 24,
+      actorUserId: 'user-1',
     });
 
     expect(result.webhookEventsDeleted).toBe(3);
     expect(result.aiUsageRowsDeleted).toBe(5);
     expect(result.webhookRetentionDays).toBe(180);
     expect(result.aiUsageRetentionMonths).toBe(24);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'billing_retention_purged',
+      }),
+    );
   });
 
   it('starts trial on paid plan and emits notification', async () => {

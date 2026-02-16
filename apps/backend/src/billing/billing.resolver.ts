@@ -127,10 +127,12 @@ export class BillingResolver {
     webhookRetentionDays: number,
     @Args('aiUsageRetentionMonths', { nullable: true })
     aiUsageRetentionMonths: number,
+    @Context() context: RequestContext,
   ) {
     return this.billingService.purgeExpiredBillingData({
       webhookRetentionDays,
       aiUsageRetentionMonths,
+      actorUserId: context.req.user.id,
     });
   }
 

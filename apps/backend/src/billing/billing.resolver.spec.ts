@@ -208,12 +208,19 @@ describe('BillingResolver', () => {
       executedAtIso: '2026-02-16T00:00:00.000Z',
     });
 
-    const result = await resolver.purgeBillingRetentionData(180, 24);
+    const result = await resolver.purgeBillingRetentionData(
+      180,
+      24,
+      {
+        req: { user: { id: 'user-1' } },
+      },
+    );
 
     expect(result.webhookEventsDeleted).toBe(12);
     expect(billingServiceMock.purgeExpiredBillingData).toHaveBeenCalledWith({
       webhookRetentionDays: 180,
       aiUsageRetentionMonths: 24,
+      actorUserId: 'user-1',
     });
   });
 });

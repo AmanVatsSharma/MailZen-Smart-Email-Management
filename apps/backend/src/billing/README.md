@@ -93,6 +93,7 @@ flowchart TD
   - `billing_upgrade_intent_requested`
   - `billing_webhook_subscription_updated`
   - `billing_data_export_requested`
+  - `billing_retention_purged`
 - `BillingWebhookController` structured observability events:
   - `billing_webhook_secret_missing`
   - `billing_webhook_secret_mismatch`

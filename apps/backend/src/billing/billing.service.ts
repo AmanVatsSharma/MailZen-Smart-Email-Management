@@ -754,6 +754,7 @@ export class BillingService {
     input: {
       webhookRetentionDays?: number;
       aiUsageRetentionMonths?: number;
+      actorUserId?: string | null;
     } = {},
   ): Promise<BillingRetentionPurgeResponse> {
     const policy = this.resolveRetentionPolicy();
@@ -816,6 +817,20 @@ export class BillingService {
         executedAtIso,
       }),
     );
+    const normalizedActorUserId = String(input.actorUserId || '').trim();
+    if (normalizedActorUserId) {
+      await this.writeAuditLog({
+        userId: normalizedActorUserId,
+        action: 'billing_retention_purged',
+        metadata: {
+          webhookEventsDeleted,
+          aiUsageRowsDeleted,
+          webhookRetentionDays,
+          aiUsageRetentionMonths,
+          executedAtIso,
+        },
+      });
+    }
 
     return {
       webhookEventsDeleted,
