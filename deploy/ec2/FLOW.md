@@ -85,6 +85,10 @@ flowchart TD
   - `ports-check.sh --ports 80,443,8100`
   - `preflight.sh --with-runtime-checks --ports-check-ports 80,443,8100`
   - `status.sh --with-runtime-checks --ports-check-ports 80,443,8100`
+- Use diagnostics custom ports targeting to keep triage aligned with host policy:
+  - `doctor.sh --ports-check-ports 80,443,8100`
+  - `support-bundle.sh --ports-check-ports 80,443,8100`
+  - `pipeline-check.sh --ports-check-ports 80,443,8100`
 - Use `rotate-app-secrets.sh --keys <k1,k2> --dry-run` before live secret
   rotations.
 - Use seeded diagnostics for CI/offline validation:
