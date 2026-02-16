@@ -1693,6 +1693,7 @@ type MailboxSyncIncidentAlertCheckResponse {
 }
 
 type MailboxInboundSlaAlertCheckResponse {
+  schedulerAlertsEnabled: Boolean!
   alertsEnabled: Boolean!
   evaluatedAtIso: String!
   windowHours: Int!
@@ -1826,6 +1827,7 @@ type MailboxInboundSlaIncidentDataExportResponse {
 }
 
 type MailboxInboundSlaIncidentAlertConfigResponse {
+  schedulerAlertsEnabled: Boolean!
   alertsEnabled: Boolean!
   targetSuccessPercent: Float!
   warningRejectedPercent: Float!

@@ -1129,6 +1129,7 @@ export class NotificationService {
   async getMailboxInboundSlaIncidentAlertConfig(input: {
     userId: string;
   }): Promise<{
+    schedulerAlertsEnabled: boolean;
     alertsEnabled: boolean;
     targetSuccessPercent: number;
     warningRejectedPercent: number;
@@ -1163,6 +1164,7 @@ export class NotificationService {
       maximumValue: 5000,
     });
     return {
+      schedulerAlertsEnabled: this.isMailboxInboundSlaAlertsEnabledByEnv(),
       alertsEnabled: preferences.mailboxInboundSlaAlertsEnabled,
       targetSuccessPercent: preferences.mailboxInboundSlaTargetSuccessPercent,
       warningRejectedPercent:
@@ -1259,6 +1261,15 @@ export class NotificationService {
     if (candidate < input.minimumValue) return input.minimumValue;
     if (candidate > input.maximumValue) return input.maximumValue;
     return candidate;
+  }
+
+  private isMailboxInboundSlaAlertsEnabledByEnv(): boolean {
+    const normalized = String(
+      process.env.MAILZEN_INBOUND_SLA_ALERTS_ENABLED || 'true',
+    )
+      .trim()
+      .toLowerCase();
+    return !['false', '0', 'off', 'no'].includes(normalized);
   }
 
   private resolveIncidentSlaStatus(

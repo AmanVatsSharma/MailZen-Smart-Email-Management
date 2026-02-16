@@ -152,6 +152,7 @@ describe('NotificationResolver', () => {
   it('forwards SLA incident alert config query arguments', async () => {
     notificationService.getMailboxInboundSlaIncidentAlertConfig.mockResolvedValue(
       {
+        schedulerAlertsEnabled: true,
         alertsEnabled: true,
         targetSuccessPercent: 99,
         warningRejectedPercent: 1,

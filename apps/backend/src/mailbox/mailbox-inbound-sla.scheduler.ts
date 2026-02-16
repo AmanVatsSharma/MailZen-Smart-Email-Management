@@ -30,6 +30,10 @@ export class MailboxInboundSlaScheduler {
 
   @Cron('*/15 * * * *')
   async monitorMailboxInboundSla() {
+    if (!this.isAlertsEnabledByEnv()) {
+      this.logger.log('mailbox-sla-monitor: alerts disabled by env');
+      return;
+    }
     const windowHours = this.resolvePositiveInteger({
       rawValue: process.env.MAILZEN_INBOUND_SLA_ALERT_WINDOW_HOURS,
       fallbackValue: MailboxInboundSlaScheduler.DEFAULT_WINDOW_HOURS,
@@ -71,6 +75,7 @@ export class MailboxInboundSlaScheduler {
     userId: string;
     windowHours?: number | null;
   }): Promise<{
+    schedulerAlertsEnabled: boolean;
     alertsEnabled: boolean;
     evaluatedAtIso: string;
     windowHours: number;
@@ -89,6 +94,7 @@ export class MailboxInboundSlaScheduler {
     slaCriticalRejectedPercent: number;
     lastProcessedAtIso?: string;
   }> {
+    const schedulerAlertsEnabled = this.isAlertsEnabledByEnv();
     const preferences = await this.notificationService.getOrCreatePreferences(
       input.userId,
     );
@@ -117,14 +123,17 @@ export class MailboxInboundSlaScheduler {
     });
     const status = this.normalizeSlaStatus(stats.slaStatus);
     const shouldAlert =
+      schedulerAlertsEnabled &&
       preferences.mailboxInboundSlaAlertsEnabled &&
       MailboxInboundSlaScheduler.ALERTABLE_STATUSES.has(status);
     return {
+      schedulerAlertsEnabled,
       alertsEnabled: preferences.mailboxInboundSlaAlertsEnabled,
       evaluatedAtIso: new Date().toISOString(),
       windowHours: stats.windowHours,
       status,
       statusReason: this.resolveSlaStatusReason({
+        schedulerAlertsEnabled,
         alertsEnabled: preferences.mailboxInboundSlaAlertsEnabled,
         totalCount: stats.totalCount,
         status,
@@ -351,15 +360,26 @@ export class MailboxInboundSlaScheduler {
   }
 
   private resolveSlaStatusReason(input: {
+    schedulerAlertsEnabled: boolean;
     alertsEnabled: boolean;
     totalCount: number;
     status: MailboxInboundSlaStatus;
   }): string {
+    if (!input.schedulerAlertsEnabled) return 'alerts-disabled-by-env';
     if (!input.alertsEnabled) return 'alerts-disabled';
     if (input.totalCount <= 0 || input.status === 'NO_DATA') return 'no-data';
     if (input.status === 'CRITICAL') return 'rejection-rate-critical';
     if (input.status === 'WARNING') return 'rejection-rate-warning';
     if (input.status === 'HEALTHY') return 'within-threshold';
     return 'status-unknown';
+  }
+
+  private isAlertsEnabledByEnv(): boolean {
+    const normalized = String(
+      process.env.MAILZEN_INBOUND_SLA_ALERTS_ENABLED || 'true',
+    )
+      .trim()
+      .toLowerCase();
+    return !['false', '0', 'off', 'no'].includes(normalized);
   }
 }

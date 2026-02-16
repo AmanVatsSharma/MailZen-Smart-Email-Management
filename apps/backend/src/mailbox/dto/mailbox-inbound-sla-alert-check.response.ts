@@ -3,6 +3,9 @@ import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
 @ObjectType()
 export class MailboxInboundSlaAlertCheckResponse {
   @Field()
+  schedulerAlertsEnabled: boolean;
+
+  @Field()
   alertsEnabled: boolean;
 
   @Field()

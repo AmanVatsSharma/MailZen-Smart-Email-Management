@@ -21,8 +21,12 @@ describe('MailboxInboundSlaScheduler', () => {
   let notificationEventBus: jest.Mocked<
     Pick<NotificationEventBusService, 'publishSafely'>
   >;
+  let originalInboundSlaAlertsEnabledEnv: string | undefined;
 
   beforeEach(() => {
+    originalInboundSlaAlertsEnabledEnv =
+      process.env.MAILZEN_INBOUND_SLA_ALERTS_ENABLED;
+    delete process.env.MAILZEN_INBOUND_SLA_ALERTS_ENABLED;
     inboundEventRepo = {
       createQueryBuilder: jest.fn(),
     } as unknown as jest.Mocked<Repository<MailboxInboundEvent>>;
@@ -58,6 +62,12 @@ describe('MailboxInboundSlaScheduler', () => {
   });
 
   afterEach(() => {
+    if (originalInboundSlaAlertsEnabledEnv === undefined) {
+      delete process.env.MAILZEN_INBOUND_SLA_ALERTS_ENABLED;
+    } else {
+      process.env.MAILZEN_INBOUND_SLA_ALERTS_ENABLED =
+        originalInboundSlaAlertsEnabledEnv;
+    }
     jest.clearAllMocks();
   });
 
@@ -226,6 +236,16 @@ describe('MailboxInboundSlaScheduler', () => {
     expect(notificationEventBus.publishSafely).not.toHaveBeenCalled();
   });
 
+  it('skips monitoring when alerts are disabled by env', async () => {
+    process.env.MAILZEN_INBOUND_SLA_ALERTS_ENABLED = 'false';
+
+    await scheduler.monitorMailboxInboundSla();
+
+    expect(notificationService.getOrCreatePreferences).not.toHaveBeenCalled();
+    expect(mailboxService.getInboundEventStats).not.toHaveBeenCalled();
+    expect(notificationEventBus.publishSafely).not.toHaveBeenCalled();
+  });
+
   it('monitors users with stale alert state even without recent events', async () => {
     inboundEventRepo.createQueryBuilder.mockReturnValue({
       select: jest.fn().mockReturnThis(),
@@ -291,6 +311,7 @@ describe('MailboxInboundSlaScheduler', () => {
     });
     expect(result).toEqual(
       expect.objectContaining({
+        schedulerAlertsEnabled: true,
         alertsEnabled: true,
         windowHours: 24,
         status: 'CRITICAL',
@@ -314,7 +335,25 @@ describe('MailboxInboundSlaScheduler', () => {
     });
 
     expect(result.shouldAlert).toBe(false);
+    expect(result.schedulerAlertsEnabled).toBe(true);
     expect(result.alertsEnabled).toBe(false);
     expect(result.statusReason).toBe('alerts-disabled');
+  });
+
+  it('returns env-disabled status reason for alert check when scheduler is disabled', async () => {
+    process.env.MAILZEN_INBOUND_SLA_ALERTS_ENABLED = 'false';
+    notificationService.getOrCreatePreferences.mockResolvedValue(
+      preferenceSnapshot,
+    );
+    mailboxService.getInboundEventStats.mockResolvedValue(criticalStats as any);
+
+    const result = await scheduler.runMailboxInboundSlaAlertCheck({
+      userId: 'user-1',
+      windowHours: 24,
+    });
+
+    expect(result.schedulerAlertsEnabled).toBe(false);
+    expect(result.shouldAlert).toBe(false);
+    expect(result.statusReason).toBe('alerts-disabled-by-env');
   });
 });

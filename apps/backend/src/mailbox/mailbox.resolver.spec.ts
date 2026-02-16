@@ -614,6 +614,7 @@ describe('MailboxResolver', () => {
   it('runs mailbox inbound SLA alert check for current user', async () => {
     mailboxInboundSlaSchedulerMock.runMailboxInboundSlaAlertCheck.mockResolvedValue(
       {
+        schedulerAlertsEnabled: true,
         alertsEnabled: true,
         evaluatedAtIso: '2026-02-16T00:00:00.000Z',
         windowHours: 24,

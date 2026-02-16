@@ -884,6 +884,7 @@ describe('NotificationService', () => {
 
     expect(config).toEqual(
       expect.objectContaining({
+        schedulerAlertsEnabled: true,
         alertsEnabled: false,
         targetSuccessPercent: 98.5,
         warningRejectedPercent: 2,
@@ -894,6 +895,26 @@ describe('NotificationService', () => {
         schedulerMaxUsersPerRun: 250,
       }),
     );
+  });
+
+  it('marks mailbox inbound SLA scheduler as disabled in config snapshot when env disables alerts', async () => {
+    const previous = process.env.MAILZEN_INBOUND_SLA_ALERTS_ENABLED;
+    preferenceRepo.findOne.mockResolvedValue(
+      basePreference as UserNotificationPreference,
+    );
+    process.env.MAILZEN_INBOUND_SLA_ALERTS_ENABLED = 'false';
+
+    const config = await service.getMailboxInboundSlaIncidentAlertConfig({
+      userId: 'user-1',
+    });
+
+    expect(config.schedulerAlertsEnabled).toBe(false);
+    expect(config.alertsEnabled).toBe(true);
+    if (previous === undefined) {
+      delete process.env.MAILZEN_INBOUND_SLA_ALERTS_ENABLED;
+    } else {
+      process.env.MAILZEN_INBOUND_SLA_ALERTS_ENABLED = previous;
+    }
   });
 
   it('counts unread notifications scoped to workspace plus global rows', async () => {

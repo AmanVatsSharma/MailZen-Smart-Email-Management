@@ -238,6 +238,10 @@ flowchart TD
 - `MAILZEN_INBOUND_SLA_CRITICAL_REJECTION_PERCENT` (default `5`)
   - default rejection-rate threshold that triggers `CRITICAL` SLA status
   - persisted per-user notification preference thresholds override these defaults
+- `MAILZEN_INBOUND_SLA_ALERTS_ENABLED` (default `true`)
+  - globally enables/disables mailbox inbound SLA scheduler alert emission
+  - when disabled, scheduler runs are skipped and manual alert checks report
+    `alerts-disabled-by-env`
 - `MAILZEN_INBOUND_SLA_ALERT_WINDOW_HOURS` (default `24`)
   - rolling window used by SLA alert scheduler to evaluate user health
 - `MAILZEN_INBOUND_SLA_ALERT_COOLDOWN_MINUTES` (default `60`)
