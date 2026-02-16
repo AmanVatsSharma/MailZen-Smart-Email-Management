@@ -76,6 +76,19 @@ describe('MailServerService', () => {
     expect(mailboxRepo.update).not.toHaveBeenCalled();
   });
 
+  it('defaults to strict provisioning in production when env flag is unset', async () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.MAILZEN_MAIL_ADMIN_REQUIRED;
+    const service = new MailServerService(
+      mailboxRepo as unknown as Repository<Mailbox>,
+    );
+
+    await expect(service.provisionMailbox('user-1', 'sales')).rejects.toThrow(
+      InternalServerErrorException,
+    );
+    expect(mailboxRepo.update).not.toHaveBeenCalled();
+  });
+
   it('throws when mailbox row cannot be updated', async () => {
     mailboxRepo.update.mockResolvedValue({ affected: 0 });
     const service = new MailServerService(
