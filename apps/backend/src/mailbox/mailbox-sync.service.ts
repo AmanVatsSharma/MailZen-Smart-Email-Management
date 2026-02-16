@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { MailboxInboundWebhookInput } from './dto/mailbox-inbound-webhook.input';
 import { Mailbox } from './entities/mailbox.entity';
 import { MailboxInboundService } from './mailbox-inbound.service';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 
 type MailboxSyncPullMessage = {
   mailboxEmail?: string;
@@ -51,6 +52,7 @@ export class MailboxSyncService {
     @InjectRepository(Mailbox)
     private readonly mailboxRepo: Repository<Mailbox>,
     private readonly mailboxInboundService: MailboxInboundService,
+    private readonly notificationEventBus: NotificationEventBusService,
   ) {}
 
   private resolveIntegerEnv(input: {
@@ -295,6 +297,44 @@ export class MailboxSyncService {
     }
   }
 
+  private async publishSyncFailureNotification(input: {
+    mailbox: Mailbox;
+    errorMessage: string;
+  }): Promise<void> {
+    const userId = String(input.mailbox.userId || '').trim();
+    if (!userId) return;
+
+    const normalizedErrorMessage = String(input.errorMessage || '')
+      .trim()
+      .slice(0, 500);
+    const previousErrorMessage = String(
+      input.mailbox.inboundSyncLastError || '',
+    )
+      .trim()
+      .slice(0, 500);
+    if (
+      !normalizedErrorMessage ||
+      normalizedErrorMessage === previousErrorMessage
+    ) {
+      return;
+    }
+
+    await this.notificationEventBus.publishSafely({
+      userId,
+      type: 'SYNC_FAILED',
+      title: 'Mailbox sync failed',
+      message:
+        'MailZen failed to sync your @mailzen.com mailbox. We will retry automatically.',
+      metadata: {
+        mailboxId: input.mailbox.id,
+        mailboxEmail: input.mailbox.email,
+        workspaceId: input.mailbox.workspaceId || null,
+        providerType: 'MAILBOX',
+        error: normalizedErrorMessage.slice(0, 240),
+      },
+    });
+  }
+
   private isRetryablePullError(error: unknown): boolean {
     if (!axios.isAxiosError(error)) return false;
     const status = Number(error.response?.status || 0);
@@ -537,6 +577,10 @@ export class MailboxSyncService {
           inboundSyncLastError: errorMessage.slice(0, 500),
         },
       );
+      await this.publishSyncFailureNotification({
+        mailbox,
+        errorMessage,
+      });
       throw error;
     }
   }

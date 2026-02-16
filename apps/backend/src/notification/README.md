@@ -69,10 +69,12 @@ When configured, notification writes emit webhook callbacks with retries:
 - `MAILZEN_NOTIFICATION_WEBHOOK_SIGNING_KEY` (optional HMAC SHA256 signature)
 
 Webhook event types:
+
 - `NOTIFICATION_CREATED`
 - `NOTIFICATIONS_MARKED_READ`
 
 Webhook requests include:
+
 - `x-mailzen-notification-timestamp`
 - `x-mailzen-notification-signature` (optional when signing key is configured)
 
@@ -86,6 +88,7 @@ Webhook requests include:
 - If delivery fails, timestamp is not updated, so next scheduler run retries automatically.
 
 Digest tuning env vars:
+
 - `MAILZEN_NOTIFICATION_DIGEST_WINDOW_HOURS` (default `24`)
 - `MAILZEN_NOTIFICATION_DIGEST_MAX_USERS_PER_RUN` (default `250`)
 - `MAILZEN_NOTIFICATION_DIGEST_MAX_ITEMS` (default `8`)
@@ -98,6 +101,7 @@ Digest tuning env vars:
   - inactive push subscriptions older than retention cutoff
 
 Retention env vars:
+
 - `MAILZEN_NOTIFICATION_RETENTION_AUTOPURGE_ENABLED` (default `true`)
 - `MAILZEN_NOTIFICATION_RETENTION_DAYS` (default `180`)
 - `MAILZEN_NOTIFICATION_PUSH_RETENTION_DAYS` (default `90`)
@@ -114,6 +118,7 @@ When enabled, notification create events can be delivered via web-push protocol:
 - `MAILZEN_WEB_PUSH_MAX_SUBSCRIPTIONS_PER_USER` (default `8`)
 
 Delivery behavior:
+
 - subscriptions are user-owned, optional workspace-scoped, and persisted
 - workspace-scoped notifications target workspace + global subscriptions
 - repeated failures increment `failureCount`; stale endpoints (404/410) are disabled
@@ -125,6 +130,8 @@ Delivery behavior:
   `NotificationEventBusService` on cron sync failure
 - `OutlookSyncScheduler` publishes `SYNC_FAILED` domain events through
   `NotificationEventBusService` on cron sync failure
+- `MailboxSyncService` publishes `SYNC_FAILED` domain events through
+  `NotificationEventBusService` when mailbox pull-sync failures change error signature
 - `AiAgentGatewayService` publishes `AGENT_ACTION_REQUIRED` domain events for
   follow-up reminders
 - `MailboxInboundSlaScheduler` publishes `MAILBOX_INBOUND_SLA_ALERT` domain
@@ -152,6 +159,7 @@ Delivery behavior:
 ### Metadata conventions
 
 Notification metadata is intentionally extensible. Current producers attach:
+
 - Sync failures: `providerId`, `providerType`, `workspaceId`
 - AI follow-up reminders: `threadId`, `followupAt`, `workspaceId`, `providerId`
 - Mailbox inbound alerts:
@@ -189,4 +197,3 @@ flowchart TD
   NotificationResolver --> NotificationService
   NotificationService --> UserUI
 ```
-

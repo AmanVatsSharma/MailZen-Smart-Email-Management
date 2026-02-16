@@ -5,6 +5,7 @@ import { Repository, UpdateResult } from 'typeorm';
 import { MailboxInboundService } from './mailbox-inbound.service';
 import { MailboxSyncService } from './mailbox-sync.service';
 import { Mailbox } from './entities/mailbox.entity';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 
 jest.mock('axios');
 
@@ -19,6 +20,11 @@ describe('MailboxSyncService', () => {
     Pick<MailboxInboundService, 'ingestInboundEvent'>
   > = {
     ingestInboundEvent: jest.fn(),
+  };
+  const notificationEventBusMock: jest.Mocked<
+    Pick<NotificationEventBusService, 'publishSafely'>
+  > = {
+    publishSafely: jest.fn(),
   };
   const originalEnv = process.env;
   const mockedAxios = axios as jest.Mocked<typeof axios>;
@@ -42,9 +48,11 @@ describe('MailboxSyncService', () => {
     mockedAxios.isAxiosError.mockImplementation((value: unknown) =>
       Boolean((value as { isAxiosError?: boolean } | null)?.isAxiosError),
     );
+    notificationEventBusMock.publishSafely.mockResolvedValue(null);
     service = new MailboxSyncService(
       mailboxRepo,
       mailboxInboundServiceMock as unknown as MailboxInboundService,
+      notificationEventBusMock as unknown as NotificationEventBusService,
     );
   });
 
@@ -161,6 +169,7 @@ describe('MailboxSyncService', () => {
       service.pollMailbox({
         id: 'mailbox-1',
         email: 'sales@mailzen.com',
+        userId: 'user-1',
       } as Mailbox),
     ).rejects.toBeDefined();
     expect(mailboxRepo.update).toHaveBeenCalledWith(
@@ -168,6 +177,16 @@ describe('MailboxSyncService', () => {
       expect.objectContaining({
         inboundSyncLastPolledAt: expect.any(Date),
         inboundSyncLastError: expect.stringContaining('status=504'),
+      }),
+    );
+    expect(notificationEventBusMock.publishSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        type: 'SYNC_FAILED',
+        metadata: expect.objectContaining({
+          mailboxId: 'mailbox-1',
+          providerType: 'MAILBOX',
+        }),
       }),
     );
   });
@@ -228,6 +247,30 @@ describe('MailboxSyncService', () => {
       } as Mailbox),
     ).rejects.toBeDefined();
     expect(mockedAxios.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('suppresses duplicate mailbox sync failure notifications for same error', async () => {
+    process.env.MAILZEN_MAIL_SYNC_RETRIES = '0';
+    mockedAxios.get.mockRejectedValue({
+      isAxiosError: true,
+      message: 'gateway timeout',
+      response: {
+        status: 504,
+      },
+      code: 'ECONNABORTED',
+    });
+
+    await expect(
+      service.pollMailbox({
+        id: 'mailbox-1',
+        email: 'sales@mailzen.com',
+        userId: 'user-1',
+        inboundSyncLastError:
+          'gateway timeout status=504 code=ECONNABORTED data=""',
+      } as Mailbox),
+    ).rejects.toBeDefined();
+
+    expect(notificationEventBusMock.publishSafely).not.toHaveBeenCalled();
   });
 
   it('continues processing remaining messages when fail-fast disabled', async () => {

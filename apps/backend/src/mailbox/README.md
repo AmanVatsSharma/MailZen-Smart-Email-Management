@@ -5,6 +5,7 @@
 Manage user-owned `@mailzen.com` aliases and provision mailbox credentials for the MailZen mail stack.
 
 This module covers:
+
 - alias handle validation + creation
 - plan entitlement enforcement for mailbox count
 - default workspace assignment for each new mailbox
@@ -92,6 +93,7 @@ flowchart TD
 ## Environment variables
 
 ### Required for secure production
+
 - `PROVIDER_SECRETS_KEYRING` (recommended)
   - format: `keyId:32+charSecret,keyId2:32+charSecret`
   - enables key rotation with decrypt fallback across configured keys
@@ -102,6 +104,7 @@ flowchart TD
   - used when keyring env is not configured
 
 ### Optional external mailbox provisioning
+
 - `MAILZEN_MAIL_ADMIN_API_URL`
   - when set, service calls provider-specific mailbox provisioning endpoint
 - `MAILZEN_MAIL_ADMIN_API_TOKEN`
@@ -118,6 +121,7 @@ flowchart TD
   - used when provider is `MAILCOW` to set mailbox quota at create time
 
 ### Optional mailbox pull sync pipeline
+
 - `MAILZEN_MAILBOX_SYNC_ENABLED` (default `false`)
   - enables scheduler-driven mailbox polling
 - `MAILZEN_MAIL_SYNC_API_URL`
@@ -143,6 +147,7 @@ flowchart TD
   - request query param used for incremental cursor progression
 
 ### Inbound webhook authentication
+
 - `MAILZEN_INBOUND_WEBHOOK_TOKEN`
   - shared secret expected in `x-mailzen-inbound-token` header
   - production requires this to be configured
@@ -180,6 +185,7 @@ flowchart TD
   - retention horizon for mailbox inbound observability events
 
 ### Mail connection defaults persisted on mailbox rows
+
 - `MAILZEN_SMTP_HOST` (default `smtp.mailzen.local`)
 - `MAILZEN_SMTP_PORT` (default `587`)
 - `MAILZEN_IMAP_HOST` (default `imap.mailzen.local`)
@@ -199,6 +205,8 @@ flowchart TD
 - If mailbox sync pull request fails:
   - mailbox row stores `inboundSyncLastError` + `inboundSyncLastPolledAt`
   - scheduler continues polling other mailboxes (failure isolation)
+  - emits `SYNC_FAILED` notification event when error signature changes
+    (prevents duplicate notification spam for repeated identical failures)
 - Sync API pull retries:
   - transient failures (`429`, `5xx`, network timeouts/resets) use retry with backoff + jitter
   - non-retryable failures (e.g. `4xx` validation/auth issues) fail fast
@@ -317,7 +325,7 @@ flowchart TD
 
 ## Operational runbook: signed webhook test (curl)
 
-1) Generate signature payload:
+1. Generate signature payload:
 
 ```bash
 npm run mailbox:inbound:signature -- \
@@ -327,7 +335,7 @@ npm run mailbox:inbound:signature -- \
   --subject "New lead"
 ```
 
-2) Use generated `timestamp` + `signature`:
+2. Use generated `timestamp` + `signature`:
 
 ```bash
 curl -i -X POST "http://localhost:4000/mailbox/inbound/events" \
@@ -353,4 +361,3 @@ curl -i -X POST "http://localhost:4000/mailbox/inbound/events" \
 - [ ] Negative test: invalid signature returns `401`.
 - [ ] Negative test: stale timestamp beyond tolerance returns `401`.
 - [ ] Notification feed shows `MAILBOX_INBOUND` entry with mailbox/workspace metadata.
-
