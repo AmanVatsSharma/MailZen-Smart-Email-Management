@@ -103,5 +103,8 @@ fi
 
 display_count="${#sorted_backups[@]}"
 echo "[mailzen-deploy][BACKUP-LIST] Available backups:"
+if [[ -n "${LABEL_FILTER}" ]]; then
+  echo "[mailzen-deploy][BACKUP-LIST] Label filter: ${LABEL_FILTER}"
+fi
 echo "[mailzen-deploy][BACKUP-LIST] Showing ${display_count} backup(s)."
 ls -lh "${sorted_backups[@]}"

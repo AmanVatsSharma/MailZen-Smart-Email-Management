@@ -92,12 +92,20 @@ mapfile -t backup_files < <(ls -1t "${backup_glob[@]}" 2>/dev/null || true)
 
 total_count="${#backup_files[@]}"
 if [[ "${total_count}" -le "${KEEP_COUNT}" ]]; then
-  log_info "No prune needed. total=${total_count}, keep=${KEEP_COUNT}"
+  if [[ -n "${LABEL_FILTER}" ]]; then
+    log_info "No prune needed for label '${LABEL_FILTER}'. total=${total_count}, keep=${KEEP_COUNT}"
+  else
+    log_info "No prune needed. total=${total_count}, keep=${KEEP_COUNT}"
+  fi
   exit 0
 fi
 
 delete_count=$((total_count - KEEP_COUNT))
-log_info "Pruning old backups. total=${total_count}, keep=${KEEP_COUNT}, delete=${delete_count}"
+if [[ -n "${LABEL_FILTER}" ]]; then
+  log_info "Pruning old backups for label '${LABEL_FILTER}'. total=${total_count}, keep=${KEEP_COUNT}, delete=${delete_count}"
+else
+  log_info "Pruning old backups. total=${total_count}, keep=${KEEP_COUNT}, delete=${delete_count}"
+fi
 
 for ((i = KEEP_COUNT; i < total_count; i++)); do
   file="${backup_files[$i]}"
