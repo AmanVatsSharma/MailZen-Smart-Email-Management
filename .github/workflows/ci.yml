@@ -108,6 +108,10 @@ jobs:
         working-directory: apps/backend
         run: npm run check:migration:contracts
 
+      - name: Backend console usage guard
+        working-directory: apps/backend
+        run: npm run check:no-console-usage
+
       - name: Frontend lint
         working-directory: apps/frontend
         run: npm run lint

@@ -23,6 +23,7 @@
     "backfill:workspace-scopes:apply": "ts-node -r tsconfig-paths/register scripts/backfill-workspace-scopes.ts --apply",
     "mailbox:inbound:signature": "node scripts/generate-mailbox-inbound-signature.js",
     "check:migration:contracts": "node scripts/check-migration-contracts.js",
+    "check:no-console-usage": "node scripts/check-no-console-usage.js",
     "check:schema:contracts": "node scripts/check-schema-contracts.js",
     "test": "jest",
     "test:watch": "jest --watch",
