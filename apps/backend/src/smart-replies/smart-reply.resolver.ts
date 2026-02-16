@@ -2,6 +2,7 @@ import { Resolver, Query, Args, Int, Context, Mutation } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { SmartReplyService } from './smart-reply.service';
+import { SmartReplyDataExportResponse } from './entities/smart-reply-data-export.response';
 import { SmartReplyInput } from './dto/smart-reply.input';
 import { UpdateSmartReplySettingsInput } from './dto/update-smart-reply-settings.input';
 import { SmartReplyHistoryPurgeResponse } from './entities/smart-reply-history-purge.response';
@@ -86,5 +87,18 @@ export class SmartReplyResolver {
       purgedRows: result.purgedRows,
       executedAtIso: new Date().toISOString(),
     };
+  }
+
+  @Query(() => SmartReplyDataExportResponse, {
+    description: 'Export smart reply settings/history for current user',
+  })
+  async mySmartReplyDataExport(
+    @Args('limit', { type: () => Int, defaultValue: 200 }) limit: number,
+    @Context() context: RequestContext,
+  ): Promise<SmartReplyDataExportResponse> {
+    return this.smartReplyService.exportSmartReplyData(
+      context.req.user.id,
+      limit,
+    );
   }
 }

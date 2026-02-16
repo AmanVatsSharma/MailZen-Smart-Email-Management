@@ -13,6 +13,8 @@ export class SmartReplyService {
   private readonly logger = new Logger(SmartReplyService.name);
   private static readonly MIN_HISTORY_LIMIT = 1;
   private static readonly MAX_HISTORY_LIMIT = 100;
+  private static readonly MIN_EXPORT_HISTORY_LIMIT = 1;
+  private static readonly MAX_EXPORT_HISTORY_LIMIT = 500;
   private readonly safeFallbackReply =
     'Thank you for your message. I will review this and follow up shortly.';
   private readonly disabledReply =
@@ -280,6 +282,68 @@ export class SmartReplyService {
     const result = await this.historyRepo.delete({ userId });
     return {
       purgedRows: Number(result.affected || 0),
+    };
+  }
+
+  private normalizeExportLimit(limit?: number): number {
+    if (typeof limit !== 'number' || !Number.isFinite(limit)) {
+      return 200;
+    }
+    return Math.max(
+      SmartReplyService.MIN_EXPORT_HISTORY_LIMIT,
+      Math.min(
+        SmartReplyService.MAX_EXPORT_HISTORY_LIMIT,
+        Math.trunc(limit || 200),
+      ),
+    );
+  }
+
+  async exportSmartReplyData(
+    userId: string,
+    limit?: number,
+  ): Promise<{ generatedAtIso: string; dataJson: string }> {
+    const settings = await this.getSettings(userId);
+    const exportHistoryLimit = this.normalizeExportLimit(limit);
+    const historyRows = await this.historyRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: exportHistoryLimit,
+    });
+    const generatedAtIso = new Date().toISOString();
+    const dataJson = JSON.stringify({
+      exportVersion: 'v1',
+      generatedAtIso,
+      settings: {
+        enabled: settings.enabled,
+        defaultTone: settings.defaultTone,
+        defaultLength: settings.defaultLength,
+        aiModel: settings.aiModel,
+        includeSignature: settings.includeSignature,
+        personalization: settings.personalization,
+        creativityLevel: settings.creativityLevel,
+        maxSuggestions: settings.maxSuggestions,
+        customInstructions: settings.customInstructions || null,
+        keepHistory: settings.keepHistory,
+        historyLengthDays: settings.historyLength,
+      },
+      retentionPolicy: {
+        keepHistory: settings.keepHistory,
+        historyLengthDays: this.resolveHistoryRetentionDays(settings),
+      },
+      history: historyRows.map((row) => ({
+        id: row.id,
+        conversationPreview: row.conversationPreview,
+        suggestions: row.suggestions || [],
+        source: row.source,
+        blockedSensitive: row.blockedSensitive,
+        fallbackUsed: row.fallbackUsed,
+        createdAtIso: row.createdAt.toISOString(),
+      })),
+    });
+
+    return {
+      generatedAtIso,
+      dataJson,
     };
   }
 

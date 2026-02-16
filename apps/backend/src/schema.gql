@@ -404,6 +404,7 @@ type Query {
   getSuggestedReplies(emailBody: String!, count: Int! = 3): [String!]!
   smartReplySettings: SmartReplySettings!
   mySmartReplyHistory(limit: Int! = 20): [SmartReplyHistory!]!
+  mySmartReplyDataExport(limit: Int! = 200): SmartReplyDataExportResponse!
   agentPlatformHealth: AgentPlatformHealthResponse!
   myAgentActionAudits(limit: Int): [AgentActionAudit!]!
 }
@@ -562,6 +563,11 @@ type SmartReplyHistory {
 type SmartReplyHistoryPurgeResponse {
   purgedRows: Int!
   executedAtIso: String!
+}
+
+type SmartReplyDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
 }
 
 type Mutation {

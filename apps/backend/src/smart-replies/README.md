@@ -114,6 +114,19 @@ mutation {
 
 Purges all smart-reply history records for the authenticated user.
 
+#### My Smart Reply Data Export
+
+```graphql
+query {
+  mySmartReplyDataExport(limit: 200) {
+    generatedAtIso
+    dataJson
+  }
+}
+```
+
+Returns a JSON snapshot containing settings, retention policy, and recent history rows.
+
 ## Operational runbook: smart reply history
 
 1. Validate settings via `smartReplySettings`:

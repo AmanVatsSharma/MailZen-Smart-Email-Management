@@ -295,4 +295,55 @@ describe('SmartReplyService', () => {
     expect(historyRepo.delete).toHaveBeenCalledWith({ userId: 'user-1' });
     expect(result).toEqual({ purgedRows: 7 });
   });
+
+  it('exports smart reply settings and history payload', async () => {
+    settingsRepo.findOne.mockResolvedValue({
+      id: 'settings-1',
+      userId: 'user-1',
+      enabled: true,
+      defaultTone: 'professional',
+      defaultLength: 'medium',
+      aiModel: 'balanced',
+      includeSignature: true,
+      personalization: 80,
+      creativityLevel: 45,
+      maxSuggestions: 3,
+      customInstructions: 'Keep it concise',
+      keepHistory: true,
+      historyLength: 30,
+    } as SmartReplySettings);
+    historyRepo.find.mockResolvedValue([
+      {
+        id: 'history-1',
+        userId: 'user-1',
+        conversationPreview: 'Need timeline update',
+        suggestions: ['Sharing timeline shortly.'],
+        source: 'internal',
+        blockedSensitive: false,
+        fallbackUsed: false,
+        createdAt: new Date('2026-02-16T00:00:00.000Z'),
+      } as SmartReplyHistory,
+    ]);
+
+    const result = await service.exportSmartReplyData('user-1', 9999);
+    const payload = JSON.parse(result.dataJson) as {
+      history: Array<{ id: string }>;
+      settings: { keepHistory: boolean };
+      retentionPolicy: { historyLengthDays: number };
+    };
+
+    expect(historyRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1' },
+        take: 500,
+      }),
+    );
+    expect(payload.history).toEqual([
+      expect.objectContaining({
+        id: 'history-1',
+      }),
+    ]);
+    expect(payload.settings.keepHistory).toBe(true);
+    expect(payload.retentionPolicy.historyLengthDays).toBe(30);
+  });
 });

@@ -36,6 +36,10 @@ describe('SmartReplyResolver', () => {
     }),
     listHistory: jest.fn().mockResolvedValue([]),
     purgeHistory: jest.fn().mockResolvedValue({ purgedRows: 0 }),
+    exportSmartReplyData: jest.fn().mockResolvedValue({
+      generatedAtIso: '2026-02-16T00:00:00.000Z',
+      dataJson: '{"ok":true}',
+    }),
   };
 
   beforeEach(async () => {
@@ -160,6 +164,23 @@ describe('SmartReplyResolver', () => {
         }),
       );
       expect(mockSmartReplyService.purgeHistory).toHaveBeenCalledWith('user-1');
+    });
+
+    it('should export smart reply data for current user', async () => {
+      const context = { req: { user: { id: 'user-1' } } };
+
+      await expect(
+        resolver.mySmartReplyDataExport(150, context as any),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          generatedAtIso: '2026-02-16T00:00:00.000Z',
+          dataJson: '{"ok":true}',
+        }),
+      );
+      expect(mockSmartReplyService.exportSmartReplyData).toHaveBeenCalledWith(
+        'user-1',
+        150,
+      );
     });
   });
 });
