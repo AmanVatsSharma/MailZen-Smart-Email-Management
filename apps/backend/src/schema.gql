@@ -195,6 +195,7 @@ type Inbox {
   syncStatus: String
   lastSyncedAt: DateTime
   lastSyncError: String
+  lastSyncErrorAt: DateTime
   sourceKind: String
 }
 

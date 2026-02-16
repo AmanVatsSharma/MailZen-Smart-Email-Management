@@ -104,6 +104,7 @@ export class InboxService {
       syncStatus: this.resolveMailboxSyncStatus(m),
       lastSyncedAt: m.inboundSyncLastPolledAt || null,
       lastSyncError: m.inboundSyncLastError || null,
+      lastSyncErrorAt: m.inboundSyncLastErrorAt || null,
       sourceKind: 'MAILBOX',
     }));
 
@@ -116,6 +117,7 @@ export class InboxService {
       syncStatus: this.resolveProviderSyncStatus(p),
       lastSyncedAt: p.lastSyncedAt || null,
       lastSyncError: p.lastSyncError || null,
+      lastSyncErrorAt: p.lastSyncErrorAt || null,
       sourceKind:
         String(p.type || '')
           .trim()

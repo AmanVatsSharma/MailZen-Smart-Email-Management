@@ -23,6 +23,9 @@ Provide a single API for **multi-inbox switching**, combining:
 - `lastSyncError`
   - provider: `EmailProvider.lastSyncError`
   - mailbox: `Mailbox.inboundSyncLastError`
+- `lastSyncErrorAt`
+  - provider: `EmailProvider.lastSyncErrorAt`
+  - mailbox: `Mailbox.inboundSyncLastErrorAt`
 - `sourceKind`
   - `MAILBOX` for internal alias inboxes
   - provider type for external inboxes (e.g. `GMAIL`, `OUTLOOK`)

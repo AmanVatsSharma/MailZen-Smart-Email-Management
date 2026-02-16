@@ -43,6 +43,12 @@ export class Inbox {
   lastSyncError?: string;
 
   /**
+   * Timestamp when the latest sync error was observed.
+   */
+  @Field({ nullable: true })
+  lastSyncErrorAt?: Date;
+
+  /**
    * Provider/mail source kind:
    * - MAILBOX for internal mailbox aliases
    * - provider.type for external providers (GMAIL/OUTLOOK/CUSTOM_SMTP/...)

@@ -37,6 +37,7 @@ describe('InboxService', () => {
   it('lists inboxes scoped to active workspace', async () => {
     const mailboxLastPolledAt = new Date('2026-02-16T00:00:00.000Z');
     const providerLastSyncedAt = new Date('2026-02-16T00:05:00.000Z');
+    const providerLastSyncErrorAt = new Date('2026-02-16T00:06:00.000Z');
     userRepo.findOne.mockResolvedValue({
       id: 'user-1',
       activeWorkspaceId: 'workspace-1',
@@ -59,7 +60,8 @@ describe('InboxService', () => {
         status: 'connected',
         type: 'GMAIL',
         lastSyncedAt: providerLastSyncedAt,
-        lastSyncError: null,
+        lastSyncError: 'temporary issue',
+        lastSyncErrorAt: providerLastSyncErrorAt,
       },
     ] as EmailProvider[]);
 
@@ -88,6 +90,7 @@ describe('InboxService', () => {
           id: 'provider-1',
           syncStatus: 'connected',
           lastSyncedAt: providerLastSyncedAt,
+          lastSyncErrorAt: providerLastSyncErrorAt,
           sourceKind: 'GMAIL',
         }),
       ]),
@@ -107,6 +110,7 @@ describe('InboxService', () => {
         email: 'ops@mailzen.com',
         status: 'ACTIVE',
         inboundSyncLastError: 'mail transport unavailable',
+        inboundSyncLastErrorAt: new Date('2026-02-16T01:00:00.000Z'),
       },
     ] as Mailbox[]);
     providerRepo.find.mockResolvedValue([]);
@@ -118,6 +122,7 @@ describe('InboxService', () => {
         id: 'mailbox-1',
         syncStatus: 'error',
         lastSyncError: 'mail transport unavailable',
+        lastSyncErrorAt: new Date('2026-02-16T01:00:00.000Z'),
       }),
     ]);
   });
