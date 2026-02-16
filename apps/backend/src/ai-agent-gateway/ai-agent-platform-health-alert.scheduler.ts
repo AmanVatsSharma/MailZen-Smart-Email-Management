@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { UserNotification } from '../notification/entities/user-notification.entity';
 import { User } from '../user/entities/user.entity';
@@ -33,6 +33,11 @@ export class AiAgentPlatformHealthAlertScheduler {
   private static readonly DEFAULT_ANOMALY_MIN_LATENCY_DELTA_MS = 150;
   private static readonly DEFAULT_ALERT_ERROR_RATE_PERCENT = 5;
   private static readonly DEFAULT_ALERT_LATENCY_MS = 1500;
+  private static readonly DEFAULT_ALERT_DELIVERY_WINDOW_HOURS = 24;
+  private static readonly MAX_ALERT_DELIVERY_SAMPLE_SCAN = 10_000;
+  private static readonly DEFAULT_ALERT_DELIVERY_BUCKET_MINUTES = 60;
+  private static readonly MIN_ALERT_DELIVERY_BUCKET_MINUTES = 5;
+  private static readonly MAX_ALERT_DELIVERY_BUCKET_MINUTES = 24 * 60;
   private readonly logger = new Logger(
     AiAgentPlatformHealthAlertScheduler.name,
   );
@@ -274,6 +279,128 @@ export class AiAgentPlatformHealthAlertScheduler {
     };
   }
 
+  async getAlertDeliveryStats(input?: {
+    windowHours?: number | null;
+  }): Promise<{
+    windowHours: number;
+    totalCount: number;
+    warningCount: number;
+    criticalCount: number;
+    uniqueRecipients: number;
+    lastAlertAtIso?: string;
+  }> {
+    const windowHours = this.normalizeAlertDeliveryWindowHours(
+      input?.windowHours,
+    );
+    const notifications = await this.resolveAlertDeliveryRows(windowHours);
+    let warningCount = 0;
+    let criticalCount = 0;
+    let lastAlertAtMs = 0;
+    const recipients = new Set<string>();
+
+    for (const notification of notifications) {
+      const severity = this.normalizeSeverity(
+        notification.metadata?.alertSeverity,
+      );
+      if (severity === 'WARNING') warningCount += 1;
+      if (severity === 'CRITICAL') criticalCount += 1;
+      const normalizedUserId = String(notification.userId || '').trim();
+      if (normalizedUserId) recipients.add(normalizedUserId);
+      const createdAtMs = notification.createdAt.getTime();
+      if (createdAtMs > lastAlertAtMs) {
+        lastAlertAtMs = createdAtMs;
+      }
+    }
+    return {
+      windowHours,
+      totalCount: notifications.length,
+      warningCount,
+      criticalCount,
+      uniqueRecipients: recipients.size,
+      lastAlertAtIso: lastAlertAtMs
+        ? new Date(lastAlertAtMs).toISOString()
+        : undefined,
+    };
+  }
+
+  async getAlertDeliverySeries(input?: {
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<
+    Array<{
+      bucketStartIso: string;
+      totalCount: number;
+      warningCount: number;
+      criticalCount: number;
+      uniqueRecipients: number;
+    }>
+  > {
+    const windowHours = this.normalizeAlertDeliveryWindowHours(
+      input?.windowHours,
+    );
+    const bucketMinutes = this.normalizeAlertDeliveryBucketMinutes(
+      input?.bucketMinutes,
+    );
+    const notifications = await this.resolveAlertDeliveryRows(windowHours);
+    const bucketMs = bucketMinutes * 60 * 1000;
+    const nowMs = Date.now();
+    const windowStartMs = nowMs - windowHours * 60 * 60 * 1000;
+    const normalizedWindowStartMs =
+      Math.floor(windowStartMs / bucketMs) * bucketMs;
+    const buckets = new Map<
+      number,
+      {
+        totalCount: number;
+        warningCount: number;
+        criticalCount: number;
+        recipients: Set<string>;
+      }
+    >();
+    for (const notification of notifications) {
+      const bucketStartMs =
+        Math.floor(notification.createdAt.getTime() / bucketMs) * bucketMs;
+      const existing = buckets.get(bucketStartMs) || {
+        totalCount: 0,
+        warningCount: 0,
+        criticalCount: 0,
+        recipients: new Set<string>(),
+      };
+      existing.totalCount += 1;
+      const severity = this.normalizeSeverity(
+        notification.metadata?.alertSeverity,
+      );
+      if (severity === 'WARNING') existing.warningCount += 1;
+      if (severity === 'CRITICAL') existing.criticalCount += 1;
+      const normalizedUserId = String(notification.userId || '').trim();
+      if (normalizedUserId) {
+        existing.recipients.add(normalizedUserId);
+      }
+      buckets.set(bucketStartMs, existing);
+    }
+    const series: Array<{
+      bucketStartIso: string;
+      totalCount: number;
+      warningCount: number;
+      criticalCount: number;
+      uniqueRecipients: number;
+    }> = [];
+    for (
+      let cursor = normalizedWindowStartMs;
+      cursor <= nowMs;
+      cursor += bucketMs
+    ) {
+      const bucket = buckets.get(cursor);
+      series.push({
+        bucketStartIso: new Date(cursor).toISOString(),
+        totalCount: bucket?.totalCount || 0,
+        warningCount: bucket?.warningCount || 0,
+        criticalCount: bucket?.criticalCount || 0,
+        uniqueRecipients: bucket?.recipients.size || 0,
+      });
+    }
+    return series;
+  }
+
   private isAlertsEnabled(): boolean {
     const normalized = String(
       process.env.AI_AGENT_HEALTH_ALERTS_ENABLED || 'true',
@@ -448,6 +575,48 @@ export class AiAgentPlatformHealthAlertScheduler {
     if (normalized === 'CRITICAL') return 'CRITICAL';
     if (normalized === 'WARNING') return 'WARNING';
     return null;
+  }
+
+  private normalizeAlertDeliveryWindowHours(
+    windowHours?: number | null,
+  ): number {
+    return this.resolvePositiveInteger({
+      rawValue: windowHours,
+      fallbackValue:
+        AiAgentPlatformHealthAlertScheduler.DEFAULT_ALERT_DELIVERY_WINDOW_HOURS,
+      minimumValue: 1,
+      maximumValue: 24 * 30,
+    });
+  }
+
+  private normalizeAlertDeliveryBucketMinutes(
+    bucketMinutes?: number | null,
+  ): number {
+    return this.resolvePositiveInteger({
+      rawValue: bucketMinutes,
+      fallbackValue:
+        AiAgentPlatformHealthAlertScheduler.DEFAULT_ALERT_DELIVERY_BUCKET_MINUTES,
+      minimumValue:
+        AiAgentPlatformHealthAlertScheduler.MIN_ALERT_DELIVERY_BUCKET_MINUTES,
+      maximumValue:
+        AiAgentPlatformHealthAlertScheduler.MAX_ALERT_DELIVERY_BUCKET_MINUTES,
+    });
+  }
+
+  private async resolveAlertDeliveryRows(
+    windowHours: number,
+  ): Promise<UserNotification[]> {
+    const windowStartDate = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    return this.notificationRepo.find({
+      where: {
+        type: 'AI_AGENT_PLATFORM_HEALTH_ALERT',
+        createdAt: MoreThanOrEqual(windowStartDate),
+      },
+      order: {
+        createdAt: 'ASC',
+      },
+      take: AiAgentPlatformHealthAlertScheduler.MAX_ALERT_DELIVERY_SAMPLE_SCAN,
+    });
   }
 
   private readMetadataString(

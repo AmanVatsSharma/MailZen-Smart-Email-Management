@@ -631,6 +631,23 @@ type AgentPlatformHealthAlertCheckResponse {
   publishedCount: Int!
 }
 
+type AgentPlatformHealthAlertDeliveryStatsResponse {
+  windowHours: Int!
+  totalCount: Int!
+  warningCount: Int!
+  criticalCount: Int!
+  uniqueRecipients: Int!
+  lastAlertAtIso: String
+}
+
+type AgentPlatformHealthAlertDeliveryTrendPointResponse {
+  bucketStartIso: String!
+  totalCount: Int!
+  warningCount: Int!
+  criticalCount: Int!
+  uniqueRecipients: Int!
+}
+
 type AgentPlatformEndpointStatResponse {
   endpointUrl: String!
   successCount: Int!
@@ -1119,6 +1136,13 @@ extend type Query {
     windowHours: Int
     bucketMinutes: Int
   ): AgentPlatformHealthIncidentDataExportResponse!
+  agentPlatformHealthAlertDeliveryStats(
+    windowHours: Int
+  ): AgentPlatformHealthAlertDeliveryStatsResponse!
+  agentPlatformHealthAlertDeliverySeries(
+    windowHours: Int
+    bucketMinutes: Int
+  ): [AgentPlatformHealthAlertDeliveryTrendPointResponse!]!
   myWorkspaces: [Workspace!]!
   myActiveWorkspace: Workspace
   myWorkspaceDataExport(workspaceId: String!): WorkspaceDataExportResponse!

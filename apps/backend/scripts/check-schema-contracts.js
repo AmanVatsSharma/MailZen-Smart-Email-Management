@@ -68,6 +68,8 @@ const requiredContracts = [
   'agentPlatformHealthIncidentStats',
   'agentPlatformHealthIncidentSeries',
   'agentPlatformHealthIncidentDataExport',
+  'agentPlatformHealthAlertDeliveryStats',
+  'agentPlatformHealthAlertDeliverySeries',
   'runAgentPlatformHealthAlertCheck',
   'resetAgentPlatformRuntimeStats',
   'resetAgentPlatformSkillRuntimeStats',

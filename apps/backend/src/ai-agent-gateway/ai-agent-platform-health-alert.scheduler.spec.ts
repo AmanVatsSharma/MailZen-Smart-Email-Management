@@ -31,6 +31,7 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     } as unknown as jest.Mocked<Repository<User>>;
     notificationRepo = {
       findOne: jest.fn(),
+      find: jest.fn(),
     } as unknown as jest.Mocked<Repository<UserNotification>>;
     aiAgentGatewayService = {
       getPlatformHealthTrendSummary: jest.fn(),
@@ -45,6 +46,7 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
       } as User,
     ]);
     notificationRepo.findOne.mockResolvedValue(null);
+    notificationRepo.find.mockResolvedValue([]);
     aiAgentGatewayService.getPlatformHealthTrendSummary
       .mockResolvedValueOnce({
         windowHours: 6,
@@ -213,5 +215,81 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
 
     expect(userRepo.find).not.toHaveBeenCalled();
     expect(notificationEventBus.publishSafely).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns alert delivery stats for rolling window', async () => {
+    notificationRepo.find.mockResolvedValue([
+      {
+        userId: 'admin-1',
+        createdAt: new Date('2026-02-16T00:00:00.000Z'),
+        metadata: { alertSeverity: 'WARNING' },
+      },
+      {
+        userId: 'admin-2',
+        createdAt: new Date('2026-02-16T01:00:00.000Z'),
+        metadata: { alertSeverity: 'CRITICAL' },
+      },
+      {
+        userId: 'admin-1',
+        createdAt: new Date('2026-02-16T02:00:00.000Z'),
+        metadata: { alertSeverity: 'CRITICAL' },
+      },
+    ] as unknown as UserNotification[]);
+
+    const stats = await scheduler.getAlertDeliveryStats({
+      windowHours: 24,
+    });
+
+    expect(stats).toEqual(
+      expect.objectContaining({
+        windowHours: 24,
+        totalCount: 3,
+        warningCount: 1,
+        criticalCount: 2,
+        uniqueRecipients: 2,
+        lastAlertAtIso: '2026-02-16T02:00:00.000Z',
+      }),
+    );
+  });
+
+  it('returns bucketed alert delivery series with recipient counts', async () => {
+    const now = Date.now();
+    notificationRepo.find.mockResolvedValue([
+      {
+        userId: 'admin-1',
+        createdAt: new Date(now - 25 * 60 * 1000),
+        metadata: { alertSeverity: 'WARNING' },
+      },
+      {
+        userId: 'admin-2',
+        createdAt: new Date(now - 24 * 60 * 1000),
+        metadata: { alertSeverity: 'CRITICAL' },
+      },
+      {
+        userId: 'admin-1',
+        createdAt: new Date(now - 8 * 60 * 1000),
+        metadata: { alertSeverity: 'WARNING' },
+      },
+    ] as unknown as UserNotification[]);
+
+    const series = await scheduler.getAlertDeliverySeries({
+      windowHours: 1,
+      bucketMinutes: 15,
+    });
+
+    expect(series.length).toBeGreaterThan(0);
+    expect(series.some((point) => point.totalCount > 0)).toBe(true);
+    const nonEmptyBucket:
+      | {
+          totalCount: number;
+          uniqueRecipients: number;
+        }
+      | undefined = series.find((point) => point.totalCount > 0);
+    expect(nonEmptyBucket).toBeDefined();
+    if (!nonEmptyBucket) {
+      throw new Error('Expected at least one non-empty alert delivery bucket');
+    }
+    expect(nonEmptyBucket.totalCount).toBeGreaterThan(0);
+    expect(nonEmptyBucket.uniqueRecipients).toBeGreaterThanOrEqual(1);
   });
 });

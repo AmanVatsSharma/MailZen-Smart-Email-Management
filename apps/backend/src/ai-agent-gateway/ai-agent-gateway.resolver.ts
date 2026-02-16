@@ -20,6 +20,10 @@ import { AgentAssistInput } from './dto/agent-assist.input';
 import { AgentAssistResponse } from './dto/agent-assist.response';
 import { AgentActionDataExportResponse } from './dto/agent-action-data-export.response';
 import { AgentPlatformHealthAlertCheckResponse } from './dto/agent-platform-health-alert-check.response';
+import {
+  AgentPlatformHealthAlertDeliveryStatsResponse,
+  AgentPlatformHealthAlertDeliveryTrendPointResponse,
+} from './dto/agent-platform-health-alert-delivery-stats.response';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
 import { AgentPlatformHealthIncidentDataExportResponse } from './dto/agent-platform-health-incident-data-export.response';
 import { AgentPlatformHealthSampleDataExportResponse } from './dto/agent-platform-health-sample-data-export.response';
@@ -180,6 +184,37 @@ export class AiAgentGatewayResolver {
     bucketMinutes?: number,
   ): Promise<AgentPlatformHealthIncidentDataExportResponse> {
     return this.gatewayService.exportPlatformHealthIncidentData({
+      windowHours,
+      bucketMinutes,
+    });
+  }
+
+  @Query(() => AgentPlatformHealthAlertDeliveryStatsResponse, {
+    description:
+      'Get delivery stats for emitted AI platform health alert notifications',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async agentPlatformHealthAlertDeliveryStats(
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+  ): Promise<AgentPlatformHealthAlertDeliveryStatsResponse> {
+    return this.healthAlertScheduler.getAlertDeliveryStats({
+      windowHours,
+    });
+  }
+
+  @Query(() => [AgentPlatformHealthAlertDeliveryTrendPointResponse], {
+    description:
+      'Get bucketed delivery trend points for emitted AI platform health alert notifications',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async agentPlatformHealthAlertDeliverySeries(
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<AgentPlatformHealthAlertDeliveryTrendPointResponse[]> {
+    return this.healthAlertScheduler.getAlertDeliverySeries({
       windowHours,
       bucketMinutes,
     });
