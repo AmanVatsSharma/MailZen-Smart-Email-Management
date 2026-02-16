@@ -5,6 +5,7 @@ import { EmailProviderService } from './email-provider.service';
 import { Provider } from './entities/provider.entity';
 import { ProviderActionResult } from './entities/provider-action-result.entity';
 import { SmtpSettingsInput } from './dto/smtp-settings.input';
+import { ProviderSyncRunResponse } from './entities/provider-sync-run-response.entity';
 
 interface RequestContext {
   req: {
@@ -23,9 +24,7 @@ interface RequestContext {
 @Resolver(() => Provider)
 @UseGuards(JwtAuthGuard)
 export class EmailProviderConnectResolver {
-  constructor(
-    private readonly emailProviderService: EmailProviderService,
-  ) {}
+  constructor(private readonly emailProviderService: EmailProviderService) {}
 
   @Mutation(() => Provider)
   async connectGmail(
@@ -77,6 +76,19 @@ export class EmailProviderConnectResolver {
   @Mutation(() => Provider)
   async syncProvider(@Args('id') id: string, @Context() ctx: RequestContext) {
     return this.emailProviderService.syncProvider(id, ctx.req.user.id);
+  }
+
+  @Mutation(() => ProviderSyncRunResponse)
+  async syncMyProviders(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Args('providerId', { nullable: true }) providerId: string,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.emailProviderService.syncUserProviders({
+      userId: ctx.req.user.id,
+      workspaceId,
+      providerId,
+    });
   }
 
   @Query(() => [Provider])

@@ -408,9 +408,16 @@ export class EmailProviderService {
       if (provider.type === 'GMAIL') {
         await this.gmailSyncService.syncGmailProvider(providerId, userId, 25);
       } else if (provider.type === 'OUTLOOK') {
-        await this.outlookSyncService.syncOutlookProvider(providerId, userId, 25);
+        await this.outlookSyncService.syncOutlookProvider(
+          providerId,
+          userId,
+          25,
+        );
       } else if (provider.type === 'CUSTOM_SMTP') {
-        const validationResult = await this.validateProvider(providerId, userId);
+        const validationResult = await this.validateProvider(
+          providerId,
+          userId,
+        );
         if (!validationResult.valid) {
           throw new BadRequestException(
             validationResult.message || 'SMTP provider sync validation failed',
@@ -445,6 +452,124 @@ export class EmailProviderService {
     }
 
     return this.getProviderUi(providerId, userId);
+  }
+
+  async syncUserProviders(input: {
+    userId: string;
+    workspaceId?: string | null;
+    providerId?: string | null;
+  }) {
+    const normalizedWorkspaceId = String(input.workspaceId || '').trim();
+    const normalizedProviderId = String(input.providerId || '').trim();
+
+    let providers: EmailProvider[] = [];
+    if (normalizedProviderId) {
+      const provider = await this.providerRepository.findOne({
+        where: normalizedWorkspaceId
+          ? {
+              id: normalizedProviderId,
+              userId: input.userId,
+              workspaceId: normalizedWorkspaceId,
+            }
+          : {
+              id: normalizedProviderId,
+              userId: input.userId,
+            },
+      });
+      if (!provider) {
+        throw new NotFoundException('Provider not found');
+      }
+      providers = [provider];
+    } else {
+      providers = await this.providerRepository.find({
+        where: normalizedWorkspaceId
+          ? { userId: input.userId, workspaceId: normalizedWorkspaceId }
+          : { userId: input.userId },
+        order: { createdAt: 'DESC' },
+      });
+    }
+
+    const now = Date.now();
+    const results: Array<{
+      providerId: string;
+      providerType: string;
+      providerEmail: string;
+      success: boolean;
+      error?: string | null;
+    }> = [];
+    let syncedProviders = 0;
+    let failedProviders = 0;
+    let skippedProviders = 0;
+
+    for (const provider of providers) {
+      const leaseExpiresAtMs = provider.syncLeaseExpiresAt
+        ? new Date(provider.syncLeaseExpiresAt).getTime()
+        : 0;
+      if (
+        String(provider.status || '')
+          .trim()
+          .toLowerCase() === 'syncing' &&
+        leaseExpiresAtMs > now
+      ) {
+        skippedProviders += 1;
+        results.push({
+          providerId: provider.id,
+          providerType: provider.type,
+          providerEmail: provider.email,
+          success: false,
+          error: 'Provider sync is already running',
+        });
+        continue;
+      }
+
+      try {
+        const syncedProvider = await this.syncProvider(
+          provider.id,
+          input.userId,
+        );
+        const failed =
+          String(syncedProvider.status || '')
+            .trim()
+            .toLowerCase() === 'error';
+        if (failed) {
+          failedProviders += 1;
+        } else {
+          syncedProviders += 1;
+        }
+        results.push({
+          providerId: provider.id,
+          providerType: provider.type,
+          providerEmail: provider.email,
+          success: !failed,
+          error: failed
+            ? syncedProvider.lastSyncError || 'Provider sync failed'
+            : null,
+        });
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : 'Provider sync failed';
+        this.logger.warn(
+          `provider-sync-batch: providerId=${provider.id} userId=${input.userId} failed error=${message}`,
+        );
+        failedProviders += 1;
+        results.push({
+          providerId: provider.id,
+          providerType: provider.type,
+          providerEmail: provider.email,
+          success: false,
+          error: message.slice(0, 500),
+        });
+      }
+    }
+
+    return {
+      requestedProviders: providers.length,
+      syncedProviders,
+      failedProviders,
+      skippedProviders,
+      results,
+      executedAtIso: new Date().toISOString(),
+    };
   }
 
   async listProvidersUi(userId: string, workspaceId?: string | null) {
@@ -1012,7 +1137,8 @@ export class EmailProviderService {
 
         // Update local reference
         provider.accessToken = response.data.access_token;
-        provider.refreshToken = response.data.refresh_token || decryptedRefreshToken;
+        provider.refreshToken =
+          response.data.refresh_token || decryptedRefreshToken;
         provider.tokenExpiry = expiryDate;
       }
     } catch (error) {

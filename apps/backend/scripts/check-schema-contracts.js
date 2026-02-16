@@ -27,6 +27,7 @@ const requiredContracts = [
   'purgeNotificationRetentionData',
   'purgeMyMailboxInboundRetentionData',
   'syncMyMailboxPull',
+  'syncMyProviders',
   'myWorkspaces',
   'myActiveWorkspace',
   'myWorkspaceDataExport',
@@ -75,4 +76,3 @@ const run = () => {
 };
 
 run();
-

@@ -333,4 +333,72 @@ describe('EmailProviderService', () => {
     expect(providerUi.status).toBe('error');
     expect(providerUi.lastSyncError).toBe('SMTP connection failed');
   });
+
+  it('runs batch provider sync and aggregates success/failure counters', async () => {
+    providerRepository.find.mockResolvedValue([
+      {
+        id: 'provider-1',
+        type: 'GMAIL',
+        email: 'founder@gmail.com',
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+      } as EmailProvider,
+      {
+        id: 'provider-2',
+        type: 'OUTLOOK',
+        email: 'ops@outlook.com',
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+      } as EmailProvider,
+    ]);
+    jest
+      .spyOn(service, 'syncProvider')
+      .mockResolvedValueOnce({
+        id: 'provider-1',
+        status: 'connected',
+      } as any)
+      .mockResolvedValueOnce({
+        id: 'provider-2',
+        status: 'error',
+        lastSyncError: 'outlook graph unavailable',
+      } as any);
+
+    const result = await service.syncUserProviders({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+    });
+
+    expect(providerRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1', workspaceId: 'workspace-1' },
+      }),
+    );
+    expect(result.requestedProviders).toBe(2);
+    expect(result.syncedProviders).toBe(1);
+    expect(result.failedProviders).toBe(1);
+    expect(result.results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          providerId: 'provider-1',
+          success: true,
+        }),
+        expect.objectContaining({
+          providerId: 'provider-2',
+          success: false,
+          error: 'outlook graph unavailable',
+        }),
+      ]),
+    );
+  });
+
+  it('throws when explicit provider id is not owned by user', async () => {
+    providerRepository.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.syncUserProviders({
+        userId: 'user-1',
+        providerId: 'provider-missing',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
 });

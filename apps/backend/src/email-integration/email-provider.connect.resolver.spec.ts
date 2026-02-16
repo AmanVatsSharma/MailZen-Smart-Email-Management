@@ -13,6 +13,7 @@ describe('EmailProviderConnectResolver', () => {
     disconnectProvider: jest.fn(),
     setActiveProvider: jest.fn(),
     syncProvider: jest.fn(),
+    syncUserProviders: jest.fn(),
     listProvidersUi: jest.fn(),
   };
 
@@ -64,5 +65,35 @@ describe('EmailProviderConnectResolver', () => {
       'user-1',
       'workspace-1',
     );
+  });
+
+  it('delegates syncMyProviders batch mutation to service', async () => {
+    emailProviderServiceMock.syncUserProviders.mockResolvedValue({
+      requestedProviders: 2,
+      syncedProviders: 1,
+      failedProviders: 1,
+      skippedProviders: 0,
+      results: [],
+      executedAtIso: '2026-02-16T00:00:00.000Z',
+    });
+    const context = { req: { user: { id: 'user-1' } } };
+
+    const result = await resolver.syncMyProviders(
+      'workspace-1',
+      'provider-1',
+      context,
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        requestedProviders: 2,
+        failedProviders: 1,
+      }),
+    );
+    expect(emailProviderServiceMock.syncUserProviders).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      providerId: 'provider-1',
+    });
   });
 });

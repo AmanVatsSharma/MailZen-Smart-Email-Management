@@ -59,6 +59,7 @@ This module follows NestJS best practices and consists of:
 - `deleteProvider(input: DeleteProviderInput!)`: Delete an email provider
 
 Frontend-facing (matches `apps/frontend/lib/providers/provider-utils.ts`):
+
 - `connectGmail(code: String!): Provider`
 - `connectOutlook(code: String!): Provider`
 - `connectSmtp(settings: SmtpSettingsInput!): Provider`
@@ -70,6 +71,12 @@ Frontend-facing (matches `apps/frontend/lib/providers/provider-utils.ts`):
   - Outlook providers: triggers real Microsoft Graph sync through `OutlookSyncService`
   - SMTP providers: validates SMTP connectivity and updates sync status/error telemetry
   - Errors are persisted as provider state (`status=error`, `lastSyncError`, `lastSyncErrorAt`) for support/debug visibility
+- `syncMyProviders(workspaceId?: String, providerId?: String): ProviderSyncRunResponse!`
+  - batch/manual provider sync trigger for authenticated user
+  - optional `providerId` scopes to a single owned provider
+  - optional `workspaceId` enforces workspace ownership/scope
+  - returns aggregate counters (`requested/synced/failed/skipped`) and per-provider results
+  - skips providers with active lease/status indicating in-flight sync
 
 ## OAuth Redirect URI notes (important)
 
@@ -85,7 +92,9 @@ Provider linking (Gmail/Outlook connect) is **backend-only** (recommended).
   - `OUTLOOK_PROVIDER_REDIRECT_URI=http://localhost:4000/email-integration/microsoft/callback`
 
 Login OAuth (backend redirect) uses:
+
 - `GOOGLE_REDIRECT_URI=http://localhost:4000/auth/google/callback`
+
 ## Mermaid: connect provider via OAuth code
 
 ```mermaid
@@ -136,17 +145,17 @@ export class EmailProviderInput {
   @IsOptional()
   @IsString()
   accessToken?: string;
-  
+
   @Field({ nullable: true })
   @IsOptional()
   @IsString()
   refreshToken?: string;
-  
+
   @Field({ nullable: true })
   @IsOptional()
   @IsNumber()
   tokenExpiry?: number;
-  
+
   @Field({ nullable: true })
   @IsOptional()
   @IsBoolean()
@@ -168,13 +177,15 @@ export class EmailProviderInput {
 
 ```graphql
 mutation {
-  configureEmailProvider(providerInput: {
-    providerType: "GMAIL"
-    email: "user@gmail.com"
-    accessToken: "your-oauth-access-token"
-    refreshToken: "your-oauth-refresh-token"
-    tokenExpiry: 3600
-  }) {
+  configureEmailProvider(
+    providerInput: {
+      providerType: "GMAIL"
+      email: "user@gmail.com"
+      accessToken: "your-oauth-access-token"
+      refreshToken: "your-oauth-refresh-token"
+      tokenExpiry: 3600
+    }
+  ) {
     id
     type
     email
@@ -187,12 +198,14 @@ mutation {
 
 ```graphql
 mutation {
-  configureEmailProvider(providerInput: {
-    email: "user@gmail.com"
-    accessToken: "your-oauth-access-token"
-    refreshToken: "your-oauth-refresh-token"
-    autoDetect: true
-  }) {
+  configureEmailProvider(
+    providerInput: {
+      email: "user@gmail.com"
+      accessToken: "your-oauth-access-token"
+      refreshToken: "your-oauth-refresh-token"
+      autoDetect: true
+    }
+  ) {
     id
     type
     email
@@ -205,13 +218,15 @@ mutation {
 
 ```graphql
 mutation {
-  configureEmailProvider(providerInput: {
-    providerType: "CUSTOM_SMTP"
-    email: "user@example.com"
-    host: "smtp.example.com"
-    port: 587
-    password: "your-password"
-  }) {
+  configureEmailProvider(
+    providerInput: {
+      providerType: "CUSTOM_SMTP"
+      email: "user@example.com"
+      host: "smtp.example.com"
+      port: 587
+      password: "your-password"
+    }
+  ) {
     id
     type
     email
@@ -273,7 +288,7 @@ The module provides detailed error responses with appropriate HTTP status codes:
 - Provider secret encryption supports rotation via:
   - `PROVIDER_SECRETS_KEYRING`
   - `PROVIDER_SECRETS_ACTIVE_KEY_ID`
-  while maintaining backward compatibility for legacy `enc:v1` encrypted rows.
+    while maintaining backward compatibility for legacy `enc:v1` encrypted rows.
 - All endpoints are protected with JWT authentication
 - User-based access control ensures users can only access their own providers
 
@@ -291,4 +306,4 @@ This module integrates with:
 - Enhanced credential encryption
 - Rate limiting and quota management
 - Advanced connection pooling strategies
-- Support for proxy configurations 
+- Support for proxy configurations

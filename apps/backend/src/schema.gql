@@ -124,6 +124,23 @@ type ProviderActionResult {
   message: String!
 }
 
+type ProviderSyncRunItem {
+  providerId: String!
+  providerType: String!
+  providerEmail: String!
+  success: Boolean!
+  error: String
+}
+
+type ProviderSyncRunResponse {
+  requestedProviders: Int!
+  syncedProviders: Int!
+  failedProviders: Int!
+  skippedProviders: Int!
+  results: [ProviderSyncRunItem!]!
+  executedAtIso: String!
+}
+
 type InboxMessage {
   id: ID!
   providerId: String!
@@ -496,6 +513,7 @@ type Mutation {
   disconnectProvider(id: String!): ProviderActionResult!
   updateProvider(id: String!, isActive: Boolean): Provider!
   syncProvider(id: String!): Provider!
+  syncMyProviders(workspaceId: String, providerId: String): ProviderSyncRunResponse!
   updateProviderStatus(id: String!, isActive: Boolean): Provider!
   syncGmailProvider(providerId: String!, maxMessages: Int): Boolean!
   login(loginInput: LoginInput!): AuthResponse!
