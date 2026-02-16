@@ -237,6 +237,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: config-only validation (skip daemon connectivity check)
 ./deploy/ec2/scripts/preflight.sh --config-only
 
+# Optional: extended runtime checks (host/dns/ssl/ports)
+./deploy/ec2/scripts/preflight.sh --with-runtime-checks
+
 # Optional: confirm domain DNS resolution before cutover
 ./deploy/ec2/scripts/dns-check.sh
 

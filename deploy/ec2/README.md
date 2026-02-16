@@ -146,6 +146,12 @@ Example:
 # Config-only validation (useful when docker daemon is unavailable)
 ./deploy/ec2/scripts/preflight.sh --config-only
 
+# Extended runtime checks (host + dns + ssl + ports)
+./deploy/ec2/scripts/preflight.sh --with-runtime-checks
+
+# Extended runtime checks with selective skips
+./deploy/ec2/scripts/preflight.sh --with-runtime-checks --skip-dns-check --skip-ssl-check
+
 # Pull updates, recreate, and run verify checks
 ./deploy/ec2/scripts/update.sh
 
