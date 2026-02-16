@@ -123,6 +123,11 @@ From repository root:
   --verify-retry-sleep 8 \
   --status-runtime-checks
 
+# Launch while skipping optional verify OAuth/SSL checks
+./deploy/ec2/scripts/launch.sh \
+  --verify-skip-oauth-check \
+  --verify-skip-ssl-check
+
 # Launch while requiring OAuth verify check (fails when OAuth keys are missing)
 ./deploy/ec2/scripts/launch.sh --verify-require-oauth-check
 

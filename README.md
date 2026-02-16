@@ -242,6 +242,9 @@ For production-style EC2 deployment, use the deployment module:
 # Optional: launch while requiring OAuth smoke check in verify step
 ./deploy/ec2/scripts/launch.sh --verify-require-oauth-check
 
+# Optional: launch while skipping OAuth/SSL verify checks
+./deploy/ec2/scripts/launch.sh --verify-skip-oauth-check --verify-skip-ssl-check
+
 # Optional: launch with custom runtime ports-check targets
 ./deploy/ec2/scripts/launch.sh --ports-check-ports 80,443,8100
 

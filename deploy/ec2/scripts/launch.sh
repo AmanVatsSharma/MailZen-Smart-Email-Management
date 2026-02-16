@@ -19,6 +19,8 @@
 #   --deploy-dry-run
 #   --verify-max-retries <n>
 #   --verify-retry-sleep <n>
+#   --verify-skip-ssl-check
+#   --verify-skip-oauth-check
 #   --verify-require-oauth-check
 #   --status-runtime-checks
 #   --status-strict
@@ -53,6 +55,8 @@ STATUS_SKIP_SSL_CHECK=false
 STATUS_SKIP_PORTS_CHECK=false
 VERIFY_MAX_RETRIES=""
 VERIFY_RETRY_SLEEP=""
+VERIFY_SKIP_SSL_CHECK=false
+VERIFY_SKIP_OAUTH_CHECK=false
 VERIFY_REQUIRE_OAUTH_CHECK=false
 DOMAIN_ARG=""
 ACME_EMAIL_ARG=""
@@ -128,6 +132,14 @@ while [[ $# -gt 0 ]]; do
     fi
     shift 2
     ;;
+  --verify-skip-ssl-check)
+    VERIFY_SKIP_SSL_CHECK=true
+    shift
+    ;;
+  --verify-skip-oauth-check)
+    VERIFY_SKIP_OAUTH_CHECK=true
+    shift
+    ;;
   --verify-require-oauth-check)
     VERIFY_REQUIRE_OAUTH_CHECK=true
     shift
@@ -198,7 +210,7 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --skip-setup --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --skip-verify --skip-status --setup-skip-daemon --preflight-config-only --deploy-dry-run --verify-max-retries <n> --verify-retry-sleep <n> --verify-require-oauth-check --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...> --domain <hostname> --acme-email <email>"
+    log_error "Supported flags: --skip-setup --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --skip-verify --skip-status --setup-skip-daemon --preflight-config-only --deploy-dry-run --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...> --domain <hostname> --acme-email <email>"
     exit 1
     ;;
   esac
@@ -213,11 +225,17 @@ if [[ -n "${VERIFY_RETRY_SLEEP}" ]] && { [[ ! "${VERIFY_RETRY_SLEEP}" =~ ^[0-9]+
   log_error "--verify-retry-sleep must be a positive integer."
   exit 1
 fi
+if [[ "${VERIFY_SKIP_OAUTH_CHECK}" == true ]] && [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; then
+  log_error "--verify-skip-oauth-check cannot be combined with --verify-require-oauth-check."
+  exit 1
+fi
 
-if [[ "${RUN_VERIFY}" == false ]] && { [[ -n "${VERIFY_MAX_RETRIES}" ]] || [[ -n "${VERIFY_RETRY_SLEEP}" ]] || [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; }; then
+if [[ "${RUN_VERIFY}" == false ]] &&
+  { [[ -n "${VERIFY_MAX_RETRIES}" ]] || [[ -n "${VERIFY_RETRY_SLEEP}" ]] || [[ "${VERIFY_SKIP_SSL_CHECK}" == true ]] || [[ "${VERIFY_SKIP_OAUTH_CHECK}" == true ]] || [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; }; then
   log_warn "[LAUNCH] verify-related flags were provided while --skip-verify is enabled; verify flags will be ignored."
 fi
-if [[ "${RUN_VERIFY}" == true ]] && [[ "${DEPLOY_DRY_RUN}" == true ]] && { [[ -n "${VERIFY_MAX_RETRIES}" ]] || [[ -n "${VERIFY_RETRY_SLEEP}" ]] || [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; }; then
+if [[ "${RUN_VERIFY}" == true ]] && [[ "${DEPLOY_DRY_RUN}" == true ]] &&
+  { [[ -n "${VERIFY_MAX_RETRIES}" ]] || [[ -n "${VERIFY_RETRY_SLEEP}" ]] || [[ "${VERIFY_SKIP_SSL_CHECK}" == true ]] || [[ "${VERIFY_SKIP_OAUTH_CHECK}" == true ]] || [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; }; then
   log_warn "[LAUNCH] verify-related flags were provided while --deploy-dry-run is enabled; verify step will be skipped."
 fi
 
@@ -370,6 +388,12 @@ if [[ "${RUN_VERIFY}" == true ]]; then
     fi
     if [[ -n "${VERIFY_RETRY_SLEEP}" ]]; then
       verify_args+=(--retry-sleep "${VERIFY_RETRY_SLEEP}")
+    fi
+    if [[ "${VERIFY_SKIP_SSL_CHECK}" == true ]]; then
+      verify_args+=(--skip-ssl-check)
+    fi
+    if [[ "${VERIFY_SKIP_OAUTH_CHECK}" == true ]]; then
+      verify_args+=(--skip-oauth-check)
     fi
     if [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; then
       verify_args+=(--require-oauth-check)
