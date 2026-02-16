@@ -90,6 +90,11 @@ flowchart TD
 - `MAILZEN_SMART_REPLY_HISTORY_AUTOPURGE_ENABLED` (`true/false`, default `true`)
 - `MAILZEN_SMART_REPLY_HISTORY_RETENTION_DAYS` (default `365`, clamped `1..3650`)
 - Reuses `AI_AGENT_PLATFORM_URL` and optional `AI_AGENT_PLATFORM_KEY`.
+- Structured retention scheduler events:
+  - `smart_reply_retention_autopurge_disabled`
+  - `smart_reply_retention_autopurge_start`
+  - `smart_reply_retention_autopurge_completed`
+  - `smart_reply_retention_autopurge_failed`
 
 ## API
 
@@ -200,7 +205,7 @@ Anthropic / agent-platform / template fallback.
    - or run `purgeMySmartReplyHistory` for user-requested data deletion.
 5. Verify scheduler fallback:
    - ensure `MAILZEN_SMART_REPLY_HISTORY_AUTOPURGE_ENABLED=true`
-   - check logs for `smart-reply-history: purged ...` entries
+   - check logs for `smart_reply_retention_autopurge_*` events
    - tune `MAILZEN_SMART_REPLY_HISTORY_RETENTION_DAYS` for global retention policy.
 
 ## Usage

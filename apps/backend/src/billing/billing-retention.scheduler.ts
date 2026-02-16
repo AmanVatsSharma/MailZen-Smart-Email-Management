@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { BillingService } from './billing.service';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 @Injectable()
 export class BillingRetentionScheduler {
@@ -19,20 +23,46 @@ export class BillingRetentionScheduler {
 
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async purgeExpiredBillingData(): Promise<void> {
+    const runCorrelationId = resolveCorrelationId(undefined);
     if (!this.isEnabled()) {
-      this.logger.log('billing-retention: auto-purge disabled by env');
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'billing_retention_autopurge_disabled',
+          runCorrelationId,
+        }),
+      );
       return;
     }
 
     try {
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'billing_retention_autopurge_start',
+          runCorrelationId,
+        }),
+      );
       const result = await this.billingService.purgeExpiredBillingData({});
       this.logger.log(
-        `billing-retention: purged webhookEvents=${result.webhookEventsDeleted} aiUsageRows=${result.aiUsageRowsDeleted} webhookDays=${result.webhookRetentionDays} usageMonths=${result.aiUsageRetentionMonths}`,
+        serializeStructuredLog({
+          event: 'billing_retention_autopurge_completed',
+          runCorrelationId,
+          webhookEventsDeleted: result.webhookEventsDeleted,
+          aiUsageRowsDeleted: result.aiUsageRowsDeleted,
+          webhookRetentionDays: result.webhookRetentionDays,
+          aiUsageRetentionMonths: result.aiUsageRetentionMonths,
+          executedAtIso: result.executedAtIso,
+        }),
       );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unknown purge error';
-      this.logger.warn(`billing-retention: purge failed: ${message}`);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'billing_retention_autopurge_failed',
+          runCorrelationId,
+          error: message,
+        }),
+      );
     }
   }
 }

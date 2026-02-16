@@ -82,6 +82,11 @@ flowchart TD
     - `BILLING_WEBHOOK_RETENTION_DAYS` (default `120`)
     - `BILLING_AI_USAGE_RETENTION_MONTHS` (default `36`)
     - `BILLING_RETENTION_AUTOPURGE_ENABLED` (default `true`)
+  - Structured retention scheduler events:
+    - `billing_retention_autopurge_disabled`
+    - `billing_retention_autopurge_start`
+    - `billing_retention_autopurge_completed`
+    - `billing_retention_autopurge_failed`
 - Current integrations:
   - `EmailProviderService` enforces `providerLimit`
   - `MailboxService` enforces `mailboxLimit`

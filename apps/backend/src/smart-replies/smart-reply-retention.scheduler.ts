@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { SmartReplyService } from './smart-reply.service';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 @Injectable()
 export class SmartReplyRetentionScheduler {
@@ -19,21 +23,44 @@ export class SmartReplyRetentionScheduler {
 
   @Cron(CronExpression.EVERY_DAY_AT_4AM)
   async purgeSmartReplyHistory(): Promise<void> {
+    const runCorrelationId = resolveCorrelationId(undefined);
     if (!this.isAutoPurgeEnabled()) {
-      this.logger.log('smart-reply-history: auto-purge disabled by env');
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'smart_reply_retention_autopurge_disabled',
+          runCorrelationId,
+        }),
+      );
       return;
     }
 
     try {
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'smart_reply_retention_autopurge_start',
+          runCorrelationId,
+        }),
+      );
       const result = await this.smartReplyService.purgeHistoryByRetentionPolicy(
         {},
       );
       this.logger.log(
-        `smart-reply-history: purged rows=${result.deletedRows} retentionDays=${result.retentionDays}`,
+        serializeStructuredLog({
+          event: 'smart_reply_retention_autopurge_completed',
+          runCorrelationId,
+          deletedRows: result.deletedRows,
+          retentionDays: result.retentionDays,
+        }),
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'unknown error';
-      this.logger.warn(`smart-reply-history: purge failed: ${message}`);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'smart_reply_retention_autopurge_failed',
+          runCorrelationId,
+          error: message,
+        }),
+      );
     }
   }
 }
