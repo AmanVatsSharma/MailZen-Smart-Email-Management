@@ -11,7 +11,8 @@ flowchart TD
   Setup --> EnvOK{env valid?}
   EnvOK -- no --> FixEnv[Fix env inputs/placeholders]
   FixEnv --> Setup
-  EnvOK -- yes --> DnsCheck[dns-check.sh]
+  EnvOK -- yes --> HostReady[host-readiness.sh]
+  HostReady --> DnsCheck[dns-check.sh]
   DnsCheck --> SslCheck[ssl-check.sh]
   SslCheck --> PortsCheck[ports-check.sh]
   PortsCheck --> Preflight[preflight.sh]
@@ -24,7 +25,8 @@ flowchart TD
   VerifyOK -- no --> Logs[logs.sh + status.sh troubleshooting]
   Logs --> FixAndRedeploy[update.sh or deploy.sh --force-recreate]
   FixAndRedeploy --> Verify
-  VerifyOK -- yes --> Done[Deployment complete]
+  VerifyOK -- yes --> Status[status.sh]
+  Status --> Done[Deployment complete]
 ```
 
 ## 2) Update flow
@@ -33,20 +35,27 @@ flowchart TD
 flowchart TD
   UpdateStart[Operator runs update.sh] --> Preflight[preflight.sh]
   Preflight --> DeployPull[deploy.sh --pull --force-recreate]
-  DeployPull --> Verify[verify.sh]
-  Verify --> UpdateDone[Update complete]
+  DeployPull --> VerifyGate{verify enabled?}
+  VerifyGate -- yes --> Verify[verify.sh]
+  Verify --> Status[status.sh]
+  VerifyGate -- no --> Status[status.sh]
+  Status --> UpdateDone[Update complete]
 ```
 
 ## 3) Database recovery flow
 
 ```mermaid
 flowchart TD
-  BackupStart[backup-db.sh] --> BackupFile[Compressed SQL backup in deploy/ec2/backups]
+  BackupStart[backup-db.sh --label before-release] --> BackupFile[Compressed SQL backup in deploy/ec2/backups]
   BackupFile --> Incident{Need rollback/recovery?}
   Incident -- no --> KeepBackup[Retain backup]
-  Incident -- yes --> Restore[rollback-latest.sh or restore-db.sh backup.sql.gz]
-  Restore --> Confirm[Type RESTORE confirmation]
-  Confirm --> RecreateDB[Drop + recreate database]
+  Incident -- yes --> Plan[Optional dry-run: restore-db.sh --dry-run]
+  Plan --> Restore[rollback-latest.sh --yes or restore-db.sh --yes backup.sql.gz]
+  Restore --> Confirm{interactive mode?}
+  Confirm -- yes --> Keyword[Type RESTORE confirmation]
+  Confirm -- no --> Proceed[--yes confirmation bypass]
+  Keyword --> RecreateDB
+  Proceed --> RecreateDB[Drop + recreate database]
   RecreateDB --> ImportDump[Import SQL dump]
   ImportDump --> VerifyApp[Run verify.sh]
 ```
@@ -55,13 +64,23 @@ flowchart TD
 
 - Always run `preflight.sh` before deploy/update.
 - Prefer `verify.sh` immediately after deploy/update.
-- Take a fresh `backup-db.sh` before risky changes.
-- Periodically run `backup-prune.sh` to enforce backup retention.
+- Take a fresh `backup-db.sh --label <change>` before risky changes.
+- Use dry-run guards for destructive/data-affecting operations:
+  - `backup-db.sh --dry-run`
+  - `restore-db.sh --dry-run`
+  - `rollback-latest.sh --dry-run`
+  - `backup-prune.sh --dry-run`
+  - `reports-prune.sh --dry-run`
+- Periodically run `backup-prune.sh` and `reports-prune.sh` to enforce
+  retention.
 - Run `env-audit.sh` whenever secrets/domains are updated.
 - Run `doctor.sh` and share report output during incident triage.
 - Run `support-bundle.sh` to package diagnostics for escalation/support.
+- Use seeded diagnostics for CI/offline validation:
+  - `doctor.sh --seed-env`
+  - `support-bundle.sh --seed-env`
+  - `pipeline-check.sh --seed-env`
 - Use `rotate-app-secrets.sh` for controlled JWT/OAuth/platform key rotation.
 - Run `pipeline-check.sh` for CI/config-only deployment validation.
-- Run `reports-prune.sh` periodically to keep diagnostics artifacts bounded.
 - Run `help.sh` for quick operator command lookup.
 - Use `self-check.sh` after editing deployment scripts.
