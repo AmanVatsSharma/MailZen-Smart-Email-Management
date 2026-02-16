@@ -116,6 +116,9 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AiAgentGatewayService.name);
   private static readonly MIN_AUDIT_EXPORT_LIMIT = 1;
   private static readonly MAX_AUDIT_EXPORT_LIMIT = 500;
+  private static readonly DEFAULT_THREAD_CONTEXT_CACHE_TTL_MS = 300_000;
+  private static readonly MIN_THREAD_CONTEXT_CACHE_TTL_MS = 10_000;
+  private static readonly MAX_THREAD_CONTEXT_CACHE_TTL_MS = 3_600_000;
   private static readonly DEFAULT_AUDIT_RETENTION_DAYS = 365;
   private static readonly MIN_AUDIT_RETENTION_DAYS = 7;
   private static readonly MAX_AUDIT_RETENTION_DAYS = 3650;
@@ -127,6 +130,14 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   private readonly fallbackPendingApprovals = new Map<
     string,
     PendingActionApproval
+  >();
+  private readonly threadContextCache = new Map<
+    string,
+    {
+      threadSummary: string | null;
+      userStyleProfile: string | null;
+      expiresAtMs: number;
+    }
   >();
   private redisClient: RedisClientType | null = null;
   private redisConnected = false;
@@ -218,6 +229,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy(): Promise<void> {
     this.fallbackPendingApprovals.clear();
+    this.threadContextCache.clear();
     if (!this.redisClient || !this.redisConnected) return;
     await this.redisClient.quit();
   }
@@ -830,22 +842,42 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         metadata.emailThreadId ||
         metadata.messageThreadId ||
         null;
-      const threadMessages = await this.externalEmailMessageRepo.find({
-        where: threadId
-          ? { userId: input.userId, threadId }
-          : { userId: input.userId },
-        order: { internalDate: 'DESC', createdAt: 'DESC' },
-        take: threadId ? 5 : 3,
+      const cacheKey = this.resolveThreadContextCacheKey({
+        userId: input.userId,
+        threadId,
       });
-      const normalizedThreadMessages =
-        this.normalizeExternalMessages(threadMessages);
-      const threadSummary = this.buildThreadSummary(normalizedThreadMessages);
-      if (threadSummary) {
-        metadata.threadSummary = threadSummary;
-      }
-      const styleProfile = this.buildUserStyleProfile(normalizedThreadMessages);
-      if (styleProfile) {
-        metadata.userStyleProfile = styleProfile;
+      const cachedThreadContext = this.getCachedThreadContext(cacheKey);
+      if (cachedThreadContext) {
+        if (cachedThreadContext.threadSummary) {
+          metadata.threadSummary = cachedThreadContext.threadSummary;
+        }
+        if (cachedThreadContext.userStyleProfile) {
+          metadata.userStyleProfile = cachedThreadContext.userStyleProfile;
+        }
+      } else {
+        const threadMessages = await this.externalEmailMessageRepo.find({
+          where: threadId
+            ? { userId: input.userId, threadId }
+            : { userId: input.userId },
+          order: { internalDate: 'DESC', createdAt: 'DESC' },
+          take: threadId ? 5 : 3,
+        });
+        const normalizedThreadMessages =
+          this.normalizeExternalMessages(threadMessages);
+        const threadSummary = this.buildThreadSummary(normalizedThreadMessages);
+        if (threadSummary) {
+          metadata.threadSummary = threadSummary;
+        }
+        const styleProfile = this.buildUserStyleProfile(
+          normalizedThreadMessages,
+        );
+        if (styleProfile) {
+          metadata.userStyleProfile = styleProfile;
+        }
+        this.setCachedThreadContext(cacheKey, {
+          threadSummary: threadSummary || null,
+          userStyleProfile: styleProfile || null,
+        });
       }
       const workspacePolicySummary = await this.resolveWorkspacePolicySummary({
         user,
@@ -949,6 +981,62 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   ): ExternalEmailMessage[] {
     if (!Array.isArray(messages)) return [];
     return messages;
+  }
+
+  private resolveThreadContextCacheKey(input: {
+    userId: string;
+    threadId: string | null;
+  }): string {
+    const normalizedThreadId = String(input.threadId || '').trim() || 'global';
+    return `${input.userId}:${normalizedThreadId}`;
+  }
+
+  private resolveThreadContextCacheTtlMs(): number {
+    const rawValue = Number(process.env.AI_AGENT_THREAD_CONTEXT_CACHE_TTL_MS);
+    if (!Number.isFinite(rawValue)) {
+      return AiAgentGatewayService.DEFAULT_THREAD_CONTEXT_CACHE_TTL_MS;
+    }
+    const rounded = Math.trunc(rawValue);
+    if (rounded < AiAgentGatewayService.MIN_THREAD_CONTEXT_CACHE_TTL_MS) {
+      return AiAgentGatewayService.MIN_THREAD_CONTEXT_CACHE_TTL_MS;
+    }
+    if (rounded > AiAgentGatewayService.MAX_THREAD_CONTEXT_CACHE_TTL_MS) {
+      return AiAgentGatewayService.MAX_THREAD_CONTEXT_CACHE_TTL_MS;
+    }
+    return rounded;
+  }
+
+  private getCachedThreadContext(cacheKey: string): {
+    threadSummary: string | null;
+    userStyleProfile: string | null;
+  } | null {
+    const cached = this.threadContextCache.get(cacheKey);
+    if (!cached) return null;
+    if (cached.expiresAtMs <= Date.now()) {
+      this.threadContextCache.delete(cacheKey);
+      return null;
+    }
+    this.logger.debug(
+      `agent-assist-memory: thread context cache hit key=${cacheKey}`,
+    );
+    return {
+      threadSummary: cached.threadSummary,
+      userStyleProfile: cached.userStyleProfile,
+    };
+  }
+
+  private setCachedThreadContext(
+    cacheKey: string,
+    value: {
+      threadSummary: string | null;
+      userStyleProfile: string | null;
+    },
+  ): void {
+    const ttlMs = this.resolveThreadContextCacheTtlMs();
+    this.threadContextCache.set(cacheKey, {
+      ...value,
+      expiresAtMs: Date.now() + ttlMs,
+    });
   }
 
   private parseContextMetadata(metadataJson?: string): Record<string, string> {

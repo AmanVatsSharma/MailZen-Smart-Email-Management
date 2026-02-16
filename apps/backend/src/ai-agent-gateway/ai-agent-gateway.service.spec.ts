@@ -467,6 +467,72 @@ describe('AiAgentGatewayService', () => {
     expect(payload.context.metadata.userProfileName).toBe('Aman Sharma');
   });
 
+  it('reuses thread memory context from cache for repeated assist calls', async () => {
+    const service = createService();
+    mockedAxios.post.mockResolvedValue({
+      data: {
+        version: 'v1',
+        skill: 'inbox',
+        assistantText: 'Acknowledged.',
+        intent: 'thread_summary',
+        confidence: 0.93,
+        suggestedActions: [],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+    findOneMock.mockResolvedValue({
+      id: 'user-1',
+      name: 'Aman Sharma',
+      email: 'aman@mailzen.com',
+      activeWorkspaceId: null,
+    });
+    findExternalMessagesMock.mockResolvedValue([
+      {
+        subject: 'Deal review',
+        snippet: 'Please confirm final pricing approval by EOD.',
+      },
+    ]);
+
+    await service.assist(
+      {
+        skill: 'inbox',
+        messages: [{ role: 'user', content: 'Summarize deal thread.' }],
+        context: {
+          surface: 'inbox',
+          locale: 'en-IN',
+          metadataJson: JSON.stringify({ threadId: 'thread-cache-1' }),
+        },
+        allowedActions: ['inbox.summarize_thread'],
+        executeRequestedAction: false,
+      },
+      {
+        requestId: 'req-cache-1',
+        headers: { authorization: 'Bearer token-1' },
+      },
+    );
+
+    await service.assist(
+      {
+        skill: 'inbox',
+        messages: [{ role: 'user', content: 'Summarize deal thread.' }],
+        context: {
+          surface: 'inbox',
+          locale: 'en-IN',
+          metadataJson: JSON.stringify({ threadId: 'thread-cache-1' }),
+        },
+        allowedActions: ['inbox.summarize_thread'],
+        executeRequestedAction: false,
+      },
+      {
+        requestId: 'req-cache-2',
+        headers: { authorization: 'Bearer token-1' },
+      },
+    );
+
+    expect(findExternalMessagesMock).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects risky inbox actions without approval token', async () => {
     const service = createService();
     mockedAxios.post.mockResolvedValueOnce({
@@ -551,8 +617,13 @@ describe('AiAgentGatewayService', () => {
       },
     } as any);
     findExternalMessagesMock
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          subject: 'Vendor onboarding',
+          from: 'ops@example.com',
+          snippet: 'Can you confirm the onboarding checklist timeline?',
+        },
+      ])
       .mockResolvedValueOnce([
         {
           subject: 'Vendor onboarding',

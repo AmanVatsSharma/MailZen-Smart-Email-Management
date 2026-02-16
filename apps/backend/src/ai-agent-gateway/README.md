@@ -44,6 +44,7 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - `AI_AGENT_GATEWAY_USE_REDIS` (default `true`)
 - `AI_AGENT_GATEWAY_REDIS_URL` (fallback to `REDIS_URL`)
 - `AI_AGENT_ACTION_APPROVAL_TTL_SECONDS` (default `600`)
+- `AI_AGENT_THREAD_CONTEXT_CACHE_TTL_MS` (default `300000`, clamp `10000..3600000`)
 - `AI_AGENT_CREDIT_COST` (default `1`)
 - `AI_AGENT_CREDIT_COST_<SKILL>` optional per-skill override, e.g.
   `AI_AGENT_CREDIT_COST_INBOX=2`
