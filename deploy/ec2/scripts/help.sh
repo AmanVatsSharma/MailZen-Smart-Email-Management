@@ -49,6 +49,7 @@ Primary flow:
 
 Setup and env:
   ./deploy/ec2/scripts/setup.sh --non-interactive --skip-daemon
+  ./deploy/ec2/scripts/setup.sh --non-interactive --skip-daemon --domain mail.example.com --acme-email ops@example.com
   ./deploy/ec2/scripts/env-audit.sh
   ./deploy/ec2/scripts/rotate-app-secrets.sh --yes
   ./deploy/ec2/scripts/rotate-app-secrets.sh --keys JWT_SECRET --dry-run
