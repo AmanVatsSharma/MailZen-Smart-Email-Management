@@ -27,6 +27,8 @@ SERVICE_FLAG_SET=false
 SERVICE_FLAG_VALUE=""
 TAIL_FLAG_SET=false
 TAIL_FLAG_VALUE=""
+SINCE_FLAG_SET=false
+SINCE_FLAG_VALUE=""
 
 # Backward-compatible positional arguments:
 #   logs.sh [service] [tail]
@@ -80,11 +82,17 @@ while [[ $# -gt 0 ]]; do
     shift 2
     ;;
   --since)
-    SINCE_WINDOW="${2:-}"
-    if [[ -z "${SINCE_WINDOW}" ]]; then
+    since_arg="${2:-}"
+    if [[ -z "${since_arg}" ]]; then
       log_error "--since requires a value."
       exit 1
     fi
+    if [[ "${SINCE_FLAG_SET}" == true ]] && [[ "${since_arg}" != "${SINCE_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --since '${SINCE_FLAG_VALUE}' overridden by --since '${since_arg}'."
+    fi
+    SINCE_WINDOW="${since_arg}"
+    SINCE_FLAG_SET=true
+    SINCE_FLAG_VALUE="${since_arg}"
     shift 2
     ;;
   --no-follow)
