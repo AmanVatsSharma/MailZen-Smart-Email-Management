@@ -11,6 +11,11 @@ import {
 } from './dto/mailbox-inbound-event-observability.response';
 import { MailboxInboundRetentionPurgeResponse } from './dto/mailbox-inbound-retention-purge.response';
 import { MailboxSyncDataExportResponse } from './dto/mailbox-sync-data-export.response';
+import { MailboxSyncIncidentAlertDeliveryDataExportResponse } from './dto/mailbox-sync-incident-alert-delivery-data-export.response';
+import {
+  MailboxSyncIncidentAlertDeliveryStatsResponse,
+  MailboxSyncIncidentAlertDeliveryTrendPointResponse,
+} from './dto/mailbox-sync-incident-alert-delivery.response';
 import { MailboxSyncIncidentDataExportResponse } from './dto/mailbox-sync-incident-data-export.response';
 import {
   MailboxSyncIncidentStatsResponse,
@@ -290,6 +295,60 @@ export class MailboxResolver {
       windowHours: windowHours ?? null,
       bucketMinutes: bucketMinutes ?? null,
     });
+  }
+
+  @Query(() => MailboxSyncIncidentAlertDeliveryStatsResponse)
+  async myMailboxSyncIncidentAlertDeliveryStats(
+    @Context() ctx: RequestContext,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+  ): Promise<MailboxSyncIncidentAlertDeliveryStatsResponse> {
+    return this.mailboxSyncService.getMailboxSyncIncidentAlertDeliveryStatsForUser(
+      {
+        userId: ctx.req.user.id,
+        workspaceId: workspaceId || null,
+        windowHours: windowHours ?? null,
+      },
+    );
+  }
+
+  @Query(() => [MailboxSyncIncidentAlertDeliveryTrendPointResponse])
+  async myMailboxSyncIncidentAlertDeliverySeries(
+    @Context() ctx: RequestContext,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<MailboxSyncIncidentAlertDeliveryTrendPointResponse[]> {
+    return this.mailboxSyncService.getMailboxSyncIncidentAlertDeliverySeriesForUser(
+      {
+        userId: ctx.req.user.id,
+        workspaceId: workspaceId || null,
+        windowHours: windowHours ?? null,
+        bucketMinutes: bucketMinutes ?? null,
+      },
+    );
+  }
+
+  @Query(() => MailboxSyncIncidentAlertDeliveryDataExportResponse)
+  async myMailboxSyncIncidentAlertDeliveryDataExport(
+    @Context() ctx: RequestContext,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<MailboxSyncIncidentAlertDeliveryDataExportResponse> {
+    return this.mailboxSyncService.exportMailboxSyncIncidentAlertDeliveryDataForUser(
+      {
+        userId: ctx.req.user.id,
+        workspaceId: workspaceId || null,
+        windowHours: windowHours ?? null,
+        bucketMinutes: bucketMinutes ?? null,
+      },
+    );
   }
 
   @Mutation(() => MailboxSyncRunRetentionPurgeResponse)

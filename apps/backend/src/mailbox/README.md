@@ -49,6 +49,9 @@ This module covers:
     - `myMailboxSyncIncidentStats(mailboxId?: String, workspaceId?: String, windowHours?: Int): MailboxSyncIncidentStatsResponse!`
     - `myMailboxSyncIncidentSeries(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxSyncIncidentTrendPointResponse!]!`
     - `myMailboxSyncIncidentDataExport(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): MailboxSyncIncidentDataExportResponse!`
+    - `myMailboxSyncIncidentAlertDeliveryStats(workspaceId?: String, windowHours?: Int): MailboxSyncIncidentAlertDeliveryStatsResponse!`
+    - `myMailboxSyncIncidentAlertDeliverySeries(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxSyncIncidentAlertDeliveryTrendPointResponse!]!`
+    - `myMailboxSyncIncidentAlertDeliveryDataExport(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): MailboxSyncIncidentAlertDeliveryDataExportResponse!`
     - `myMailboxSyncDataExport(mailboxId?: String, workspaceId?: String, limit?: Int, windowHours?: Int, bucketMinutes?: Int): MailboxSyncDataExportResponse!`
     - `purgeMyMailboxSyncRunRetentionData(retentionDays?: Int): MailboxSyncRunRetentionPurgeResponse!`
     - `purgeMyMailboxInboundRetentionData(retentionDays?: Int): MailboxInboundRetentionPurgeResponse!`
@@ -363,6 +366,12 @@ flowchart TD
   - returns bucketed failed/partial sync incident trend points for alert dashboards
 - `myMailboxSyncIncidentDataExport`
   - exports sync incident analytics snapshot (stats + trend) as JSON payload
+- `myMailboxSyncIncidentAlertDeliveryStats`
+  - returns aggregate counts over emitted `MAILBOX_SYNC_INCIDENT_ALERT` notifications
+- `myMailboxSyncIncidentAlertDeliverySeries`
+  - returns bucketed delivery trend for emitted sync incident alerts
+- `myMailboxSyncIncidentAlertDeliveryDataExport`
+  - exports sync incident alert delivery analytics snapshot (stats + trend)
 - `myMailboxSyncDataExport`
   - exports sync run observability payload (stats + trend + recent runs) as JSON
 - `purgeMyMailboxSyncRunRetentionData`

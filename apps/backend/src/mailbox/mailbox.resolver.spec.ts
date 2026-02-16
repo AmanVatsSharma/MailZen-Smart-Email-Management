@@ -26,6 +26,9 @@ describe('MailboxResolver', () => {
     getMailboxSyncIncidentStatsForUser: jest.fn(),
     getMailboxSyncIncidentSeriesForUser: jest.fn(),
     exportMailboxSyncIncidentDataForUser: jest.fn(),
+    getMailboxSyncIncidentAlertDeliveryStatsForUser: jest.fn(),
+    getMailboxSyncIncidentAlertDeliverySeriesForUser: jest.fn(),
+    exportMailboxSyncIncidentAlertDeliveryDataForUser: jest.fn(),
     purgeMailboxSyncRunRetentionData: jest.fn(),
   };
 
@@ -525,6 +528,90 @@ describe('MailboxResolver', () => {
     ).toHaveBeenCalledWith({
       userId: 'user-1',
       mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+    expect(result.generatedAtIso).toBe('2026-02-16T00:00:00.000Z');
+  });
+
+  it('returns mailbox sync incident alert delivery stats for current user', async () => {
+    mailboxSyncServiceMock.getMailboxSyncIncidentAlertDeliveryStatsForUser.mockResolvedValue(
+      {
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        totalCount: 4,
+        warningCount: 3,
+        criticalCount: 1,
+        lastAlertAtIso: '2026-02-16T00:00:00.000Z',
+      },
+    );
+
+    const result = await resolver.myMailboxSyncIncidentAlertDeliveryStats(
+      ctx as any,
+      'workspace-1',
+      24,
+    );
+
+    expect(
+      mailboxSyncServiceMock.getMailboxSyncIncidentAlertDeliveryStatsForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+    });
+    expect(result.totalCount).toBe(4);
+  });
+
+  it('returns mailbox sync incident alert delivery series for current user', async () => {
+    mailboxSyncServiceMock.getMailboxSyncIncidentAlertDeliverySeriesForUser.mockResolvedValue(
+      [
+        {
+          bucketStart: new Date('2026-02-16T00:00:00.000Z'),
+          totalCount: 2,
+          warningCount: 1,
+          criticalCount: 1,
+        },
+      ],
+    );
+
+    const result = await resolver.myMailboxSyncIncidentAlertDeliverySeries(
+      ctx as any,
+      'workspace-1',
+      24,
+      60,
+    );
+
+    expect(
+      mailboxSyncServiceMock.getMailboxSyncIncidentAlertDeliverySeriesForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+    expect(result[0]?.criticalCount).toBe(1);
+  });
+
+  it('exports mailbox sync incident alert delivery payload for current user', async () => {
+    mailboxSyncServiceMock.exportMailboxSyncIncidentAlertDeliveryDataForUser.mockResolvedValue(
+      {
+        generatedAtIso: '2026-02-16T00:00:00.000Z',
+        dataJson: '{"stats":{"totalCount":4}}',
+      },
+    );
+
+    const result = await resolver.myMailboxSyncIncidentAlertDeliveryDataExport(
+      ctx as any,
+      'workspace-1',
+      24,
+      60,
+    );
+
+    expect(
+      mailboxSyncServiceMock.exportMailboxSyncIncidentAlertDeliveryDataForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
       workspaceId: 'workspace-1',
       windowHours: 24,
       bucketMinutes: 60,

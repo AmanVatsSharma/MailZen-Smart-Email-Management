@@ -18,6 +18,7 @@ import { Mailbox } from './entities/mailbox.entity';
 import { MailboxSyncRun } from './entities/mailbox-sync-run.entity';
 import { MailboxInboundService } from './mailbox-inbound.service';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
+import { UserNotification } from '../notification/entities/user-notification.entity';
 
 type MailboxSyncPullMessage = {
   mailboxEmail?: string;
@@ -75,6 +76,8 @@ export class MailboxSyncService {
     private readonly mailboxRepo: Repository<Mailbox>,
     @InjectRepository(MailboxSyncRun)
     private readonly mailboxSyncRunRepo: Repository<MailboxSyncRun>,
+    @InjectRepository(UserNotification)
+    private readonly notificationRepo: Repository<UserNotification>,
     private readonly mailboxInboundService: MailboxInboundService,
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
@@ -180,6 +183,19 @@ export class MailboxSyncService {
     if (normalized === 'PARTIAL') return 'PARTIAL';
     if (normalized === 'SKIPPED') return 'SKIPPED';
     return 'FAILED';
+  }
+
+  private normalizeSyncIncidentMetadataStatus(
+    metadata?: Record<string, unknown> | null,
+  ): 'WARNING' | 'CRITICAL' | 'UNKNOWN' {
+    const rawStatus = metadata?.incidentStatus;
+    const normalized =
+      typeof rawStatus === 'string' || typeof rawStatus === 'number'
+        ? String(rawStatus).trim().toUpperCase()
+        : '';
+    if (normalized === 'CRITICAL') return 'CRITICAL';
+    if (normalized === 'WARNING') return 'WARNING';
+    return 'UNKNOWN';
   }
 
   private normalizeWorkspaceId(workspaceId?: string | null): string | null {
@@ -1535,6 +1551,199 @@ export class MailboxSyncService {
           incidentRuns: point.incidentRuns,
           failedRuns: point.failedRuns,
           partialRuns: point.partialRuns,
+        })),
+      }),
+    };
+  }
+
+  async getMailboxSyncIncidentAlertDeliveryStatsForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+  }): Promise<{
+    workspaceId?: string | null;
+    windowHours: number;
+    totalCount: number;
+    warningCount: number;
+    criticalCount: number;
+    lastAlertAtIso?: string;
+  }> {
+    const windowHours = this.normalizeSyncObservabilityWindowHours(
+      input.windowHours,
+    );
+    const workspaceId = this.normalizeWorkspaceId(input.workspaceId);
+    const windowStartDate = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const notifications = await this.notificationRepo.find({
+      where: workspaceId
+        ? {
+            userId: input.userId,
+            workspaceId,
+            type: 'MAILBOX_SYNC_INCIDENT_ALERT',
+            createdAt: MoreThanOrEqual(windowStartDate),
+          }
+        : {
+            userId: input.userId,
+            type: 'MAILBOX_SYNC_INCIDENT_ALERT',
+            createdAt: MoreThanOrEqual(windowStartDate),
+          },
+      order: {
+        createdAt: 'DESC',
+      },
+      take: this.resolveSyncRunScanLimit(),
+    });
+    let warningCount = 0;
+    let criticalCount = 0;
+    for (const notification of notifications) {
+      const status = this.normalizeSyncIncidentMetadataStatus(
+        notification.metadata,
+      );
+      if (status === 'WARNING') warningCount += 1;
+      if (status === 'CRITICAL') criticalCount += 1;
+    }
+    return {
+      workspaceId,
+      windowHours,
+      totalCount: notifications.length,
+      warningCount,
+      criticalCount,
+      lastAlertAtIso: notifications[0]?.createdAt?.toISOString(),
+    };
+  }
+
+  async getMailboxSyncIncidentAlertDeliverySeriesForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<
+    Array<{
+      bucketStart: Date;
+      totalCount: number;
+      warningCount: number;
+      criticalCount: number;
+    }>
+  > {
+    const windowHours = this.normalizeSyncObservabilityWindowHours(
+      input.windowHours,
+    );
+    const bucketMinutes = this.normalizeSyncObservabilityBucketMinutes(
+      input.bucketMinutes,
+    );
+    const workspaceId = this.normalizeWorkspaceId(input.workspaceId);
+    const bucketMs = bucketMinutes * 60 * 1000;
+    const nowMs = Date.now();
+    const windowStartMs = nowMs - windowHours * 60 * 60 * 1000;
+    const normalizedWindowStartMs =
+      Math.floor(windowStartMs / bucketMs) * bucketMs;
+    const windowStartDate = new Date(windowStartMs);
+    const notifications = await this.notificationRepo.find({
+      where: workspaceId
+        ? {
+            userId: input.userId,
+            workspaceId,
+            type: 'MAILBOX_SYNC_INCIDENT_ALERT',
+            createdAt: MoreThanOrEqual(windowStartDate),
+          }
+        : {
+            userId: input.userId,
+            type: 'MAILBOX_SYNC_INCIDENT_ALERT',
+            createdAt: MoreThanOrEqual(windowStartDate),
+          },
+      order: {
+        createdAt: 'ASC',
+      },
+      take: this.resolveSyncRunScanLimit(),
+    });
+
+    const bucketMap = new Map<
+      number,
+      {
+        totalCount: number;
+        warningCount: number;
+        criticalCount: number;
+      }
+    >();
+    for (const notification of notifications) {
+      const bucketStartMs =
+        Math.floor(notification.createdAt.getTime() / bucketMs) * bucketMs;
+      const bucket = bucketMap.get(bucketStartMs) || {
+        totalCount: 0,
+        warningCount: 0,
+        criticalCount: 0,
+      };
+      bucket.totalCount += 1;
+      const status = this.normalizeSyncIncidentMetadataStatus(
+        notification.metadata,
+      );
+      if (status === 'WARNING') bucket.warningCount += 1;
+      if (status === 'CRITICAL') bucket.criticalCount += 1;
+      bucketMap.set(bucketStartMs, bucket);
+    }
+
+    const series: Array<{
+      bucketStart: Date;
+      totalCount: number;
+      warningCount: number;
+      criticalCount: number;
+    }> = [];
+    for (
+      let cursorMs = normalizedWindowStartMs;
+      cursorMs <= nowMs;
+      cursorMs += bucketMs
+    ) {
+      const bucket = bucketMap.get(cursorMs);
+      series.push({
+        bucketStart: new Date(cursorMs),
+        totalCount: bucket?.totalCount || 0,
+        warningCount: bucket?.warningCount || 0,
+        criticalCount: bucket?.criticalCount || 0,
+      });
+    }
+    return series;
+  }
+
+  async exportMailboxSyncIncidentAlertDeliveryDataForUser(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const windowHours = this.normalizeSyncObservabilityWindowHours(
+      input.windowHours,
+    );
+    const bucketMinutes = this.normalizeSyncObservabilityBucketMinutes(
+      input.bucketMinutes,
+    );
+    const [stats, series] = await Promise.all([
+      this.getMailboxSyncIncidentAlertDeliveryStatsForUser({
+        userId: input.userId,
+        workspaceId: input.workspaceId || null,
+        windowHours,
+      }),
+      this.getMailboxSyncIncidentAlertDeliverySeriesForUser({
+        userId: input.userId,
+        workspaceId: input.workspaceId || null,
+        windowHours,
+        bucketMinutes,
+      }),
+    ]);
+    const generatedAtIso = new Date().toISOString();
+    return {
+      generatedAtIso,
+      dataJson: JSON.stringify({
+        generatedAtIso,
+        workspaceId: stats.workspaceId || null,
+        windowHours,
+        bucketMinutes,
+        stats,
+        series: series.map((point) => ({
+          bucketStartIso: point.bucketStart.toISOString(),
+          totalCount: point.totalCount,
+          warningCount: point.warningCount,
+          criticalCount: point.criticalCount,
         })),
       }),
     };

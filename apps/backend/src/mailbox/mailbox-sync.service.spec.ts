@@ -7,6 +7,7 @@ import { MailboxSyncService } from './mailbox-sync.service';
 import { Mailbox } from './entities/mailbox.entity';
 import { MailboxSyncRun } from './entities/mailbox-sync-run.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
+import { UserNotification } from '../notification/entities/user-notification.entity';
 
 jest.mock('axios');
 
@@ -23,6 +24,9 @@ describe('MailboxSyncService', () => {
     create: jest.fn(),
     save: jest.fn(),
   } as unknown as jest.Mocked<Repository<MailboxSyncRun>>;
+  const notificationRepo: jest.Mocked<Repository<UserNotification>> = {
+    find: jest.fn(),
+  } as unknown as jest.Mocked<Repository<UserNotification>>;
   const mailboxInboundServiceMock: jest.Mocked<
     Pick<MailboxInboundService, 'ingestInboundEvent'>
   > = {
@@ -51,6 +55,7 @@ describe('MailboxSyncService', () => {
     mailboxSyncRunRepo.save.mockResolvedValue({} as MailboxSyncRun);
     mailboxSyncRunRepo.delete.mockResolvedValue({ affected: 0 } as never);
     mailboxSyncRunRepo.find.mockResolvedValue([]);
+    notificationRepo.find.mockResolvedValue([]);
     mailboxInboundServiceMock.ingestInboundEvent.mockResolvedValue({
       accepted: true,
       mailboxId: 'mailbox-1',
@@ -65,6 +70,7 @@ describe('MailboxSyncService', () => {
     service = new MailboxSyncService(
       mailboxRepo,
       mailboxSyncRunRepo,
+      notificationRepo,
       mailboxInboundServiceMock as unknown as MailboxInboundService,
       notificationEventBusMock as unknown as NotificationEventBusService,
     );
@@ -841,6 +847,106 @@ describe('MailboxSyncService', () => {
     };
     expect(payload.stats.incidentRuns).toBe(2);
     expect(payload.series[0]?.incidentRuns).toBe(1);
+  });
+
+  it('returns mailbox sync incident alert delivery stats', async () => {
+    notificationRepo.find.mockResolvedValue([
+      {
+        id: 'notif-1',
+        userId: 'user-1',
+        type: 'MAILBOX_SYNC_INCIDENT_ALERT',
+        metadata: {
+          incidentStatus: 'WARNING',
+        },
+        createdAt: new Date('2026-02-16T00:10:00.000Z'),
+      } as unknown as UserNotification,
+      {
+        id: 'notif-2',
+        userId: 'user-1',
+        type: 'MAILBOX_SYNC_INCIDENT_ALERT',
+        metadata: {
+          incidentStatus: 'CRITICAL',
+        },
+        createdAt: new Date('2026-02-16T00:20:00.000Z'),
+      } as unknown as UserNotification,
+    ]);
+
+    const stats = await service.getMailboxSyncIncidentAlertDeliveryStatsForUser(
+      {
+        userId: 'user-1',
+        windowHours: 24,
+      },
+    );
+
+    expect(stats.totalCount).toBe(2);
+    expect(stats.warningCount).toBe(1);
+    expect(stats.criticalCount).toBe(1);
+    expect(stats.lastAlertAtIso).toBe('2026-02-16T00:10:00.000Z');
+  });
+
+  it('returns mailbox sync incident alert delivery series', async () => {
+    notificationRepo.find.mockResolvedValue([
+      {
+        id: 'notif-1',
+        userId: 'user-1',
+        type: 'MAILBOX_SYNC_INCIDENT_ALERT',
+        metadata: {
+          incidentStatus: 'CRITICAL',
+        },
+        createdAt: new Date(),
+      } as unknown as UserNotification,
+    ]);
+
+    const series =
+      await service.getMailboxSyncIncidentAlertDeliverySeriesForUser({
+        userId: 'user-1',
+        windowHours: 1,
+        bucketMinutes: 60,
+      });
+
+    const populated = series.find((point) => point.totalCount > 0);
+    expect(populated).toBeDefined();
+    expect(populated?.criticalCount).toBe(1);
+  });
+
+  it('exports mailbox sync incident alert delivery payload', async () => {
+    const statsSpy = jest
+      .spyOn(service, 'getMailboxSyncIncidentAlertDeliveryStatsForUser')
+      .mockResolvedValue({
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        totalCount: 2,
+        warningCount: 1,
+        criticalCount: 1,
+        lastAlertAtIso: '2026-02-16T00:20:00.000Z',
+      });
+    const seriesSpy = jest
+      .spyOn(service, 'getMailboxSyncIncidentAlertDeliverySeriesForUser')
+      .mockResolvedValue([
+        {
+          bucketStart: new Date('2026-02-16T00:00:00.000Z'),
+          totalCount: 2,
+          warningCount: 1,
+          criticalCount: 1,
+        },
+      ]);
+
+    const exported =
+      await service.exportMailboxSyncIncidentAlertDeliveryDataForUser({
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        bucketMinutes: 60,
+      });
+
+    expect(statsSpy).toHaveBeenCalledTimes(1);
+    expect(seriesSpy).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(exported.dataJson) as {
+      stats: { totalCount: number };
+      series: Array<{ totalCount: number }>;
+    };
+    expect(payload.stats.totalCount).toBe(2);
+    expect(payload.series[0]?.totalCount).toBe(2);
   });
 
   it('purges mailbox sync run retention rows for a scoped user', async () => {
