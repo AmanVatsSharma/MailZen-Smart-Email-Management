@@ -151,7 +151,22 @@ export class MailServerService {
   }
 
   private normalizeAdminApiBaseUrl(rawUrl: string): string {
-    return rawUrl.trim().replace(/\/$/, '');
+    return rawUrl.trim().replace(/\/+$/, '');
+  }
+
+  private resolveAdminApiBaseUrls(): string[] {
+    const envList = String(process.env.MAILZEN_MAIL_ADMIN_API_URLS || '')
+      .split(',')
+      .map((value) => this.normalizeAdminApiBaseUrl(value))
+      .filter(Boolean);
+    if (envList.length > 0) {
+      return Array.from(new Set(envList));
+    }
+    const singleUrl = this.normalizeAdminApiBaseUrl(
+      process.env.MAILZEN_MAIL_ADMIN_API_URL || '',
+    );
+    if (!singleUrl) return [];
+    return [singleUrl];
   }
 
   private resolveIdempotencyKey(mailboxEmail: string): string {
@@ -293,18 +308,18 @@ export class MailServerService {
     generatedPassword: string;
     quotaLimitMb?: number | null;
   }): Promise<void> {
-    const adminApiUrl = process.env.MAILZEN_MAIL_ADMIN_API_URL?.trim();
-    if (!adminApiUrl) {
+    const adminApiBaseUrls = this.resolveAdminApiBaseUrls();
+    if (!adminApiBaseUrls.length) {
       if (this.isExternalProvisioningRequired()) {
         this.logger.error(
-          `MAILZEN_MAIL_ADMIN_API_URL missing while provisioning is required mailbox=${input.mailboxEmail}`,
+          `MAILZEN_MAIL_ADMIN_API_URL/MAILZEN_MAIL_ADMIN_API_URLS missing while provisioning is required mailbox=${input.mailboxEmail}`,
         );
         throw new InternalServerErrorException(
           'External mailbox provisioning endpoint is required but not configured',
         );
       }
       this.logger.warn(
-        'MAILZEN_MAIL_ADMIN_API_URL not configured; skipping external mailbox API provisioning',
+        'MAILZEN_MAIL_ADMIN_API_URL/MAILZEN_MAIL_ADMIN_API_URLS not configured; skipping external mailbox API provisioning',
       );
       return;
     }
@@ -315,11 +330,6 @@ export class MailServerService {
     const backoffMs = this.getAdminApiBackoffMs();
     const maxJitterMs = this.getAdminApiJitterMs();
     const adminToken = process.env.MAILZEN_MAIL_ADMIN_API_TOKEN?.trim();
-    const normalizedBaseUrl = this.normalizeAdminApiBaseUrl(adminApiUrl);
-    const endpoint = this.buildProvisionEndpoint({
-      provider,
-      baseUrl: normalizedBaseUrl,
-    });
     const payload = this.buildProvisionPayload({
       provider,
       mailboxEmail: input.mailboxEmail,
@@ -336,42 +346,61 @@ export class MailServerService {
     };
 
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
-      try {
-        await axios.post(endpoint, payload, {
-          timeout: timeoutMs,
-          headers,
+      for (
+        let endpointIndex = 0;
+        endpointIndex < adminApiBaseUrls.length;
+        endpointIndex += 1
+      ) {
+        const baseUrl = adminApiBaseUrls[endpointIndex];
+        const endpoint = this.buildProvisionEndpoint({
+          provider,
+          baseUrl,
         });
-        this.logger.log(
-          `External mailbox API provisioning succeeded for ${input.mailboxEmail} provider=${provider} attempts=${attempt + 1}`,
-        );
-        return;
-      } catch (error: unknown) {
-        if (this.isAlreadyProvisionedError(error)) {
-          this.logger.warn(
-            `External mailbox already provisioned for ${input.mailboxEmail}; treating as idempotent success`,
+        const isLastEndpoint = endpointIndex >= adminApiBaseUrls.length - 1;
+        try {
+          await axios.post(endpoint, payload, {
+            timeout: timeoutMs,
+            headers,
+          });
+          this.logger.log(
+            `External mailbox API provisioning succeeded for ${input.mailboxEmail} provider=${provider} endpoint=${baseUrl} attempts=${attempt + 1}`,
           );
           return;
-        }
-        const errorMessage = this.describeProvisioningError(error);
-        const isRetryable = this.isRetryableProvisioningError(error);
-        const isLastAttempt = attempt >= maxRetries;
+        } catch (error: unknown) {
+          if (this.isAlreadyProvisionedError(error)) {
+            this.logger.warn(
+              `External mailbox already provisioned for ${input.mailboxEmail}; treating as idempotent success`,
+            );
+            return;
+          }
+          const errorMessage = this.describeProvisioningError(error);
+          const isRetryable = this.isRetryableProvisioningError(error);
+          const isLastAttempt = attempt >= maxRetries;
 
-        if (!isRetryable || isLastAttempt) {
-          this.logger.error(
-            `External mailbox API provisioning failed for ${input.mailboxEmail} provider=${provider} attempts=${attempt + 1}: ${errorMessage}`,
-          );
-          throw new InternalServerErrorException(
-            'Mailbox provisioning failed on external mail server',
-          );
-        }
+          if (!isRetryable || (isLastAttempt && isLastEndpoint)) {
+            this.logger.error(
+              `External mailbox API provisioning failed for ${input.mailboxEmail} provider=${provider} endpoint=${baseUrl} attempts=${attempt + 1}: ${errorMessage}`,
+            );
+            throw new InternalServerErrorException(
+              'Mailbox provisioning failed on external mail server',
+            );
+          }
 
-        const jitterMs =
-          maxJitterMs > 0 ? Math.floor(Math.random() * (maxJitterMs + 1)) : 0;
-        const waitMs = backoffMs * (attempt + 1) + jitterMs;
-        this.logger.warn(
-          `External mailbox provisioning retry for ${input.mailboxEmail} provider=${provider} attempt=${attempt + 1} waitMs=${waitMs} error=${errorMessage}`,
-        );
-        await this.sleep(waitMs);
+          if (!isLastEndpoint) {
+            this.logger.warn(
+              `External mailbox provisioning failover for ${input.mailboxEmail} provider=${provider} from=${baseUrl} to=${adminApiBaseUrls[endpointIndex + 1]} error=${errorMessage}`,
+            );
+            continue;
+          }
+
+          const jitterMs =
+            maxJitterMs > 0 ? Math.floor(Math.random() * (maxJitterMs + 1)) : 0;
+          const waitMs = backoffMs * (attempt + 1) + jitterMs;
+          this.logger.warn(
+            `External mailbox provisioning retry for ${input.mailboxEmail} provider=${provider} attempt=${attempt + 1} waitMs=${waitMs} error=${errorMessage}`,
+          );
+          await this.sleep(waitMs);
+        }
       }
     }
   }
@@ -403,44 +432,47 @@ export class MailServerService {
   }
 
   private async attemptExternalRollback(input: { mailboxEmail: string }) {
-    const adminApiUrl = process.env.MAILZEN_MAIL_ADMIN_API_URL?.trim();
-    if (!adminApiUrl) return;
+    const adminApiBaseUrls = this.resolveAdminApiBaseUrls();
+    if (!adminApiBaseUrls.length) return;
 
     const provider = this.resolveMailAdminProvider();
     const timeoutMs = this.getAdminApiTimeoutMs();
     const adminToken = process.env.MAILZEN_MAIL_ADMIN_API_TOKEN?.trim();
-    const normalizedBaseUrl = this.normalizeAdminApiBaseUrl(adminApiUrl);
-    const deprovisionRequest = this.buildDeprovisionEndpoint({
-      provider,
-      baseUrl: normalizedBaseUrl,
-      mailboxEmail: input.mailboxEmail,
-    });
     const headers = {
       'content-type': 'application/json',
       'x-mailzen-mailbox-email': input.mailboxEmail,
       ...this.resolveAuthHeaders(adminToken),
     };
 
-    try {
-      if (deprovisionRequest.method === 'post') {
-        await axios.post(deprovisionRequest.url, deprovisionRequest.payload, {
-          timeout: timeoutMs,
-          headers,
-        });
-      } else {
-        await axios.delete(deprovisionRequest.url, {
-          timeout: timeoutMs,
-          headers,
-        });
+    for (let index = 0; index < adminApiBaseUrls.length; index += 1) {
+      const baseUrl = adminApiBaseUrls[index];
+      const deprovisionRequest = this.buildDeprovisionEndpoint({
+        provider,
+        baseUrl,
+        mailboxEmail: input.mailboxEmail,
+      });
+      try {
+        if (deprovisionRequest.method === 'post') {
+          await axios.post(deprovisionRequest.url, deprovisionRequest.payload, {
+            timeout: timeoutMs,
+            headers,
+          });
+        } else {
+          await axios.delete(deprovisionRequest.url, {
+            timeout: timeoutMs,
+            headers,
+          });
+        }
+        this.logger.warn(
+          `External mailbox rollback succeeded for ${input.mailboxEmail} endpoint=${baseUrl}`,
+        );
+        return;
+      } catch (error: unknown) {
+        const message = this.describeProvisioningError(error);
+        this.logger.warn(
+          `External mailbox rollback failed for ${input.mailboxEmail} endpoint=${baseUrl}: ${message}`,
+        );
       }
-      this.logger.warn(
-        `External mailbox rollback succeeded for ${input.mailboxEmail}`,
-      );
-    } catch (error: unknown) {
-      const message = this.describeProvisioningError(error);
-      this.logger.warn(
-        `External mailbox rollback failed for ${input.mailboxEmail}: ${message}`,
-      );
     }
   }
 

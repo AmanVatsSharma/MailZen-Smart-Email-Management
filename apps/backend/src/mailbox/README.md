@@ -24,8 +24,9 @@ This module covers:
   - creates mailbox row and triggers provisioning
 - `mail-server.service.ts`
   - generates mailbox password
-  - optionally calls external admin API (`MAILZEN_MAIL_ADMIN_API_URL`)
+  - optionally calls external admin API (`MAILZEN_MAIL_ADMIN_API_URL` / `MAILZEN_MAIL_ADMIN_API_URLS`)
   - supports provider adapters (`GENERIC`, `MAILCOW`, `MAILU`)
+  - supports endpoint failover across configured admin API URLs before retry cycle backoff
   - applies retry/backoff/jitter for recoverable admin API failures
   - sends deterministic idempotency key header for safe replays
   - treats provider duplicate/conflict responses as idempotent success
@@ -77,13 +78,16 @@ flowchart TD
   GQL --> Service[MailboxService.createMailbox]
   Service --> DB1[(mailboxes insert)]
   Service --> Provision[MailServerService.provisionMailbox]
-  Provision --> API{MAILZEN_MAIL_ADMIN_API_URL configured?}
+  Provision --> API{MAILZEN_MAIL_ADMIN_API_URL(S) configured?}
   API -->|no| Required{MAILZEN_MAIL_ADMIN_REQUIRED?}
   Required -->|yes| Fail[Raise provisioning error]
   Required -->|no| Skip[Local dev fallback mode]
   API -->|yes| AdminAPI[POST provider endpoint + idempotency key]
   AdminAPI --> Retry{Recoverable failure?}
-  Retry -->|yes| Backoff[Retry with backoff + jitter]
+  Retry -->|yes| EndpointFailover{More configured endpoints?}
+  EndpointFailover -->|yes| NextEndpoint[Try next admin endpoint]
+  NextEndpoint --> AdminAPI
+  EndpointFailover -->|no| Backoff[Retry with backoff + jitter]
   Backoff --> AdminAPI
   Retry -->|no| Fail
   Fail --> Rollback[MailboxService deletes inserted mailbox row]
@@ -111,9 +115,13 @@ flowchart TD
 ### Optional external mailbox provisioning
 
 - `MAILZEN_MAIL_ADMIN_API_URL`
-  - when set, service calls provider-specific mailbox provisioning endpoint
+  - single base URL for provider-specific mailbox provisioning endpoint
+- `MAILZEN_MAIL_ADMIN_API_URLS`
+  - optional comma-delimited list of base URLs for endpoint failover
+  - deduplicated and normalized automatically
+  - when set, takes priority over `MAILZEN_MAIL_ADMIN_API_URL`
 - `MAILZEN_MAIL_ADMIN_REQUIRED` (default `true` in production, `false` otherwise)
-  - when `true`, alias provisioning fails if `MAILZEN_MAIL_ADMIN_API_URL` is missing
+  - when `true`, alias provisioning fails if both `MAILZEN_MAIL_ADMIN_API_URLS` and `MAILZEN_MAIL_ADMIN_API_URL` are missing
   - when `false`, service runs in local fallback mode if API URL is not configured
 - `MAILZEN_MAIL_ADMIN_API_TOKEN`
   - optional bearer token for admin API
@@ -202,13 +210,14 @@ flowchart TD
 
 ## Error handling behavior
 
-- If `MAILZEN_MAIL_ADMIN_API_URL` is missing:
+- If both `MAILZEN_MAIL_ADMIN_API_URLS` and `MAILZEN_MAIL_ADMIN_API_URL` are missing:
   - and `MAILZEN_MAIL_ADMIN_REQUIRED=true`:
     - throws `InternalServerErrorException`
     - mailbox credential persistence is not attempted
   - and `MAILZEN_MAIL_ADMIN_REQUIRED=false`:
     - provisioning continues in local fallback mode for non-production usage
 - If external admin API is configured and provisioning call fails:
+  - service failovers across configured admin endpoints before consuming retry attempts
   - throws `InternalServerErrorException`
   - mailbox credential persistence is skipped
 - If mailbox row exists but provisioning fails during `createMailbox`:

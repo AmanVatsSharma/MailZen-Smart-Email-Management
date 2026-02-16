@@ -23,6 +23,7 @@ describe('MailServerService', () => {
     process.env = { ...originalEnv };
     process.env.SECRETS_KEY = 'abcdefghijklmnopqrstuvwxyz123456';
     delete process.env.MAILZEN_MAIL_ADMIN_API_URL;
+    delete process.env.MAILZEN_MAIL_ADMIN_API_URLS;
     delete process.env.MAILZEN_MAIL_ADMIN_API_TOKEN;
     delete process.env.MAILZEN_MAIL_ADMIN_PROVIDER;
     delete process.env.MAILZEN_MAIL_ADMIN_REQUIRED;
@@ -146,6 +147,46 @@ describe('MailServerService', () => {
     expect(mailboxRepo.update).toHaveBeenCalledTimes(1);
   });
 
+  it('fails over across configured admin endpoints before retrying attempts', async () => {
+    process.env.MAILZEN_MAIL_ADMIN_API_URLS =
+      'https://mail-admin-a.local, https://mail-admin-b.local';
+    process.env.MAILZEN_MAIL_ADMIN_API_RETRIES = '0';
+    mockedAxios.post
+      .mockRejectedValueOnce({
+        isAxiosError: true,
+        message: 'service unavailable',
+        response: {
+          status: 503,
+        },
+      })
+      .mockResolvedValueOnce({ data: { ok: true } } as never);
+    mailboxRepo.update.mockResolvedValue({ affected: 1 });
+    const service = new MailServerService(
+      mailboxRepo as unknown as Repository<Mailbox>,
+    );
+
+    await service.provisionMailbox('user-1', 'sales');
+
+    expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+    expect(mockedAxios.post).toHaveBeenNthCalledWith(
+      1,
+      expect.stringMatching(
+        /^https:\/\/mail-admin-a\.local\/mailboxes$/,
+      ),
+      expect.any(Object),
+      expect.any(Object),
+    );
+    expect(mockedAxios.post).toHaveBeenNthCalledWith(
+      2,
+      expect.stringMatching(
+        /^https:\/\/mail-admin-b\.local\/mailboxes$/,
+      ),
+      expect.any(Object),
+      expect.any(Object),
+    );
+    expect(mailboxRepo.update).toHaveBeenCalledTimes(1);
+  });
+
   it('passes entitlement mailbox quota to mailcow provisioning payload', async () => {
     process.env.MAILZEN_MAIL_ADMIN_API_URL = 'https://mail-admin.local';
     process.env.MAILZEN_MAIL_ADMIN_PROVIDER = 'MAILCOW';
@@ -203,6 +244,43 @@ describe('MailServerService', () => {
     expect(mockedAxios.delete).toHaveBeenCalledWith(
       expect.stringMatching(
         /^https:\/\/mail-admin\.local\/mailboxes\/sales%40mailzen\.com$/,
+      ),
+      expect.any(Object),
+    );
+  });
+
+  it('fails over rollback calls across configured admin endpoints', async () => {
+    process.env.MAILZEN_MAIL_ADMIN_API_URLS =
+      'https://mail-admin-a.local, https://mail-admin-b.local';
+    mockedAxios.post.mockResolvedValue({ data: { ok: true } } as never);
+    mockedAxios.delete
+      .mockRejectedValueOnce({
+        isAxiosError: true,
+        response: {
+          status: 500,
+        },
+      })
+      .mockResolvedValueOnce({ data: { ok: true } } as never);
+    mailboxRepo.update.mockResolvedValue({ affected: 0 });
+    const service = new MailServerService(
+      mailboxRepo as unknown as Repository<Mailbox>,
+    );
+
+    await expect(service.provisionMailbox('user-1', 'sales')).rejects.toThrow(
+      InternalServerErrorException,
+    );
+    expect(mockedAxios.delete).toHaveBeenCalledTimes(2);
+    expect(mockedAxios.delete).toHaveBeenNthCalledWith(
+      1,
+      expect.stringMatching(
+        /^https:\/\/mail-admin-a\.local\/mailboxes\/sales%40mailzen\.com$/,
+      ),
+      expect.any(Object),
+    );
+    expect(mockedAxios.delete).toHaveBeenNthCalledWith(
+      2,
+      expect.stringMatching(
+        /^https:\/\/mail-admin-b\.local\/mailboxes\/sales%40mailzen\.com$/,
       ),
       expect.any(Object),
     );
