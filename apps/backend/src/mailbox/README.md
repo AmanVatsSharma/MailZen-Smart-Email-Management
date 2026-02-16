@@ -95,6 +95,11 @@ This module covers:
   - cron (`*/15 * * * *`) for mailbox sync incident-rate monitoring + alert emission
   - emits `MAILBOX_SYNC_INCIDENT_ALERT` notifications when warning/critical thresholds are breached
   - deduplicates same-status alerts during cooldown windows
+  - structured scheduler logs include run correlation id across monitor lifecycle
+    (`mailbox_sync_incident_monitor_start`,
+    `mailbox_sync_incident_alert_suppressed`,
+    `mailbox_sync_incident_alert_emitted`,
+    `mailbox_sync_incident_monitor_failed`)
 
 ## Provisioning flow
 

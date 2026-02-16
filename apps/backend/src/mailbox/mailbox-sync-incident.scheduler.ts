@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { serializeStructuredLog } from '../common/logging/structured-log.util';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { NotificationService } from '../notification/notification.service';
 import { UserNotification } from '../notification/entities/user-notification.entity';
@@ -252,9 +255,15 @@ export class MailboxSyncIncidentScheduler {
 
   @Cron('*/15 * * * *')
   async monitorMailboxSyncIncidents(): Promise<void> {
+    const runCorrelationId = resolveCorrelationId(undefined);
     const config = this.resolveMonitorConfig();
     if (!config.alertsEnabled) {
-      this.logger.log('mailbox-sync-incident: alerts disabled by env');
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'mailbox_sync_incident_alerts_disabled',
+          runCorrelationId,
+        }),
+      );
       return;
     }
     const monitoredUserIds = await this.resolveMonitoredUserIds({
@@ -267,6 +276,7 @@ export class MailboxSyncIncidentScheduler {
       serializeStructuredLog({
         event: 'mailbox_sync_incident_monitor_start',
         monitoredUsers: monitoredUserIds.length,
+        runCorrelationId,
         windowHours: config.windowHours,
         cooldownMinutes: config.cooldownMinutes,
         warningRatePercent: config.warningRatePercent,
@@ -278,6 +288,7 @@ export class MailboxSyncIncidentScheduler {
     for (const userId of monitoredUserIds) {
       await this.monitorUserMailboxSyncIncidents({
         userId,
+        runCorrelationId,
         windowHours: config.windowHours,
         cooldownMinutes: config.cooldownMinutes,
         warningRatePercent: config.warningRatePercent,
@@ -310,6 +321,7 @@ export class MailboxSyncIncidentScheduler {
 
   private async monitorUserMailboxSyncIncidents(input: {
     userId: string;
+    runCorrelationId: string;
     windowHours: number;
     cooldownMinutes: number;
     warningRatePercent: number;
@@ -372,6 +384,7 @@ export class MailboxSyncIncidentScheduler {
           serializeStructuredLog({
             event: 'mailbox_sync_incident_alert_suppressed',
             userId: input.userId,
+            runCorrelationId: input.runCorrelationId,
             incidentStatus: status,
             reason: 'cooldown-active',
           }),
@@ -405,6 +418,7 @@ export class MailboxSyncIncidentScheduler {
         serializeStructuredLog({
           event: 'mailbox_sync_incident_alert_emitted',
           userId: input.userId,
+          runCorrelationId: input.runCorrelationId,
           incidentStatus: status,
           incidentRatePercent: stats.incidentRatePercent,
           incidentRuns: stats.incidentRuns,
@@ -417,6 +431,7 @@ export class MailboxSyncIncidentScheduler {
         serializeStructuredLog({
           event: 'mailbox_sync_incident_monitor_failed',
           userId: input.userId,
+          runCorrelationId: input.runCorrelationId,
           reason,
         }),
       );
