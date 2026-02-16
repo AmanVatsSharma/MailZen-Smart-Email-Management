@@ -62,9 +62,18 @@ export function createHttpAuthCallbackRateLimitMiddleware(
   const callbackPaths = new Set(
     (config.callbackPaths || []).map((pathValue) => normalizePath(pathValue)),
   );
+  const hasConfiguredCallbackPaths = callbackPaths.size > 0;
+  if (config.enabled && !hasConfiguredCallbackPaths) {
+    logger.warn(
+      serializeStructuredLog({
+        event: 'http_auth_callback_rate_limit_paths_missing',
+      }),
+    );
+  }
 
   return (req: Request, res: Response, next: NextFunction) => {
     if (!config.enabled) return next();
+    if (!hasConfiguredCallbackPaths) return next();
     if (req.method === 'OPTIONS') return next();
 
     const pathValue = resolveRequestPath(req);

@@ -105,4 +105,35 @@ describe('createHttpAuthCallbackRateLimitMiddleware', () => {
     expect(next).toHaveBeenCalledTimes(1);
     expect(response.status).not.toHaveBeenCalled();
   });
+
+  it('warns and bypasses when enabled without callback paths', () => {
+    const middleware = createHttpAuthCallbackRateLimitMiddleware(
+      {
+        enabled: true,
+        maxRequests: 1,
+        windowMs: 60_000,
+        callbackPaths: [],
+      },
+      logger,
+    );
+    const next = jest.fn();
+
+    middleware(
+      {
+        method: 'GET',
+        path: '/auth/google/callback',
+        originalUrl: '/auth/google/callback',
+        headers: {},
+        ip: '127.0.0.1',
+      } as never,
+      response as never,
+      next,
+    );
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(response.status).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('http_auth_callback_rate_limit_paths_missing'),
+    );
+  });
 });

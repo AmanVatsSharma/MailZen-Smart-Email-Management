@@ -59,9 +59,18 @@ export function createHttpWebhookRateLimitMiddleware(
   const webhookPaths = new Set(
     (config.webhookPaths || []).map((pathValue) => normalizePath(pathValue)),
   );
+  const hasConfiguredWebhookPaths = webhookPaths.size > 0;
+  if (config.enabled && !hasConfiguredWebhookPaths) {
+    logger.warn(
+      serializeStructuredLog({
+        event: 'http_webhook_rate_limit_paths_missing',
+      }),
+    );
+  }
 
   return (req: Request, res: Response, next: NextFunction) => {
     if (!config.enabled) return next();
+    if (!hasConfiguredWebhookPaths) return next();
     if (req.method === 'OPTIONS') return next();
 
     const pathValue = resolveRequestPath(req);

@@ -56,6 +56,8 @@ Configured in `main.ts` and applied before global rate limiting:
 Behavior:
 - only throttles configured callback paths
 - emits structured warning event `http_auth_callback_rate_limited`
+- emits `http_auth_callback_rate_limit_paths_missing` when middleware is enabled
+  but no callback paths are configured
 - includes callback-specific response headers:
   - `x-auth-callback-rate-limit-limit`
   - `x-auth-callback-rate-limit-remaining`
@@ -74,6 +76,8 @@ Behavior:
 - throttles only configured webhook routes (supports nested provider paths like
   `/billing/webhooks/:provider`)
 - emits structured warning event `http_webhook_rate_limited`
+- emits `http_webhook_rate_limit_paths_missing` when middleware is enabled but
+  no webhook paths are configured
 - includes webhook-specific response headers:
   - `x-webhook-rate-limit-limit`
   - `x-webhook-rate-limit-remaining`
