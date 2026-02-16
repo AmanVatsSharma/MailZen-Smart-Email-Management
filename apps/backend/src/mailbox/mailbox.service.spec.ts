@@ -557,6 +557,12 @@ describe('MailboxService', () => {
     expect(result.dataJson).toContain('"stats"');
     expect(result.dataJson).toContain('"events"');
     expect(result.dataJson).toContain('"retentionPolicy"');
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'mailbox_inbound_data_export_requested',
+      }),
+    );
 
     inboundEventsSpy.mockRestore();
     inboundStatsSpy.mockRestore();

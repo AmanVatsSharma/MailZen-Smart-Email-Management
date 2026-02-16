@@ -463,6 +463,7 @@ flowchart TD
   common structured logging utilities, with recursive PII redaction and request correlation id propagation.
 - Compliance/audit actions persisted in `audit_logs`:
   - `mailbox_created`
+  - `mailbox_inbound_data_export_requested`
   - `mailbox_inbound_retention_purged`
   - `mailbox_sync_run_retention_purged`
   - `mailbox_sync_data_export_requested`

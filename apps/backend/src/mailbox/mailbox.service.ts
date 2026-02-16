@@ -669,6 +669,18 @@ export class MailboxService {
         createdAtIso: event.createdAt.toISOString(),
       })),
     };
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'mailbox_inbound_data_export_requested',
+      metadata: {
+        mailboxId: input.mailboxId || null,
+        workspaceId: input.workspaceId || null,
+        limit,
+        windowHours: input.windowHours ?? null,
+        bucketMinutes: input.bucketMinutes ?? null,
+        exportedEventCount: events.length,
+      },
+    });
 
     return {
       generatedAtIso: generatedAt.toISOString(),
