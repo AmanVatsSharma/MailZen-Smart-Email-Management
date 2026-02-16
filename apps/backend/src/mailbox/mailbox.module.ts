@@ -8,6 +8,7 @@ import { MailboxInboundController } from './mailbox-inbound.controller';
 import { MailboxInboundSlaScheduler } from './mailbox-inbound-sla.scheduler';
 import { MailboxInboundRetentionScheduler } from './mailbox-inbound-retention.scheduler';
 import { MailboxSyncScheduler } from './mailbox-sync.scheduler';
+import { MailboxSyncRunRetentionScheduler } from './mailbox-sync-run-retention.scheduler';
 import { MailboxSyncService } from './mailbox-sync.service';
 import { BillingModule } from '../billing/billing.module';
 import { User } from '../user/entities/user.entity';
@@ -47,6 +48,7 @@ import { UserNotificationPreference } from '../notification/entities/user-notifi
     MailboxInboundSlaScheduler,
     MailboxInboundRetentionScheduler,
     MailboxSyncScheduler,
+    MailboxSyncRunRetentionScheduler,
   ],
   exports: [MailboxService, MailboxSyncService],
 })

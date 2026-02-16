@@ -77,6 +77,9 @@ This module covers:
 - `mailbox-sync.scheduler.ts`
   - cron (`*/10 * * * *`) for active mailbox polling
   - env-gated via `MAILZEN_MAILBOX_SYNC_ENABLED`
+- `mailbox-sync-run-retention.scheduler.ts`
+  - daily cron (`EVERY_DAY_AT_3AM`) for sync-run observability data retention purge
+  - env-gated via `MAILZEN_MAILBOX_SYNC_RUN_AUTOPURGE_ENABLED`
 
 ## Provisioning flow
 
@@ -178,6 +181,8 @@ flowchart TD
   - safety cap for run rows scanned per observability query
 - `MAILZEN_MAILBOX_SYNC_RUN_RETENTION_DAYS` (default `90`)
   - retention horizon for persisted `mailbox_sync_runs` observability rows
+- `MAILZEN_MAILBOX_SYNC_RUN_AUTOPURGE_ENABLED` (default `true`)
+  - enables daily automatic purge of stale mailbox sync run observability rows
 
 ### Inbound webhook authentication
 
@@ -340,6 +345,10 @@ flowchart TD
 - `syncMyMailboxPull`
   - manually triggers pull sync for one mailbox or all active mailboxes for authenticated user
   - result reports aggregate poll counters (polled/skipped/failed/fetched/accepted/deduplicated/rejected)
+
+- `MailboxSyncRunRetentionScheduler`
+  - runs daily to purge stale `mailbox_sync_runs` rows using retention policy defaults
+  - logs purge totals and failures for operational auditability
 
 ## Notes
 
