@@ -276,11 +276,21 @@ Example:
 # Restart one service
 ./deploy/ec2/scripts/restart.sh frontend
 
+# Restart with dry-run and wait
+./deploy/ec2/scripts/restart.sh --service backend --dry-run
+./deploy/ec2/scripts/restart.sh --service backend --wait-seconds 5
+
 # Stop stack
 ./deploy/ec2/scripts/stop.sh
 
 # Stop + delete DB/cache data
 ./deploy/ec2/scripts/stop.sh --purge-data
+
+# Stop + purge non-interactively
+./deploy/ec2/scripts/stop.sh --purge-data --yes
+
+# Stop dry-run
+./deploy/ec2/scripts/stop.sh --dry-run
 ```
 
 Supported service names for `logs.sh` / `restart.sh`:

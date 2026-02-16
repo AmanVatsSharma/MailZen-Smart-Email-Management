@@ -45,7 +45,9 @@ Operations:
   ./deploy/ec2/scripts/logs.sh backend
   ./deploy/ec2/scripts/logs.sh --service backend --tail 500 --no-follow
   ./deploy/ec2/scripts/restart.sh backend
+  ./deploy/ec2/scripts/restart.sh --service backend --wait-seconds 5
   ./deploy/ec2/scripts/stop.sh
+  ./deploy/ec2/scripts/stop.sh --purge-data --yes
 
 Backup and recovery:
   ./deploy/ec2/scripts/backup-db.sh
