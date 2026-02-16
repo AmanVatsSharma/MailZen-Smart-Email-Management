@@ -104,4 +104,31 @@ describe('createHttpWebhookRateLimitMiddleware', () => {
     expect(next).toHaveBeenCalledTimes(1);
     expect(response.status).not.toHaveBeenCalled();
   });
+
+  it('applies webhook throttling for nested webhook provider paths', () => {
+    const middleware = createHttpWebhookRateLimitMiddleware(
+      {
+        enabled: true,
+        maxRequests: 1,
+        windowMs: 60_000,
+        webhookPaths: ['/billing/webhooks'],
+      },
+      logger,
+    );
+    const next = jest.fn();
+    const request = {
+      method: 'POST',
+      path: '/billing/webhooks/stripe',
+      originalUrl: '/billing/webhooks/stripe',
+      headers: {},
+      ip: '127.0.0.1',
+    } as never;
+
+    middleware(request, response as never, next);
+    middleware(request, response as never, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(response.status).toHaveBeenCalledWith(429);
+    expect(response.headers.get('x-webhook-rate-limit-limit')).toBe('1');
+  });
 });
