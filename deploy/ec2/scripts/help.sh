@@ -12,6 +12,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 domain="your-domain.example.com"
 active_env_file="$(get_env_file)"
+active_compose_file="$(get_compose_file)"
 if [[ -f "${active_env_file}" ]]; then
   candidate_domain="$(read_env_value "MAILZEN_DOMAIN")"
   if [[ -n "${candidate_domain}" ]]; then
@@ -21,6 +22,8 @@ fi
 
 cat <<HELP
 [mailzen-deploy][HELP] MailZen EC2 command reference
+[mailzen-deploy][HELP] Active env file: ${active_env_file}
+[mailzen-deploy][HELP] Active compose file: ${active_compose_file}
 
 Primary flow:
   ./deploy/ec2/scripts/launch.sh
