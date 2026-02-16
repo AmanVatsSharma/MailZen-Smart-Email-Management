@@ -1,6 +1,8 @@
 import * as crypto from 'crypto';
 
 type SmsDispatchPurpose = 'SIGNUP_OTP' | 'PHONE_VERIFY_OTP';
+type SmsProvider = 'CONSOLE' | 'WEBHOOK' | 'TWILIO' | 'DISABLED';
+type ActiveSmsProvider = Exclude<SmsProvider, 'DISABLED'>;
 
 export type SmsDispatchInput = {
   phoneNumber: string;
@@ -35,6 +37,20 @@ function resolveBoolean(rawValue: string | undefined, fallbackValue: boolean) {
   if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
   if (['false', '0', 'no', 'off'].includes(normalized)) return false;
   return fallbackValue;
+}
+
+function normalizeSmsProvider(
+  rawValue: string | undefined,
+  fallbackProvider: SmsProvider,
+): SmsProvider {
+  const normalized = String(rawValue || '')
+    .trim()
+    .toUpperCase();
+  if (normalized === 'WEBHOOK') return 'WEBHOOK';
+  if (normalized === 'TWILIO') return 'TWILIO';
+  if (normalized === 'DISABLED') return 'DISABLED';
+  if (normalized === 'CONSOLE') return 'CONSOLE';
+  return fallbackProvider;
 }
 
 async function dispatchViaWebhook(
@@ -176,46 +192,92 @@ function dispatchViaConsole(input: SmsDispatchInput): SmsDispatchResult {
   };
 }
 
+async function dispatchViaProvider(input: {
+  provider: SmsProvider;
+  payload: SmsDispatchInput;
+}): Promise<SmsDispatchResult> {
+  if (input.provider === 'WEBHOOK') {
+    return dispatchViaWebhook(input.payload);
+  }
+  if (input.provider === 'TWILIO') {
+    return dispatchViaTwilio(input.payload);
+  }
+  if (input.provider === 'DISABLED') {
+    return {
+      delivered: false,
+      provider: 'DISABLED',
+      failureReason: 'SMS provider disabled by configuration',
+    };
+  }
+  return dispatchViaConsole(input.payload);
+}
+
 export async function dispatchSmsOtp(
   input: SmsDispatchInput,
 ): Promise<SmsDispatchResult> {
-  const provider = String(process.env.MAILZEN_SMS_PROVIDER || 'CONSOLE')
+  const provider = normalizeSmsProvider(
+    process.env.MAILZEN_SMS_PROVIDER,
+    'CONSOLE',
+  );
+  const fallbackRaw = String(process.env.MAILZEN_SMS_FALLBACK_PROVIDER || '')
     .trim()
     .toUpperCase();
+  const fallbackProvider: ActiveSmsProvider | null = [
+    'CONSOLE',
+    'WEBHOOK',
+    'TWILIO',
+  ].includes(fallbackRaw)
+    ? (fallbackRaw as ActiveSmsProvider)
+    : null;
   const strictByDefault =
     (process.env.NODE_ENV || 'development') === 'production';
   const strictDelivery = resolveBoolean(
     process.env.MAILZEN_SMS_STRICT_DELIVERY,
     strictByDefault,
   );
-
-  try {
-    if (provider === 'WEBHOOK') {
-      return await dispatchViaWebhook(input);
-    }
-    if (provider === 'TWILIO') {
-      return await dispatchViaTwilio(input);
-    }
-    if (provider === 'DISABLED') {
-      return {
-        delivered: false,
-        provider: 'DISABLED',
-        failureReason: 'SMS provider disabled by configuration',
-      };
-    }
-    return dispatchViaConsole(input);
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    if (strictDelivery) {
-      throw new Error(`SMS delivery failed: ${errorMessage}`);
-    }
-    console.warn(
-      `[SmsDispatcher] Non-strict delivery failure: ${errorMessage}`,
-    );
+  if (provider === 'DISABLED') {
     return {
       delivered: false,
-      provider,
-      failureReason: errorMessage,
+      provider: 'DISABLED',
+      failureReason: 'SMS provider disabled by configuration',
     };
   }
+  const activeProvider = provider as ActiveSmsProvider;
+  const providerChain: ActiveSmsProvider[] = [activeProvider];
+  if (fallbackProvider && fallbackProvider !== activeProvider) {
+    providerChain.push(fallbackProvider);
+  }
+  let lastErrorMessage = 'SMS delivery provider failed';
+  let lastProvider: ActiveSmsProvider = activeProvider;
+
+  for (let index = 0; index < providerChain.length; index += 1) {
+    const activeProvider = providerChain[index];
+    lastProvider = activeProvider;
+    try {
+      return await dispatchViaProvider({
+        provider: activeProvider,
+        payload: input,
+      });
+    } catch (error: unknown) {
+      lastErrorMessage = error instanceof Error ? error.message : String(error);
+      const hasFallback = index < providerChain.length - 1;
+      if (hasFallback) {
+        const nextProvider = providerChain[index + 1];
+        console.warn(
+          `[SmsDispatcher] Provider ${activeProvider} failed; attempting fallback provider ${nextProvider}. message=${lastErrorMessage}`,
+        );
+      }
+    }
+  }
+  if (strictDelivery) {
+    throw new Error(`SMS delivery failed: ${lastErrorMessage}`);
+  }
+  console.warn(
+    `[SmsDispatcher] Non-strict delivery failure: ${lastErrorMessage}`,
+  );
+  return {
+    delivered: false,
+    provider: lastProvider,
+    failureReason: lastErrorMessage,
+  };
 }

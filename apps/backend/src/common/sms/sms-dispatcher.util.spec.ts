@@ -4,6 +4,7 @@ import { dispatchSmsOtp } from './sms-dispatcher.util';
 describe('dispatchSmsOtp', () => {
   const envBackup = {
     provider: process.env.MAILZEN_SMS_PROVIDER,
+    fallbackProvider: process.env.MAILZEN_SMS_FALLBACK_PROVIDER,
     webhookUrl: process.env.MAILZEN_SMS_WEBHOOK_URL,
     webhookToken: process.env.MAILZEN_SMS_WEBHOOK_TOKEN,
     webhookSigningKey: process.env.MAILZEN_SMS_WEBHOOK_SIGNING_KEY,
@@ -20,6 +21,7 @@ describe('dispatchSmsOtp', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
     delete process.env.MAILZEN_SMS_PROVIDER;
+    delete process.env.MAILZEN_SMS_FALLBACK_PROVIDER;
     delete process.env.MAILZEN_SMS_WEBHOOK_URL;
     delete process.env.MAILZEN_SMS_WEBHOOK_TOKEN;
     delete process.env.MAILZEN_SMS_WEBHOOK_SIGNING_KEY;
@@ -38,6 +40,11 @@ describe('dispatchSmsOtp', () => {
       process.env.MAILZEN_SMS_PROVIDER = envBackup.provider;
     } else {
       delete process.env.MAILZEN_SMS_PROVIDER;
+    }
+    if (typeof envBackup.fallbackProvider === 'string') {
+      process.env.MAILZEN_SMS_FALLBACK_PROVIDER = envBackup.fallbackProvider;
+    } else {
+      delete process.env.MAILZEN_SMS_FALLBACK_PROVIDER;
     }
     if (typeof envBackup.webhookUrl === 'string') {
       process.env.MAILZEN_SMS_WEBHOOK_URL = envBackup.webhookUrl;
@@ -211,6 +218,39 @@ describe('dispatchSmsOtp', () => {
     );
   });
 
+  it('falls back from webhook to twilio when primary provider fails', async () => {
+    process.env.MAILZEN_SMS_PROVIDER = 'WEBHOOK';
+    process.env.MAILZEN_SMS_FALLBACK_PROVIDER = 'TWILIO';
+    process.env.MAILZEN_SMS_WEBHOOK_URL = 'https://sms.mailzen.test/send';
+    process.env.MAILZEN_SMS_STRICT_DELIVERY = 'true';
+    process.env.MAILZEN_SMS_TWILIO_ACCOUNT_SID = 'AC123';
+    process.env.MAILZEN_SMS_TWILIO_AUTH_TOKEN = 'token-abc';
+    process.env.MAILZEN_SMS_TWILIO_FROM_NUMBER = '+15551110000';
+    process.env.MAILZEN_SMS_TWILIO_API_BASE_URL = 'https://api.twilio.test';
+    const fetchSpy: jest.SpiedFunction<typeof fetch> = jest.spyOn(
+      global,
+      'fetch',
+    );
+    fetchSpy
+      .mockResolvedValueOnce({ ok: false, status: 503 } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 201 } as Response);
+
+    const result = await dispatchSmsOtp({
+      phoneNumber: '+15550000000',
+      code: '313131',
+      purpose: 'SIGNUP_OTP',
+    });
+
+    expect(result).toEqual({
+      delivered: true,
+      provider: 'TWILIO',
+    });
+    expect(fetchSpy.mock.calls[0]?.[0]).toBe('https://sms.mailzen.test/send');
+    expect(fetchSpy.mock.calls[1]?.[0]).toBe(
+      'https://api.twilio.test/2010-04-01/Accounts/AC123/Messages.json',
+    );
+  });
+
   it('throws in strict mode when webhook delivery fails', async () => {
     process.env.MAILZEN_SMS_PROVIDER = 'WEBHOOK';
     process.env.MAILZEN_SMS_WEBHOOK_URL = 'https://sms.mailzen.test/send';
@@ -286,6 +326,33 @@ describe('dispatchSmsOtp', () => {
       dispatchSmsOtp({
         phoneNumber: '+15550000000',
         code: '101010',
+        purpose: 'PHONE_VERIFY_OTP',
+      }),
+    ).rejects.toThrow('SMS delivery failed');
+  });
+
+  it('throws in strict mode when primary and fallback providers fail', async () => {
+    process.env.MAILZEN_SMS_PROVIDER = 'WEBHOOK';
+    process.env.MAILZEN_SMS_FALLBACK_PROVIDER = 'TWILIO';
+    process.env.MAILZEN_SMS_WEBHOOK_URL = 'https://sms.mailzen.test/send';
+    process.env.MAILZEN_SMS_STRICT_DELIVERY = 'true';
+    process.env.MAILZEN_SMS_TWILIO_ACCOUNT_SID = 'AC123';
+    process.env.MAILZEN_SMS_TWILIO_AUTH_TOKEN = 'token-abc';
+    process.env.MAILZEN_SMS_TWILIO_FROM_NUMBER = '+15551110000';
+    process.env.MAILZEN_SMS_TWILIO_API_BASE_URL = 'https://api.twilio.test';
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce({ ok: false, status: 503 } as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        text: () => Promise.resolve('down'),
+      } as Response);
+
+    await expect(
+      dispatchSmsOtp({
+        phoneNumber: '+15550000000',
+        code: '414141',
         purpose: 'PHONE_VERIFY_OTP',
       }),
     ).rejects.toThrow('SMS delivery failed');

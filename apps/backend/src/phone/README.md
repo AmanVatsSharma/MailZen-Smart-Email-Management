@@ -23,6 +23,8 @@ Provide OTP-driven phone verification flows for authenticated users and phone-fi
 
 - `MAILZEN_SMS_PROVIDER` (default `CONSOLE`)
   - supported: `CONSOLE`, `WEBHOOK`, `TWILIO`, `DISABLED`
+- `MAILZEN_SMS_FALLBACK_PROVIDER` (optional)
+  - supported fallback targets: `CONSOLE`, `WEBHOOK`, `TWILIO`
 - `MAILZEN_SMS_STRICT_DELIVERY` (default `true` in production, otherwise `false`)
   - when `true`, SMS delivery failures reject the OTP mutation
 - `MAILZEN_SMS_WEBHOOK_URL`

@@ -14,6 +14,7 @@ Provide resilient OTP delivery with provider-level failover behavior and strict/
 ## Environment variables
 
 - `MAILZEN_SMS_PROVIDER` (`CONSOLE|WEBHOOK|TWILIO|DISABLED`)
+- `MAILZEN_SMS_FALLBACK_PROVIDER` (`CONSOLE|WEBHOOK|TWILIO`, optional secondary provider)
 - `MAILZEN_SMS_STRICT_DELIVERY`
   - production default: strict (`true`)
   - non-production default: non-strict (`false`)
@@ -54,10 +55,14 @@ Payload JSON:
 flowchart TD
   Service[Auth/Phone service] --> Dispatcher[dispatchSmsOtp]
   Dispatcher --> Provider{MAILZEN_SMS_PROVIDER}
+  Provider -->|primary fails| Fallback{Fallback provider configured?}
   Provider -->|CONSOLE| Console[Log OTP]
   Provider -->|WEBHOOK| Webhook[POST webhook]
   Provider -->|TWILIO| Twilio[POST Twilio Messages API]
   Provider -->|DISABLED| Disabled[Return non-delivered]
+  Fallback -->|yes| FallbackDispatch[Dispatch on fallback provider]
+  FallbackDispatch --> Strict
+  Fallback -->|no| Strict
   Webhook --> Strict{Strict delivery?}
   Twilio --> Strict
   Strict -->|yes + failure| Throw[Throw delivery error]
@@ -71,4 +76,6 @@ flowchart TD
 
 - Strict mode should be enabled in production to prevent unverifiable OTP issuance.
 - Non-strict mode is useful for local/dev/staging bring-up when SMS infrastructure is not yet available.
+- If `MAILZEN_SMS_FALLBACK_PROVIDER` is set and different from primary provider,
+  dispatcher retries OTP delivery once on fallback provider before final failure.
 - Webhook integrations should verify signing headers before accepting OTP dispatch payloads.

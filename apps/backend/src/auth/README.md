@@ -23,6 +23,7 @@ Web sessions are persisted with an HttpOnly `token` cookie.
   - `GOOGLE_OAUTH_SCOPES` (defaults include identity + Gmail access for auto-connect)
   - SMS OTP delivery settings (used by signup phone verification):
     - `MAILZEN_SMS_PROVIDER` (`CONSOLE` | `WEBHOOK` | `TWILIO` | `DISABLED`)
+    - `MAILZEN_SMS_FALLBACK_PROVIDER` (`CONSOLE` | `WEBHOOK` | `TWILIO`)
     - `MAILZEN_SMS_STRICT_DELIVERY`
     - `MAILZEN_SMS_WEBHOOK_URL`
     - `MAILZEN_SMS_WEBHOOK_TOKEN`
