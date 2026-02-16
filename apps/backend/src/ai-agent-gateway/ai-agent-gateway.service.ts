@@ -381,7 +381,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         userId,
       );
       this.logger.log(
-        JSON.stringify({
+        serializeStructuredLog({
           event: 'agent_assist_start',
           skill,
           requestId,
@@ -552,7 +552,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         this.logger.warn(
-          JSON.stringify({
+          serializeStructuredLog({
             event: 'agent_platform_health_probe_failed',
             probe: index + 1,
             serviceUrl: candidateBaseUrl,
@@ -1320,7 +1320,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     }
     const resetAtIso = new Date().toISOString();
     this.logger.warn(
-      JSON.stringify({
+      serializeStructuredLog({
         event: 'agent_platform_runtime_stats_reset',
         scopedEndpointUrl: scopedEndpointUrl || null,
         clearedEndpoints,
@@ -1362,7 +1362,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     }
     const resetAtIso = new Date().toISOString();
     this.logger.warn(
-      JSON.stringify({
+      serializeStructuredLog({
         event: 'agent_platform_skill_runtime_stats_reset',
         scopedSkill: scopedSkill || null,
         clearedSkills,
@@ -2267,7 +2267,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
             ? (error.response?.status ?? 'unknown')
             : 'unknown';
           this.logger.warn(
-            JSON.stringify({
+            serializeStructuredLog({
               event: 'agent_platform_call_failed',
               attempt: attempt + 1,
               endpointIndex: endpointIndex + 1,
@@ -2285,7 +2285,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       ? (lastError.response?.status ?? 'unknown')
       : 'unknown';
     this.logger.error(
-      JSON.stringify({
+      serializeStructuredLog({
         event: 'agent_platform_unavailable',
         requestId,
         finalStatus,
@@ -3378,10 +3378,10 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     };
 
     if (latencyMs > this.getLatencyWarnThresholdMs()) {
-      this.logger.warn(JSON.stringify(payload));
+      this.logger.warn(serializeStructuredLog(payload));
       return;
     }
-    this.logger.log(JSON.stringify(payload));
+    this.logger.log(serializeStructuredLog(payload));
   }
 
   private getLatencyWarnThresholdMs(): number {
