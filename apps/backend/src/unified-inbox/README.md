@@ -183,6 +183,18 @@ sequenceDiagram
   GQL-->>UI: EmailThread
 ```
 
+## Observability
+
+- Structured service events:
+  - `unified_inbox_emails_list_mailbox_completed`
+  - `unified_inbox_emails_list_provider_completed`
+  - `unified_inbox_gmail_api_retry`
+  - `unified_inbox_gmail_api_failed`
+  - `unified_inbox_gmail_access_token_refresh_failed`
+  - `unified_inbox_update_email_gmail_thread_modify_completed`
+  - `unified_inbox_update_email_gmail_message_modify_completed`
+  - `unified_inbox_update_email_local_completed`
+
 ## Changelog
 
 - 2026-02-16:

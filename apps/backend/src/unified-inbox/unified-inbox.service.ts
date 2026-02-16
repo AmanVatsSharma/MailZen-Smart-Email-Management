@@ -17,6 +17,7 @@ import { EmailLabel as PersistedEmailLabel } from '../email/entities/email-label
 import { EmailLabelAssignment } from '../email/entities/email-label-assignment.entity';
 import { Mailbox } from '../mailbox/entities/mailbox.entity';
 import { User } from '../user/entities/user.entity';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 import { EmailFilterInput } from './dto/email-filter.input';
 import { EmailSortInput } from './dto/email-sort.input';
 import { EmailUpdateInput } from './dto/email-update.input';
@@ -679,7 +680,14 @@ export class UnifiedInboxService {
 
       const pagedMailboxThreads = mailboxThreads.slice(offset, offset + limit);
       this.logger.log(
-        `emails list user=${userId} mailbox=${source.id} limit=${limit} offset=${offset} returned=${pagedMailboxThreads.length}`,
+        serializeStructuredLog({
+          event: 'unified_inbox_emails_list_mailbox_completed',
+          userId,
+          mailboxId: source.id,
+          limit,
+          offset,
+          returnedCount: pagedMailboxThreads.length,
+        }),
       );
       return pagedMailboxThreads;
     }
@@ -771,7 +779,14 @@ export class UnifiedInboxService {
     const page = await qb.getMany();
 
     this.logger.log(
-      `emails list user=${userId} provider=${providerId} limit=${limit} offset=${offset} returned=${page.length}`,
+      serializeStructuredLog({
+        event: 'unified_inbox_emails_list_provider_completed',
+        userId,
+        providerId,
+        limit,
+        offset,
+        returnedCount: page.length,
+      }),
     );
 
     return page.map((m) => this.mapExternalMessageToThreadSummary(m as any));
@@ -873,12 +888,28 @@ export class UnifiedInboxService {
         const retriable = this.shouldRetryGmailStatus(status);
 
         this.logger.warn(
-          `[GmailAPI] op=${meta.op} user=${meta.userId} provider=${meta.providerId} attempt=${attempt}/${maxAttempts} status=${status ?? 'n/a'} error=${message}`,
+          serializeStructuredLog({
+            event: 'unified_inbox_gmail_api_retry',
+            operation: meta.op,
+            userId: meta.userId,
+            providerId: meta.providerId,
+            attempt,
+            maxAttempts,
+            statusCode: status ?? null,
+            error: message,
+          }),
         );
 
         if (!retriable || attempt >= maxAttempts) {
           this.logger.error(
-            `[GmailAPI] op=${meta.op} failed user=${meta.userId} provider=${meta.providerId} status=${status ?? 'n/a'} error=${message}`,
+            serializeStructuredLog({
+              event: 'unified_inbox_gmail_api_failed',
+              operation: meta.op,
+              userId: meta.userId,
+              providerId: meta.providerId,
+              statusCode: status ?? null,
+              error: message,
+            }),
           );
           throw new InternalServerErrorException('Gmail API request failed');
         }
@@ -993,7 +1024,12 @@ export class UnifiedInboxService {
       return credentials.access_token;
     } catch (e: any) {
       this.logger.error(
-        `Failed to refresh Gmail access token: ${e?.message || e}`,
+        serializeStructuredLog({
+          event: 'unified_inbox_gmail_access_token_refresh_failed',
+          providerId: provider.id,
+          userId: provider.userId,
+          error: String(e?.message || e),
+        }),
         e?.stack,
       );
       throw new InternalServerErrorException(
@@ -1395,7 +1431,13 @@ export class UnifiedInboxService {
           );
         }
         this.logger.log(
-          `updateEmail gmail threads.modify user=${userId} provider=${providerId} thread=${existing.threadId} ok`,
+          serializeStructuredLog({
+            event: 'unified_inbox_update_email_gmail_thread_modify_completed',
+            userId,
+            providerId,
+            threadId: existing.threadId,
+            updatedMessages: apiMsgs.length,
+          }),
         );
       } else {
         const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(existing.externalMessageId)}/modify`;
@@ -1417,7 +1459,13 @@ export class UnifiedInboxService {
           { labels: labelIds },
         );
         this.logger.log(
-          `updateEmail gmail messages.modify user=${userId} provider=${providerId} message=${existing.externalMessageId} ok`,
+          serializeStructuredLog({
+            event: 'unified_inbox_update_email_gmail_message_modify_completed',
+            userId,
+            providerId,
+            externalMessageId: existing.externalMessageId,
+            updatedLabelCount: labelIds.length,
+          }),
         );
       }
       return this.getThread(userId, key);
@@ -1442,7 +1490,15 @@ export class UnifiedInboxService {
     }
 
     this.logger.log(
-      `updateEmail local user=${userId} provider=${providerId} thread=${key} add=${Array.from(add).join(',')} remove=${Array.from(remove).join(',')}`,
+      serializeStructuredLog({
+        event: 'unified_inbox_update_email_local_completed',
+        userId,
+        providerId,
+        threadKey: key,
+        addLabels: Array.from(add),
+        removeLabels: Array.from(remove),
+        updatedMessages: msgs.length,
+      }),
     );
 
     return this.getThread(userId, key);
