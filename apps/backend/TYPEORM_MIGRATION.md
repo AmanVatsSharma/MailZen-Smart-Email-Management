@@ -822,6 +822,7 @@ This migration introduces:
 - `emails.mailboxId`
 - index `IDX_emails_mailboxId`
 - index `IDX_emails_mailboxId_inboundMessageId`
+- one-time data backfill that links existing `providerId IS NULL` emails to owned mailbox rows when sender/recipient matches mailbox address
 
 This field links internal email rows to the owning MailZen mailbox, improving
 strict mailbox-source isolation in unified inbox queries and mailbox dedup logic.
@@ -836,7 +837,7 @@ strict mailbox-source isolation in unified inbox queries and mailbox dedup logic
    - `npm run build`
 5. Verify runtime behavior:
    - new inbound webhook emails are persisted with `mailboxId`.
-   - mailbox inbox reads prioritize `mailboxId` scoping and keep fallback behavior for legacy rows without linkage.
+   - mailbox inbox reads prioritize `mailboxId` scoping and keep fallback behavior for any legacy rows that were not backfilled.
 
 ### Staging verification SQL
 

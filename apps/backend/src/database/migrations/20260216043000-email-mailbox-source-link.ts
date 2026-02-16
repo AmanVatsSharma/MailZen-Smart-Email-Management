@@ -16,6 +16,22 @@ export class EmailMailboxSourceLink20260216043000 implements MigrationInterface 
       CREATE INDEX IF NOT EXISTS "IDX_emails_mailboxId_inboundMessageId"
       ON "emails" ("mailboxId", "inboundMessageId")
     `);
+    await queryRunner.query(`
+      UPDATE "emails" e
+      SET "mailboxId" = m.id
+      FROM "mailboxes" m
+      WHERE e."mailboxId" IS NULL
+        AND e."providerId" IS NULL
+        AND e."userId" = m."userId"
+        AND (
+          POSITION(LOWER(m.email) IN LOWER(COALESCE(e."from", ''))) > 0
+          OR EXISTS (
+            SELECT 1
+            FROM UNNEST(COALESCE(e."to", ARRAY[]::text[])) AS recipient
+            WHERE LOWER(recipient) = LOWER(m.email)
+          )
+        )
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
