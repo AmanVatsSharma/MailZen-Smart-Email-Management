@@ -688,6 +688,11 @@ type AgentPlatformHealthAlertRunResponse {
   evaluatedAtIso: String!
 }
 
+type AgentPlatformHealthAlertRunHistoryDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
 type AgentPlatformHealthAlertRunRetentionPurgeResponse {
   deletedRuns: Int!
   retentionDays: Int!
@@ -1198,6 +1203,10 @@ extend type Query {
     limit: Int
     windowHours: Int
   ): [AgentPlatformHealthAlertRunResponse!]!
+  agentPlatformHealthAlertRunHistoryDataExport(
+    limit: Int
+    windowHours: Int
+  ): AgentPlatformHealthAlertRunHistoryDataExportResponse!
   myWorkspaces: [Workspace!]!
   myActiveWorkspace: Workspace
   myWorkspaceDataExport(workspaceId: String!): WorkspaceDataExportResponse!

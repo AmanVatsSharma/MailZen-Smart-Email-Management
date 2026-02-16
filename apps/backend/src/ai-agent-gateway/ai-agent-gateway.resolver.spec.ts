@@ -22,6 +22,7 @@ describe('AiAgentGatewayResolver', () => {
     runHealthAlertCheck: jest.fn(),
     getAlertConfigSnapshot: jest.fn(),
     getAlertRunHistory: jest.fn(),
+    exportAlertRunHistoryData: jest.fn(),
     purgeAlertRunRetentionData: jest.fn(),
     getAlertDeliveryStats: jest.fn(),
     getAlertDeliverySeries: jest.fn(),
@@ -487,6 +488,30 @@ describe('AiAgentGatewayResolver', () => {
         publishedCount: 2,
       }),
     ]);
+  });
+
+  it('delegates agentPlatformHealthAlertRunHistoryDataExport to health alert scheduler', async () => {
+    healthAlertScheduler.exportAlertRunHistoryData.mockResolvedValue({
+      generatedAtIso: '2026-02-16T00:00:00.000Z',
+      dataJson: '{"runCount":3}',
+    });
+
+    const result = await resolver.agentPlatformHealthAlertRunHistoryDataExport(
+      50,
+      24,
+    );
+
+    expect(healthAlertScheduler.exportAlertRunHistoryData).toHaveBeenCalledWith(
+      {
+        limit: 50,
+        windowHours: 24,
+      },
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        generatedAtIso: '2026-02-16T00:00:00.000Z',
+      }),
+    );
   });
 
   it('forwards user context to myAgentActionDataExport', async () => {

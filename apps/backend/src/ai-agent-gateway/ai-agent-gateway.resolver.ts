@@ -22,6 +22,7 @@ import { AgentActionDataExportResponse } from './dto/agent-action-data-export.re
 import { AgentPlatformHealthAlertCheckResponse } from './dto/agent-platform-health-alert-check.response';
 import { AgentPlatformHealthAlertConfigResponse } from './dto/agent-platform-health-alert-config.response';
 import { AgentPlatformHealthAlertDeliveryDataExportResponse } from './dto/agent-platform-health-alert-delivery-data-export.response';
+import { AgentPlatformHealthAlertRunHistoryDataExportResponse } from './dto/agent-platform-health-alert-run-history-data-export.response';
 import { AgentPlatformHealthAlertRunRetentionPurgeResponse } from './dto/agent-platform-health-alert-run-retention-purge.response';
 import {
   AgentPlatformHealthAlertDeliveryStatsResponse,
@@ -261,6 +262,22 @@ export class AiAgentGatewayResolver {
     windowHours?: number,
   ): Promise<AgentPlatformHealthAlertRunResponse[]> {
     return this.healthAlertScheduler.getAlertRunHistory({
+      limit,
+      windowHours,
+    });
+  }
+
+  @Query(() => AgentPlatformHealthAlertRunHistoryDataExportResponse, {
+    description:
+      'Export persisted AI platform health alert run history as JSON payload',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async agentPlatformHealthAlertRunHistoryDataExport(
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+  ): Promise<AgentPlatformHealthAlertRunHistoryDataExportResponse> {
+    return this.healthAlertScheduler.exportAlertRunHistoryData({
       limit,
       windowHours,
     });

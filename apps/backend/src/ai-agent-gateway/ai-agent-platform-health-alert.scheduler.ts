@@ -437,6 +437,34 @@ export class AiAgentPlatformHealthAlertScheduler {
     }));
   }
 
+  async exportAlertRunHistoryData(input?: {
+    limit?: number | null;
+    windowHours?: number | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const limit = this.normalizeAlertRunHistoryLimit(input?.limit);
+    const windowHours = this.normalizeAlertDeliveryWindowHours(
+      input?.windowHours,
+    );
+    const history = await this.getAlertRunHistory({
+      limit,
+      windowHours,
+    });
+    const generatedAtIso = new Date().toISOString();
+    return {
+      generatedAtIso,
+      dataJson: JSON.stringify({
+        generatedAtIso,
+        limit,
+        windowHours,
+        runCount: history.length,
+        runs: history,
+      }),
+    };
+  }
+
   async purgeAlertRunRetentionData(input?: {
     retentionDays?: number | null;
   }): Promise<{

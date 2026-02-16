@@ -497,6 +497,40 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     ]);
   });
 
+  it('exports persisted alert run history as JSON payload', async () => {
+    alertRunRepo.find.mockResolvedValue([
+      {
+        alertsEnabled: true,
+        severity: 'WARNING',
+        reasons: ['warn-samples-detected'],
+        windowHours: 6,
+        baselineWindowHours: 72,
+        cooldownMinutes: 60,
+        minSampleCount: 4,
+        anomalyMultiplier: 2,
+        anomalyMinErrorDeltaPercent: 1,
+        anomalyMinLatencyDeltaMs: 150,
+        errorRateWarnPercent: 5,
+        latencyWarnMs: 1500,
+        recipientCount: 2,
+        publishedCount: 1,
+        evaluatedAt: new Date('2026-02-16T00:00:00.000Z'),
+      },
+    ] as unknown as AgentPlatformHealthAlertRun[]);
+
+    const result = await scheduler.exportAlertRunHistoryData({
+      limit: 10,
+      windowHours: 24,
+    });
+    const payload = JSON.parse(result.dataJson) as {
+      runCount: number;
+      runs: Array<{ severity: string }>;
+    };
+
+    expect(payload.runCount).toBe(1);
+    expect(payload.runs[0]?.severity).toBe('WARNING');
+  });
+
   it('purges persisted alert run history by retention policy', async () => {
     alertRunRepo.delete.mockResolvedValue({
       affected: 7,
