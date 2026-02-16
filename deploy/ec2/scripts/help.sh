@@ -53,10 +53,12 @@ Operations:
   ./deploy/ec2/scripts/stop.sh --purge-data --yes
 
 Backup and recovery:
-  ./deploy/ec2/scripts/backup-db.sh
+  ./deploy/ec2/scripts/backup-db.sh --label before-release
+  ./deploy/ec2/scripts/backup-db.sh --label smoke --dry-run
   ./deploy/ec2/scripts/backup-list.sh
   ./deploy/ec2/scripts/backup-prune.sh 20
-  ./deploy/ec2/scripts/rollback-latest.sh
+  ./deploy/ec2/scripts/restore-db.sh --yes deploy/ec2/backups/your-backup.sql.gz
+  ./deploy/ec2/scripts/rollback-latest.sh --yes
 
 Diagnostics:
   ./deploy/ec2/scripts/doctor.sh

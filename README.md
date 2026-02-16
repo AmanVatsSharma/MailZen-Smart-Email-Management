@@ -330,6 +330,7 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # 7) Optional DB backup
 ./deploy/ec2/scripts/backup-db.sh
+./deploy/ec2/scripts/backup-db.sh --label before-release --dry-run
 
 # 8) Validate deployment scripts integrity
 ./deploy/ec2/scripts/self-check.sh
@@ -339,6 +340,7 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # 10) Optional emergency rollback using newest backup
 ./deploy/ec2/scripts/rollback-latest.sh
+./deploy/ec2/scripts/rollback-latest.sh --dry-run
 
 # 11) Optional list available backups
 ./deploy/ec2/scripts/backup-list.sh

@@ -281,6 +281,9 @@ Example:
 # Create DB backup with label
 ./deploy/ec2/scripts/backup-db.sh before-release
 
+# Preview backup command without executing
+./deploy/ec2/scripts/backup-db.sh --label before-release --dry-run
+
 # List available backups
 ./deploy/ec2/scripts/backup-list.sh
 
@@ -293,8 +296,18 @@ Example:
 # Restore DB backup (destructive: drops and recreates DB)
 ./deploy/ec2/scripts/restore-db.sh deploy/ec2/backups/your-backup.sql.gz
 
+# Restore DB backup non-interactively (automation)
+./deploy/ec2/scripts/restore-db.sh --yes deploy/ec2/backups/your-backup.sql.gz
+
+# Preview restore without executing
+./deploy/ec2/scripts/restore-db.sh --dry-run deploy/ec2/backups/your-backup.sql.gz
+
 # Rollback using newest backup automatically
 ./deploy/ec2/scripts/rollback-latest.sh
+
+# Rollback non-interactively / dry-run
+./deploy/ec2/scripts/rollback-latest.sh --yes
+./deploy/ec2/scripts/rollback-latest.sh --dry-run
 
 # Logs (all services)
 ./deploy/ec2/scripts/logs.sh
@@ -400,7 +413,10 @@ Google/Outlook provider connection flows.
 - The stack includes AI platform by default.
 - Backend migrations run automatically on backend container startup.
 - Use `stop.sh --purge-data` cautiously; it destroys persistent data volumes.
-- `restore-db.sh` is intentionally destructive and requires explicit confirmation.
+- `restore-db.sh` is intentionally destructive and requires confirmation
+  (or explicit `--yes` for automation).
 - `rollback-latest.sh` delegates to `restore-db.sh` and is also destructive.
+- Use `--dry-run` on backup/restore/rollback scripts to validate commands
+  safely before running against production data.
 - Caddy sets baseline browser hardening headers (HSTS, X-Frame-Options,
   X-Content-Type-Options, Referrer-Policy).
