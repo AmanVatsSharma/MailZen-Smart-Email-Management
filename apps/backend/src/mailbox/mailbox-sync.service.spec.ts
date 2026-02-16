@@ -5,6 +5,7 @@ import { Repository, UpdateResult } from 'typeorm';
 import { MailboxInboundService } from './mailbox-inbound.service';
 import { MailboxSyncService } from './mailbox-sync.service';
 import { Mailbox } from './entities/mailbox.entity';
+import { MailboxSyncRun } from './entities/mailbox-sync-run.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 
 jest.mock('axios');
@@ -16,6 +17,10 @@ describe('MailboxSyncService', () => {
     update: jest.fn(),
     query: jest.fn(),
   } as unknown as jest.Mocked<Repository<Mailbox>>;
+  const mailboxSyncRunRepo: jest.Mocked<Repository<MailboxSyncRun>> = {
+    create: jest.fn(),
+    save: jest.fn(),
+  } as unknown as jest.Mocked<Repository<MailboxSyncRun>>;
   const mailboxInboundServiceMock: jest.Mocked<
     Pick<MailboxInboundService, 'ingestInboundEvent'>
   > = {
@@ -38,6 +43,10 @@ describe('MailboxSyncService', () => {
     mailboxRepo.query.mockResolvedValue([{ id: 'mailbox-1' }] as never);
     mailboxRepo.find.mockResolvedValue([]);
     mailboxRepo.findOne.mockResolvedValue(null);
+    mailboxSyncRunRepo.create.mockImplementation(
+      (value) => value as MailboxSyncRun,
+    );
+    mailboxSyncRunRepo.save.mockResolvedValue({} as MailboxSyncRun);
     mailboxInboundServiceMock.ingestInboundEvent.mockResolvedValue({
       accepted: true,
       mailboxId: 'mailbox-1',
@@ -51,6 +60,7 @@ describe('MailboxSyncService', () => {
     notificationEventBusMock.publishSafely.mockResolvedValue(null);
     service = new MailboxSyncService(
       mailboxRepo,
+      mailboxSyncRunRepo,
       mailboxInboundServiceMock as unknown as MailboxInboundService,
       notificationEventBusMock as unknown as NotificationEventBusService,
     );
@@ -80,6 +90,7 @@ describe('MailboxSyncService', () => {
     const result = await service.pollMailbox({
       id: 'mailbox-1',
       email: 'sales@mailzen.com',
+      userId: 'user-1',
       inboundSyncCursor: 'cursor-1',
     } as Mailbox);
 
@@ -128,6 +139,16 @@ describe('MailboxSyncService', () => {
       rejectedMessages: 0,
       nextCursor: 'cursor-2',
     });
+    expect(mailboxSyncRunRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mailboxId: 'mailbox-1',
+        userId: 'user-1',
+        triggerSource: 'SCHEDULER',
+        status: 'SUCCESS',
+        fetchedMessages: 1,
+        acceptedMessages: 1,
+      }),
+    );
   });
 
   it('tracks deduplicated mailbox inbound events', async () => {
@@ -233,6 +254,13 @@ describe('MailboxSyncService', () => {
           mailboxId: 'mailbox-1',
           providerType: 'MAILBOX',
         }),
+      }),
+    );
+    expect(mailboxSyncRunRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mailboxId: 'mailbox-1',
+        userId: 'user-1',
+        status: 'FAILED',
       }),
     );
   });
@@ -353,6 +381,7 @@ describe('MailboxSyncService', () => {
     const result = await service.pollMailbox({
       id: 'mailbox-1',
       email: 'sales@mailzen.com',
+      userId: 'user-1',
       inboundSyncCursor: 'cursor-before-errors',
     } as Mailbox);
 
@@ -375,6 +404,14 @@ describe('MailboxSyncService', () => {
         inboundSyncStatus: 'connected',
         inboundSyncLastError: null,
         inboundSyncLastErrorAt: null,
+      }),
+    );
+    expect(mailboxSyncRunRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mailboxId: 'mailbox-1',
+        userId: 'user-1',
+        status: 'PARTIAL',
+        rejectedMessages: 1,
       }),
     );
   });
@@ -422,6 +459,7 @@ describe('MailboxSyncService', () => {
       {
         id: 'mailbox-1',
         email: 'sales@mailzen.com',
+        userId: 'user-1',
       } as Mailbox,
     ]);
     mailboxRepo.query.mockResolvedValueOnce([]);
@@ -439,6 +477,14 @@ describe('MailboxSyncService', () => {
       deduplicatedMessages: 0,
       rejectedMessages: 0,
     });
+    expect(mailboxSyncRunRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mailboxId: 'mailbox-1',
+        userId: 'user-1',
+        status: 'SKIPPED',
+        triggerSource: 'SCHEDULER',
+      }),
+    );
   });
 
   it('lists mailbox sync states scoped to current user', async () => {

@@ -16,6 +16,7 @@ import { WorkspaceModule } from '../workspace/workspace.module';
 import { Email } from '../email/entities/email.entity';
 import { NotificationModule } from '../notification/notification.module';
 import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
+import { MailboxSyncRun } from './entities/mailbox-sync-run.entity';
 import { UserNotificationPreference } from '../notification/entities/user-notification-preference.entity';
 
 /**
@@ -29,6 +30,7 @@ import { UserNotificationPreference } from '../notification/entities/user-notifi
       User,
       Email,
       MailboxInboundEvent,
+      MailboxSyncRun,
       UserNotificationPreference,
     ]),
     MailServerModule,

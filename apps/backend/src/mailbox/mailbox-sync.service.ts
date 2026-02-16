@@ -3,8 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 import { MailboxInboundWebhookInput } from './dto/mailbox-inbound-webhook.input';
 import { Mailbox } from './entities/mailbox.entity';
+import { MailboxSyncRun } from './entities/mailbox-sync-run.entity';
 import { MailboxInboundService } from './mailbox-inbound.service';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 
@@ -44,6 +49,9 @@ type MailboxSyncAggregateResult = {
   rejectedMessages: number;
 };
 
+type MailboxSyncTriggerSource = 'SCHEDULER' | 'MANUAL';
+type MailboxSyncRunStatus = 'SUCCESS' | 'PARTIAL' | 'FAILED' | 'SKIPPED';
+
 @Injectable()
 export class MailboxSyncService {
   private readonly logger = new Logger(MailboxSyncService.name);
@@ -51,6 +59,8 @@ export class MailboxSyncService {
   constructor(
     @InjectRepository(Mailbox)
     private readonly mailboxRepo: Repository<Mailbox>,
+    @InjectRepository(MailboxSyncRun)
+    private readonly mailboxSyncRunRepo: Repository<MailboxSyncRun>,
     private readonly mailboxInboundService: MailboxInboundService,
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
@@ -152,6 +162,97 @@ export class MailboxSyncService {
     ).trim();
     if (!rawValue) return 'cursor';
     return rawValue;
+  }
+
+  private normalizeTriggerSource(
+    rawValue?: string | null,
+  ): MailboxSyncTriggerSource {
+    const normalized = String(rawValue || '')
+      .trim()
+      .toUpperCase();
+    if (normalized === 'MANUAL') return 'MANUAL';
+    return 'SCHEDULER';
+  }
+
+  private resolveRunStatusFromPollResult(
+    pollResult: MailboxSyncPollResult,
+  ): MailboxSyncRunStatus {
+    if (pollResult.rejectedMessages > 0) return 'PARTIAL';
+    return 'SUCCESS';
+  }
+
+  private resolveErrorMessage(error: unknown): string | null {
+    const normalized = String(this.describeSyncError(error) || '')
+      .trim()
+      .slice(0, 500);
+    if (!normalized) return null;
+    return normalized;
+  }
+
+  private async persistMailboxSyncRun(input: {
+    mailbox: Mailbox;
+    triggerSource: MailboxSyncTriggerSource;
+    runCorrelationId: string;
+    status: MailboxSyncRunStatus;
+    fetchedMessages: number;
+    acceptedMessages: number;
+    deduplicatedMessages: number;
+    rejectedMessages: number;
+    nextCursor?: string | null;
+    errorMessage?: string | null;
+    startedAt: Date;
+    completedAt: Date;
+  }): Promise<void> {
+    const userId = String(input.mailbox.userId || '').trim();
+    if (!userId) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'mailbox_sync_run_persist_skipped_missing_user',
+          mailboxId: input.mailbox.id,
+          triggerSource: input.triggerSource,
+          status: input.status,
+        }),
+      );
+      return;
+    }
+    const durationMs = Math.max(
+      0,
+      input.completedAt.getTime() - input.startedAt.getTime(),
+    );
+    try {
+      await this.mailboxSyncRunRepo.save(
+        this.mailboxSyncRunRepo.create({
+          mailboxId: input.mailbox.id,
+          userId,
+          workspaceId: input.mailbox.workspaceId || null,
+          triggerSource: input.triggerSource,
+          runCorrelationId: input.runCorrelationId,
+          status: input.status,
+          fetchedMessages: Math.max(0, Math.floor(input.fetchedMessages)),
+          acceptedMessages: Math.max(0, Math.floor(input.acceptedMessages)),
+          deduplicatedMessages: Math.max(
+            0,
+            Math.floor(input.deduplicatedMessages),
+          ),
+          rejectedMessages: Math.max(0, Math.floor(input.rejectedMessages)),
+          nextCursor: String(input.nextCursor || '').trim() || null,
+          errorMessage: String(input.errorMessage || '').trim() || null,
+          startedAt: input.startedAt,
+          completedAt: input.completedAt,
+          durationMs,
+        }),
+      );
+    } catch (error: unknown) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'mailbox_sync_run_persist_failed',
+          mailboxId: input.mailbox.id,
+          runCorrelationId: input.runCorrelationId,
+          status: input.status,
+          reason: this.resolveErrorMessage(error),
+        }),
+      );
+    }
   }
 
   private resolveSyncRequestHeaders(): {
@@ -478,25 +579,55 @@ export class MailboxSyncService {
 
   private async pollMailboxWithLease(
     mailbox: Mailbox,
+    context?: {
+      triggerSource?: MailboxSyncTriggerSource;
+      runCorrelationId?: string;
+    },
   ): Promise<
     | { skipped: true; failed: false }
     | { skipped: false; failed: true }
     | { skipped: false; failed: false; result: MailboxSyncPollResult }
   > {
+    const triggerSource = this.normalizeTriggerSource(context?.triggerSource);
+    const runCorrelationId = resolveCorrelationId(context?.runCorrelationId);
+    const startedAt = new Date();
     const leaseResult = await this.acquireMailboxSyncLease({
       mailboxId: mailbox.id,
     });
     if (!leaseResult.acquired) {
+      await this.persistMailboxSyncRun({
+        mailbox,
+        triggerSource,
+        runCorrelationId,
+        status: 'SKIPPED',
+        fetchedMessages: 0,
+        acceptedMessages: 0,
+        deduplicatedMessages: 0,
+        rejectedMessages: 0,
+        nextCursor: String(mailbox.inboundSyncCursor || '').trim() || null,
+        errorMessage: 'sync lease not acquired',
+        startedAt,
+        completedAt: new Date(),
+      });
       return { skipped: true, failed: false };
     }
 
     try {
-      const result = await this.pollMailbox(mailbox);
+      const result = await this.pollMailbox(mailbox, {
+        triggerSource,
+        runCorrelationId,
+      });
       return { skipped: false, failed: false, result };
     } catch (error: unknown) {
       const errorMessage = this.describeSyncError(error);
       this.logger.warn(
-        `mailbox-sync: mailbox poll failed mailboxId=${mailbox.id} email=${mailbox.email}: ${errorMessage}`,
+        serializeStructuredLog({
+          event: 'mailbox_sync_mailbox_poll_failed',
+          mailboxId: mailbox.id,
+          runCorrelationId,
+          triggerSource,
+          reason: errorMessage,
+        }),
       );
       return { skipped: false, failed: true };
     } finally {
@@ -507,7 +638,16 @@ export class MailboxSyncService {
     }
   }
 
-  async pollMailbox(mailbox: Mailbox): Promise<MailboxSyncPollResult> {
+  async pollMailbox(
+    mailbox: Mailbox,
+    context?: {
+      triggerSource?: MailboxSyncTriggerSource;
+      runCorrelationId?: string;
+    },
+  ): Promise<MailboxSyncPollResult> {
+    const startedAt = new Date();
+    const triggerSource = this.normalizeTriggerSource(context?.triggerSource);
+    const runCorrelationId = resolveCorrelationId(context?.runCorrelationId);
     const apiBaseUrl = this.resolveSyncApiBaseUrl();
     if (!apiBaseUrl) {
       throw new Error('MAILZEN_MAIL_SYNC_API_URL must be configured');
@@ -538,6 +678,9 @@ export class MailboxSyncService {
     let acceptedMessages = 0;
     let deduplicatedMessages = 0;
     let rejectedMessages = 0;
+    let finalStatus: MailboxSyncRunStatus = 'FAILED';
+    let finalErrorMessage: string | null = null;
+    let finalCursor: string | null = cursor || null;
 
     try {
       const responseData = await this.pullMailboxMessagesWithRetry({
@@ -550,6 +693,15 @@ export class MailboxSyncService {
       const messages = this.resolvePullMessages(responseData);
       const nextCursor = this.resolveNextCursor(responseData);
       fetchedMessages = messages.length;
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'mailbox_sync_pull_batch_received',
+          mailboxId: mailbox.id,
+          runCorrelationId,
+          triggerSource,
+          fetchedMessages,
+        }),
+      );
 
       for (const message of messages) {
         try {
@@ -576,7 +728,14 @@ export class MailboxSyncService {
           rejectedMessages += 1;
           const errorMessage = this.describeSyncError(error);
           this.logger.warn(
-            `mailbox-sync: inbound ingest failed mailbox=${mailbox.email} messageId=${String(message.messageId || message.id || 'unknown')} error=${errorMessage}`,
+            serializeStructuredLog({
+              event: 'mailbox_sync_inbound_ingest_failed',
+              mailboxId: mailbox.id,
+              runCorrelationId,
+              triggerSource,
+              messageId: String(message.messageId || message.id || 'unknown'),
+              reason: errorMessage,
+            }),
           );
           if (this.resolveSyncFailFastOnMessageError()) {
             throw error;
@@ -585,6 +744,7 @@ export class MailboxSyncService {
       }
 
       const persistedCursor = nextCursor || cursor || null;
+      finalCursor = persistedCursor;
       await this.mailboxRepo.update(
         { id: mailbox.id },
         {
@@ -598,6 +758,15 @@ export class MailboxSyncService {
       await this.publishSyncRecoveredNotification({
         mailbox,
       });
+      finalStatus = this.resolveRunStatusFromPollResult({
+        mailboxId: mailbox.id,
+        mailboxEmail: mailbox.email,
+        fetchedMessages,
+        acceptedMessages,
+        deduplicatedMessages,
+        rejectedMessages,
+        nextCursor: persistedCursor,
+      });
       return {
         mailboxId: mailbox.id,
         mailboxEmail: mailbox.email,
@@ -609,12 +778,13 @@ export class MailboxSyncService {
       };
     } catch (error: unknown) {
       const errorMessage = this.describeSyncError(error);
+      finalErrorMessage = errorMessage.slice(0, 500);
       await this.mailboxRepo.update(
         { id: mailbox.id },
         {
           inboundSyncStatus: 'error',
           inboundSyncLastPolledAt: new Date(),
-          inboundSyncLastError: errorMessage.slice(0, 500),
+          inboundSyncLastError: finalErrorMessage,
           inboundSyncLastErrorAt: new Date(),
         },
       );
@@ -623,10 +793,41 @@ export class MailboxSyncService {
         errorMessage,
       });
       throw error;
+    } finally {
+      const completedAt = new Date();
+      await this.persistMailboxSyncRun({
+        mailbox,
+        triggerSource,
+        runCorrelationId,
+        status: finalStatus,
+        fetchedMessages,
+        acceptedMessages,
+        deduplicatedMessages,
+        rejectedMessages,
+        nextCursor: finalCursor,
+        errorMessage: finalErrorMessage,
+        startedAt,
+        completedAt,
+      });
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'mailbox_sync_poll_processed',
+          mailboxId: mailbox.id,
+          runCorrelationId,
+          triggerSource,
+          status: finalStatus,
+          fetchedMessages,
+          acceptedMessages,
+          deduplicatedMessages,
+          rejectedMessages,
+          durationMs: completedAt.getTime() - startedAt.getTime(),
+        }),
+      );
     }
   }
 
   async pollActiveMailboxes(): Promise<MailboxSyncAggregateResult> {
+    const schedulerRunCorrelationId = resolveCorrelationId(undefined);
     const maxMailboxesPerRun = this.resolveSyncMaxMailboxesPerRun();
     const mailboxes = await this.mailboxRepo.find({
       where: { status: 'ACTIVE' },
@@ -644,7 +845,10 @@ export class MailboxSyncService {
     };
 
     for (const mailbox of mailboxes) {
-      const pollOutcome = await this.pollMailboxWithLease(mailbox);
+      const pollOutcome = await this.pollMailboxWithLease(mailbox, {
+        triggerSource: 'SCHEDULER',
+        runCorrelationId: `${schedulerRunCorrelationId}:${mailbox.id}`,
+      });
       if (pollOutcome.skipped) {
         summary.skippedMailboxes += 1;
         continue;
@@ -658,6 +862,19 @@ export class MailboxSyncService {
       summary.deduplicatedMessages += pollOutcome.result.deduplicatedMessages;
       summary.rejectedMessages += pollOutcome.result.rejectedMessages;
     }
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'mailbox_sync_poll_active_summary',
+        runCorrelationId: schedulerRunCorrelationId,
+        polledMailboxes: summary.polledMailboxes,
+        skippedMailboxes: summary.skippedMailboxes,
+        failedMailboxes: summary.failedMailboxes,
+        fetchedMessages: summary.fetchedMessages,
+        acceptedMessages: summary.acceptedMessages,
+        deduplicatedMessages: summary.deduplicatedMessages,
+        rejectedMessages: summary.rejectedMessages,
+      }),
+    );
     return summary;
   }
 
@@ -703,6 +920,7 @@ export class MailboxSyncService {
     mailboxId?: string | null;
     workspaceId?: string | null;
   }): Promise<MailboxSyncAggregateResult> {
+    const manualRunCorrelationId = resolveCorrelationId(undefined);
     const normalizedMailboxId = String(input.mailboxId || '').trim() || null;
     const normalizedWorkspaceId =
       String(input.workspaceId || '').trim() || null;
@@ -755,7 +973,10 @@ export class MailboxSyncService {
       rejectedMessages: 0,
     };
     for (const mailbox of mailboxes) {
-      const pollOutcome = await this.pollMailboxWithLease(mailbox);
+      const pollOutcome = await this.pollMailboxWithLease(mailbox, {
+        triggerSource: 'MANUAL',
+        runCorrelationId: `${manualRunCorrelationId}:${mailbox.id}`,
+      });
       if (pollOutcome.skipped) {
         summary.skippedMailboxes += 1;
         continue;
@@ -769,6 +990,22 @@ export class MailboxSyncService {
       summary.deduplicatedMessages += pollOutcome.result.deduplicatedMessages;
       summary.rejectedMessages += pollOutcome.result.rejectedMessages;
     }
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'mailbox_sync_poll_user_summary',
+        runCorrelationId: manualRunCorrelationId,
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId,
+        mailboxId: normalizedMailboxId,
+        polledMailboxes: summary.polledMailboxes,
+        skippedMailboxes: summary.skippedMailboxes,
+        failedMailboxes: summary.failedMailboxes,
+        fetchedMessages: summary.fetchedMessages,
+        acceptedMessages: summary.acceptedMessages,
+        deduplicatedMessages: summary.deduplicatedMessages,
+        rejectedMessages: summary.rejectedMessages,
+      }),
+    );
     return summary;
   }
 }
