@@ -26,6 +26,8 @@ SEED_ENV=false
 KEEP_SEEDED_ENV=false
 SEEDED_ENV_FILE=""
 PORTS_CHECK_PORTS=""
+PORTS_CHECK_FLAG_SET=false
+PORTS_CHECK_FLAG_VALUE=""
 
 cleanup() {
   if [[ -n "${SEEDED_ENV_FILE}" ]] && [[ "${KEEP_SEEDED_ENV}" == false ]] && [[ -f "${SEEDED_ENV_FILE}" ]]; then
@@ -50,11 +52,17 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --ports-check-ports)
-    PORTS_CHECK_PORTS="${2:-}"
-    if [[ -z "${PORTS_CHECK_PORTS}" ]]; then
+    ports_check_ports_arg="${2:-}"
+    if [[ -z "${ports_check_ports_arg}" ]]; then
       echo "[mailzen-deploy][DOCTOR][ERROR] --ports-check-ports requires a value."
       exit 1
     fi
+    if [[ "${PORTS_CHECK_FLAG_SET}" == true ]] && [[ "${ports_check_ports_arg}" != "${PORTS_CHECK_FLAG_VALUE}" ]]; then
+      echo "[mailzen-deploy][DOCTOR][WARN] Earlier --ports-check-ports '${PORTS_CHECK_FLAG_VALUE}' overridden by --ports-check-ports '${ports_check_ports_arg}'."
+    fi
+    PORTS_CHECK_PORTS="${ports_check_ports_arg}"
+    PORTS_CHECK_FLAG_SET=true
+    PORTS_CHECK_FLAG_VALUE="${ports_check_ports_arg}"
     shift 2
     ;;
   *)

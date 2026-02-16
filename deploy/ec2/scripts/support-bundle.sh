@@ -39,6 +39,8 @@ SEEDED_ENV_FILE=""
 KEEP_WORK_DIR=false
 BUNDLE_CREATED=false
 PORTS_CHECK_PORTS=""
+PORTS_CHECK_FLAG_SET=false
+PORTS_CHECK_FLAG_VALUE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -55,11 +57,17 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --ports-check-ports)
-    PORTS_CHECK_PORTS="${2:-}"
-    if [[ -z "${PORTS_CHECK_PORTS}" ]]; then
+    ports_check_ports_arg="${2:-}"
+    if [[ -z "${ports_check_ports_arg}" ]]; then
       echo "[mailzen-deploy][SUPPORT-BUNDLE][ERROR] --ports-check-ports requires a value."
       exit 1
     fi
+    if [[ "${PORTS_CHECK_FLAG_SET}" == true ]] && [[ "${ports_check_ports_arg}" != "${PORTS_CHECK_FLAG_VALUE}" ]]; then
+      echo "[mailzen-deploy][SUPPORT-BUNDLE][WARN] Earlier --ports-check-ports '${PORTS_CHECK_FLAG_VALUE}' overridden by --ports-check-ports '${ports_check_ports_arg}'."
+    fi
+    PORTS_CHECK_PORTS="${ports_check_ports_arg}"
+    PORTS_CHECK_FLAG_SET=true
+    PORTS_CHECK_FLAG_VALUE="${ports_check_ports_arg}"
     shift 2
     ;;
   *)
