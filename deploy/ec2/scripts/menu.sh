@@ -25,7 +25,11 @@ prompt_with_default() {
   local prompt_text="$1"
   local default_value="$2"
   local input=""
-  read -r -p "${prompt_text} [${default_value}]: " input
+  if [[ -n "${default_value}" ]]; then
+    read -r -p "${prompt_text} [${default_value}]: " input
+  else
+    read -r -p "${prompt_text}: " input
+  fi
   echo "${input:-${default_value}}"
 }
 
