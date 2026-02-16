@@ -11,6 +11,24 @@
 import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
 
 @ObjectType()
+export class AgentPlatformEndpointStatResponse {
+  @Field()
+  endpointUrl: string;
+
+  @Field(() => Int)
+  successCount: number;
+
+  @Field(() => Int)
+  failureCount: number;
+
+  @Field({ nullable: true })
+  lastSuccessAtIso?: string;
+
+  @Field({ nullable: true })
+  lastFailureAtIso?: string;
+}
+
+@ObjectType()
 export class AgentPlatformHealthResponse {
   @Field()
   status: string;
@@ -26,6 +44,9 @@ export class AgentPlatformHealthResponse {
 
   @Field(() => [String])
   probedServiceUrls: string[];
+
+  @Field(() => [AgentPlatformEndpointStatResponse])
+  endpointStats: AgentPlatformEndpointStatResponse[];
 
   @Field(() => Float)
   latencyMs: number;

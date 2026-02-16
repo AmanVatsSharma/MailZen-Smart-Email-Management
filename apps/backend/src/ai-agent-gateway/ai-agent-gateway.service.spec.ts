@@ -8,6 +8,7 @@
  * - Mocks Python platform responses via axios.
  * - Read assist() assertions first.
  */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import axios from 'axios';
 import { createHash } from 'crypto';
 import {
@@ -342,6 +343,13 @@ describe('AiAgentGatewayService', () => {
     expect(health.status).toBe('down');
     expect(health.probedServiceUrls).toEqual(['http://localhost:8100']);
     expect(health.configuredServiceUrls).toEqual(['http://localhost:8100']);
+    expect(health.endpointStats).toEqual([
+      expect.objectContaining({
+        endpointUrl: 'http://localhost:8100',
+        successCount: 0,
+        failureCount: 0,
+      }),
+    ]);
   });
 
   it('falls back to secondary platform endpoint when primary call fails', async () => {
@@ -378,6 +386,65 @@ describe('AiAgentGatewayService', () => {
     );
     expect(mockedAxios.post.mock.calls[1]?.[0]).toContain(
       'http://secondary-agent.local',
+    );
+  });
+
+  it('reports endpoint runtime stats after assist failover attempts', async () => {
+    process.env.AI_AGENT_PLATFORM_URLS =
+      'http://primary-agent.local,http://secondary-agent.local';
+    const service = createService();
+    mockedAxios.post.mockRejectedValueOnce(new Error('primary down'));
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'auth',
+        assistantText: 'Use forgot password.',
+        intent: 'forgot_password',
+        confidence: 0.9,
+        suggestedActions: [],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+    mockedAxios.get.mockResolvedValueOnce({
+      data: {
+        status: 'ok',
+      },
+    } as any);
+
+    await service.assist({
+      skill: 'auth',
+      messages: [{ role: 'user', content: 'help me login' }],
+      context: { surface: 'auth-login', locale: 'en-IN' },
+      allowedActions: ['auth.open_login'],
+      executeRequestedAction: false,
+    });
+
+    const health = await service.getPlatformHealth();
+
+    expect(
+      health.endpointStats.find(
+        (entry: { endpointUrl: string }) =>
+          entry.endpointUrl === 'http://primary-agent.local',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        successCount: 0,
+        failureCount: 1,
+        lastFailureAtIso: expect.any(String),
+      }),
+    );
+    expect(
+      health.endpointStats.find(
+        (entry: { endpointUrl: string }) =>
+          entry.endpointUrl === 'http://secondary-agent.local',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        successCount: 1,
+        failureCount: 0,
+        lastSuccessAtIso: expect.any(String),
+      }),
     );
   });
 

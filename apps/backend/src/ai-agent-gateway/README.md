@@ -27,7 +27,8 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - user style profile heuristics (`avgWords/questionRatio`)
   - workspace role policy hints (`standard-review` / `elevated-review`)
 - Provide `agentPlatformHealth` GraphQL probe with gateway metrics snapshot.
-  - includes `configuredServiceUrls` and `probedServiceUrls` for failover diagnostics.
+  - includes `configuredServiceUrls`, `probedServiceUrls`, and per-endpoint
+    runtime counters via `endpointStats` for failover diagnostics.
 - Expose `myAgentActionAudits(limit?)` query for authenticated audit review.
 - Expose `myAgentActionDataExport(limit?)` for authenticated JSON export of
   agent action audit history.

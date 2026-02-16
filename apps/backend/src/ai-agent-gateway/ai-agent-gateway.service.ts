@@ -117,6 +117,13 @@ interface GatewayMetrics {
   lastErrorAtIso?: string;
 }
 
+interface EndpointRuntimeStats {
+  successCount: number;
+  failureCount: number;
+  lastSuccessAtIso?: string;
+  lastFailureAtIso?: string;
+}
+
 @Injectable()
 export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AiAgentGatewayService.name);
@@ -147,6 +154,10 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   >();
   private redisClient: RedisClientType | null = null;
   private redisConnected = false;
+  private readonly endpointRuntimeStats = new Map<
+    string,
+    EndpointRuntimeStats
+  >();
   private readonly metrics: GatewayMetrics = {
     totalRequests: 0,
     failedRequests: 0,
@@ -243,6 +254,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy(): Promise<void> {
     this.fallbackPendingApprovals.clear();
     this.threadContextCache.clear();
+    this.endpointRuntimeStats.clear();
     if (!this.redisClient || !this.redisConnected) return;
     await this.redisClient.quit();
   }
@@ -403,6 +415,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     const platformBaseUrls = this.getPlatformBaseUrls();
     let serviceUrl = platformBaseUrls[0] || this.getPlatformBaseUrl();
     const probedServiceUrls: string[] = [];
+    const endpointStats = this.buildEndpointStatsSnapshot(platformBaseUrls);
     const thresholdLatencyMs = this.getLatencyWarnThresholdMs();
     const thresholdErrorRate = this.getErrorRateWarnPercent();
     const requestCount = this.metrics.totalRequests;
@@ -469,6 +482,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       serviceUrl,
       configuredServiceUrls: platformBaseUrls,
       probedServiceUrls,
+      endpointStats,
       latencyMs,
       checkedAtIso,
       requestCount,
@@ -1164,6 +1178,69 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     return [...baseUrls.slice(startIndex), ...baseUrls.slice(0, startIndex)];
   }
 
+  private recordEndpointCallResult(input: {
+    endpointUrl: string;
+    success: boolean;
+  }): void {
+    const endpointUrl = this.normalizePlatformBaseUrl(input.endpointUrl);
+    if (!endpointUrl) return;
+    const existing = this.endpointRuntimeStats.get(endpointUrl) || {
+      successCount: 0,
+      failureCount: 0,
+    };
+    const nowIso = new Date().toISOString();
+    const next: EndpointRuntimeStats = {
+      ...existing,
+      successCount: input.success
+        ? existing.successCount + 1
+        : existing.successCount,
+      failureCount: input.success
+        ? existing.failureCount
+        : existing.failureCount + 1,
+      lastSuccessAtIso: input.success ? nowIso : existing.lastSuccessAtIso,
+      lastFailureAtIso: input.success ? existing.lastFailureAtIso : nowIso,
+    };
+    this.endpointRuntimeStats.set(endpointUrl, next);
+  }
+
+  private buildEndpointStatsSnapshot(configuredUrls: string[]): Array<{
+    endpointUrl: string;
+    successCount: number;
+    failureCount: number;
+    lastSuccessAtIso?: string;
+    lastFailureAtIso?: string;
+  }> {
+    const orderedConfigured = Array.from(
+      new Set(configuredUrls.map((url) => this.normalizePlatformBaseUrl(url))),
+    ).filter(Boolean);
+    const seen = new Set<string>();
+    const stats = orderedConfigured.map((endpointUrl) => {
+      seen.add(endpointUrl);
+      const runtimeStats = this.endpointRuntimeStats.get(endpointUrl);
+      return {
+        endpointUrl,
+        successCount: runtimeStats?.successCount || 0,
+        failureCount: runtimeStats?.failureCount || 0,
+        lastSuccessAtIso: runtimeStats?.lastSuccessAtIso,
+        lastFailureAtIso: runtimeStats?.lastFailureAtIso,
+      };
+    });
+    for (const [
+      endpointUrl,
+      runtimeStats,
+    ] of this.endpointRuntimeStats.entries()) {
+      if (seen.has(endpointUrl)) continue;
+      stats.push({
+        endpointUrl,
+        successCount: runtimeStats.successCount,
+        failureCount: runtimeStats.failureCount,
+        lastSuccessAtIso: runtimeStats.lastSuccessAtIso,
+        lastFailureAtIso: runtimeStats.lastFailureAtIso,
+      });
+    }
+    return stats;
+  }
+
   private getPlatformTimeoutMs(): number {
     const parsed = Number(process.env.AI_AGENT_PLATFORM_TIMEOUT_MS || 4000);
     if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
@@ -1212,12 +1289,20 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
               headers,
             },
           );
+          this.recordEndpointCallResult({
+            endpointUrl: baseUrl,
+            success: true,
+          });
           return {
             response: response.data,
             endpointUrl: baseUrl,
             attemptCount,
           };
         } catch (error) {
+          this.recordEndpointCallResult({
+            endpointUrl: baseUrl,
+            success: false,
+          });
           lastError = error;
           timeoutFailure =
             timeoutFailure ||
