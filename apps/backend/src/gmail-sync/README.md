@@ -59,6 +59,9 @@ Scheduler hardening features:
   - failures persist `lastSyncError` and `lastSyncErrorAt`
   - fresh sync start clears stale error state
 - dedicated cron (`15 */6 * * *`) refreshes Gmail push watch subscriptions when topic is configured
+- structured sync lifecycle logs (`gmail_sync_start`, `gmail_sync_batch_loaded`,
+  `gmail_sync_message_import_failed`, `gmail_sync_completed`, `gmail_sync_failed`)
+  include correlation id and duration metadata for observability triage
 
 ## Push webhook endpoint
 

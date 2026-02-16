@@ -16,6 +16,10 @@ import {
   resolveProviderSecretsKeyring,
   ProviderSecretsKeyring,
 } from '../common/provider-secrets.util';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
@@ -497,6 +501,8 @@ export class GmailSyncService {
     userId: string,
     maxMessages = 25,
   ): Promise<{ imported: number }> {
+    const syncCorrelationId = resolveCorrelationId(undefined);
+    const syncStartedAtMs = Date.now();
     const provider = await this.emailProviderRepo.findOne({
       where: { id: providerId, userId },
     });
@@ -507,7 +513,14 @@ export class GmailSyncService {
     const accessToken = await this.ensureFreshGmailAccessToken(provider);
 
     this.logger.log(
-      `Starting Gmail sync provider=${providerId} user=${userId} maxMessages=${maxMessages}`,
+      serializeStructuredLog({
+        event: 'gmail_sync_start',
+        providerId,
+        userId,
+        maxMessages,
+        syncCorrelationId,
+        currentHistoryId: provider.gmailHistoryId || null,
+      }),
     );
     await this.emailProviderRepo.update(
       { id: providerId },
@@ -534,6 +547,17 @@ export class GmailSyncService {
       });
       const ids = syncBatch.ids;
       let imported = 0;
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'gmail_sync_batch_loaded',
+          providerId,
+          userId,
+          syncCorrelationId,
+          syncMode: syncBatch.mode,
+          candidateMessages: ids.length,
+          maxMessages,
+        }),
+      );
 
       for (const msg of ids) {
         try {
@@ -586,7 +610,14 @@ export class GmailSyncService {
           imported += 1;
         } catch (e: any) {
           this.logger.warn(
-            `Failed to import message ${msg.id}: ${e?.message || e}`,
+            serializeStructuredLog({
+              event: 'gmail_sync_message_import_failed',
+              providerId,
+              userId,
+              syncCorrelationId,
+              externalMessageId: msg.id,
+              error: e?.message || String(e),
+            }),
           );
         }
       }
@@ -608,13 +639,29 @@ export class GmailSyncService {
       );
 
       this.logger.log(
-        `Finished Gmail sync provider=${providerId} mode=${syncBatch.mode} imported=${imported} historyId=${latestHistoryId || 'n/a'}`,
+        serializeStructuredLog({
+          event: 'gmail_sync_completed',
+          providerId,
+          userId,
+          syncCorrelationId,
+          syncMode: syncBatch.mode,
+          importedMessages: imported,
+          latestHistoryId: latestHistoryId || provider.gmailHistoryId || null,
+          durationMs: Date.now() - syncStartedAtMs,
+        }),
       );
       return { imported };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Gmail sync failed provider=${providerId} user=${userId}: ${message}`,
+        serializeStructuredLog({
+          event: 'gmail_sync_failed',
+          providerId,
+          userId,
+          syncCorrelationId,
+          error: message,
+          durationMs: Date.now() - syncStartedAtMs,
+        }),
       );
       await this.emailProviderRepo.update(
         { id: providerId },
