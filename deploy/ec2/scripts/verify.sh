@@ -11,15 +11,51 @@
 # 1) Frontend home page over HTTPS
 # 2) GraphQL endpoint over HTTPS
 # 3) OAuth start endpoint over HTTPS
-# 4) Optional docker compose status (when docker is available)
+# 4) TLS certificate health check (via ssl-check.sh)
+# 5) Optional docker compose status (when docker is available)
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-MAX_RETRIES="${1:-5}"
-RETRY_SLEEP_SECONDS="${2:-3}"
+MAX_RETRIES="5"
+RETRY_SLEEP_SECONDS="3"
+RUN_SSL_CHECK=true
+
+# Backward compatibility for positional usage:
+#   verify.sh 10 5
+if [[ $# -ge 1 ]] && [[ "${1}" =~ ^[0-9]+$ ]]; then
+  MAX_RETRIES="${1}"
+  shift
+fi
+if [[ $# -ge 1 ]] && [[ "${1}" =~ ^[0-9]+$ ]]; then
+  RETRY_SLEEP_SECONDS="${1}"
+  shift
+fi
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --max-retries)
+    MAX_RETRIES="${2:-}"
+    shift 2
+    ;;
+  --retry-sleep)
+    RETRY_SLEEP_SECONDS="${2:-}"
+    shift 2
+    ;;
+  --skip-ssl-check)
+    RUN_SSL_CHECK=false
+    shift
+    ;;
+  *)
+    log_error "Unknown argument: $1"
+    log_error "Supported flags: --max-retries <n> --retry-sleep <n> --skip-ssl-check"
+    exit 1
+    ;;
+  esac
+done
 
 if [[ ! "${MAX_RETRIES}" =~ ^[0-9]+$ ]] || [[ "${MAX_RETRIES}" -lt 1 ]]; then
   log_error "MAX_RETRIES must be a positive integer (received: ${MAX_RETRIES})"
@@ -104,11 +140,17 @@ frontend_ok=true
 graphql_get_ok=true
 graphql_post_ok=true
 oauth_ok=true
+ssl_ok=true
 
 check_http_status "${frontend_url}" "frontend-home" 200 399 || frontend_ok=false
 check_http_status "${graphql_url}" "graphql-get" 200 499 || graphql_get_ok=false
 check_graphql_post || graphql_post_ok=false
 check_http_status "${oauth_start_url}" "oauth-google-start" 200 399 || oauth_ok=false
+if [[ "${RUN_SSL_CHECK}" == true ]]; then
+  "${SCRIPT_DIR}/ssl-check.sh" --domain "${domain}" || ssl_ok=false
+else
+  log_warn "SSL certificate check skipped (--skip-ssl-check)."
+fi
 
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   log_info "Docker detected. Printing compose status snapshot:"
@@ -120,7 +162,8 @@ fi
 if [[ "${frontend_ok}" == true ]] &&
   [[ "${graphql_get_ok}" == true ]] &&
   [[ "${graphql_post_ok}" == true ]] &&
-  [[ "${oauth_ok}" == true ]]; then
+  [[ "${oauth_ok}" == true ]] &&
+  [[ "${ssl_ok}" == true ]]; then
   log_info "Smoke checks passed."
   exit 0
 fi

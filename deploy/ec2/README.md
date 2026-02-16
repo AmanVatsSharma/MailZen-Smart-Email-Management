@@ -125,6 +125,12 @@ The setup script:
 # Custom retries/sleep
 ./deploy/ec2/scripts/verify.sh 10 5
 
+# Flag-style retries/sleep
+./deploy/ec2/scripts/verify.sh --max-retries 10 --retry-sleep 5
+
+# Skip SSL certificate validation in smoke check (not recommended)
+./deploy/ec2/scripts/verify.sh --skip-ssl-check
+
 # Validate deployment domain DNS (uses MAILZEN_DOMAIN from env)
 ./deploy/ec2/scripts/dns-check.sh
 

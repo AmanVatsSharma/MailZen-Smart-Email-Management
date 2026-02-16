@@ -258,6 +258,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # 4) Verify URLs and core endpoints
 ./deploy/ec2/scripts/verify.sh
 
+# Optional: verify with custom retries/sleep
+./deploy/ec2/scripts/verify.sh --max-retries 10 --retry-sleep 5
+
 # 5) Check status
 ./deploy/ec2/scripts/status.sh
 
