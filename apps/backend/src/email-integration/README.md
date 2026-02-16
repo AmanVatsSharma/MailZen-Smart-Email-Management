@@ -163,6 +163,7 @@ Login OAuth (backend redirect) uses:
 - `provider_oauth_callback_connect_success`
 - `provider_oauth_callback_connect_failed`
 - `provider_oauth_redirect_target_invalid`
+- `provider_oauth_redirect_target_rejected_external`
 
 ## Mermaid: connect provider via OAuth code
 

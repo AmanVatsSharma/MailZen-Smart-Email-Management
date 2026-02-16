@@ -237,6 +237,31 @@ describe('ProviderOAuthController', () => {
     );
   });
 
+  it('rejects external redirect target and falls back to provider settings', async () => {
+    const emailProviderService = {
+      connectGmail: jest.fn().mockResolvedValue(undefined),
+      connectOutlook: jest.fn(),
+    };
+    const controller = new ProviderOAuthController(
+      emailProviderService as never,
+    );
+    const response = createResponse();
+    const state = buildOAuthState('https://evil.example/phishing');
+
+    await controller.googleCallback(
+      createRequest({ userId: 'user-12' }),
+      response as unknown as Response,
+      'google-code',
+      state,
+      undefined,
+      undefined,
+    );
+
+    expect(response.redirectUrl).toBe(
+      'http://localhost:3000/email-providers?provider=gmail&success=true',
+    );
+  });
+
   it('redirects with Outlook connect failure message', async () => {
     const emailProviderService = {
       connectGmail: jest.fn(),

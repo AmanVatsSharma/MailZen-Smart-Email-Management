@@ -71,14 +71,6 @@ export class ProviderOAuthController {
     return '/email-providers';
   }
 
-  private safeRedirectTarget(redirectOverride?: string): string {
-    // Defensive default: never redirect to an empty value.
-    // NOTE: We intentionally allow absolute URLs so local dev with different ports works.
-    return redirectOverride && redirectOverride.trim().length > 0
-      ? redirectOverride
-      : `${this.getFrontendUrl()}/email-providers`;
-  }
-
   private buildProviderRedirectUrl(input: {
     provider: 'google' | 'microsoft';
     requestId: string;
@@ -88,9 +80,29 @@ export class ProviderOAuthController {
     const fallbackUrl = new URL(
       `${frontendUrl}${this.resolveDefaultProviderSettingsPath()}`,
     );
-    const redirectTarget = this.safeRedirectTarget(input.redirectOverride);
-    try {
+    const redirectTarget = String(input.redirectOverride || '').trim();
+    if (!redirectTarget) return fallbackUrl;
+
+    if (redirectTarget.startsWith('/')) {
       return new URL(redirectTarget, frontendUrl);
+    }
+
+    try {
+      const parsedRedirect = new URL(redirectTarget);
+      if (parsedRedirect.origin === new URL(frontendUrl).origin) {
+        return parsedRedirect;
+      }
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'provider_oauth_redirect_target_rejected_external',
+          requestId: input.requestId,
+          provider: input.provider,
+          redirectTargetFingerprint: fingerprintIdentifier(redirectTarget),
+          fallbackPath: this.resolveDefaultProviderSettingsPath(),
+          redirectOrigin: parsedRedirect.origin,
+        }),
+      );
+      return fallbackUrl;
     } catch {
       this.logger.warn(
         serializeStructuredLog({
