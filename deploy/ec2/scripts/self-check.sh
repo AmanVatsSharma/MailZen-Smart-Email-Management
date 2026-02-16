@@ -31,6 +31,7 @@ scripts=(
   "backup-db.sh"
   "backup-prune.sh"
   "restore-db.sh"
+  "rollback-latest.sh"
 )
 
 echo "[mailzen-deploy][SELF-CHECK] starting..."

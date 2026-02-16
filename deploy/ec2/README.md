@@ -36,6 +36,7 @@ Additional deployment flowcharts:
   - `backup-db.sh` (database backup)
   - `backup-prune.sh` (backup retention cleanup)
   - `restore-db.sh` (database restore with confirmation)
+  - `rollback-latest.sh` (restore newest backup quickly)
   - `env-audit.sh` (redacted critical env audit)
   - `status.sh`
   - `logs.sh`
@@ -134,6 +135,9 @@ The setup script:
 # Restore DB backup (destructive: drops and recreates DB)
 ./deploy/ec2/scripts/restore-db.sh deploy/ec2/backups/your-backup.sql.gz
 
+# Rollback using newest backup automatically
+./deploy/ec2/scripts/rollback-latest.sh
+
 # Logs (all services)
 ./deploy/ec2/scripts/logs.sh
 
@@ -223,5 +227,6 @@ Google/Outlook provider connection flows.
 - Backend migrations run automatically on backend container startup.
 - Use `stop.sh --purge-data` cautiously; it destroys persistent data volumes.
 - `restore-db.sh` is intentionally destructive and requires explicit confirmation.
+- `rollback-latest.sh` delegates to `restore-db.sh` and is also destructive.
 - Caddy sets baseline browser hardening headers (HSTS, X-Frame-Options,
   X-Content-Type-Options, Referrer-Policy).

@@ -42,7 +42,7 @@ flowchart TD
   BackupStart[backup-db.sh] --> BackupFile[Compressed SQL backup in deploy/ec2/backups]
   BackupFile --> Incident{Need rollback/recovery?}
   Incident -- no --> KeepBackup[Retain backup]
-  Incident -- yes --> Restore[restore-db.sh backup.sql.gz]
+  Incident -- yes --> Restore[rollback-latest.sh or restore-db.sh backup.sql.gz]
   Restore --> Confirm[Type RESTORE confirmation]
   Confirm --> RecreateDB[Drop + recreate database]
   RecreateDB --> ImportDump[Import SQL dump]
