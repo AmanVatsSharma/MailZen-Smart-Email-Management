@@ -221,6 +221,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # 2) Validate env + compose config
 ./deploy/ec2/scripts/preflight.sh
 
+# Optional: config-only validation (skip daemon connectivity check)
+./deploy/ec2/scripts/preflight.sh --config-only
+
 # 3) Build and run the stack
 ./deploy/ec2/scripts/deploy.sh
 

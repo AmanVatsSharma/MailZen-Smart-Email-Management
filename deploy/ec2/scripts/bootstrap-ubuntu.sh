@@ -49,14 +49,19 @@ else
   apt-get install -y docker-compose-v2
 fi
 
-log_info "Enabling and starting Docker service..."
-systemctl enable docker
-systemctl restart docker
+if command -v systemctl >/dev/null 2>&1 && [[ -d /run/systemd/system ]]; then
+  log_info "Systemd detected. Enabling and starting Docker service..."
+  systemctl enable docker
+  systemctl restart docker
 
-if ! systemctl is-active --quiet docker; then
-  log_error "Docker service is not active after startup."
-  systemctl status docker --no-pager || true
-  exit 1
+  if ! systemctl is-active --quiet docker; then
+    log_error "Docker service is not active after startup."
+    systemctl status docker --no-pager || true
+    exit 1
+  fi
+else
+  log_warn "Systemd not detected in this environment; skipping service enable/start."
+  log_warn "If docker daemon is not running, start it manually on your host."
 fi
 
 if command -v docker >/dev/null 2>&1; then
@@ -68,6 +73,13 @@ if docker compose version >/dev/null 2>&1; then
 else
   log_error "Docker Compose plugin still unavailable."
   exit 1
+fi
+
+if docker info >/dev/null 2>&1; then
+  log_info "Docker daemon connectivity check passed."
+else
+  log_warn "Docker client installed, but daemon is not reachable in this environment."
+  log_warn "On EC2 with systemd, run: sudo systemctl restart docker"
 fi
 
 target_user="${SUDO_USER:-}"

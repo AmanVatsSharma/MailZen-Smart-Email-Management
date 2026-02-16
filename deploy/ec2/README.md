@@ -88,6 +88,9 @@ The setup script:
 # Validate env + compose config before deploy
 ./deploy/ec2/scripts/preflight.sh
 
+# Config-only validation (useful when docker daemon is unavailable)
+./deploy/ec2/scripts/preflight.sh --config-only
+
 # Pull updates and recreate all services
 ./deploy/ec2/scripts/update.sh
 
@@ -182,6 +185,15 @@ Google/Outlook provider connection flows.
      ```
 4. **Provider OAuth redirect mismatch**
    - Ensure redirect URIs in env and provider console use HTTPS domain.
+5. **Docker installed but daemon unavailable in preflight**
+   - On EC2 Ubuntu:
+     ```bash
+     sudo systemctl restart docker
+     ```
+   - Or run config-only checks temporarily:
+     ```bash
+     ./deploy/ec2/scripts/preflight.sh --config-only
+     ```
 
 ## Notes
 
