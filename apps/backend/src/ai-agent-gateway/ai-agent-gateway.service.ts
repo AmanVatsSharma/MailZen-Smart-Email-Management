@@ -18,7 +18,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import axios from 'axios';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createClient, RedisClientType } from 'redis';
 import { Repository } from 'typeorm';
@@ -1127,6 +1127,34 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     return [this.getPlatformBaseUrl()];
   }
 
+  private isPlatformLoadBalancingEnabled(): boolean {
+    const normalized = String(
+      process.env.AI_AGENT_PLATFORM_LOAD_BALANCE_ENABLED || 'false',
+    )
+      .trim()
+      .toLowerCase();
+    return ['true', '1', 'yes', 'on'].includes(normalized);
+  }
+
+  private orderPlatformBaseUrlsForRequest(
+    baseUrls: string[],
+    requestId: string,
+  ): string[] {
+    if (baseUrls.length <= 1) return baseUrls;
+    if (!this.isPlatformLoadBalancingEnabled()) return baseUrls;
+    const normalizedRequestId = String(requestId || '').trim();
+    if (!normalizedRequestId) return baseUrls;
+
+    const digest = createHash('sha1')
+      .update(normalizedRequestId)
+      .digest('hex')
+      .slice(0, 8);
+    const hashSeed = parseInt(digest, 16);
+    const safeSeed = Number.isFinite(hashSeed) ? hashSeed : 0;
+    const startIndex = safeSeed % baseUrls.length;
+    return [...baseUrls.slice(startIndex), ...baseUrls.slice(0, startIndex)];
+  }
+
   private getPlatformTimeoutMs(): number {
     const parsed = Number(process.env.AI_AGENT_PLATFORM_TIMEOUT_MS || 4000);
     if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
@@ -1138,7 +1166,10 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     requestId: string,
     ip?: string,
   ): Promise<AgentPlatformResponse> {
-    const baseUrls = this.getPlatformBaseUrls();
+    const baseUrls = this.orderPlatformBaseUrlsForRequest(
+      this.getPlatformBaseUrls(),
+      requestId,
+    );
     const headers: Record<string, string> = {
       'x-request-id': requestId,
     };

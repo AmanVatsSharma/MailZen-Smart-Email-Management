@@ -9,6 +9,7 @@
  * - Read assist() assertions first.
  */
 import axios from 'axios';
+import { createHash } from 'crypto';
 import {
   BadRequestException,
   ServiceUnavailableException,
@@ -100,10 +101,13 @@ describe('AiAgentGatewayService', () => {
       notificationEventBus as NotificationEventBusService,
     );
   const originalPlatformUrls = process.env.AI_AGENT_PLATFORM_URLS;
+  const originalLoadBalanceEnabled =
+    process.env.AI_AGENT_PLATFORM_LOAD_BALANCE_ENABLED;
 
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.AI_AGENT_PLATFORM_URLS;
+    delete process.env.AI_AGENT_PLATFORM_LOAD_BALANCE_ENABLED;
     createAgentActionAuditMock.mockImplementation(
       (value: Record<string, unknown>) => value,
     );
@@ -126,9 +130,15 @@ describe('AiAgentGatewayService', () => {
   afterAll(() => {
     if (typeof originalPlatformUrls === 'string') {
       process.env.AI_AGENT_PLATFORM_URLS = originalPlatformUrls;
+    } else {
+      delete process.env.AI_AGENT_PLATFORM_URLS;
+    }
+    if (typeof originalLoadBalanceEnabled === 'string') {
+      process.env.AI_AGENT_PLATFORM_LOAD_BALANCE_ENABLED =
+        originalLoadBalanceEnabled;
       return;
     }
-    delete process.env.AI_AGENT_PLATFORM_URLS;
+    delete process.env.AI_AGENT_PLATFORM_LOAD_BALANCE_ENABLED;
   });
 
   it('redacts sensitive fields before platform call', async () => {
@@ -365,6 +375,52 @@ describe('AiAgentGatewayService', () => {
     expect(mockedAxios.post.mock.calls[1]?.[0]).toContain(
       'http://secondary-agent.local',
     );
+  });
+
+  it('rotates platform endpoint order when load balancing is enabled', async () => {
+    process.env.AI_AGENT_PLATFORM_URLS =
+      'http://primary-agent.local,http://secondary-agent.local,http://tertiary-agent.local';
+    process.env.AI_AGENT_PLATFORM_LOAD_BALANCE_ENABLED = 'true';
+    const service = createService();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: {
+        version: 'v1',
+        skill: 'auth',
+        assistantText: 'Load-balanced response.',
+        intent: 'auth_help',
+        confidence: 0.81,
+        suggestedActions: [],
+        uiHints: {},
+        safetyFlags: [],
+      },
+    } as any);
+    const requestId = 'req-load-balance-1';
+    const configuredUrls = [
+      'http://primary-agent.local',
+      'http://secondary-agent.local',
+      'http://tertiary-agent.local',
+    ];
+    const digest = createHash('sha1')
+      .update(requestId)
+      .digest('hex')
+      .slice(0, 8);
+    const expectedStartIndex = parseInt(digest, 16) % configuredUrls.length;
+    const expectedUrl = configuredUrls[expectedStartIndex];
+
+    await service.assist(
+      {
+        skill: 'auth',
+        messages: [{ role: 'user', content: 'help me login' }],
+        context: { surface: 'auth-login', locale: 'en-IN' },
+        allowedActions: ['auth.open_login'],
+        executeRequestedAction: false,
+      },
+      {
+        requestId,
+      },
+    );
+
+    expect(mockedAxios.post.mock.calls[0]?.[0]).toContain(expectedUrl);
   });
 
   it('falls back to secondary health probe endpoint when primary is down', async () => {
