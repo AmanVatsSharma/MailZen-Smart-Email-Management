@@ -87,7 +87,9 @@ show_menu() {
 28) Run diagnostics report (doctor, seeded env, optional custom ports)
 29) Generate support bundle (seeded env, optional custom ports)
 30) Run pipeline check (seeded env, optional custom ports)
-31) Exit
+31) Restart services (guided)
+32) Stop stack (guided)
+33) Exit
 ===============================================================================
 MENU
 }
@@ -100,7 +102,7 @@ fi
 
 while true; do
   show_menu
-  read -r -p "Select an option [1-31]: " choice
+  read -r -p "Select an option [1-33]: " choice
 
   case "${choice}" in
   1)
@@ -589,11 +591,44 @@ while true; do
     run_step "pipeline-check.sh" "${pipeline_seeded_args[@]}"
     ;;
   31)
+    restart_args=()
+    restart_service="$(prompt_with_default "Service to restart (blank = all services)" "")"
+    if [[ -n "${restart_service}" ]]; then
+      restart_args+=(--service "${restart_service}")
+    fi
+    restart_wait_seconds="$(prompt_with_default "Wait seconds before status snapshot" "0")"
+    if [[ "${restart_wait_seconds}" =~ ^[0-9]+$ ]]; then
+      restart_args+=(--wait-seconds "${restart_wait_seconds}")
+    else
+      echo "[mailzen-deploy][MENU][WARN] Invalid wait seconds value '${restart_wait_seconds}'. Using 0."
+      restart_args+=(--wait-seconds "0")
+    fi
+    if prompt_yes_no "Run restart in dry-run mode" "no"; then
+      restart_args+=(--dry-run)
+    fi
+    run_step "restart.sh" "${restart_args[@]}"
+    ;;
+  32)
+    stop_args=()
+    stop_purge_data=false
+    if prompt_yes_no "Purge database/cache volumes while stopping" "no"; then
+      stop_purge_data=true
+      stop_args+=(--purge-data)
+      if prompt_yes_no "Bypass purge confirmation with --yes" "no"; then
+        stop_args+=(--yes)
+      fi
+    fi
+    if prompt_yes_no "Run stop in dry-run mode" "no"; then
+      stop_args+=(--dry-run)
+    fi
+    run_step "stop.sh" "${stop_args[@]}"
+    ;;
+  33)
     echo "[mailzen-deploy][INFO] Exiting menu."
     exit 0
     ;;
   *)
-    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-31."
+    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-33."
     ;;
   esac
 done

@@ -88,6 +88,7 @@ From repository root:
 # - deploy flags (--no-build/--pull/--force-recreate/--dry-run/--config-only)
 # - verify checks (retries + oauth/ssl toggles)
 # - logs filters (service/tail/since/follow)
+# - restart/stop operations (service/wait/purge/dry-run/confirmation controls)
 
 # One-command launch
 # (setup + host-readiness + dns + ssl + ports + preflight + deploy + verify + status)
