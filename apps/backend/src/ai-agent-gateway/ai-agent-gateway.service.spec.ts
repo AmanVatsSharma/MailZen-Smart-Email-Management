@@ -328,6 +328,8 @@ describe('AiAgentGatewayService', () => {
     const health = await service.getPlatformHealth();
     expect(health.reachable).toBe(false);
     expect(health.status).toBe('down');
+    expect(health.probedServiceUrls).toEqual(['http://localhost:8100']);
+    expect(health.configuredServiceUrls).toEqual(['http://localhost:8100']);
   });
 
   it('falls back to secondary platform endpoint when primary call fails', async () => {
@@ -381,6 +383,34 @@ describe('AiAgentGatewayService', () => {
     expect(health.reachable).toBe(true);
     expect(health.status).toBe('ok');
     expect(health.serviceUrl).toBe('http://secondary-agent.local');
+    expect(health.probedServiceUrls).toEqual([
+      'http://primary-agent.local',
+      'http://secondary-agent.local',
+    ]);
+    expect(health.configuredServiceUrls).toEqual([
+      'http://primary-agent.local',
+      'http://secondary-agent.local',
+    ]);
+  });
+
+  it('normalizes and de-duplicates configured platform endpoint list', async () => {
+    process.env.AI_AGENT_PLATFORM_URLS =
+      'http://primary-agent.local/, http://primary-agent.local, http://secondary-agent.local/';
+    const service = createService();
+    mockedAxios.get.mockResolvedValueOnce({
+      data: {
+        status: 'ok',
+      },
+    } as any);
+
+    const health = await service.getPlatformHealth();
+
+    expect(health.reachable).toBe(true);
+    expect(health.configuredServiceUrls).toEqual([
+      'http://primary-agent.local',
+      'http://secondary-agent.local',
+    ]);
+    expect(health.probedServiceUrls).toEqual(['http://primary-agent.local']);
   });
 
   it('executes inbox summary action when suggested and requested', async () => {

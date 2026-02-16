@@ -393,6 +393,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     const checkedAtIso = new Date().toISOString();
     const platformBaseUrls = this.getPlatformBaseUrls();
     let serviceUrl = platformBaseUrls[0] || this.getPlatformBaseUrl();
+    const probedServiceUrls: string[] = [];
     const thresholdLatencyMs = this.getLatencyWarnThresholdMs();
     const thresholdErrorRate = this.getErrorRateWarnPercent();
     const requestCount = this.metrics.totalRequests;
@@ -410,6 +411,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     for (let index = 0; index < platformBaseUrls.length; index += 1) {
       const candidateBaseUrl = platformBaseUrls[index];
       if (!candidateBaseUrl) continue;
+      probedServiceUrls.push(candidateBaseUrl);
       const startedAtMs = Date.now();
       try {
         const response = await axios.get<{ status?: string }>(
@@ -456,6 +458,8 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       status,
       reachable,
       serviceUrl,
+      configuredServiceUrls: platformBaseUrls,
+      probedServiceUrls,
       latencyMs,
       checkedAtIso,
       requestCount,
@@ -1102,13 +1106,20 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   }
 
   private getPlatformBaseUrl(): string {
-    return process.env.AI_AGENT_PLATFORM_URL || 'http://localhost:8100';
+    const rawUrl = process.env.AI_AGENT_PLATFORM_URL || 'http://localhost:8100';
+    return this.normalizePlatformBaseUrl(rawUrl);
+  }
+
+  private normalizePlatformBaseUrl(rawUrl: string): string {
+    return String(rawUrl || '')
+      .trim()
+      .replace(/\/+$/, '');
   }
 
   private getPlatformBaseUrls(): string[] {
     const urlsFromEnv = String(process.env.AI_AGENT_PLATFORM_URLS || '')
       .split(',')
-      .map((url) => url.trim())
+      .map((url) => this.normalizePlatformBaseUrl(url))
       .filter(Boolean);
     if (urlsFromEnv.length > 0) {
       return Array.from(new Set(urlsFromEnv));

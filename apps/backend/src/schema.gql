@@ -533,6 +533,8 @@ type AgentPlatformHealthResponse {
   status: String!
   reachable: Boolean!
   serviceUrl: String!
+  configuredServiceUrls: [String!]!
+  probedServiceUrls: [String!]!
   latencyMs: Float!
   checkedAtIso: String!
   requestCount: Int!

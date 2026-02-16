@@ -21,6 +21,12 @@ export class AgentPlatformHealthResponse {
   @Field()
   serviceUrl: string;
 
+  @Field(() => [String])
+  configuredServiceUrls: string[];
+
+  @Field(() => [String])
+  probedServiceUrls: string[];
+
   @Field(() => Float)
   latencyMs: number;
 
