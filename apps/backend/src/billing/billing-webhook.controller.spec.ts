@@ -50,6 +50,7 @@ describe('BillingWebhookController', () => {
         amountCents: 1900,
       },
       undefined,
+      'request-1',
     );
 
     expect(ingestBillingWebhookMock).toHaveBeenCalledWith({
@@ -78,6 +79,46 @@ describe('BillingWebhookController', () => {
           eventType: 'invoice.payment_failed',
         },
         'wrong-secret',
+        'request-2',
+      ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(ingestBillingWebhookMock).not.toHaveBeenCalled();
+  });
+
+  it('accepts webhook when secret matches exactly', async () => {
+    process.env.BILLING_WEBHOOK_SHARED_SECRET = 'expected-secret';
+    ingestBillingWebhookMock.mockResolvedValue({
+      id: 'evt-3',
+      externalEventId: 'evt_external_3',
+      status: 'processed',
+    });
+
+    const result = await controller.ingestWebhook(
+      'stripe',
+      {
+        eventId: 'evt_external_3',
+        eventType: 'invoice.paid',
+      },
+      'expected-secret',
+      'request-3',
+    );
+
+    expect(result.accepted).toBe(true);
+    expect(ingestBillingWebhookMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects webhook when same-length secret is incorrect', async () => {
+    process.env.BILLING_WEBHOOK_SHARED_SECRET = 'secret-12345';
+
+    await expect(
+      controller.ingestWebhook(
+        'stripe',
+        {
+          eventId: 'evt_external_4',
+          eventType: 'invoice.payment_failed',
+        },
+        'secret-12344',
+        'request-4',
       ),
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(ingestBillingWebhookMock).not.toHaveBeenCalled();

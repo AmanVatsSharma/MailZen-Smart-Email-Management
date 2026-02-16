@@ -86,6 +86,10 @@ flowchart TD
   - `billing_webhook_event_ignored`
   - `billing_webhook_processing_failed`
   - `billing_upgrade_intent_recorded`
+- `BillingWebhookController` structured observability events:
+  - `billing_webhook_secret_missing`
+  - `billing_webhook_secret_mismatch`
+  - `billing_webhook_ingested`
 - Retention controls:
   - Daily auto-purge via `BillingRetentionScheduler`
   - Configurable windows:
@@ -108,3 +112,5 @@ flowchart TD
     - `workspaceMemberLimit` (active members per workspace)
   - `AiAgentGatewayService` consumes monthly AI credits via billing service
   - `NotificationEventBusService` stores `BILLING_UPGRADE_INTENT` intents
+- Webhook secret verification now uses timing-safe comparison semantics when
+  `BILLING_WEBHOOK_SHARED_SECRET` is configured.
