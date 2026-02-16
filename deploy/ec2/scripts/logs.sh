@@ -35,14 +35,26 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
   --service)
     SERVICE_NAME="${2:-}"
+    if [[ -z "${SERVICE_NAME}" ]]; then
+      log_error "--service requires a value."
+      exit 1
+    fi
     shift 2
     ;;
   --tail)
     TAIL_LINES="${2:-}"
+    if [[ -z "${TAIL_LINES}" ]]; then
+      log_error "--tail requires a value."
+      exit 1
+    fi
     shift 2
     ;;
   --since)
     SINCE_WINDOW="${2:-}"
+    if [[ -z "${SINCE_WINDOW}" ]]; then
+      log_error "--since requires a value."
+      exit 1
+    fi
     shift 2
     ;;
   --no-follow)
@@ -57,7 +69,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ ! "${TAIL_LINES}" =~ ^[0-9]+$ ]]; then
+if [[ ! "${TAIL_LINES}" =~ ^[0-9]+$ ]] || [[ "${TAIL_LINES}" -lt 1 ]]; then
   log_error "Tail lines must be a positive integer (received: ${TAIL_LINES})"
   exit 1
 fi
@@ -72,6 +84,13 @@ fi
 log_info "Opening logs (tail=${TAIL_LINES}, follow=${FOLLOW}, since=${SINCE_WINDOW:-none})..."
 require_cmd docker
 ensure_required_files_exist
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
+
+if ! docker info >/dev/null 2>&1; then
+  log_error "Docker daemon is not reachable. Start Docker and retry."
+  exit 1
+fi
 
 log_args=(--tail "${TAIL_LINES}")
 if [[ -n "${SINCE_WINDOW}" ]]; then
