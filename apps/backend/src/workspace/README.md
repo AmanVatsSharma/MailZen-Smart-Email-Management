@@ -37,6 +37,11 @@ organization features.
   - workspace membership, role, status, invited-by metadata
   - supports `pending` / `active` / `declined` invitation lifecycle
 
+## Observability
+
+- Structured service warning event:
+  - `workspace_member_limit_reached`
+
 ## Flow
 
 ```mermaid

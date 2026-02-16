@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { BillingService } from '../billing/billing.service';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 import { User } from '../user/entities/user.entity';
 import { WorkspaceDataExportResponse } from './workspace-data-export.response';
 import { Workspace } from './entities/workspace.entity';
@@ -551,7 +552,13 @@ export class WorkspaceService {
     if (activeMemberCount < entitlements.workspaceMemberLimit) return;
 
     this.logger.warn(
-      `workspace-member-limit: reached workspaceId=${input.workspaceId} ownerUserId=${ownerUserId} activeMembers=${activeMemberCount} limit=${entitlements.workspaceMemberLimit}`,
+      serializeStructuredLog({
+        event: 'workspace_member_limit_reached',
+        workspaceId: input.workspaceId,
+        ownerUserId,
+        activeMembers: activeMemberCount,
+        limit: entitlements.workspaceMemberLimit,
+      }),
     );
     throw new BadRequestException(
       `Plan limit reached. Your ${entitlements.planCode} plan supports up to ${entitlements.workspaceMemberLimit} active members per workspace.`,
