@@ -2,11 +2,13 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Observable, Subject, filter, map } from 'rxjs';
 import { In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { NotificationDataExportResponse } from './dto/notification-data-export.response';
 import { NotificationRetentionPurgeResponse } from './dto/notification-retention-purge.response';
 import { RegisterNotificationPushSubscriptionInput } from './dto/register-notification-push-subscription.input';
@@ -14,6 +16,10 @@ import { NotificationPushSubscription } from './entities/notification-push-subsc
 import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
 import { UserNotification } from './entities/user-notification.entity';
+import {
+  fingerprintIdentifier,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 import { NotificationPushService } from './notification-push.service';
 import { NotificationWebhookService } from './notification-webhook.service';
 
@@ -56,6 +62,7 @@ export class NotificationService {
   private static readonly DEFAULT_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES = 60;
   private static readonly MIN_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES = 5;
   private static readonly MAX_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES = 24 * 60;
+  private readonly logger = new Logger(NotificationService.name);
   private readonly realtimeEventBus = new Subject<NotificationRealtimeEvent>();
 
   constructor(
@@ -65,9 +72,36 @@ export class NotificationService {
     private readonly notificationPreferenceRepo: Repository<UserNotificationPreference>,
     @InjectRepository(NotificationPushSubscription)
     private readonly pushSubscriptionRepo: Repository<NotificationPushSubscription>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly notificationWebhookService: NotificationWebhookService,
     private readonly notificationPushService: NotificationPushService,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.auditLogRepo.save(
+        this.auditLogRepo.create({
+          userId: input.userId,
+          action: input.action,
+          metadata: input.metadata || {},
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'notification_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
+  }
 
   private getDefaultPreference(userId: string): UserNotificationPreference {
     const targetSuccessPercent = this.normalizeThresholdInput(
@@ -133,6 +167,10 @@ export class NotificationService {
     input: UpdateNotificationPreferencesInput,
   ): Promise<UserNotificationPreference> {
     const existing = await this.getOrCreatePreferences(userId);
+    const changedFields = Object.entries(input)
+      .filter(([, value]) => typeof value !== 'undefined')
+      .map(([key]) => key)
+      .sort();
     if (typeof input.inAppEnabled === 'boolean') {
       existing.inAppEnabled = input.inAppEnabled;
     }
@@ -204,7 +242,21 @@ export class NotificationService {
       normalizedThresholds.warningRejectedPercent;
     existing.mailboxInboundSlaCriticalRejectedPercent =
       normalizedThresholds.criticalRejectedPercent;
-    return this.notificationPreferenceRepo.save(existing);
+    const savedPreferences =
+      await this.notificationPreferenceRepo.save(existing);
+    await this.writeAuditLog({
+      userId,
+      action: 'notification_preferences_updated',
+      metadata: {
+        changedFields,
+        inAppEnabled: savedPreferences.inAppEnabled,
+        emailEnabled: savedPreferences.emailEnabled,
+        pushEnabled: savedPreferences.pushEnabled,
+        syncFailureEnabled: savedPreferences.syncFailureEnabled,
+        notificationDigestEnabled: savedPreferences.notificationDigestEnabled,
+      },
+    });
+    return savedPreferences;
   }
 
   private normalizeThresholdInput(rawValue: unknown, fallback: number): number {
@@ -486,7 +538,20 @@ export class NotificationService {
       existingByEndpoint.isActive = true;
       existingByEndpoint.lastFailureAt = null;
       existingByEndpoint.failureCount = 0;
-      return this.pushSubscriptionRepo.save(existingByEndpoint);
+      const savedSubscription =
+        await this.pushSubscriptionRepo.save(existingByEndpoint);
+      await this.writeAuditLog({
+        userId: input.userId,
+        action: 'notification_push_subscription_registered',
+        metadata: {
+          subscriptionId: savedSubscription.id,
+          workspaceId: savedSubscription.workspaceId || null,
+          endpointFingerprint: fingerprintIdentifier(endpoint),
+          reusedEndpoint: true,
+          isActive: savedSubscription.isActive,
+        },
+      });
+      return savedSubscription;
     }
 
     await this.enforcePushSubscriptionLimit(input.userId);
@@ -502,7 +567,19 @@ export class NotificationService {
       lastDeliveredAt: null,
       lastFailureAt: null,
     });
-    return this.pushSubscriptionRepo.save(created);
+    const savedSubscription = await this.pushSubscriptionRepo.save(created);
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'notification_push_subscription_registered',
+      metadata: {
+        subscriptionId: savedSubscription.id,
+        workspaceId: savedSubscription.workspaceId || null,
+        endpointFingerprint: fingerprintIdentifier(endpoint),
+        reusedEndpoint: false,
+        isActive: savedSubscription.isActive,
+      },
+    });
+    return savedSubscription;
   }
 
   async unregisterPushSubscription(input: {
@@ -518,6 +595,15 @@ export class NotificationService {
     if (!existing.isActive) return true;
     existing.isActive = false;
     await this.pushSubscriptionRepo.save(existing);
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'notification_push_subscription_unregistered',
+      metadata: {
+        subscriptionId: existing.id,
+        workspaceId: existing.workspaceId || null,
+        endpointFingerprint: fingerprintIdentifier(endpoint),
+      },
+    });
     return true;
   }
 
@@ -608,6 +694,15 @@ export class NotificationService {
       workspaceId: savedNotification.workspaceId || null,
       markedCount: 1,
     });
+    await this.writeAuditLog({
+      userId: savedNotification.userId,
+      action: 'notification_marked_read',
+      metadata: {
+        notificationId: savedNotification.id,
+        workspaceId: savedNotification.workspaceId || null,
+        notificationType: savedNotification.type,
+      },
+    });
     return savedNotification;
   }
 
@@ -664,6 +759,16 @@ export class NotificationService {
         userId: input.userId,
         workspaceId: normalizedWorkspaceId || null,
         markedCount: affectedCount,
+      });
+      await this.writeAuditLog({
+        userId: input.userId,
+        action: 'notification_bulk_marked_read',
+        metadata: {
+          workspaceId: normalizedWorkspaceId || null,
+          markedCount: affectedCount,
+          filteredSinceHours: normalizedSinceHours,
+          filteredTypeCount: normalizedTypes.length,
+        },
       });
     }
     return affectedCount;
@@ -774,6 +879,16 @@ export class NotificationService {
       })),
       retentionPolicy,
     };
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'notification_data_export_requested',
+      metadata: {
+        notificationLimit,
+        notificationCount: notifications.length,
+        unreadCount,
+        pushSubscriptionCount: pushSubscriptions.length,
+      },
+    });
 
     return {
       generatedAtIso: generatedAt.toISOString(),
@@ -1100,6 +1215,17 @@ export class NotificationService {
       }),
     ]);
     const generatedAtIso = new Date().toISOString();
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'notification_mailbox_inbound_sla_export_requested',
+      metadata: {
+        workspaceId: normalizedWorkspaceId,
+        windowHours,
+        bucketMinutes,
+        limit,
+        alertCount: alerts.length,
+      },
+    });
     return {
       generatedAtIso,
       dataJson: JSON.stringify({
@@ -1192,7 +1318,17 @@ export class NotificationService {
     const preference = await this.getOrCreatePreferences(input.userId);
     preference.mailboxInboundSlaLastAlertStatus = input.status;
     preference.mailboxInboundSlaLastAlertedAt = input.alertedAt;
-    return this.notificationPreferenceRepo.save(preference);
+    const savedPreference =
+      await this.notificationPreferenceRepo.save(preference);
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'notification_mailbox_inbound_sla_state_updated',
+      metadata: {
+        status: input.status || null,
+        alertedAtIso: input.alertedAt ? input.alertedAt.toISOString() : null,
+      },
+    });
+    return savedPreference;
   }
 
   private normalizeIncidentWindowHours(windowHours?: number | null): number {

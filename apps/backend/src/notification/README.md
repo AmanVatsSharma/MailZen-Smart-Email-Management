@@ -157,6 +157,21 @@ Push channel observability events:
 - `notification_push_vapid_keys_missing`
 - `notification_push_delivery_failed`
 
+Notification service observability events:
+
+- `notification_audit_log_write_failed`
+
+Compliance/audit actions persisted in `audit_logs`:
+
+- `notification_preferences_updated`
+- `notification_push_subscription_registered`
+- `notification_push_subscription_unregistered`
+- `notification_marked_read`
+- `notification_bulk_marked_read`
+- `notification_data_export_requested`
+- `notification_mailbox_inbound_sla_state_updated`
+- `notification_mailbox_inbound_sla_export_requested`
+
 ## Initial event producers
 
 - `GmailSyncScheduler` publishes `SYNC_FAILED` domain events through

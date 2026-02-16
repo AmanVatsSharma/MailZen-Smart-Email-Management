@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { NotificationEventBusService } from './notification-event-bus.service';
 import { User } from '../user/entities/user.entity';
 import { NotificationStreamController } from './notification-stream.controller';
@@ -21,6 +22,7 @@ import { NotificationWebhookService } from './notification-webhook.service';
       NotificationPushSubscription,
       UserNotificationPreference,
       User,
+      AuditLog,
     ]),
     MailerModule.forRoot({
       transport: {

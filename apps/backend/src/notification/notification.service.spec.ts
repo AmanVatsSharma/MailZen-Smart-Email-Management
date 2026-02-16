@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-argument */
 import { NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { NotificationPushSubscription } from './entities/notification-push-subscription.entity';
 import { UserNotificationPreference } from './entities/user-notification-preference.entity';
 import { UserNotification } from './entities/user-notification.entity';
@@ -15,6 +16,7 @@ describe('NotificationService', () => {
   let pushSubscriptionRepo: jest.Mocked<
     Repository<NotificationPushSubscription>
   >;
+  let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
   let webhookService: jest.Mocked<
     Pick<
       NotificationWebhookService,
@@ -46,6 +48,10 @@ describe('NotificationService', () => {
       findOne: jest.fn(),
       createQueryBuilder: jest.fn(),
     } as unknown as jest.Mocked<Repository<NotificationPushSubscription>>;
+    auditLogRepo = {
+      create: jest.fn(),
+      save: jest.fn(),
+    } as unknown as jest.Mocked<Repository<AuditLog>>;
     webhookService = {
       dispatchNotificationCreated: jest.fn(),
       dispatchNotificationsMarkedRead: jest.fn(),
@@ -58,9 +64,14 @@ describe('NotificationService', () => {
       notificationRepo,
       preferenceRepo,
       pushSubscriptionRepo,
+      auditLogRepo,
       webhookService as unknown as NotificationWebhookService,
       pushService as unknown as NotificationPushService,
     );
+    auditLogRepo.create.mockImplementation(
+      (value: Partial<AuditLog>) => value as AuditLog,
+    );
+    auditLogRepo.save.mockResolvedValue({ id: 'audit-log-1' } as AuditLog);
     notificationRepo.createQueryBuilder.mockReturnValue({
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
@@ -407,6 +418,12 @@ describe('NotificationService', () => {
         markedCount: 1,
       },
     );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'notification_marked_read',
+      }),
+    );
   });
 
   it('throws for missing notifications', async () => {
@@ -415,6 +432,31 @@ describe('NotificationService', () => {
     await expect(
       service.markNotificationRead('missing', 'user-1'),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('continues markNotificationRead when audit persistence fails', async () => {
+    notificationRepo.findOne.mockResolvedValue({
+      id: 'notif-2',
+      userId: 'user-1',
+      isRead: false,
+    } as UserNotification);
+    notificationRepo.save.mockResolvedValue({
+      id: 'notif-2',
+      userId: 'user-1',
+      isRead: true,
+    } as UserNotification);
+    auditLogRepo.save.mockRejectedValue(
+      new Error('audit datastore unavailable'),
+    );
+
+    await expect(
+      service.markNotificationRead('notif-2', 'user-1'),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: 'notif-2',
+        isRead: true,
+      }),
+    );
   });
 
   it('updates persisted notification preferences', async () => {
@@ -438,6 +480,12 @@ describe('NotificationService', () => {
     expect(result.mailboxInboundRejectedEnabled).toBe(false);
     expect(result.mailboxInboundSlaAlertsEnabled).toBe(false);
     expect(result.notificationDigestEnabled).toBe(false);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'notification_preferences_updated',
+      }),
+    );
   });
 
   it('exports notification data snapshot for legal/compliance portability', async () => {
@@ -479,6 +527,12 @@ describe('NotificationService', () => {
     expect(result.dataJson).toContain('"preferences"');
     expect(result.dataJson).toContain('"notifications"');
     expect(result.dataJson).toContain('"pushSubscriptions"');
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'notification_data_export_requested',
+      }),
+    );
   });
 
   it('purges expired read notifications and disabled push subscriptions', async () => {
@@ -675,6 +729,12 @@ describe('NotificationService', () => {
 
     expect(result.mailboxInboundSlaLastAlertStatus).toBe('CRITICAL');
     expect(result.mailboxInboundSlaLastAlertedAt).toEqual(now);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'notification_mailbox_inbound_sla_state_updated',
+      }),
+    );
   });
 
   it('filters notification list by provided types', async () => {
@@ -855,6 +915,12 @@ describe('NotificationService', () => {
     expect(payload.series[0]?.totalCount).toBe(2);
     expect(payload.alertCount).toBe(1);
     expect(payload.alerts[0]?.notificationId).toBe('notif-1');
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'notification_mailbox_inbound_sla_export_requested',
+      }),
+    );
   });
 
   it('lists mailbox inbound SLA incident alert notifications', async () => {
@@ -1027,6 +1093,12 @@ describe('NotificationService', () => {
         markedCount: 4,
       },
     );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'notification_bulk_marked_read',
+      }),
+    );
   });
 
   it('registers push subscriptions for current user', async () => {
@@ -1062,6 +1134,12 @@ describe('NotificationService', () => {
         isActive: true,
       }),
     );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'notification_push_subscription_registered',
+      }),
+    );
   });
 
   it('deactivates push subscriptions when unregistering', async () => {
@@ -1091,6 +1169,12 @@ describe('NotificationService', () => {
     expect(pushSubscriptionRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
         isActive: false,
+      }),
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'notification_push_subscription_unregistered',
       }),
     );
   });
