@@ -686,7 +686,15 @@ export class MailboxSyncService {
         const waitMs = backoffMs * (attempt + 1) + jitterMs;
         const errorMessage = this.describeSyncError(error);
         this.logger.warn(
-          `mailbox-sync: retrying mailbox pull mailboxId=${input.mailbox.id} email=${input.mailbox.email} attempt=${attempt + 1} waitMs=${waitMs} error=${errorMessage}`,
+          serializeStructuredLog({
+            event: 'mailbox_sync_pull_retry_scheduled',
+            mailboxId: input.mailbox.id,
+            mailboxEmail: input.mailbox.email,
+            attempt: attempt + 1,
+            maxRetries,
+            waitMs,
+            reason: errorMessage,
+          }),
         );
         await this.sleep(waitMs);
       }

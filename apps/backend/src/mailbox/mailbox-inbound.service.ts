@@ -94,7 +94,10 @@ export class MailboxInboundService {
     }
 
     this.logger.warn(
-      'MAILZEN_INBOUND_WEBHOOK_TOKEN is not configured; inbound webhook authentication is bypassed for non-production environment',
+      serializeStructuredLog({
+        event: 'mailbox_inbound_auth_bypass_non_production',
+        environment: env || 'unknown',
+      }),
     );
     return null;
   }

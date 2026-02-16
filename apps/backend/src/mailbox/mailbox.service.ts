@@ -27,6 +27,10 @@ import {
 } from './dto/mailbox-inbound-event-observability.response';
 import { MailboxInboundDataExportResponse } from './dto/mailbox-inbound-data-export.response';
 import { MailboxInboundRetentionPurgeResponse } from './dto/mailbox-inbound-retention-purge.response';
+import {
+  fingerprintIdentifier,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 @Injectable()
 export class MailboxService {
@@ -158,7 +162,13 @@ export class MailboxService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Mailbox provisioning failed for mailboxId=${created.id} email=${email}: ${errorMessage}; rolling back mailbox row`,
+        serializeStructuredLog({
+          event: 'mailbox_create_provisioning_failed_rollback',
+          userId,
+          mailboxId: created.id,
+          accountFingerprint: fingerprintIdentifier(email),
+          error: errorMessage,
+        }),
       );
       await this.mailboxRepo.delete({ id: created.id, userId });
       throw error;
@@ -173,7 +183,12 @@ export class MailboxService {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         this.logger.warn(
-          `Failed to set active inbox pointer after mailbox create for user=${userId} mailboxId=${created.id}: ${errorMessage}`,
+          serializeStructuredLog({
+            event: 'mailbox_create_active_inbox_update_failed',
+            userId,
+            mailboxId: created.id,
+            error: errorMessage,
+          }),
         );
       }
     }
