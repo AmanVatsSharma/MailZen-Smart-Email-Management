@@ -20,6 +20,7 @@ const requiredContracts = [
   'myNotifications',
   'myMailboxInboundSlaIncidentStats',
   'myMailboxInboundSlaIncidentSeries',
+  'myMailboxInboundSlaIncidentAlerts',
   'myMailboxInboundSlaIncidentDataExport',
   'myMailboxInboundSlaIncidentAlertConfig',
   'myNotificationDataExport',

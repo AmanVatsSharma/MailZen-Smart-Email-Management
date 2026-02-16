@@ -984,11 +984,88 @@ export class NotificationService {
     return series;
   }
 
+  async getMailboxInboundSlaIncidentAlerts(input: {
+    userId: string;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    limit?: number | null;
+  }): Promise<
+    Array<{
+      notificationId: string;
+      workspaceId?: string | null;
+      slaStatus: string;
+      title: string;
+      message: string;
+      totalCount: number;
+      acceptedCount: number;
+      deduplicatedCount: number;
+      rejectedCount: number;
+      successRatePercent: number;
+      rejectionRatePercent: number;
+      createdAt: Date;
+    }>
+  > {
+    const normalizedWorkspaceId = String(input.workspaceId || '').trim();
+    const windowHours = this.normalizeIncidentWindowHours(input.windowHours);
+    const limit = this.normalizeIncidentAlertLimit(input.limit);
+    const windowStartDate = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const baseWhere = {
+      userId: input.userId,
+      type: 'MAILBOX_INBOUND_SLA_ALERT',
+      createdAt: MoreThanOrEqual(windowStartDate),
+    };
+    const whereClause = normalizedWorkspaceId
+      ? [
+          { ...baseWhere, workspaceId: normalizedWorkspaceId },
+          { ...baseWhere, workspaceId: IsNull() },
+        ]
+      : baseWhere;
+
+    const notifications = await this.notificationRepo.find({
+      where: whereClause,
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+    return notifications.map((notification) => ({
+      notificationId: notification.id,
+      workspaceId: notification.workspaceId || null,
+      slaStatus: this.resolveIncidentSlaStatus(notification) || 'UNKNOWN',
+      title: notification.title,
+      message: notification.message,
+      totalCount: this.resolveIncidentMetadataNumber(
+        notification,
+        'totalCount',
+      ),
+      acceptedCount: this.resolveIncidentMetadataNumber(
+        notification,
+        'acceptedCount',
+      ),
+      deduplicatedCount: this.resolveIncidentMetadataNumber(
+        notification,
+        'deduplicatedCount',
+      ),
+      rejectedCount: this.resolveIncidentMetadataNumber(
+        notification,
+        'rejectedCount',
+      ),
+      successRatePercent: this.resolveIncidentMetadataNumber(
+        notification,
+        'successRatePercent',
+      ),
+      rejectionRatePercent: this.resolveIncidentMetadataNumber(
+        notification,
+        'rejectionRatePercent',
+      ),
+      createdAt: notification.createdAt,
+    }));
+  }
+
   async exportMailboxInboundSlaIncidentData(input: {
     userId: string;
     workspaceId?: string | null;
     windowHours?: number | null;
     bucketMinutes?: number | null;
+    limit?: number | null;
   }): Promise<{
     generatedAtIso: string;
     dataJson: string;
@@ -999,7 +1076,8 @@ export class NotificationService {
     const bucketMinutes = this.normalizeIncidentBucketMinutes(
       input.bucketMinutes,
     );
-    const [stats, series] = await Promise.all([
+    const limit = this.normalizeIncidentAlertLimit(input.limit);
+    const [stats, series, alerts] = await Promise.all([
       this.getMailboxInboundSlaIncidentStats({
         userId: input.userId,
         workspaceId: normalizedWorkspaceId,
@@ -1011,6 +1089,12 @@ export class NotificationService {
         windowHours,
         bucketMinutes,
       }),
+      this.getMailboxInboundSlaIncidentAlerts({
+        userId: input.userId,
+        workspaceId: normalizedWorkspaceId,
+        windowHours,
+        limit,
+      }),
     ]);
     const generatedAtIso = new Date().toISOString();
     return {
@@ -1020,6 +1104,7 @@ export class NotificationService {
         workspaceId: normalizedWorkspaceId,
         windowHours,
         bucketMinutes,
+        limit,
         stats: {
           ...stats,
           lastAlertAtIso: stats.lastAlertAt
@@ -1031,6 +1116,11 @@ export class NotificationService {
           totalCount: point.totalCount,
           warningCount: point.warningCount,
           criticalCount: point.criticalCount,
+        })),
+        alertCount: alerts.length,
+        alerts: alerts.map((alert) => ({
+          ...alert,
+          createdAtIso: alert.createdAt.toISOString(),
         })),
       }),
     };
@@ -1134,6 +1224,26 @@ export class NotificationService {
       return NotificationService.MAX_MAILBOX_INBOUND_INCIDENT_BUCKET_MINUTES;
     }
     return candidate;
+  }
+
+  private normalizeIncidentAlertLimit(limit?: number | null): number {
+    const candidate =
+      typeof limit === 'number' && Number.isFinite(limit)
+        ? Math.floor(limit)
+        : 50;
+    if (candidate < 1) return 1;
+    if (candidate > 500) return 500;
+    return candidate;
+  }
+
+  private resolveIncidentMetadataNumber(
+    notification: UserNotification,
+    key: string,
+  ): number {
+    const rawValue = notification.metadata?.[key];
+    const numericValue = Number(rawValue);
+    if (!Number.isFinite(numericValue)) return 0;
+    return numericValue;
   }
 
   private normalizePositiveInteger(input: {

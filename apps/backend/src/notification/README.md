@@ -32,7 +32,9 @@ Provide a persistent notification foundation for user-visible product events
   warning/critical incident counts and last-alert timestamp for SLA alerts
 - `myMailboxInboundSlaIncidentSeries(workspaceId?, windowHours?, bucketMinutes?)` →
   bucketed warning/critical incident trend points for dashboards
-- `myMailboxInboundSlaIncidentDataExport(workspaceId?, windowHours?, bucketMinutes?)` →
+- `myMailboxInboundSlaIncidentAlerts(workspaceId?, windowHours?, limit?)` →
+  list recent SLA alert notification rows with attached incident metadata
+- `myMailboxInboundSlaIncidentDataExport(workspaceId?, windowHours?, bucketMinutes?, limit?)` →
   export SLA alert incident stats + trend as JSON payload
 - `myMailboxInboundSlaIncidentAlertConfig` → resolved per-user SLA thresholds +
   scheduler alert settings snapshot

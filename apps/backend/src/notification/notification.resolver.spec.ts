@@ -8,6 +8,7 @@ describe('NotificationResolver', () => {
     getMailboxInboundSlaIncidentSeries: jest.fn(),
     exportMailboxInboundSlaIncidentData: jest.fn(),
     getMailboxInboundSlaIncidentAlertConfig: jest.fn(),
+    getMailboxInboundSlaIncidentAlerts: jest.fn(),
     markNotificationsRead: jest.fn(),
     getUnreadCount: jest.fn(),
     getOrCreatePreferences: jest.fn(),
@@ -133,6 +134,7 @@ describe('NotificationResolver', () => {
       'workspace-1',
       24,
       60,
+      40,
       context as never,
     );
 
@@ -143,6 +145,7 @@ describe('NotificationResolver', () => {
       workspaceId: 'workspace-1',
       windowHours: 24,
       bucketMinutes: 60,
+      limit: 40,
     });
   });
 
@@ -169,6 +172,28 @@ describe('NotificationResolver', () => {
       notificationService.getMailboxInboundSlaIncidentAlertConfig,
     ).toHaveBeenCalledWith({
       userId: 'user-1',
+    });
+  });
+
+  it('forwards SLA incident alert history query arguments', async () => {
+    notificationService.getMailboxInboundSlaIncidentAlerts.mockResolvedValue(
+      [],
+    );
+
+    await resolver.myMailboxInboundSlaIncidentAlerts(
+      'workspace-1',
+      24,
+      30,
+      context as never,
+    );
+
+    expect(
+      notificationService.getMailboxInboundSlaIncidentAlerts,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      limit: 30,
     });
   });
 

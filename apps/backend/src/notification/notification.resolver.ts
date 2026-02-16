@@ -7,6 +7,7 @@ import { NotificationRetentionPurgeResponse } from './dto/notification-retention
 import { RegisterNotificationPushSubscriptionInput } from './dto/register-notification-push-subscription.input';
 import { UpdateNotificationPreferencesInput } from './dto/update-notification-preferences.input';
 import { MailboxInboundSlaIncidentAlertConfigResponse } from './dto/mailbox-inbound-sla-incident-alert-config.response';
+import { MailboxInboundSlaIncidentAlertResponse } from './dto/mailbox-inbound-sla-incident-alert.response';
 import { MailboxInboundSlaIncidentDataExportResponse } from './dto/mailbox-inbound-sla-incident-data-export.response';
 import {
   MailboxInboundSlaIncidentStatsResponse,
@@ -113,6 +114,7 @@ export class NotificationResolver {
     windowHours: number,
     @Args('bucketMinutes', { type: () => Int, nullable: true })
     bucketMinutes: number,
+    @Args('limit', { type: () => Int, nullable: true }) limit: number,
     @Context() ctx: RequestContext,
   ) {
     return this.notificationService.exportMailboxInboundSlaIncidentData({
@@ -120,6 +122,7 @@ export class NotificationResolver {
       workspaceId,
       windowHours,
       bucketMinutes,
+      limit,
     });
   }
 
@@ -130,6 +133,25 @@ export class NotificationResolver {
   async myMailboxInboundSlaIncidentAlertConfig(@Context() ctx: RequestContext) {
     return this.notificationService.getMailboxInboundSlaIncidentAlertConfig({
       userId: ctx.req.user.id,
+    });
+  }
+
+  @Query(() => [MailboxInboundSlaIncidentAlertResponse], {
+    description:
+      'List mailbox inbound SLA alert incidents for current user over a rolling window',
+  })
+  async myMailboxInboundSlaIncidentAlerts(
+    @Args('workspaceId', { nullable: true }) workspaceId: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours: number,
+    @Args('limit', { type: () => Int, nullable: true }) limit: number,
+    @Context() ctx: RequestContext,
+  ) {
+    return this.notificationService.getMailboxInboundSlaIncidentAlerts({
+      userId: ctx.req.user.id,
+      workspaceId,
+      windowHours,
+      limit,
     });
   }
 

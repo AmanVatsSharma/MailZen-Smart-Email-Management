@@ -425,7 +425,7 @@ describe('NotificationService', () => {
         isRead: false,
         createdAt: new Date('2026-02-16T00:00:00.000Z'),
         updatedAt: new Date('2026-02-16T00:00:00.000Z'),
-      } as UserNotification,
+      } as unknown as UserNotification,
     ]);
     pushSubscriptionRepo.find.mockResolvedValue([
       {
@@ -651,7 +651,7 @@ describe('NotificationService', () => {
       {
         id: 'notif-sla-1',
         type: 'MAILBOX_INBOUND_SLA_ALERT',
-      } as UserNotification,
+      } as unknown as UserNotification,
     ]);
 
     const result: UserNotification[] = await service.listNotificationsForUser({
@@ -743,7 +743,7 @@ describe('NotificationService', () => {
         metadata: { slaStatus: 'CRITICAL' },
         createdAt: new Date(nowMs - 20 * 60 * 1000),
         updatedAt: new Date(nowMs - 20 * 60 * 1000),
-      } as UserNotification,
+      } as unknown as UserNotification,
     ]);
 
     const series = await service.getMailboxInboundSlaIncidentSeries({
@@ -784,22 +784,85 @@ describe('NotificationService', () => {
           criticalCount: 1,
         },
       ]);
+    const alertsSpy = jest
+      .spyOn(service, 'getMailboxInboundSlaIncidentAlerts')
+      .mockResolvedValue([
+        {
+          notificationId: 'notif-1',
+          workspaceId: 'workspace-1',
+          slaStatus: 'WARNING',
+          title: 'Mailbox inbound SLA warning',
+          message: 'warning',
+          totalCount: 3,
+          acceptedCount: 2,
+          deduplicatedCount: 0,
+          rejectedCount: 1,
+          successRatePercent: 66.67,
+          rejectionRatePercent: 33.33,
+          createdAt: new Date('2026-02-16T01:30:00.000Z'),
+        },
+      ]);
 
     const exported = await service.exportMailboxInboundSlaIncidentData({
       userId: 'user-1',
       workspaceId: 'workspace-1',
       windowHours: 24,
       bucketMinutes: 60,
+      limit: 10,
     });
 
     expect(statsSpy).toHaveBeenCalledTimes(1);
     expect(seriesSpy).toHaveBeenCalledTimes(1);
+    expect(alertsSpy).toHaveBeenCalledTimes(1);
     const payload = JSON.parse(exported.dataJson) as {
       stats: { totalCount: number };
       series: Array<{ totalCount: number }>;
+      alertCount: number;
+      alerts: Array<{ notificationId: string }>;
     };
     expect(payload.stats.totalCount).toBe(3);
     expect(payload.series[0]?.totalCount).toBe(2);
+    expect(payload.alertCount).toBe(1);
+    expect(payload.alerts[0]?.notificationId).toBe('notif-1');
+  });
+
+  it('lists mailbox inbound SLA incident alert notifications', async () => {
+    notificationRepo.find.mockResolvedValue([
+      {
+        id: 'notif-1',
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        type: 'MAILBOX_INBOUND_SLA_ALERT',
+        title: 'Mailbox inbound SLA warning',
+        message: 'warning',
+        metadata: {
+          slaStatus: 'WARNING',
+          totalCount: 3,
+          acceptedCount: 2,
+          deduplicatedCount: 0,
+          rejectedCount: 1,
+          successRatePercent: 66.67,
+          rejectionRatePercent: 33.33,
+        },
+        createdAt: new Date('2026-02-16T01:30:00.000Z'),
+      } as unknown as UserNotification,
+    ]);
+
+    const rows = await service.getMailboxInboundSlaIncidentAlerts({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      limit: 20,
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        notificationId: 'notif-1',
+        workspaceId: 'workspace-1',
+        slaStatus: 'WARNING',
+        totalCount: 3,
+      }),
+    ]);
   });
 
   it('returns mailbox inbound SLA incident alert config snapshot', async () => {
