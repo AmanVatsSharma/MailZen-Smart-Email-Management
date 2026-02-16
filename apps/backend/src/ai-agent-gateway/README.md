@@ -72,6 +72,9 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - purges persisted alert-run snapshots by retention policy.
 - Expose `myAgentActionDataExport(limit?)` for authenticated JSON export of
   agent action audit history.
+- Expose admin legal export query:
+  - `userAgentActionDataExport(userId: String!, limit?: Int)`
+  - returns target-user agent action audit history snapshot for legal/compliance workflows.
 - Expose admin retention control:
   - `purgeAgentActionRetentionData(retentionDays?, userId?)`
   - `purgeAgentPlatformHealthSampleRetentionData(retentionDays?)`
@@ -196,6 +199,8 @@ Gateway service structured resilience/retention events:
 - `agent_action_audit_retention_purge_completed`
 - `agent_action_audit_persist_failed`
 - `agent_gateway_audit_log_write_failed`
+- `agent_action_data_export_admin_start`
+- `agent_action_data_export_admin_completed`
 - `agent_action_audit_retention_scheduler_audit_log_write_failed`
 - `agent_platform_health_sample_retention_scheduler_audit_log_write_failed`
 - `agent_platform_alert_run_retention_scheduler_audit_log_write_failed`
@@ -221,6 +226,7 @@ Gateway service structured resilience/retention events:
   - `agent_platform_runtime_stats_reset`
   - `agent_platform_skill_runtime_stats_reset`
   - `agent_action_audit_data_export_requested`
+  - `agent_action_audit_data_export_requested_by_admin`
   - `agent_action_audit_retention_purged`
   - `agent_action_audit_retention_autopurge_started`
   - `agent_action_audit_retention_autopurge_completed`

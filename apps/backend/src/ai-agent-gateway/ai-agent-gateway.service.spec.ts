@@ -2125,6 +2125,82 @@ describe('AiAgentGatewayService', () => {
     );
   });
 
+  it('exports target-user agent action audits snapshot for admin legal requests', async () => {
+    const service = createService();
+    findAgentActionAuditMock.mockResolvedValue([
+      {
+        id: 'audit-2',
+        userId: 'user-2',
+        requestId: 'req-2',
+        skill: 'inbox',
+        action: 'inbox.schedule_followup',
+        executed: false,
+        approvalRequired: true,
+        approvalTokenSuffix: 'ab12cd34',
+        message: 'Approval required',
+        metadata: { threadId: 'thread-2' },
+        createdAt: new Date('2026-02-16T01:00:00.000Z'),
+        updatedAt: new Date('2026-02-16T01:00:00.000Z'),
+      },
+    ] as AgentActionAudit[]);
+
+    const result = await service.exportAgentActionDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      limit: 300,
+    });
+    const payload = JSON.parse(result.dataJson) as {
+      userId: string;
+      summary: { totalAudits: number; blockedCount: number };
+    };
+
+    expect(payload.userId).toBe('user-2');
+    expect(payload.summary.totalAudits).toBe(1);
+    expect(payload.summary.blockedCount).toBe(1);
+    expect(saveAuditLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2',
+        action: 'agent_action_audit_data_export_requested',
+      }),
+    );
+    expect(saveAuditLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'agent_action_audit_data_export_requested_by_admin',
+        metadata: expect.objectContaining({
+          targetUserId: 'user-2',
+        }),
+      }),
+    );
+  });
+
+  it('does not fail admin agent action export when admin audit write fails', async () => {
+    const service = createService();
+    findAgentActionAuditMock.mockResolvedValue([]);
+    saveAuditLogMock
+      .mockResolvedValueOnce({ id: 'audit-log-1' } as AuditLog)
+      .mockRejectedValueOnce(new Error('audit datastore unavailable'));
+
+    const result = await service.exportAgentActionDataForAdmin({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      limit: 10,
+    });
+
+    expect(result.generatedAtIso).toBeTruthy();
+    expect(result.dataJson).toContain('"summary"');
+  });
+
+  it('rejects admin agent action export when actor user id is missing', async () => {
+    const service = createService();
+    await expect(
+      service.exportAgentActionDataForAdmin({
+        targetUserId: 'user-2',
+        actorUserId: '',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('purges agent action audits using retention policy', async () => {
     const service = createService();
     deleteExecuteMock.mockResolvedValue({ affected: 4 });

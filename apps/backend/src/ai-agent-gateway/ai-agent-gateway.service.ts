@@ -1590,6 +1590,53 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  async exportAgentActionDataForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+    limit?: number;
+  }): Promise<{ generatedAtIso: string; dataJson: string }> {
+    const targetUserId = String(input.targetUserId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!targetUserId) {
+      throw new BadRequestException('Target user id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+    const limit = this.normalizeAuditExportLimit(input.limit);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'agent_action_data_export_admin_start',
+        actorUserId,
+        targetUserId,
+        limit,
+      }),
+    );
+    const exportPayload = await this.exportAgentActionDataForUser({
+      userId: targetUserId,
+      limit,
+    });
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'agent_action_audit_data_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        limit,
+        generatedAtIso: exportPayload.generatedAtIso,
+        selfRequested: actorUserId === targetUserId,
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'agent_action_data_export_admin_completed',
+        actorUserId,
+        targetUserId,
+        limit,
+      }),
+    );
+    return exportPayload;
+  }
+
   async purgeAgentActionAuditRetentionData(input: {
     retentionDays?: number | null;
     userId?: string | null;

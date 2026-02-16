@@ -381,6 +381,24 @@ export class AiAgentGatewayResolver {
     });
   }
 
+  @Query(() => AgentActionDataExportResponse, {
+    description:
+      'Admin export target user agent action audits for legal/compliance workflows',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async userAgentActionDataExport(
+    @Args('userId') userId: string,
+    @Context() ctx: RequestContext,
+    @Args('limit', { type: () => Int, defaultValue: 200 }) limit: number,
+  ): Promise<AgentActionDataExportResponse> {
+    const actorUserId = String(ctx.req?.user?.id || '').trim();
+    return this.gatewayService.exportAgentActionDataForAdmin({
+      targetUserId: userId,
+      actorUserId,
+      limit,
+    });
+  }
+
   @Mutation(() => AgentActionAuditRetentionPurgeResponse, {
     description: 'Purge expired agent action audits by retention policy',
   })

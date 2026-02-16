@@ -16,6 +16,7 @@ describe('AiAgentGatewayResolver', () => {
     purgePlatformHealthSampleRetentionData: jest.fn(),
     listAgentActionAuditsForUser: jest.fn(),
     exportAgentActionDataForUser: jest.fn(),
+    exportAgentActionDataForAdmin: jest.fn(),
     purgeAgentActionAuditRetentionData: jest.fn(),
   };
   const healthAlertScheduler = {
@@ -682,6 +683,36 @@ describe('AiAgentGatewayResolver', () => {
     expect(gatewayService.exportAgentActionDataForUser).toHaveBeenCalledWith({
       userId: 'user-1',
       limit: 150,
+    });
+  });
+
+  it('forwards admin context to userAgentActionDataExport', async () => {
+    gatewayService.exportAgentActionDataForAdmin.mockResolvedValue({
+      generatedAtIso: '2026-02-16T01:00:00.000Z',
+      dataJson: '{"summary":{"totalAudits":2}}',
+    });
+
+    const result = await resolver.userAgentActionDataExport(
+      'user-2',
+      {
+        req: {
+          user: {
+            id: 'admin-1',
+          },
+        },
+      },
+      220,
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        generatedAtIso: '2026-02-16T01:00:00.000Z',
+      }),
+    );
+    expect(gatewayService.exportAgentActionDataForAdmin).toHaveBeenCalledWith({
+      targetUserId: 'user-2',
+      actorUserId: 'admin-1',
+      limit: 220,
     });
   });
 
