@@ -27,7 +27,7 @@ export class MailboxSyncScheduler {
     try {
       const summary = await this.mailboxSyncService.pollActiveMailboxes();
       this.logger.log(
-        `mailbox-sync: polled=${summary.polledMailboxes} failed=${summary.failedMailboxes} fetched=${summary.fetchedMessages} accepted=${summary.acceptedMessages} deduplicated=${summary.deduplicatedMessages} rejected=${summary.rejectedMessages}`,
+        `mailbox-sync: polled=${summary.polledMailboxes} skipped=${summary.skippedMailboxes} failed=${summary.failedMailboxes} fetched=${summary.fetchedMessages} accepted=${summary.acceptedMessages} deduplicated=${summary.deduplicatedMessages} rejected=${summary.rejectedMessages}`,
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);

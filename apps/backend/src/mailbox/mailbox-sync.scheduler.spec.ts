@@ -30,6 +30,7 @@ describe('MailboxSyncScheduler', () => {
     process.env.MAILZEN_MAILBOX_SYNC_ENABLED = 'true';
     pollActiveMailboxesMock.mockResolvedValue({
       polledMailboxes: 2,
+      skippedMailboxes: 0,
       failedMailboxes: 0,
       fetchedMessages: 4,
       acceptedMessages: 3,

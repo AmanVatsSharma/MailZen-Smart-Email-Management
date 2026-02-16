@@ -898,6 +898,44 @@ ORDER BY "updatedAt" DESC
 LIMIT 50;
 ```
 
+## Mailbox Inbound Sync Lease State Rollout Notes (2026-02-16)
+
+New migration: `20260216052000-mailbox-inbound-sync-lease-state.ts`
+
+This migration introduces:
+
+- `mailboxes.inboundSyncLeaseToken`
+- `mailboxes.inboundSyncLeaseExpiresAt`
+- index `IDX_mailboxes_inboundSyncLeaseExpiresAt`
+
+These fields provide atomic mailbox-level lease protection to prevent duplicate
+poll workers ingesting the same mailbox concurrently.
+
+### Safe rollout sequence
+
+1. Deploy backend containing migration + mailbox sync lease acquisition logic.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Configure lease TTL as needed:
+   - `MAILZEN_MAIL_SYNC_LEASE_TTL_SECONDS`
+5. Run smoke checks:
+   - `npm run test -- mailbox/mailbox-sync.service.spec.ts mailbox/mailbox-sync.scheduler.spec.ts`
+   - `npm run build`
+
+### Staging verification SQL
+
+```sql
+SELECT
+  id,
+  email,
+  "inboundSyncLeaseToken",
+  "inboundSyncLeaseExpiresAt",
+  "updatedAt"
+FROM mailboxes
+ORDER BY "updatedAt" DESC
+LIMIT 50;
+```
+
 ## Gmail Push Watch State Rollout Notes (2026-02-16)
 
 New migration: `20260216035000-email-provider-gmail-watch-state.ts`

@@ -92,6 +92,12 @@ export class Mailbox {
   @Column({ type: 'text', nullable: true })
   inboundSyncLastError?: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  inboundSyncLeaseToken?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  inboundSyncLeaseExpiresAt?: Date | null;
+
   @Field()
   @CreateDateColumn()
   createdAt: Date;

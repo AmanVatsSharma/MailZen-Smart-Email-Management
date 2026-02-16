@@ -57,6 +57,8 @@
   - `20260216043000-email-mailbox-source-link.ts`
 - Added mailbox inbound sync state migration:
   - `20260216045000-mailbox-inbound-sync-state.ts`
+- Added mailbox inbound sync lease-state migration:
+  - `20260216052000-mailbox-inbound-sync-lease-state.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

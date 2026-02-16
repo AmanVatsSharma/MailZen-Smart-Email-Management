@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
+import { randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
 import { MailboxInboundWebhookInput } from './dto/mailbox-inbound-webhook.input';
 import { Mailbox } from './entities/mailbox.entity';
@@ -114,6 +115,15 @@ export class MailboxSyncService {
       fallbackValue: 250,
       minimumValue: 1,
       maximumValue: 5000,
+    });
+  }
+
+  private resolveSyncLeaseTtlSeconds(): number {
+    return this.resolveIntegerEnv({
+      rawValue: process.env.MAILZEN_MAIL_SYNC_LEASE_TTL_SECONDS,
+      fallbackValue: 180,
+      minimumValue: 30,
+      maximumValue: 3600,
     });
   }
 
@@ -328,6 +338,60 @@ export class MailboxSyncService {
     throw new Error('Mailbox sync retry loop exhausted unexpectedly');
   }
 
+  private async acquireMailboxSyncLease(input: {
+    mailboxId: string;
+  }): Promise<{ acquired: false } | { acquired: true; leaseToken: string }> {
+    const now = new Date();
+    const leaseToken = randomUUID();
+    const leaseExpiresAt = new Date(
+      now.getTime() + this.resolveSyncLeaseTtlSeconds() * 1000,
+    );
+    const rowsUnknown: unknown = await this.mailboxRepo.query(
+      `
+      UPDATE "mailboxes"
+      SET
+        "inboundSyncLeaseToken" = $2,
+        "inboundSyncLeaseExpiresAt" = $3
+      WHERE id = $1
+        AND "status" = 'ACTIVE'
+        AND (
+          "inboundSyncLeaseExpiresAt" IS NULL
+          OR "inboundSyncLeaseExpiresAt" < $4
+        )
+      RETURNING id
+      `,
+      [
+        input.mailboxId,
+        leaseToken,
+        leaseExpiresAt.toISOString(),
+        now.toISOString(),
+      ],
+    );
+    const rows = Array.isArray(rowsUnknown) ? rowsUnknown : [];
+    if (!rows.length) return { acquired: false };
+    return {
+      acquired: true,
+      leaseToken,
+    };
+  }
+
+  private async releaseMailboxSyncLease(input: {
+    mailboxId: string;
+    leaseToken: string;
+  }): Promise<void> {
+    await this.mailboxRepo.query(
+      `
+      UPDATE "mailboxes"
+      SET
+        "inboundSyncLeaseToken" = NULL,
+        "inboundSyncLeaseExpiresAt" = NULL
+      WHERE id = $1
+        AND "inboundSyncLeaseToken" = $2
+      `,
+      [input.mailboxId, input.leaseToken],
+    );
+  }
+
   async pollMailbox(mailbox: Mailbox): Promise<MailboxSyncPollResult> {
     const apiBaseUrl = this.resolveSyncApiBaseUrl();
     if (!apiBaseUrl) {
@@ -429,6 +493,7 @@ export class MailboxSyncService {
 
   async pollActiveMailboxes(): Promise<{
     polledMailboxes: number;
+    skippedMailboxes: number;
     failedMailboxes: number;
     fetchedMessages: number;
     acceptedMessages: number;
@@ -441,6 +506,7 @@ export class MailboxSyncService {
       order: { updatedAt: 'DESC' },
       take: maxMailboxesPerRun,
     });
+    let skippedMailboxes = 0;
     let failedMailboxes = 0;
     let fetchedMessages = 0;
     let acceptedMessages = 0;
@@ -448,6 +514,14 @@ export class MailboxSyncService {
     let rejectedMessages = 0;
 
     for (const mailbox of mailboxes) {
+      const leaseResult = await this.acquireMailboxSyncLease({
+        mailboxId: mailbox.id,
+      });
+      if (!leaseResult.acquired) {
+        skippedMailboxes += 1;
+        continue;
+      }
+
       try {
         const mailboxResult = await this.pollMailbox(mailbox);
         fetchedMessages += mailboxResult.fetchedMessages;
@@ -460,11 +534,17 @@ export class MailboxSyncService {
         this.logger.warn(
           `mailbox-sync: mailbox poll failed mailboxId=${mailbox.id} email=${mailbox.email}: ${errorMessage}`,
         );
+      } finally {
+        await this.releaseMailboxSyncLease({
+          mailboxId: mailbox.id,
+          leaseToken: leaseResult.leaseToken,
+        });
       }
     }
 
     return {
       polledMailboxes: mailboxes.length,
+      skippedMailboxes,
       failedMailboxes,
       fetchedMessages,
       acceptedMessages,

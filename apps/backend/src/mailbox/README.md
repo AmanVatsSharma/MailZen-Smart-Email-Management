@@ -128,6 +128,8 @@ flowchart TD
 - `MAILZEN_MAIL_SYNC_RETRIES` (default `2`)
 - `MAILZEN_MAIL_SYNC_RETRY_BACKOFF_MS` (default `250`)
 - `MAILZEN_MAIL_SYNC_RETRY_JITTER_MS` (default `125`)
+- `MAILZEN_MAIL_SYNC_LEASE_TTL_SECONDS` (default `180`)
+  - mailbox-level poll lease TTL used to avoid duplicate workers polling same mailbox
 - `MAILZEN_MAIL_SYNC_BATCH_LIMIT` (default `25`)
 - `MAILZEN_MAIL_SYNC_MAX_MAILBOXES_PER_RUN` (default `250`)
 - `MAILZEN_MAIL_SYNC_CURSOR_PARAM` (default `cursor`)
@@ -193,6 +195,10 @@ flowchart TD
 - Sync API pull retries:
   - transient failures (`429`, `5xx`, network timeouts/resets) use retry with backoff + jitter
   - non-retryable failures (e.g. `4xx` validation/auth issues) fail fast
+- Poll lease semantics:
+  - each mailbox poll acquires atomic DB lease token (`inboundSyncLeaseToken`)
+  - lease expires automatically using `inboundSyncLeaseExpiresAt`
+  - scheduler skips leased mailboxes and continues with others
 - If mailbox sync ingest of a pulled message fails:
   - current mailbox poll run fails fast (cursor is not advanced)
   - safe retries rely on idempotent inbound dedupe (`mailboxId + messageId`)

@@ -12,6 +12,7 @@ describe('MailboxSyncService', () => {
   const mailboxRepo: jest.Mocked<Repository<Mailbox>> = {
     find: jest.fn(),
     update: jest.fn(),
+    query: jest.fn(),
   } as unknown as jest.Mocked<Repository<Mailbox>>;
   const mailboxInboundServiceMock: jest.Mocked<
     Pick<MailboxInboundService, 'ingestInboundEvent'>
@@ -27,6 +28,7 @@ describe('MailboxSyncService', () => {
     process.env = { ...originalEnv };
     process.env.MAILZEN_MAIL_SYNC_API_URL = 'https://mail-sync.local';
     mailboxRepo.update.mockResolvedValue({ affected: 1 } as UpdateResult);
+    mailboxRepo.query.mockResolvedValue([{ id: 'mailbox-1' }] as never);
     mailboxRepo.find.mockResolvedValue([]);
     mailboxInboundServiceMock.ingestInboundEvent.mockResolvedValue({
       accepted: true,
@@ -255,9 +257,34 @@ describe('MailboxSyncService', () => {
     expect(pollMailboxSpy).toHaveBeenCalledTimes(2);
     expect(result).toEqual({
       polledMailboxes: 2,
+      skippedMailboxes: 0,
       failedMailboxes: 1,
       fetchedMessages: 2,
       acceptedMessages: 2,
+      deduplicatedMessages: 0,
+      rejectedMessages: 0,
+    });
+  });
+
+  it('skips mailbox poll when lease is already held by another worker', async () => {
+    mailboxRepo.find.mockResolvedValue([
+      {
+        id: 'mailbox-1',
+        email: 'sales@mailzen.com',
+      } as Mailbox,
+    ]);
+    mailboxRepo.query.mockResolvedValueOnce([]);
+    const pollMailboxSpy = jest.spyOn(service, 'pollMailbox');
+
+    const result = await service.pollActiveMailboxes();
+
+    expect(pollMailboxSpy).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      polledMailboxes: 1,
+      skippedMailboxes: 1,
+      failedMailboxes: 0,
+      fetchedMessages: 0,
+      acceptedMessages: 0,
       deduplicatedMessages: 0,
       rejectedMessages: 0,
     });
