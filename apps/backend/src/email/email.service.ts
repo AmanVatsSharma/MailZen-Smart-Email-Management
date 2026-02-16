@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { Email } from './entities/email.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { EmailAnalytics } from '../email-analytics/entities/email-analytics.entity';
@@ -25,9 +26,35 @@ export class EmailService {
     private readonly providerRepository: Repository<EmailProvider>,
     @InjectRepository(EmailAnalytics)
     private readonly analyticsRepository: Repository<EmailAnalytics>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepository: Repository<AuditLog>,
     private emailProviderService: EmailProviderService,
     private mailerService: MailerService,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepository.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepository.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'email_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
 
   /**
    * Send email via configured provider
@@ -379,17 +406,40 @@ export class EmailService {
   /**
    * Mark email as read
    * @param emailId - Email ID
+   * @param userId - User ID
    * @returns Updated email
    */
-  async markEmailRead(emailId: string) {
+  async markEmailRead(emailId: string, userId: string) {
     this.logger.log(
       serializeStructuredLog({
         event: 'email_mark_read_start',
         emailId,
+        userId,
       }),
     );
 
-    await this.emailRepository.update(emailId, { status: 'READ' });
-    return this.emailRepository.findOne({ where: { id: emailId } });
+    const existingEmail = await this.emailRepository.findOne({
+      where: { id: emailId, userId },
+    });
+    if (!existingEmail) {
+      throw new NotFoundException('Email not found');
+    }
+    await this.emailRepository.update({ id: emailId, userId }, { status: 'READ' });
+    const updatedEmail = await this.emailRepository.findOne({
+      where: { id: emailId, userId },
+    });
+    if (!updatedEmail) {
+      throw new NotFoundException('Email not found');
+    }
+    await this.writeAuditLog({
+      userId,
+      action: 'email_marked_read',
+      metadata: {
+        emailId: updatedEmail.id,
+        previousStatus: existingEmail.status,
+        nextStatus: updatedEmail.status,
+      },
+    });
+    return updatedEmail;
   }
 }

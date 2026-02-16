@@ -67,10 +67,15 @@ export class EmailResolver {
   }
 
   @Mutation(() => Email)
+  @UseGuards(JwtAuthGuard)
   async markEmailRead(
     @Args('markEmailReadInput') markEmailReadInput: MarkEmailReadInput,
+    @Context() context: { req: { user: { id: string } } },
   ) {
-    return this.emailService.markEmailRead(markEmailReadInput.emailId);
+    return this.emailService.markEmailRead(
+      markEmailReadInput.emailId,
+      context.req.user.id,
+    );
   }
 
   @Mutation(() => SendRealEmailResponse)

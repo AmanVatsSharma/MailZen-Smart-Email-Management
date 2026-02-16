@@ -146,7 +146,7 @@ describe('EmailFilterService', () => {
 
     await service.applyFilters('email-1', 'user-1');
 
-    expect(emailService.markEmailRead).toHaveBeenCalledWith('email-1');
+    expect(emailService.markEmailRead).toHaveBeenCalledWith('email-1', 'user-1');
     expect(assignmentRepo.save).not.toHaveBeenCalled();
   });
 

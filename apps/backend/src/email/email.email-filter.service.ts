@@ -164,7 +164,7 @@ export class EmailFilterService {
   ): Promise<void> {
     switch (rule.action) {
       case FilterAction.MARK_READ:
-        await this.emailService.markEmailRead(email.id);
+        await this.emailService.markEmailRead(email.id, email.userId);
         break;
       case FilterAction.MARK_IMPORTANT:
         await this.emailRepo.update({ id: email.id }, { isImportant: true });
