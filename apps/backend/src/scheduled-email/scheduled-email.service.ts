@@ -39,7 +39,7 @@ export class ScheduledEmailService {
       serializeStructuredLog({
         event: 'scheduled_email_create_completed',
         userId,
-        scheduledEmailId: result.id,
+        scheduledItemId: result.id,
         status: result.status,
       }),
     );
