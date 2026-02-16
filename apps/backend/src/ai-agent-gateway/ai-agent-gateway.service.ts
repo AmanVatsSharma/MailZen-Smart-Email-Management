@@ -144,10 +144,13 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   private static readonly DEFAULT_HEALTH_HISTORY_LIMIT = 50;
   private static readonly MIN_HEALTH_HISTORY_LIMIT = 1;
   private static readonly MAX_HEALTH_HISTORY_LIMIT = 500;
-  private static readonly MAX_HEALTH_TREND_SAMPLE_SCAN = 2000;
+  private static readonly MAX_HEALTH_TREND_SAMPLE_SCAN = 5000;
   private static readonly DEFAULT_HEALTH_HISTORY_WINDOW_HOURS = 24;
   private static readonly MIN_HEALTH_HISTORY_WINDOW_HOURS = 1;
   private static readonly MAX_HEALTH_HISTORY_WINDOW_HOURS = 24 * 30;
+  private static readonly DEFAULT_HEALTH_TREND_BUCKET_MINUTES = 60;
+  private static readonly MIN_HEALTH_TREND_BUCKET_MINUTES = 5;
+  private static readonly MAX_HEALTH_TREND_BUCKET_MINUTES = 24 * 60;
   private static readonly DEFAULT_HEALTH_SAMPLE_RETENTION_DAYS = 30;
   private static readonly MIN_HEALTH_SAMPLE_RETENTION_DAYS = 1;
   private static readonly MAX_HEALTH_SAMPLE_RETENTION_DAYS = 3650;
@@ -771,6 +774,111 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  async getPlatformHealthTrendSeries(input?: {
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<
+    Array<{
+      bucketStartIso: string;
+      sampleCount: number;
+      healthyCount: number;
+      warnCount: number;
+      criticalCount: number;
+      avgErrorRatePercent: number;
+      avgLatencyMs: number;
+    }>
+  > {
+    const windowHours = this.normalizeHealthHistoryWindowHours(
+      input?.windowHours,
+    );
+    const bucketMinutes = this.normalizeHealthTrendBucketMinutes(
+      input?.bucketMinutes,
+    );
+    const bucketMs = bucketMinutes * 60 * 1000;
+    const nowMs = Date.now();
+    const windowStartMs = nowMs - windowHours * 60 * 60 * 1000;
+    const windowStart = new Date(windowStartMs);
+    const samples = await this.healthSampleRepo.find({
+      where: {
+        checkedAt: MoreThanOrEqual(windowStart),
+      },
+      order: {
+        checkedAt: 'ASC',
+      },
+      take: AiAgentGatewayService.MAX_HEALTH_TREND_SAMPLE_SCAN,
+    });
+    const buckets = new Map<
+      number,
+      {
+        sampleCount: number;
+        healthyCount: number;
+        warnCount: number;
+        criticalCount: number;
+        totalErrorRatePercent: number;
+        totalLatencyMs: number;
+      }
+    >();
+    for (const sample of samples) {
+      const bucketStartMs =
+        Math.floor(sample.checkedAt.getTime() / bucketMs) * bucketMs;
+      const existing = buckets.get(bucketStartMs) || {
+        sampleCount: 0,
+        healthyCount: 0,
+        warnCount: 0,
+        criticalCount: 0,
+        totalErrorRatePercent: 0,
+        totalLatencyMs: 0,
+      };
+      const alertingState = String(sample.alertingState || '')
+        .trim()
+        .toLowerCase();
+      existing.sampleCount += 1;
+      if (alertingState === 'healthy') {
+        existing.healthyCount += 1;
+      } else if (alertingState === 'warn') {
+        existing.warnCount += 1;
+      } else if (alertingState === 'critical') {
+        existing.criticalCount += 1;
+      }
+      existing.totalErrorRatePercent += Number(sample.errorRatePercent || 0);
+      existing.totalLatencyMs += Number(sample.avgLatencyMs || 0);
+      buckets.set(bucketStartMs, existing);
+    }
+    const normalizedWindowStartMs =
+      Math.floor(windowStartMs / bucketMs) * bucketMs;
+    const series: Array<{
+      bucketStartIso: string;
+      sampleCount: number;
+      healthyCount: number;
+      warnCount: number;
+      criticalCount: number;
+      avgErrorRatePercent: number;
+      avgLatencyMs: number;
+    }> = [];
+    for (
+      let cursor = normalizedWindowStartMs;
+      cursor <= nowMs;
+      cursor += bucketMs
+    ) {
+      const bucket = buckets.get(cursor);
+      const sampleCount = bucket?.sampleCount || 0;
+      series.push({
+        bucketStartIso: new Date(cursor).toISOString(),
+        sampleCount,
+        healthyCount: bucket?.healthyCount || 0,
+        warnCount: bucket?.warnCount || 0,
+        criticalCount: bucket?.criticalCount || 0,
+        avgErrorRatePercent:
+          sampleCount > 0
+            ? (bucket?.totalErrorRatePercent || 0) / sampleCount
+            : 0,
+        avgLatencyMs:
+          sampleCount > 0 ? (bucket?.totalLatencyMs || 0) / sampleCount : 0,
+      });
+    }
+    return series;
+  }
+
   private normalizeHealthHistoryLimit(limit?: number | null): number {
     if (typeof limit !== 'number' || !Number.isFinite(limit)) {
       return AiAgentGatewayService.DEFAULT_HEALTH_HISTORY_LIMIT;
@@ -797,6 +905,22 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     }
     if (rounded > AiAgentGatewayService.MAX_HEALTH_HISTORY_WINDOW_HOURS) {
       return AiAgentGatewayService.MAX_HEALTH_HISTORY_WINDOW_HOURS;
+    }
+    return rounded;
+  }
+
+  private normalizeHealthTrendBucketMinutes(
+    bucketMinutes?: number | null,
+  ): number {
+    if (typeof bucketMinutes !== 'number' || !Number.isFinite(bucketMinutes)) {
+      return AiAgentGatewayService.DEFAULT_HEALTH_TREND_BUCKET_MINUTES;
+    }
+    const rounded = Math.trunc(bucketMinutes);
+    if (rounded < AiAgentGatewayService.MIN_HEALTH_TREND_BUCKET_MINUTES) {
+      return AiAgentGatewayService.MIN_HEALTH_TREND_BUCKET_MINUTES;
+    }
+    if (rounded > AiAgentGatewayService.MAX_HEALTH_TREND_BUCKET_MINUTES) {
+      return AiAgentGatewayService.MAX_HEALTH_TREND_BUCKET_MINUTES;
     }
     return rounded;
   }

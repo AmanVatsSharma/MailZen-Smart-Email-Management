@@ -583,7 +583,7 @@ describe('AiAgentGatewayService', () => {
 
     expect(findHealthSamplesMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        take: 2000,
+        take: 5000,
         order: { checkedAt: 'DESC' },
       }),
     );
@@ -599,6 +599,51 @@ describe('AiAgentGatewayService', () => {
         avgLatencyMs: 320,
         peakLatencyMs: 640,
         latestCheckedAtIso: '2026-02-16T02:00:00.000Z',
+      }),
+    );
+  });
+
+  it('returns bucketed health trend series for dashboard plotting', async () => {
+    const service = createService();
+    findHealthSamplesMock.mockResolvedValueOnce([
+      {
+        alertingState: 'healthy',
+        errorRatePercent: 1,
+        avgLatencyMs: 100,
+        checkedAt: new Date('2026-02-16T00:05:00.000Z'),
+      },
+      {
+        alertingState: 'warn',
+        errorRatePercent: 7,
+        avgLatencyMs: 210,
+        checkedAt: new Date('2026-02-16T00:20:00.000Z'),
+      },
+      {
+        alertingState: 'critical',
+        errorRatePercent: 16,
+        avgLatencyMs: 480,
+        checkedAt: new Date('2026-02-16T00:38:00.000Z'),
+      },
+    ]);
+
+    const series = await service.getPlatformHealthTrendSeries({
+      windowHours: 24,
+      bucketMinutes: 30,
+    });
+
+    expect(findHealthSamplesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order: { checkedAt: 'ASC' },
+        take: 5000,
+      }),
+    );
+    expect(series.length).toBeGreaterThan(0);
+    const firstNonEmptyBucket = series.find((point) => point.sampleCount > 0);
+    expect(firstNonEmptyBucket).toEqual(
+      expect.objectContaining({
+        sampleCount: expect.any(Number),
+        avgErrorRatePercent: expect.any(Number),
+        avgLatencyMs: expect.any(Number),
       }),
     );
   });

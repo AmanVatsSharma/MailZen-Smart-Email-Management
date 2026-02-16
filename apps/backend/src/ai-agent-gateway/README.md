@@ -40,6 +40,8 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - returns JSON export payload for external observability ingestion.
   - `agentPlatformHealthTrendSummary(windowHours?)`
   - returns aggregate health state/error/latency rollups over a time window.
+  - `agentPlatformHealthTrendSeries(windowHours?, bucketMinutes?)`
+  - returns bucketed trend points for charts and dashboard visualization.
 - Expose `myAgentActionDataExport(limit?)` for authenticated JSON export of
   agent action audit history.
 - Expose admin retention control:
@@ -121,3 +123,4 @@ flowchart TD
 - 2026-02-16: Added health-sample retention purge mutation + daily auto-purge scheduler.
 - 2026-02-16: Added health-sample JSON data export query for observability pipelines.
 - 2026-02-16: Added health trend summary query for executive monitoring rollups.
+- 2026-02-16: Added bucketed health trend series query for observability dashboards.

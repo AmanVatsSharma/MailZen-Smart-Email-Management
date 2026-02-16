@@ -22,6 +22,7 @@ import { AgentPlatformHealthResponse } from './dto/agent-platform-health.respons
 import { AgentPlatformHealthSampleDataExportResponse } from './dto/agent-platform-health-sample-data-export.response';
 import { AgentPlatformHealthSampleResponse } from './dto/agent-platform-health-sample.response';
 import { AgentPlatformHealthSampleRetentionPurgeResponse } from './dto/agent-platform-health-sample-retention-purge.response';
+import { AgentPlatformHealthTrendPointResponse } from './dto/agent-platform-health-trend-point.response';
 import { AgentPlatformHealthTrendSummaryResponse } from './dto/agent-platform-health-trend-summary.response';
 import { AgentPlatformRuntimeResetResponse } from './dto/agent-platform-runtime-reset.response';
 import { AgentPlatformSkillRuntimeResetResponse } from './dto/agent-platform-skill-runtime-reset.response';
@@ -106,6 +107,23 @@ export class AiAgentGatewayResolver {
   ): Promise<AgentPlatformHealthTrendSummaryResponse> {
     return this.gatewayService.getPlatformHealthTrendSummary({
       windowHours,
+    });
+  }
+
+  @Query(() => [AgentPlatformHealthTrendPointResponse], {
+    description:
+      'Get bucketed AI platform health trend series for observability dashboards',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async agentPlatformHealthTrendSeries(
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<AgentPlatformHealthTrendPointResponse[]> {
+    return this.gatewayService.getPlatformHealthTrendSeries({
+      windowHours,
+      bucketMinutes,
     });
   }
 

@@ -588,6 +588,16 @@ type AgentPlatformHealthTrendSummaryResponse {
   latestCheckedAtIso: String
 }
 
+type AgentPlatformHealthTrendPointResponse {
+  bucketStartIso: String!
+  sampleCount: Int!
+  healthyCount: Int!
+  warnCount: Int!
+  criticalCount: Int!
+  avgErrorRatePercent: Float!
+  avgLatencyMs: Float!
+}
+
 type AgentPlatformEndpointStatResponse {
   endpointUrl: String!
   successCount: Int!
@@ -1061,6 +1071,10 @@ extend type Query {
   agentPlatformHealthTrendSummary(
     windowHours: Int
   ): AgentPlatformHealthTrendSummaryResponse!
+  agentPlatformHealthTrendSeries(
+    windowHours: Int
+    bucketMinutes: Int
+  ): [AgentPlatformHealthTrendPointResponse!]!
   myWorkspaces: [Workspace!]!
   myActiveWorkspace: Workspace
   myWorkspaceDataExport(workspaceId: String!): WorkspaceDataExportResponse!
