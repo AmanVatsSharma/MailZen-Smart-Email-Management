@@ -21,7 +21,7 @@ import axios from 'axios';
 import { createHash, randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createClient, RedisClientType } from 'redis';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
 import { BillingService } from '../billing/billing.service';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
@@ -32,6 +32,7 @@ import { AgentAssistInput, AgentMessageInput } from './dto/agent-assist.input';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
 import { AgentPlatformEndpointRuntimeStat } from './entities/agent-platform-endpoint-runtime-stat.entity';
+import { AgentPlatformHealthSample } from './entities/agent-platform-health-sample.entity';
 import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-runtime-stat.entity';
 import {
   AgentActionExecutionResponse,
@@ -140,6 +141,12 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AiAgentGatewayService.name);
   private static readonly MIN_AUDIT_EXPORT_LIMIT = 1;
   private static readonly MAX_AUDIT_EXPORT_LIMIT = 500;
+  private static readonly DEFAULT_HEALTH_HISTORY_LIMIT = 50;
+  private static readonly MIN_HEALTH_HISTORY_LIMIT = 1;
+  private static readonly MAX_HEALTH_HISTORY_LIMIT = 500;
+  private static readonly DEFAULT_HEALTH_HISTORY_WINDOW_HOURS = 24;
+  private static readonly MIN_HEALTH_HISTORY_WINDOW_HOURS = 1;
+  private static readonly MAX_HEALTH_HISTORY_WINDOW_HOURS = 24 * 30;
   private static readonly DEFAULT_THREAD_CONTEXT_CACHE_TTL_MS = 300_000;
   private static readonly MIN_THREAD_CONTEXT_CACHE_TTL_MS = 10_000;
   private static readonly MAX_THREAD_CONTEXT_CACHE_TTL_MS = 3_600_000;
@@ -240,6 +247,8 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     private readonly agentActionAuditRepo: Repository<AgentActionAudit>,
     @InjectRepository(AgentPlatformEndpointRuntimeStat)
     private readonly endpointRuntimeStatRepo: Repository<AgentPlatformEndpointRuntimeStat>,
+    @InjectRepository(AgentPlatformHealthSample)
+    private readonly healthSampleRepo: Repository<AgentPlatformHealthSample>,
     @InjectRepository(AgentPlatformSkillRuntimeStat)
     private readonly skillRuntimeStatRepo: Repository<AgentPlatformSkillRuntimeStat>,
     private readonly notificationEventBus: NotificationEventBusService,
@@ -536,7 +545,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       thresholdErrorRate,
     );
 
-    return {
+    const healthResponse: AgentPlatformHealthResponse = {
       status,
       reachable,
       serviceUrl,
@@ -555,6 +564,266 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       errorRateWarnPercent: thresholdErrorRate,
       alertingState,
     };
+    await this.persistPlatformHealthSample(healthResponse);
+    return healthResponse;
+  }
+
+  async getPlatformHealthHistory(input?: {
+    limit?: number | null;
+    windowHours?: number | null;
+  }): Promise<
+    Array<{
+      status: string;
+      reachable: boolean;
+      serviceUrl: string;
+      configuredServiceUrls: string[];
+      probedServiceUrls: string[];
+      endpointStats: Array<{
+        endpointUrl: string;
+        successCount: number;
+        failureCount: number;
+        lastSuccessAtIso?: string;
+        lastFailureAtIso?: string;
+      }>;
+      skillStats: Array<{
+        skill: string;
+        totalRequests: number;
+        failedRequests: number;
+        timeoutFailures: number;
+        avgLatencyMs: number;
+        lastLatencyMs: number;
+        errorRatePercent: number;
+        lastErrorAtIso?: string;
+      }>;
+      checkedAtIso: string;
+      requestCount: number;
+      errorCount: number;
+      timeoutErrorCount: number;
+      errorRatePercent: number;
+      avgLatencyMs: number;
+      latencyWarnMs: number;
+      errorRateWarnPercent: number;
+      alertingState: string;
+    }>
+  > {
+    const limit = this.normalizeHealthHistoryLimit(input?.limit);
+    const windowHours = this.normalizeHealthHistoryWindowHours(
+      input?.windowHours,
+    );
+    const windowStart = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const rows = await this.healthSampleRepo.find({
+      where: {
+        checkedAt: MoreThanOrEqual(windowStart),
+      },
+      order: {
+        checkedAt: 'DESC',
+      },
+      take: limit,
+    });
+    return rows.map((row) => ({
+      status: row.status,
+      reachable: row.reachable,
+      serviceUrl: row.serviceUrl,
+      configuredServiceUrls: this.normalizeStringArray(
+        row.configuredServiceUrls,
+      ),
+      probedServiceUrls: this.normalizeStringArray(row.probedServiceUrls),
+      endpointStats: this.normalizeEndpointStats(row.endpointStats),
+      skillStats: this.normalizeSkillStats(row.skillStats),
+      checkedAtIso: row.checkedAt.toISOString(),
+      requestCount: Number(row.requestCount || 0),
+      errorCount: Number(row.errorCount || 0),
+      timeoutErrorCount: Number(row.timeoutErrorCount || 0),
+      errorRatePercent: Number(row.errorRatePercent || 0),
+      avgLatencyMs: Number(row.avgLatencyMs || 0),
+      latencyWarnMs: Number(row.latencyWarnMs || 0),
+      errorRateWarnPercent: Number(row.errorRateWarnPercent || 0),
+      alertingState: row.alertingState,
+    }));
+  }
+
+  private normalizeHealthHistoryLimit(limit?: number | null): number {
+    if (typeof limit !== 'number' || !Number.isFinite(limit)) {
+      return AiAgentGatewayService.DEFAULT_HEALTH_HISTORY_LIMIT;
+    }
+    const rounded = Math.trunc(limit);
+    if (rounded < AiAgentGatewayService.MIN_HEALTH_HISTORY_LIMIT) {
+      return AiAgentGatewayService.MIN_HEALTH_HISTORY_LIMIT;
+    }
+    if (rounded > AiAgentGatewayService.MAX_HEALTH_HISTORY_LIMIT) {
+      return AiAgentGatewayService.MAX_HEALTH_HISTORY_LIMIT;
+    }
+    return rounded;
+  }
+
+  private normalizeHealthHistoryWindowHours(
+    windowHours?: number | null,
+  ): number {
+    if (typeof windowHours !== 'number' || !Number.isFinite(windowHours)) {
+      return AiAgentGatewayService.DEFAULT_HEALTH_HISTORY_WINDOW_HOURS;
+    }
+    const rounded = Math.trunc(windowHours);
+    if (rounded < AiAgentGatewayService.MIN_HEALTH_HISTORY_WINDOW_HOURS) {
+      return AiAgentGatewayService.MIN_HEALTH_HISTORY_WINDOW_HOURS;
+    }
+    if (rounded > AiAgentGatewayService.MAX_HEALTH_HISTORY_WINDOW_HOURS) {
+      return AiAgentGatewayService.MAX_HEALTH_HISTORY_WINDOW_HOURS;
+    }
+    return rounded;
+  }
+
+  private normalizeStringArray(values: unknown): string[] {
+    if (!Array.isArray(values)) return [];
+    return values.map((value) => String(value || '').trim()).filter(Boolean);
+  }
+
+  private normalizeEndpointStats(values: unknown): Array<{
+    endpointUrl: string;
+    successCount: number;
+    failureCount: number;
+    lastSuccessAtIso?: string;
+    lastFailureAtIso?: string;
+  }> {
+    if (!Array.isArray(values)) return [];
+    const normalized: Array<{
+      endpointUrl: string;
+      successCount: number;
+      failureCount: number;
+      lastSuccessAtIso?: string;
+      lastFailureAtIso?: string;
+    }> = [];
+    for (const entry of values) {
+      if (!entry || typeof entry !== 'object') continue;
+      const payload = entry as {
+        endpointUrl?: unknown;
+        successCount?: unknown;
+        failureCount?: unknown;
+        lastSuccessAtIso?: unknown;
+        lastFailureAtIso?: unknown;
+      };
+      const endpointUrl =
+        typeof payload.endpointUrl === 'string'
+          ? payload.endpointUrl.trim()
+          : '';
+      if (!endpointUrl) continue;
+      const nextEntry: {
+        endpointUrl: string;
+        successCount: number;
+        failureCount: number;
+        lastSuccessAtIso?: string;
+        lastFailureAtIso?: string;
+      } = {
+        endpointUrl,
+        successCount: Number(payload.successCount || 0),
+        failureCount: Number(payload.failureCount || 0),
+      };
+      if (typeof payload.lastSuccessAtIso === 'string') {
+        nextEntry.lastSuccessAtIso = payload.lastSuccessAtIso;
+      }
+      if (typeof payload.lastFailureAtIso === 'string') {
+        nextEntry.lastFailureAtIso = payload.lastFailureAtIso;
+      }
+      normalized.push(nextEntry);
+    }
+    return normalized;
+  }
+
+  private normalizeSkillStats(values: unknown): Array<{
+    skill: string;
+    totalRequests: number;
+    failedRequests: number;
+    timeoutFailures: number;
+    avgLatencyMs: number;
+    lastLatencyMs: number;
+    errorRatePercent: number;
+    lastErrorAtIso?: string;
+  }> {
+    if (!Array.isArray(values)) return [];
+    const normalized: Array<{
+      skill: string;
+      totalRequests: number;
+      failedRequests: number;
+      timeoutFailures: number;
+      avgLatencyMs: number;
+      lastLatencyMs: number;
+      errorRatePercent: number;
+      lastErrorAtIso?: string;
+    }> = [];
+    for (const entry of values) {
+      if (!entry || typeof entry !== 'object') continue;
+      const payload = entry as {
+        skill?: unknown;
+        totalRequests?: unknown;
+        failedRequests?: unknown;
+        timeoutFailures?: unknown;
+        avgLatencyMs?: unknown;
+        lastLatencyMs?: unknown;
+        errorRatePercent?: unknown;
+        lastErrorAtIso?: unknown;
+      };
+      const skill =
+        typeof payload.skill === 'string' ? payload.skill.trim() : '';
+      if (!skill) continue;
+      const nextEntry: {
+        skill: string;
+        totalRequests: number;
+        failedRequests: number;
+        timeoutFailures: number;
+        avgLatencyMs: number;
+        lastLatencyMs: number;
+        errorRatePercent: number;
+        lastErrorAtIso?: string;
+      } = {
+        skill,
+        totalRequests: Number(payload.totalRequests || 0),
+        failedRequests: Number(payload.failedRequests || 0),
+        timeoutFailures: Number(payload.timeoutFailures || 0),
+        avgLatencyMs: Number(payload.avgLatencyMs || 0),
+        lastLatencyMs: Number(payload.lastLatencyMs || 0),
+        errorRatePercent: Number(payload.errorRatePercent || 0),
+      };
+      if (typeof payload.lastErrorAtIso === 'string') {
+        nextEntry.lastErrorAtIso = payload.lastErrorAtIso;
+      }
+      normalized.push(nextEntry);
+    }
+    return normalized;
+  }
+
+  private async persistPlatformHealthSample(
+    health: AgentPlatformHealthResponse,
+  ): Promise<void> {
+    const persistEnabled = String(
+      process.env.AI_AGENT_HEALTH_SAMPLE_PERSIST_ENABLED || 'true',
+    )
+      .trim()
+      .toLowerCase();
+    if (['false', '0', 'off', 'no'].includes(persistEnabled)) return;
+    try {
+      await this.healthSampleRepo.save({
+        status: health.status,
+        reachable: health.reachable,
+        serviceUrl: health.serviceUrl,
+        checkedAt: new Date(health.checkedAtIso),
+        requestCount: health.requestCount,
+        errorCount: health.errorCount,
+        timeoutErrorCount: health.timeoutErrorCount,
+        errorRatePercent: health.errorRatePercent,
+        avgLatencyMs: health.avgLatencyMs,
+        latencyWarnMs: health.latencyWarnMs,
+        errorRateWarnPercent: health.errorRateWarnPercent,
+        alertingState: health.alertingState,
+        configuredServiceUrls: health.configuredServiceUrls,
+        probedServiceUrls: health.probedServiceUrls,
+        endpointStats: health.endpointStats,
+        skillStats: health.skillStats,
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `agent-platform-runtime-stats: failed persisting health sample error=${message}`,
+      );
+    }
   }
 
   async resetPlatformRuntimeStats(input?: {

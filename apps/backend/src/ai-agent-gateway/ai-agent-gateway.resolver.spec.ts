@@ -4,6 +4,7 @@ describe('AiAgentGatewayResolver', () => {
   const gatewayService = {
     assist: jest.fn(),
     getPlatformHealth: jest.fn(),
+    getPlatformHealthHistory: jest.fn(),
     resetPlatformRuntimeStats: jest.fn(),
     resetSkillRuntimeStats: jest.fn(),
     listAgentActionAuditsForUser: jest.fn(),
@@ -94,6 +95,42 @@ describe('AiAgentGatewayResolver', () => {
       }),
     );
     expect(gatewayService.getPlatformHealth).toHaveBeenCalled();
+  });
+
+  it('delegates agentPlatformHealthHistory to gateway service', async () => {
+    gatewayService.getPlatformHealthHistory.mockResolvedValue([
+      {
+        status: 'ok',
+        reachable: true,
+        serviceUrl: 'http://localhost:8100',
+        configuredServiceUrls: ['http://localhost:8100'],
+        probedServiceUrls: ['http://localhost:8100'],
+        endpointStats: [],
+        skillStats: [],
+        checkedAtIso: '2026-02-16T00:00:00.000Z',
+        requestCount: 12,
+        errorCount: 1,
+        timeoutErrorCount: 0,
+        errorRatePercent: 8.33,
+        avgLatencyMs: 45,
+        latencyWarnMs: 1500,
+        errorRateWarnPercent: 5,
+        alertingState: 'warn',
+      },
+    ]);
+
+    const result = await resolver.agentPlatformHealthHistory(30, 48);
+
+    expect(gatewayService.getPlatformHealthHistory).toHaveBeenCalledWith({
+      limit: 30,
+      windowHours: 48,
+    });
+    expect(result).toEqual([
+      expect.objectContaining({
+        status: 'ok',
+        requestCount: 12,
+      }),
+    ]);
   });
 
   it('forwards user context to myAgentActionDataExport', async () => {

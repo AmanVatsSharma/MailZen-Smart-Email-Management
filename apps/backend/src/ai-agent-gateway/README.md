@@ -33,6 +33,9 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   - runtime counters are persisted in Postgres and hydrated on service startup
     to preserve observability continuity across backend restarts.
 - Expose `myAgentActionAudits(limit?)` query for authenticated audit review.
+- Expose admin observability history query:
+  - `agentPlatformHealthHistory(limit?, windowHours?)`
+  - returns persisted health snapshots for trend analysis.
 - Expose `myAgentActionDataExport(limit?)` for authenticated JSON export of
   agent action audit history.
 - Expose admin retention control:
@@ -106,3 +109,4 @@ flowchart TD
 - 2026-02-16: Added admin runtime reset mutation for endpoint health counters.
 - 2026-02-16: Added persistent endpoint/skill runtime metrics hydration from Postgres.
 - 2026-02-16: Added admin runtime reset mutation for per-skill health counters.
+- 2026-02-16: Added persisted health snapshot history query for AI platform trends.

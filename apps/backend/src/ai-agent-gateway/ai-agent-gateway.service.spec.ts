@@ -25,6 +25,7 @@ import { WorkspaceMember } from '../workspace/entities/workspace-member.entity';
 import { AgentAssistInput } from './dto/agent-assist.input';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
 import { AgentPlatformEndpointRuntimeStat } from './entities/agent-platform-endpoint-runtime-stat.entity';
+import { AgentPlatformHealthSample } from './entities/agent-platform-health-sample.entity';
 import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-runtime-stat.entity';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
 
@@ -47,6 +48,8 @@ describe('AiAgentGatewayService', () => {
   const findEndpointRuntimeStatsMock = jest.fn();
   const upsertEndpointRuntimeStatMock = jest.fn();
   const deleteEndpointRuntimeStatsMock = jest.fn();
+  const saveHealthSampleMock = jest.fn();
+  const findHealthSamplesMock = jest.fn();
   const findSkillRuntimeStatsMock = jest.fn();
   const upsertSkillRuntimeStatMock = jest.fn();
   const deleteSkillRuntimeStatsMock = jest.fn();
@@ -94,6 +97,10 @@ describe('AiAgentGatewayService', () => {
     Repository<AgentPlatformEndpointRuntimeStat>,
     'find' | 'upsert' | 'delete'
   >;
+  const healthSampleRepo = {
+    save: saveHealthSampleMock,
+    find: findHealthSamplesMock,
+  } as unknown as Pick<Repository<AgentPlatformHealthSample>, 'save' | 'find'>;
   const skillRuntimeStatRepo = {
     find: findSkillRuntimeStatsMock,
     upsert: upsertSkillRuntimeStatMock,
@@ -124,6 +131,7 @@ describe('AiAgentGatewayService', () => {
       workspaceMemberRepo as Repository<WorkspaceMember>,
       agentActionAuditRepo as Repository<AgentActionAudit>,
       endpointRuntimeStatRepo as Repository<AgentPlatformEndpointRuntimeStat>,
+      healthSampleRepo as Repository<AgentPlatformHealthSample>,
       skillRuntimeStatRepo as Repository<AgentPlatformSkillRuntimeStat>,
       notificationEventBus as NotificationEventBusService,
     );
@@ -147,6 +155,8 @@ describe('AiAgentGatewayService', () => {
     findEndpointRuntimeStatsMock.mockResolvedValue([]);
     upsertEndpointRuntimeStatMock.mockResolvedValue(undefined);
     deleteEndpointRuntimeStatsMock.mockResolvedValue({ affected: 0 });
+    saveHealthSampleMock.mockResolvedValue({ id: 'sample-1' });
+    findHealthSamplesMock.mockResolvedValue([]);
     findSkillRuntimeStatsMock.mockResolvedValue([]);
     upsertSkillRuntimeStatMock.mockResolvedValue(undefined);
     deleteSkillRuntimeStatsMock.mockResolvedValue({ affected: 0 });
@@ -388,6 +398,92 @@ describe('AiAgentGatewayService', () => {
         endpointUrl: 'http://localhost:8100',
         successCount: 0,
         failureCount: 0,
+      }),
+    ]);
+  });
+
+  it('persists health snapshot rows when platform health is queried', async () => {
+    const service = createService();
+    mockedAxios.get.mockResolvedValueOnce({
+      data: {
+        status: 'ok',
+      },
+    } as any);
+
+    const health = await service.getPlatformHealth();
+
+    expect(saveHealthSampleMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'ok',
+        reachable: true,
+        serviceUrl: health.serviceUrl,
+        checkedAt: expect.any(Date),
+      }),
+    );
+  });
+
+  it('returns persisted platform health history with window filtering', async () => {
+    const service = createService();
+    findHealthSamplesMock.mockResolvedValueOnce([
+      {
+        status: 'warn',
+        reachable: true,
+        serviceUrl: 'http://primary-agent.local',
+        configuredServiceUrls: [
+          'http://primary-agent.local',
+          'http://secondary-agent.local',
+        ],
+        probedServiceUrls: ['http://primary-agent.local'],
+        endpointStats: [
+          {
+            endpointUrl: 'http://primary-agent.local',
+            successCount: 10,
+            failureCount: 2,
+            lastSuccessAtIso: '2026-02-16T00:00:00.000Z',
+          },
+        ],
+        skillStats: [
+          {
+            skill: 'auth',
+            totalRequests: 15,
+            failedRequests: 1,
+            timeoutFailures: 0,
+            avgLatencyMs: 18,
+            lastLatencyMs: 12,
+            errorRatePercent: 6.66,
+          },
+        ],
+        checkedAt: new Date('2026-02-16T00:00:00.000Z'),
+        requestCount: 15,
+        errorCount: 1,
+        timeoutErrorCount: 0,
+        errorRatePercent: 6.66,
+        avgLatencyMs: 18,
+        latencyWarnMs: 1500,
+        errorRateWarnPercent: 5,
+        alertingState: 'warn',
+      },
+    ]);
+
+    const history = await service.getPlatformHealthHistory({
+      limit: 20,
+      windowHours: 48,
+    });
+
+    expect(findHealthSamplesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 20,
+        order: { checkedAt: 'DESC' },
+        where: expect.objectContaining({
+          checkedAt: expect.any(Object),
+        }),
+      }),
+    );
+    expect(history).toEqual([
+      expect.objectContaining({
+        status: 'warn',
+        requestCount: 15,
+        alertingState: 'warn',
       }),
     ]);
   });

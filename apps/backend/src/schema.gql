@@ -551,6 +551,25 @@ type AgentPlatformHealthResponse {
   alertingState: String!
 }
 
+type AgentPlatformHealthSampleResponse {
+  status: String!
+  reachable: Boolean!
+  serviceUrl: String!
+  configuredServiceUrls: [String!]!
+  probedServiceUrls: [String!]!
+  endpointStats: [AgentPlatformEndpointStatResponse!]!
+  skillStats: [AgentPlatformSkillStatResponse!]!
+  checkedAtIso: String!
+  requestCount: Int!
+  errorCount: Int!
+  timeoutErrorCount: Int!
+  errorRatePercent: Float!
+  avgLatencyMs: Float!
+  latencyWarnMs: Float!
+  errorRateWarnPercent: Float!
+  alertingState: String!
+}
+
 type AgentPlatformEndpointStatResponse {
   endpointUrl: String!
   successCount: Int!
@@ -1007,6 +1026,10 @@ extend type Query {
   myUnreadNotificationCount(workspaceId: String): Int!
   myNotificationPreferences: UserNotificationPreference!
   myNotificationPushSubscriptions(workspaceId: String): [NotificationPushSubscription!]!
+  agentPlatformHealthHistory(
+    limit: Int
+    windowHours: Int
+  ): [AgentPlatformHealthSampleResponse!]!
   myWorkspaces: [Workspace!]!
   myActiveWorkspace: Workspace
   myWorkspaceDataExport(workspaceId: String!): WorkspaceDataExportResponse!

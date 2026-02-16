@@ -20,6 +20,7 @@ import { AiAgentGatewayResolver } from './ai-agent-gateway.resolver';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
 import { AgentPlatformEndpointRuntimeStat } from './entities/agent-platform-endpoint-runtime-stat.entity';
+import { AgentPlatformHealthSample } from './entities/agent-platform-health-sample.entity';
 import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-runtime-stat.entity';
 
 @Module({
@@ -30,6 +31,7 @@ import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-r
       WorkspaceMember,
       AgentActionAudit,
       AgentPlatformEndpointRuntimeStat,
+      AgentPlatformHealthSample,
       AgentPlatformSkillRuntimeStat,
     ]),
     BillingModule,
