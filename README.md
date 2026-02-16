@@ -270,6 +270,10 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # 3) Build and run the stack
 ./deploy/ec2/scripts/deploy.sh
 
+# Optional: deploy dry-run / config-only checks
+./deploy/ec2/scripts/deploy.sh --dry-run
+./deploy/ec2/scripts/deploy.sh --config-only
+
 # 4) Verify URLs and core endpoints
 ./deploy/ec2/scripts/verify.sh
 

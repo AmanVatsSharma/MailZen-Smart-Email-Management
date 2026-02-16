@@ -148,6 +148,12 @@ Example:
 # Pull updates and recreate all services
 ./deploy/ec2/scripts/update.sh
 
+# Deploy command dry-run (prints command only)
+./deploy/ec2/scripts/deploy.sh --dry-run
+
+# Deploy config-only validation (no daemon/up)
+./deploy/ec2/scripts/deploy.sh --config-only
+
 # Run post-deploy smoke checks (default retries: 5, sleep: 3s)
 ./deploy/ec2/scripts/verify.sh
 
