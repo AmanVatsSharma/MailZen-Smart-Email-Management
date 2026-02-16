@@ -49,6 +49,12 @@ STATUS_SKIP_DNS_CHECK=false
 STATUS_SKIP_SSL_CHECK=false
 STATUS_SKIP_PORTS_CHECK=false
 PORTS_CHECK_PORTS=""
+VERIFY_MAX_RETRIES_FLAG_SET=false
+VERIFY_MAX_RETRIES_FLAG_VALUE=""
+VERIFY_RETRY_SLEEP_FLAG_SET=false
+VERIFY_RETRY_SLEEP_FLAG_VALUE=""
+PORTS_CHECK_FLAG_SET=false
+PORTS_CHECK_FLAG_VALUE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -57,19 +63,31 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --verify-max-retries)
-    VERIFY_MAX_RETRIES="${2:-}"
-    if [[ -z "${VERIFY_MAX_RETRIES}" ]]; then
+    verify_max_retries_arg="${2:-}"
+    if [[ -z "${verify_max_retries_arg}" ]]; then
       log_error "--verify-max-retries requires a value."
       exit 1
     fi
+    if [[ "${VERIFY_MAX_RETRIES_FLAG_SET}" == true ]] && [[ "${verify_max_retries_arg}" != "${VERIFY_MAX_RETRIES_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --verify-max-retries '${VERIFY_MAX_RETRIES_FLAG_VALUE}' overridden by --verify-max-retries '${verify_max_retries_arg}'."
+    fi
+    VERIFY_MAX_RETRIES="${verify_max_retries_arg}"
+    VERIFY_MAX_RETRIES_FLAG_SET=true
+    VERIFY_MAX_RETRIES_FLAG_VALUE="${verify_max_retries_arg}"
     shift 2
     ;;
   --verify-retry-sleep)
-    VERIFY_RETRY_SLEEP="${2:-}"
-    if [[ -z "${VERIFY_RETRY_SLEEP}" ]]; then
+    verify_retry_sleep_arg="${2:-}"
+    if [[ -z "${verify_retry_sleep_arg}" ]]; then
       log_error "--verify-retry-sleep requires a value."
       exit 1
     fi
+    if [[ "${VERIFY_RETRY_SLEEP_FLAG_SET}" == true ]] && [[ "${verify_retry_sleep_arg}" != "${VERIFY_RETRY_SLEEP_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --verify-retry-sleep '${VERIFY_RETRY_SLEEP_FLAG_VALUE}' overridden by --verify-retry-sleep '${verify_retry_sleep_arg}'."
+    fi
+    VERIFY_RETRY_SLEEP="${verify_retry_sleep_arg}"
+    VERIFY_RETRY_SLEEP_FLAG_SET=true
+    VERIFY_RETRY_SLEEP_FLAG_VALUE="${verify_retry_sleep_arg}"
     shift 2
     ;;
   --verify-skip-ssl-check)
@@ -121,11 +139,17 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --ports-check-ports)
-    PORTS_CHECK_PORTS="${2:-}"
-    if [[ -z "${PORTS_CHECK_PORTS}" ]]; then
+    ports_check_ports_arg="${2:-}"
+    if [[ -z "${ports_check_ports_arg}" ]]; then
       log_error "--ports-check-ports requires a value."
       exit 1
     fi
+    if [[ "${PORTS_CHECK_FLAG_SET}" == true ]] && [[ "${ports_check_ports_arg}" != "${PORTS_CHECK_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --ports-check-ports '${PORTS_CHECK_FLAG_VALUE}' overridden by --ports-check-ports '${ports_check_ports_arg}'."
+    fi
+    PORTS_CHECK_PORTS="${ports_check_ports_arg}"
+    PORTS_CHECK_FLAG_SET=true
+    PORTS_CHECK_FLAG_VALUE="${ports_check_ports_arg}"
     shift 2
     ;;
   *)
