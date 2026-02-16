@@ -458,6 +458,8 @@ flowchart TD
 - `MailboxSyncService` emits structured pull-retry event:
   - `mailbox_sync_pull_retry_scheduled`
   - `mailbox_sync_audit_log_write_failed`
+- `MailboxSyncRunRetentionScheduler` emits audit resilience event:
+  - `mailbox_sync_run_retention_scheduler_audit_log_write_failed`
 - `MailboxInboundSlaScheduler` emits audit resilience event:
   - `mailbox_inbound_sla_audit_log_write_failed`
 - `MailboxSyncIncidentScheduler` emits audit resilience event:
@@ -474,6 +476,10 @@ flowchart TD
   - `mailbox_inbound_data_export_requested`
   - `mailbox_inbound_retention_purged`
   - `mailbox_sync_run_retention_purged`
+  - `mailbox_sync_run_retention_autopurge_started`
+  - `mailbox_sync_run_retention_autopurge_completed`
+  - `mailbox_sync_run_retention_autopurge_failed`
+  - `mailbox_sync_run_retention_autopurge_skipped`
   - `mailbox_sync_manual_poll_requested`
   - `mailbox_sync_data_export_requested`
   - `mailbox_sync_incident_data_export_requested`
