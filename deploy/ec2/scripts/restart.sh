@@ -20,6 +20,8 @@ POSITIONAL_SERVICE=""
 POSITIONAL_SERVICE_SET=false
 SERVICE_FLAG_SET=false
 SERVICE_FLAG_VALUE=""
+WAIT_SECONDS_FLAG_SET=false
+WAIT_SECONDS_FLAG_VALUE=""
 
 if [[ -n "${SERVICE_NAME}" ]] && [[ "${SERVICE_NAME}" =~ ^-- ]]; then
   SERVICE_NAME=""
@@ -55,11 +57,17 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --wait-seconds)
-    WAIT_SECONDS="${2:-}"
-    if [[ -z "${WAIT_SECONDS}" ]]; then
+    wait_seconds_arg="${2:-}"
+    if [[ -z "${wait_seconds_arg}" ]]; then
       log_error "--wait-seconds requires a value."
       exit 1
     fi
+    if [[ "${WAIT_SECONDS_FLAG_SET}" == true ]] && [[ "${wait_seconds_arg}" != "${WAIT_SECONDS_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --wait-seconds '${WAIT_SECONDS_FLAG_VALUE}' overridden by --wait-seconds '${wait_seconds_arg}'."
+    fi
+    WAIT_SECONDS="${wait_seconds_arg}"
+    WAIT_SECONDS_FLAG_SET=true
+    WAIT_SECONDS_FLAG_VALUE="${wait_seconds_arg}"
     shift 2
     ;;
   *)
