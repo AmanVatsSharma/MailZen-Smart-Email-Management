@@ -55,6 +55,12 @@ done
 log_info "Starting MailZen EC2 deployment..."
 log_info "Active env file: $(get_env_file)"
 log_info "Active compose file: $(get_compose_file)"
+
+if [[ "${CONFIG_ONLY}" == true ]] &&
+  { [[ "${NO_BUILD}" == true ]] || [[ "${PULL}" == true ]] || [[ "${FORCE_RECREATE}" == true ]]; }; then
+  log_warn "Deploy runtime flags (--no-build/--pull/--force-recreate) are ignored when --config-only is enabled."
+fi
+
 require_cmd docker
 ensure_required_files_exist
 validate_core_env
