@@ -1184,6 +1184,30 @@ extend type Query {
   myMailboxSyncStates(
     workspaceId: String
   ): [MailboxSyncStateResponse!]!
+  myMailboxSyncRuns(
+    mailboxId: String
+    workspaceId: String
+    windowHours: Int
+    limit: Int
+  ): [MailboxSyncRunObservabilityResponse!]!
+  myMailboxSyncRunStats(
+    mailboxId: String
+    workspaceId: String
+    windowHours: Int
+  ): MailboxSyncRunStatsResponse!
+  myMailboxSyncRunSeries(
+    mailboxId: String
+    workspaceId: String
+    windowHours: Int
+    bucketMinutes: Int
+  ): [MailboxSyncRunTrendPointResponse!]!
+  myMailboxSyncDataExport(
+    mailboxId: String
+    workspaceId: String
+    limit: Int
+    windowHours: Int
+    bucketMinutes: Int
+  ): MailboxSyncDataExportResponse!
   myMailboxInboundSlaIncidentStats(workspaceId: String, windowHours: Int): MailboxInboundSlaIncidentStatsResponse!
   myMailboxInboundSlaIncidentSeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [MailboxInboundSlaIncidentTrendPointResponse!]!
   myUnreadNotificationCount(workspaceId: String): Int!
@@ -1504,6 +1528,62 @@ type MailboxSyncStateResponse {
   inboundSyncLastError: String
   inboundSyncLastErrorAt: DateTime
   inboundSyncLeaseExpiresAt: DateTime
+}
+
+type MailboxSyncRunObservabilityResponse {
+  id: String!
+  mailboxId: String!
+  mailboxEmail: String
+  workspaceId: String
+  triggerSource: String!
+  runCorrelationId: String!
+  status: String!
+  fetchedMessages: Int!
+  acceptedMessages: Int!
+  deduplicatedMessages: Int!
+  rejectedMessages: Int!
+  nextCursor: String
+  errorMessage: String
+  startedAt: DateTime!
+  completedAt: DateTime!
+  durationMs: Int!
+}
+
+type MailboxSyncRunStatsResponse {
+  mailboxId: String
+  workspaceId: String
+  windowHours: Int!
+  totalRuns: Int!
+  successRuns: Int!
+  partialRuns: Int!
+  failedRuns: Int!
+  skippedRuns: Int!
+  schedulerRuns: Int!
+  manualRuns: Int!
+  fetchedMessages: Int!
+  acceptedMessages: Int!
+  deduplicatedMessages: Int!
+  rejectedMessages: Int!
+  avgDurationMs: Float!
+  latestCompletedAtIso: String
+}
+
+type MailboxSyncRunTrendPointResponse {
+  bucketStart: DateTime!
+  totalRuns: Int!
+  successRuns: Int!
+  partialRuns: Int!
+  failedRuns: Int!
+  skippedRuns: Int!
+  fetchedMessages: Int!
+  acceptedMessages: Int!
+  deduplicatedMessages: Int!
+  rejectedMessages: Int!
+}
+
+type MailboxSyncDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
 }
 
 type MailboxProvisioningHealthResponse {

@@ -18,6 +18,7 @@ describe('MailboxSyncService', () => {
     query: jest.fn(),
   } as unknown as jest.Mocked<Repository<Mailbox>>;
   const mailboxSyncRunRepo: jest.Mocked<Repository<MailboxSyncRun>> = {
+    find: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
   } as unknown as jest.Mocked<Repository<MailboxSyncRun>>;
@@ -47,6 +48,7 @@ describe('MailboxSyncService', () => {
       (value) => value as MailboxSyncRun,
     );
     mailboxSyncRunRepo.save.mockResolvedValue({} as MailboxSyncRun);
+    mailboxSyncRunRepo.find.mockResolvedValue([]);
     mailboxInboundServiceMock.ingestInboundEvent.mockResolvedValue({
       accepted: true,
       mailboxId: 'mailbox-1',
@@ -520,6 +522,203 @@ describe('MailboxSyncService', () => {
         inboundSyncStatus: 'connected',
       }),
     ]);
+  });
+
+  it('returns mailbox sync run history for user observability', async () => {
+    const startedAt = new Date('2026-02-16T00:00:00.000Z');
+    const completedAt = new Date('2026-02-16T00:00:05.000Z');
+    mailboxSyncRunRepo.find.mockResolvedValue([
+      {
+        id: 'run-1',
+        mailboxId: 'mailbox-1',
+        workspaceId: 'workspace-1',
+        triggerSource: 'manual',
+        runCorrelationId: 'corr-1',
+        status: 'partial',
+        fetchedMessages: 5,
+        acceptedMessages: 4,
+        deduplicatedMessages: 1,
+        rejectedMessages: 1,
+        nextCursor: 'cursor-5',
+        errorMessage: null,
+        startedAt,
+        completedAt,
+        durationMs: 5000,
+      } as MailboxSyncRun,
+    ]);
+    mailboxRepo.find.mockResolvedValue([
+      {
+        id: 'mailbox-1',
+        email: 'sales@mailzen.com',
+      } as Mailbox,
+    ]);
+
+    const runs = await service.getMailboxSyncRunsForUser({
+      userId: 'user-1',
+      windowHours: 24,
+      limit: 10,
+    });
+
+    expect(runs).toEqual([
+      expect.objectContaining({
+        id: 'run-1',
+        mailboxId: 'mailbox-1',
+        mailboxEmail: 'sales@mailzen.com',
+        triggerSource: 'MANUAL',
+        status: 'PARTIAL',
+      }),
+    ]);
+  });
+
+  it('returns mailbox sync run stats for user observability', async () => {
+    mailboxSyncRunRepo.find.mockResolvedValue([
+      {
+        id: 'run-1',
+        mailboxId: 'mailbox-1',
+        triggerSource: 'SCHEDULER',
+        status: 'SUCCESS',
+        fetchedMessages: 3,
+        acceptedMessages: 3,
+        deduplicatedMessages: 0,
+        rejectedMessages: 0,
+        durationMs: 100,
+        completedAt: new Date('2026-02-16T01:00:00.000Z'),
+      } as MailboxSyncRun,
+      {
+        id: 'run-2',
+        mailboxId: 'mailbox-1',
+        triggerSource: 'MANUAL',
+        status: 'FAILED',
+        fetchedMessages: 2,
+        acceptedMessages: 1,
+        deduplicatedMessages: 0,
+        rejectedMessages: 1,
+        durationMs: 200,
+        completedAt: new Date('2026-02-16T00:30:00.000Z'),
+      } as MailboxSyncRun,
+    ]);
+
+    const stats = await service.getMailboxSyncRunStatsForUser({
+      userId: 'user-1',
+      windowHours: 24,
+    });
+
+    expect(stats.totalRuns).toBe(2);
+    expect(stats.successRuns).toBe(1);
+    expect(stats.failedRuns).toBe(1);
+    expect(stats.schedulerRuns).toBe(1);
+    expect(stats.manualRuns).toBe(1);
+    expect(stats.fetchedMessages).toBe(5);
+    expect(stats.acceptedMessages).toBe(4);
+    expect(stats.rejectedMessages).toBe(1);
+  });
+
+  it('returns mailbox sync run series for user observability', async () => {
+    mailboxSyncRunRepo.find.mockResolvedValue([
+      {
+        id: 'run-1',
+        mailboxId: 'mailbox-1',
+        status: 'SUCCESS',
+        fetchedMessages: 3,
+        acceptedMessages: 3,
+        deduplicatedMessages: 0,
+        rejectedMessages: 0,
+        completedAt: new Date(),
+      } as MailboxSyncRun,
+    ]);
+
+    const series = await service.getMailboxSyncRunSeriesForUser({
+      userId: 'user-1',
+      windowHours: 1,
+      bucketMinutes: 60,
+    });
+
+    const populated = series.find((point) => point.totalRuns > 0);
+    expect(populated).toBeDefined();
+    expect(populated?.successRuns).toBe(1);
+    expect(populated?.fetchedMessages).toBe(3);
+  });
+
+  it('exports mailbox sync observability payload', async () => {
+    const statsSpy = jest
+      .spyOn(service, 'getMailboxSyncRunStatsForUser')
+      .mockResolvedValue({
+        mailboxId: 'mailbox-1',
+        workspaceId: 'workspace-1',
+        windowHours: 24,
+        totalRuns: 1,
+        successRuns: 1,
+        partialRuns: 0,
+        failedRuns: 0,
+        skippedRuns: 0,
+        schedulerRuns: 1,
+        manualRuns: 0,
+        fetchedMessages: 2,
+        acceptedMessages: 2,
+        deduplicatedMessages: 0,
+        rejectedMessages: 0,
+        avgDurationMs: 50,
+        latestCompletedAtIso: '2026-02-16T00:00:00.000Z',
+      });
+    const seriesSpy = jest
+      .spyOn(service, 'getMailboxSyncRunSeriesForUser')
+      .mockResolvedValue([
+        {
+          bucketStart: new Date('2026-02-16T00:00:00.000Z'),
+          totalRuns: 1,
+          successRuns: 1,
+          partialRuns: 0,
+          failedRuns: 0,
+          skippedRuns: 0,
+          fetchedMessages: 2,
+          acceptedMessages: 2,
+          deduplicatedMessages: 0,
+          rejectedMessages: 0,
+        },
+      ]);
+    const runsSpy = jest
+      .spyOn(service, 'getMailboxSyncRunsForUser')
+      .mockResolvedValue([
+        {
+          id: 'run-1',
+          mailboxId: 'mailbox-1',
+          mailboxEmail: 'sales@mailzen.com',
+          workspaceId: 'workspace-1',
+          triggerSource: 'SCHEDULER',
+          runCorrelationId: 'corr-1',
+          status: 'SUCCESS',
+          fetchedMessages: 2,
+          acceptedMessages: 2,
+          deduplicatedMessages: 0,
+          rejectedMessages: 0,
+          nextCursor: null,
+          errorMessage: null,
+          startedAt: new Date('2026-02-16T00:00:00.000Z'),
+          completedAt: new Date('2026-02-16T00:00:01.000Z'),
+          durationMs: 1000,
+        },
+      ]);
+
+    const exported = await service.exportMailboxSyncDataForUser({
+      userId: 'user-1',
+      mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
+      limit: 25,
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+
+    expect(statsSpy).toHaveBeenCalledTimes(1);
+    expect(seriesSpy).toHaveBeenCalledTimes(1);
+    expect(runsSpy).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(exported.dataJson) as {
+      stats: { totalRuns: number };
+      series: Array<{ totalRuns: number }>;
+      runs: Array<{ id: string }>;
+    };
+    expect(payload.stats.totalRuns).toBe(1);
+    expect(payload.series[0]?.totalRuns).toBe(1);
+    expect(payload.runs[0]?.id).toBe('run-1');
   });
 
   it('runs mailbox poll for explicit mailbox id', async () => {

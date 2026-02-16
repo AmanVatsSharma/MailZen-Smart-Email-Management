@@ -10,6 +10,12 @@ import {
   MailboxInboundEventTrendPointResponse,
 } from './dto/mailbox-inbound-event-observability.response';
 import { MailboxInboundRetentionPurgeResponse } from './dto/mailbox-inbound-retention-purge.response';
+import { MailboxSyncDataExportResponse } from './dto/mailbox-sync-data-export.response';
+import {
+  MailboxSyncRunObservabilityResponse,
+  MailboxSyncRunStatsResponse,
+  MailboxSyncRunTrendPointResponse,
+} from './dto/mailbox-sync-observability.response';
 import { MailboxSyncStateResponse } from './dto/mailbox-sync-state.response';
 import { MailboxSyncRunResponse } from './dto/mailbox-sync-run.response';
 import { MailboxProvisioningHealthResponse } from './dto/mailbox-provisioning-health.response';
@@ -149,6 +155,80 @@ export class MailboxResolver {
     return this.mailboxSyncService.listMailboxSyncStatesForUser({
       userId: ctx.req.user.id,
       workspaceId: workspaceId || null,
+    });
+  }
+
+  @Query(() => [MailboxSyncRunObservabilityResponse])
+  async myMailboxSyncRuns(
+    @Context() ctx: RequestContext,
+    @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+  ): Promise<MailboxSyncRunObservabilityResponse[]> {
+    return this.mailboxSyncService.getMailboxSyncRunsForUser({
+      userId: ctx.req.user.id,
+      mailboxId: mailboxId || null,
+      workspaceId: workspaceId || null,
+      windowHours: windowHours ?? null,
+      limit: limit ?? null,
+    });
+  }
+
+  @Query(() => MailboxSyncRunStatsResponse)
+  async myMailboxSyncRunStats(
+    @Context() ctx: RequestContext,
+    @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+  ): Promise<MailboxSyncRunStatsResponse> {
+    return this.mailboxSyncService.getMailboxSyncRunStatsForUser({
+      userId: ctx.req.user.id,
+      mailboxId: mailboxId || null,
+      workspaceId: workspaceId || null,
+      windowHours: windowHours ?? null,
+    });
+  }
+
+  @Query(() => [MailboxSyncRunTrendPointResponse])
+  async myMailboxSyncRunSeries(
+    @Context() ctx: RequestContext,
+    @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<MailboxSyncRunTrendPointResponse[]> {
+    return this.mailboxSyncService.getMailboxSyncRunSeriesForUser({
+      userId: ctx.req.user.id,
+      mailboxId: mailboxId || null,
+      workspaceId: workspaceId || null,
+      windowHours: windowHours ?? null,
+      bucketMinutes: bucketMinutes ?? null,
+    });
+  }
+
+  @Query(() => MailboxSyncDataExportResponse)
+  async myMailboxSyncDataExport(
+    @Context() ctx: RequestContext,
+    @Args('mailboxId', { nullable: true }) mailboxId?: string,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours?: number,
+    @Args('bucketMinutes', { type: () => Int, nullable: true })
+    bucketMinutes?: number,
+  ): Promise<MailboxSyncDataExportResponse> {
+    return this.mailboxSyncService.exportMailboxSyncDataForUser({
+      userId: ctx.req.user.id,
+      mailboxId: mailboxId || null,
+      workspaceId: workspaceId || null,
+      limit: limit ?? null,
+      windowHours: windowHours ?? null,
+      bucketMinutes: bucketMinutes ?? null,
     });
   }
 

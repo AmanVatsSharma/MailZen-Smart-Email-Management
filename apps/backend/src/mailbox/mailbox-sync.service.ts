@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, In, MoreThanOrEqual, Repository } from 'typeorm';
 import {
   resolveCorrelationId,
   serializeStructuredLog,
@@ -55,6 +55,14 @@ type MailboxSyncRunStatus = 'SUCCESS' | 'PARTIAL' | 'FAILED' | 'SKIPPED';
 @Injectable()
 export class MailboxSyncService {
   private readonly logger = new Logger(MailboxSyncService.name);
+  private static readonly DEFAULT_SYNC_OBSERVABILITY_WINDOW_HOURS = 24;
+  private static readonly MAX_SYNC_OBSERVABILITY_WINDOW_HOURS = 24 * 90;
+  private static readonly DEFAULT_SYNC_OBSERVABILITY_BUCKET_MINUTES = 60;
+  private static readonly MIN_SYNC_OBSERVABILITY_BUCKET_MINUTES = 5;
+  private static readonly MAX_SYNC_OBSERVABILITY_BUCKET_MINUTES = 24 * 60;
+  private static readonly DEFAULT_SYNC_RUN_HISTORY_LIMIT = 50;
+  private static readonly MAX_SYNC_RUN_HISTORY_LIMIT = 500;
+  private static readonly DEFAULT_SYNC_RUN_SCAN_LIMIT = 5000;
 
   constructor(
     @InjectRepository(Mailbox)
@@ -78,6 +86,122 @@ export class MailboxSyncService {
     if (normalized < input.minimumValue) return input.minimumValue;
     if (normalized > input.maximumValue) return input.maximumValue;
     return normalized;
+  }
+
+  private normalizeSyncObservabilityWindowHours(
+    rawValue?: number | null,
+  ): number {
+    const fallback = this.resolveIntegerEnv({
+      rawValue: process.env.MAILZEN_MAIL_SYNC_OBSERVABILITY_WINDOW_HOURS,
+      fallbackValue: MailboxSyncService.DEFAULT_SYNC_OBSERVABILITY_WINDOW_HOURS,
+      minimumValue: 1,
+      maximumValue: MailboxSyncService.MAX_SYNC_OBSERVABILITY_WINDOW_HOURS,
+    });
+    return this.resolveIntegerEnv({
+      rawValue:
+        typeof rawValue === 'number' && Number.isFinite(rawValue)
+          ? String(rawValue)
+          : undefined,
+      fallbackValue: fallback,
+      minimumValue: 1,
+      maximumValue: MailboxSyncService.MAX_SYNC_OBSERVABILITY_WINDOW_HOURS,
+    });
+  }
+
+  private normalizeSyncObservabilityBucketMinutes(
+    rawValue?: number | null,
+  ): number {
+    const fallback = this.resolveIntegerEnv({
+      rawValue: process.env.MAILZEN_MAIL_SYNC_OBSERVABILITY_BUCKET_MINUTES,
+      fallbackValue:
+        MailboxSyncService.DEFAULT_SYNC_OBSERVABILITY_BUCKET_MINUTES,
+      minimumValue: MailboxSyncService.MIN_SYNC_OBSERVABILITY_BUCKET_MINUTES,
+      maximumValue: MailboxSyncService.MAX_SYNC_OBSERVABILITY_BUCKET_MINUTES,
+    });
+    return this.resolveIntegerEnv({
+      rawValue:
+        typeof rawValue === 'number' && Number.isFinite(rawValue)
+          ? String(rawValue)
+          : undefined,
+      fallbackValue: fallback,
+      minimumValue: MailboxSyncService.MIN_SYNC_OBSERVABILITY_BUCKET_MINUTES,
+      maximumValue: MailboxSyncService.MAX_SYNC_OBSERVABILITY_BUCKET_MINUTES,
+    });
+  }
+
+  private normalizeSyncRunHistoryLimit(rawValue?: number | null): number {
+    return this.resolveIntegerEnv({
+      rawValue:
+        typeof rawValue === 'number' && Number.isFinite(rawValue)
+          ? String(rawValue)
+          : undefined,
+      fallbackValue: MailboxSyncService.DEFAULT_SYNC_RUN_HISTORY_LIMIT,
+      minimumValue: 1,
+      maximumValue: MailboxSyncService.MAX_SYNC_RUN_HISTORY_LIMIT,
+    });
+  }
+
+  private resolveSyncRunScanLimit(): number {
+    return this.resolveIntegerEnv({
+      rawValue: process.env.MAILZEN_MAIL_SYNC_OBSERVABILITY_MAX_RUNS_SCAN,
+      fallbackValue: MailboxSyncService.DEFAULT_SYNC_RUN_SCAN_LIMIT,
+      minimumValue: 100,
+      maximumValue: 20000,
+    });
+  }
+
+  private normalizeSyncRunStatus(
+    rawValue?: string | null,
+  ): MailboxSyncRunStatus {
+    const normalized = String(rawValue || '')
+      .trim()
+      .toUpperCase();
+    if (normalized === 'SUCCESS') return 'SUCCESS';
+    if (normalized === 'PARTIAL') return 'PARTIAL';
+    if (normalized === 'SKIPPED') return 'SKIPPED';
+    return 'FAILED';
+  }
+
+  private normalizeWorkspaceId(workspaceId?: string | null): string | null {
+    return String(workspaceId || '').trim() || null;
+  }
+
+  private async resolveSyncObservabilityScope(input: {
+    userId: string;
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+  }): Promise<{
+    mailboxId: string | null;
+    workspaceId: string | null;
+  }> {
+    const mailboxId = String(input.mailboxId || '').trim() || null;
+    const workspaceId = this.normalizeWorkspaceId(input.workspaceId);
+    if (!mailboxId) {
+      return {
+        mailboxId: null,
+        workspaceId,
+      };
+    }
+    const mailbox = await this.mailboxRepo.findOne({
+      where: workspaceId
+        ? {
+            id: mailboxId,
+            userId: input.userId,
+            workspaceId,
+          }
+        : {
+            id: mailboxId,
+            userId: input.userId,
+          },
+      select: ['id', 'workspaceId'],
+    });
+    if (!mailbox) {
+      throw new NotFoundException('Mailbox not found');
+    }
+    return {
+      mailboxId: mailbox.id,
+      workspaceId: mailbox.workspaceId || workspaceId || null,
+    };
   }
 
   private resolveSyncApiBaseUrl(): string {
@@ -913,6 +1037,412 @@ export class MailboxSyncService {
       inboundSyncLastErrorAt: mailbox.inboundSyncLastErrorAt || null,
       inboundSyncLeaseExpiresAt: mailbox.inboundSyncLeaseExpiresAt || null,
     }));
+  }
+
+  private buildSyncRunWhere(input: {
+    userId: string;
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+    windowStartDate: Date;
+  }): FindOptionsWhere<MailboxSyncRun> {
+    const where: FindOptionsWhere<MailboxSyncRun> = {
+      userId: input.userId,
+      completedAt: MoreThanOrEqual(input.windowStartDate),
+    };
+    if (input.workspaceId) {
+      where.workspaceId = input.workspaceId;
+    }
+    if (input.mailboxId) {
+      where.mailboxId = input.mailboxId;
+    }
+    return where;
+  }
+
+  private async resolveMailboxEmailMap(input: {
+    userId: string;
+    mailboxIds: string[];
+  }): Promise<Map<string, string>> {
+    if (!input.mailboxIds.length) return new Map<string, string>();
+    const mailboxes = await this.mailboxRepo.find({
+      where: {
+        userId: input.userId,
+        id: In(input.mailboxIds),
+      },
+      select: ['id', 'email'],
+    });
+    return new Map(mailboxes.map((mailbox) => [mailbox.id, mailbox.email]));
+  }
+
+  async getMailboxSyncRunsForUser(input: {
+    userId: string;
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    limit?: number | null;
+  }): Promise<
+    Array<{
+      id: string;
+      mailboxId: string;
+      mailboxEmail?: string | null;
+      workspaceId?: string | null;
+      triggerSource: string;
+      runCorrelationId: string;
+      status: string;
+      fetchedMessages: number;
+      acceptedMessages: number;
+      deduplicatedMessages: number;
+      rejectedMessages: number;
+      nextCursor?: string | null;
+      errorMessage?: string | null;
+      startedAt: Date;
+      completedAt: Date;
+      durationMs: number;
+    }>
+  > {
+    const windowHours = this.normalizeSyncObservabilityWindowHours(
+      input.windowHours,
+    );
+    const limit = Math.min(
+      this.normalizeSyncRunHistoryLimit(input.limit),
+      this.resolveSyncRunScanLimit(),
+    );
+    const scope = await this.resolveSyncObservabilityScope({
+      userId: input.userId,
+      mailboxId: input.mailboxId || null,
+      workspaceId: input.workspaceId || null,
+    });
+    const windowStartDate = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const where = this.buildSyncRunWhere({
+      userId: input.userId,
+      mailboxId: scope.mailboxId,
+      workspaceId: scope.workspaceId,
+      windowStartDate,
+    });
+    const rows = await this.mailboxSyncRunRepo.find({
+      where,
+      order: {
+        completedAt: 'DESC',
+      },
+      take: limit,
+    });
+    const mailboxEmailMap = await this.resolveMailboxEmailMap({
+      userId: input.userId,
+      mailboxIds: Array.from(new Set(rows.map((row) => row.mailboxId))),
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      mailboxId: row.mailboxId,
+      mailboxEmail: mailboxEmailMap.get(row.mailboxId) || null,
+      workspaceId: row.workspaceId || null,
+      triggerSource: this.normalizeTriggerSource(row.triggerSource),
+      runCorrelationId: row.runCorrelationId,
+      status: this.normalizeSyncRunStatus(row.status),
+      fetchedMessages: Number(row.fetchedMessages || 0),
+      acceptedMessages: Number(row.acceptedMessages || 0),
+      deduplicatedMessages: Number(row.deduplicatedMessages || 0),
+      rejectedMessages: Number(row.rejectedMessages || 0),
+      nextCursor: row.nextCursor || null,
+      errorMessage: row.errorMessage || null,
+      startedAt: row.startedAt,
+      completedAt: row.completedAt,
+      durationMs: Number(row.durationMs || 0),
+    }));
+  }
+
+  async getMailboxSyncRunStatsForUser(input: {
+    userId: string;
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+  }): Promise<{
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+    windowHours: number;
+    totalRuns: number;
+    successRuns: number;
+    partialRuns: number;
+    failedRuns: number;
+    skippedRuns: number;
+    schedulerRuns: number;
+    manualRuns: number;
+    fetchedMessages: number;
+    acceptedMessages: number;
+    deduplicatedMessages: number;
+    rejectedMessages: number;
+    avgDurationMs: number;
+    latestCompletedAtIso?: string;
+  }> {
+    const windowHours = this.normalizeSyncObservabilityWindowHours(
+      input.windowHours,
+    );
+    const scope = await this.resolveSyncObservabilityScope({
+      userId: input.userId,
+      mailboxId: input.mailboxId || null,
+      workspaceId: input.workspaceId || null,
+    });
+    const windowStartDate = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const rows = await this.mailboxSyncRunRepo.find({
+      where: this.buildSyncRunWhere({
+        userId: input.userId,
+        mailboxId: scope.mailboxId,
+        workspaceId: scope.workspaceId,
+        windowStartDate,
+      }),
+      order: {
+        completedAt: 'DESC',
+      },
+      take: this.resolveSyncRunScanLimit(),
+    });
+
+    let successRuns = 0;
+    let partialRuns = 0;
+    let failedRuns = 0;
+    let skippedRuns = 0;
+    let schedulerRuns = 0;
+    let manualRuns = 0;
+    let fetchedMessages = 0;
+    let acceptedMessages = 0;
+    let deduplicatedMessages = 0;
+    let rejectedMessages = 0;
+    let totalDurationMs = 0;
+
+    for (const row of rows) {
+      const status = this.normalizeSyncRunStatus(row.status);
+      if (status === 'SUCCESS') successRuns += 1;
+      if (status === 'PARTIAL') partialRuns += 1;
+      if (status === 'FAILED') failedRuns += 1;
+      if (status === 'SKIPPED') skippedRuns += 1;
+
+      const triggerSource = this.normalizeTriggerSource(row.triggerSource);
+      if (triggerSource === 'MANUAL') manualRuns += 1;
+      if (triggerSource === 'SCHEDULER') schedulerRuns += 1;
+
+      fetchedMessages += Number(row.fetchedMessages || 0);
+      acceptedMessages += Number(row.acceptedMessages || 0);
+      deduplicatedMessages += Number(row.deduplicatedMessages || 0);
+      rejectedMessages += Number(row.rejectedMessages || 0);
+      totalDurationMs += Number(row.durationMs || 0);
+    }
+
+    return {
+      mailboxId: scope.mailboxId,
+      workspaceId: scope.workspaceId,
+      windowHours,
+      totalRuns: rows.length,
+      successRuns,
+      partialRuns,
+      failedRuns,
+      skippedRuns,
+      schedulerRuns,
+      manualRuns,
+      fetchedMessages,
+      acceptedMessages,
+      deduplicatedMessages,
+      rejectedMessages,
+      avgDurationMs:
+        rows.length > 0
+          ? Number((totalDurationMs / rows.length).toFixed(2))
+          : 0,
+      latestCompletedAtIso: rows[0]?.completedAt?.toISOString(),
+    };
+  }
+
+  async getMailboxSyncRunSeriesForUser(input: {
+    userId: string;
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<
+    Array<{
+      bucketStart: Date;
+      totalRuns: number;
+      successRuns: number;
+      partialRuns: number;
+      failedRuns: number;
+      skippedRuns: number;
+      fetchedMessages: number;
+      acceptedMessages: number;
+      deduplicatedMessages: number;
+      rejectedMessages: number;
+    }>
+  > {
+    const windowHours = this.normalizeSyncObservabilityWindowHours(
+      input.windowHours,
+    );
+    const bucketMinutes = this.normalizeSyncObservabilityBucketMinutes(
+      input.bucketMinutes,
+    );
+    const scope = await this.resolveSyncObservabilityScope({
+      userId: input.userId,
+      mailboxId: input.mailboxId || null,
+      workspaceId: input.workspaceId || null,
+    });
+    const bucketMs = bucketMinutes * 60 * 1000;
+    const nowMs = Date.now();
+    const windowStartMs = nowMs - windowHours * 60 * 60 * 1000;
+    const normalizedWindowStartMs =
+      Math.floor(windowStartMs / bucketMs) * bucketMs;
+    const windowStartDate = new Date(windowStartMs);
+    const rows = await this.mailboxSyncRunRepo.find({
+      where: this.buildSyncRunWhere({
+        userId: input.userId,
+        mailboxId: scope.mailboxId,
+        workspaceId: scope.workspaceId,
+        windowStartDate,
+      }),
+      order: {
+        completedAt: 'ASC',
+      },
+      take: this.resolveSyncRunScanLimit(),
+    });
+    const bucketMap = new Map<
+      number,
+      {
+        totalRuns: number;
+        successRuns: number;
+        partialRuns: number;
+        failedRuns: number;
+        skippedRuns: number;
+        fetchedMessages: number;
+        acceptedMessages: number;
+        deduplicatedMessages: number;
+        rejectedMessages: number;
+      }
+    >();
+
+    for (const row of rows) {
+      const bucketStartMs =
+        Math.floor(row.completedAt.getTime() / bucketMs) * bucketMs;
+      const bucket = bucketMap.get(bucketStartMs) || {
+        totalRuns: 0,
+        successRuns: 0,
+        partialRuns: 0,
+        failedRuns: 0,
+        skippedRuns: 0,
+        fetchedMessages: 0,
+        acceptedMessages: 0,
+        deduplicatedMessages: 0,
+        rejectedMessages: 0,
+      };
+      bucket.totalRuns += 1;
+      const status = this.normalizeSyncRunStatus(row.status);
+      if (status === 'SUCCESS') bucket.successRuns += 1;
+      if (status === 'PARTIAL') bucket.partialRuns += 1;
+      if (status === 'FAILED') bucket.failedRuns += 1;
+      if (status === 'SKIPPED') bucket.skippedRuns += 1;
+      bucket.fetchedMessages += Number(row.fetchedMessages || 0);
+      bucket.acceptedMessages += Number(row.acceptedMessages || 0);
+      bucket.deduplicatedMessages += Number(row.deduplicatedMessages || 0);
+      bucket.rejectedMessages += Number(row.rejectedMessages || 0);
+      bucketMap.set(bucketStartMs, bucket);
+    }
+
+    const series: Array<{
+      bucketStart: Date;
+      totalRuns: number;
+      successRuns: number;
+      partialRuns: number;
+      failedRuns: number;
+      skippedRuns: number;
+      fetchedMessages: number;
+      acceptedMessages: number;
+      deduplicatedMessages: number;
+      rejectedMessages: number;
+    }> = [];
+    for (
+      let cursorMs = normalizedWindowStartMs;
+      cursorMs <= nowMs;
+      cursorMs += bucketMs
+    ) {
+      const bucket = bucketMap.get(cursorMs);
+      series.push({
+        bucketStart: new Date(cursorMs),
+        totalRuns: bucket?.totalRuns || 0,
+        successRuns: bucket?.successRuns || 0,
+        partialRuns: bucket?.partialRuns || 0,
+        failedRuns: bucket?.failedRuns || 0,
+        skippedRuns: bucket?.skippedRuns || 0,
+        fetchedMessages: bucket?.fetchedMessages || 0,
+        acceptedMessages: bucket?.acceptedMessages || 0,
+        deduplicatedMessages: bucket?.deduplicatedMessages || 0,
+        rejectedMessages: bucket?.rejectedMessages || 0,
+      });
+    }
+    return series;
+  }
+
+  async exportMailboxSyncDataForUser(input: {
+    userId: string;
+    mailboxId?: string | null;
+    workspaceId?: string | null;
+    limit?: number | null;
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const windowHours = this.normalizeSyncObservabilityWindowHours(
+      input.windowHours,
+    );
+    const bucketMinutes = this.normalizeSyncObservabilityBucketMinutes(
+      input.bucketMinutes,
+    );
+    const limit = this.normalizeSyncRunHistoryLimit(input.limit);
+    const [stats, series, runs] = await Promise.all([
+      this.getMailboxSyncRunStatsForUser({
+        userId: input.userId,
+        mailboxId: input.mailboxId || null,
+        workspaceId: input.workspaceId || null,
+        windowHours,
+      }),
+      this.getMailboxSyncRunSeriesForUser({
+        userId: input.userId,
+        mailboxId: input.mailboxId || null,
+        workspaceId: input.workspaceId || null,
+        windowHours,
+        bucketMinutes,
+      }),
+      this.getMailboxSyncRunsForUser({
+        userId: input.userId,
+        mailboxId: input.mailboxId || null,
+        workspaceId: input.workspaceId || null,
+        windowHours,
+        limit,
+      }),
+    ]);
+    const generatedAtIso = new Date().toISOString();
+    return {
+      generatedAtIso,
+      dataJson: JSON.stringify({
+        generatedAtIso,
+        mailboxId: stats.mailboxId || null,
+        workspaceId: stats.workspaceId || null,
+        windowHours,
+        bucketMinutes,
+        limit,
+        stats,
+        series: series.map((point) => ({
+          bucketStartIso: point.bucketStart.toISOString(),
+          totalRuns: point.totalRuns,
+          successRuns: point.successRuns,
+          partialRuns: point.partialRuns,
+          failedRuns: point.failedRuns,
+          skippedRuns: point.skippedRuns,
+          fetchedMessages: point.fetchedMessages,
+          acceptedMessages: point.acceptedMessages,
+          deduplicatedMessages: point.deduplicatedMessages,
+          rejectedMessages: point.rejectedMessages,
+        })),
+        runs: runs.map((run) => ({
+          ...run,
+          startedAtIso: run.startedAt.toISOString(),
+          completedAtIso: run.completedAt.toISOString(),
+        })),
+      }),
+    };
   }
 
   async pollUserMailboxes(input: {

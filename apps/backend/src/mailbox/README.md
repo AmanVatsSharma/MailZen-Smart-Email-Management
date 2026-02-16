@@ -43,6 +43,10 @@ This module covers:
     - `myMailboxInboundEventSeries(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxInboundEventTrendPointResponse!]!`
     - `myMailboxInboundDataExport(mailboxId?: String, workspaceId?: String, limit?: Int, windowHours?: Int, bucketMinutes?: Int): MailboxInboundDataExportResponse!`
     - `myMailboxSyncStates(workspaceId?: String): [MailboxSyncStateResponse!]!`
+    - `myMailboxSyncRuns(mailboxId?: String, workspaceId?: String, windowHours?: Int, limit?: Int): [MailboxSyncRunObservabilityResponse!]!`
+    - `myMailboxSyncRunStats(mailboxId?: String, workspaceId?: String, windowHours?: Int): MailboxSyncRunStatsResponse!`
+    - `myMailboxSyncRunSeries(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxSyncRunTrendPointResponse!]!`
+    - `myMailboxSyncDataExport(mailboxId?: String, workspaceId?: String, limit?: Int, windowHours?: Int, bucketMinutes?: Int): MailboxSyncDataExportResponse!`
     - `purgeMyMailboxInboundRetentionData(retentionDays?: Int): MailboxInboundRetentionPurgeResponse!`
     - `syncMyMailboxPull(mailboxId?: String, workspaceId?: String): MailboxSyncRunResponse!`
 - `mailbox-inbound.controller.ts`
@@ -64,8 +68,10 @@ This module covers:
   - polls optional mailbox-sync API endpoint for each active mailbox
   - converts pulled messages into trusted inbound ingest calls (`skipAuth=true`)
   - persists mailbox sync cursor/error state on mailbox row
+  - persists per-mailbox sync run telemetry snapshots in `mailbox_sync_runs`
   - exposes authenticated manual poll trigger APIs (single mailbox or all active user mailboxes)
   - exposes authenticated mailbox sync state query mapping
+  - exposes sync run observability APIs (history, stats, trends, export)
   - tracks accepted/deduplicated/rejected counters per poll run
 - `mailbox-sync.scheduler.ts`
   - cron (`*/10 * * * *`) for active mailbox polling
@@ -163,6 +169,12 @@ flowchart TD
 - `MAILZEN_MAIL_SYNC_MAX_MAILBOXES_PER_RUN` (default `250`)
 - `MAILZEN_MAIL_SYNC_CURSOR_PARAM` (default `cursor`)
   - request query param used for incremental cursor progression
+- `MAILZEN_MAIL_SYNC_OBSERVABILITY_WINDOW_HOURS` (default `24`)
+  - default rolling window for sync run observability queries
+- `MAILZEN_MAIL_SYNC_OBSERVABILITY_BUCKET_MINUTES` (default `60`)
+  - default trend bucket size for sync run observability queries
+- `MAILZEN_MAIL_SYNC_OBSERVABILITY_MAX_RUNS_SCAN` (default `5000`)
+  - safety cap for run rows scanned per observability query
 
 ### Inbound webhook authentication
 
@@ -310,6 +322,16 @@ flowchart TD
   - lists mailbox sync cursor, sync lifecycle status, last-polled timestamp,
     last error/error timestamp, and lease expiry
   - supports optional workspace filtering with strict user ownership
+- `myMailboxSyncRuns`
+  - returns recent persisted sync run snapshots for mailbox/workspace scope
+  - includes trigger source, run correlation id, status, counters, cursor, and latency
+- `myMailboxSyncRunStats`
+  - returns aggregate sync run KPIs for the rolling window
+  - includes status distribution, trigger-source split, message totals, and average duration
+- `myMailboxSyncRunSeries`
+  - returns bucketed trend points over persisted sync runs for dashboarding
+- `myMailboxSyncDataExport`
+  - exports sync run observability payload (stats + trend + recent runs) as JSON
 - `syncMyMailboxPull`
   - manually triggers pull sync for one mailbox or all active mailboxes for authenticated user
   - result reports aggregate poll counters (polled/skipped/failed/fetched/accepted/deduplicated/rejected)
@@ -357,6 +379,19 @@ flowchart TD
   Persist --> Cursor[Update mailbox inboundSyncCursor]
   Pull --> Error[Persist inboundSyncLastError]
   Error --> Next[Continue with next mailbox]
+```
+
+## Mailbox sync observability flow
+
+```mermaid
+flowchart TD
+  Poll[MailboxSyncService.pollMailboxWithLease] --> PersistRun[Persist mailbox_sync_runs row]
+  PersistRun --> Stats[myMailboxSyncRunStats]
+  PersistRun --> Series[myMailboxSyncRunSeries]
+  PersistRun --> Runs[myMailboxSyncRuns]
+  Stats --> Export[myMailboxSyncDataExport]
+  Series --> Export
+  Runs --> Export
 ```
 
 ## Operational runbook: signed webhook test (curl)

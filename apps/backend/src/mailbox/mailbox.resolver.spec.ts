@@ -19,6 +19,10 @@ describe('MailboxResolver', () => {
   const mailboxSyncServiceMock = {
     listMailboxSyncStatesForUser: jest.fn(),
     pollUserMailboxes: jest.fn(),
+    getMailboxSyncRunsForUser: jest.fn(),
+    getMailboxSyncRunStatsForUser: jest.fn(),
+    getMailboxSyncRunSeriesForUser: jest.fn(),
+    exportMailboxSyncDataForUser: jest.fn(),
   };
 
   const ctx = {
@@ -255,6 +259,158 @@ describe('MailboxResolver', () => {
       userId: 'user-1',
       workspaceId: 'workspace-1',
     });
+  });
+
+  it('returns mailbox sync run history for current user', async () => {
+    mailboxSyncServiceMock.getMailboxSyncRunsForUser.mockResolvedValue([
+      {
+        id: 'run-1',
+        mailboxId: 'mailbox-1',
+        mailboxEmail: 'sales@mailzen.com',
+        status: 'SUCCESS',
+        triggerSource: 'MANUAL',
+        runCorrelationId: 'corr-1',
+        fetchedMessages: 5,
+        acceptedMessages: 4,
+        deduplicatedMessages: 1,
+        rejectedMessages: 0,
+        startedAt: new Date('2026-02-16T00:00:00.000Z'),
+        completedAt: new Date('2026-02-16T00:00:01.000Z'),
+        durationMs: 1000,
+      },
+    ]);
+
+    await expect(
+      resolver.myMailboxSyncRuns(
+        ctx as any,
+        'mailbox-1',
+        'workspace-1',
+        24,
+        20,
+      ),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        id: 'run-1',
+        mailboxId: 'mailbox-1',
+      }),
+    ]);
+    expect(
+      mailboxSyncServiceMock.getMailboxSyncRunsForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      limit: 20,
+    });
+  });
+
+  it('returns mailbox sync run stats for current user', async () => {
+    mailboxSyncServiceMock.getMailboxSyncRunStatsForUser.mockResolvedValue({
+      mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      totalRuns: 10,
+      successRuns: 8,
+      partialRuns: 1,
+      failedRuns: 1,
+      skippedRuns: 0,
+      schedulerRuns: 7,
+      manualRuns: 3,
+      fetchedMessages: 30,
+      acceptedMessages: 28,
+      deduplicatedMessages: 1,
+      rejectedMessages: 1,
+      avgDurationMs: 120.5,
+      latestCompletedAtIso: '2026-02-16T00:30:00.000Z',
+    });
+
+    const result = await resolver.myMailboxSyncRunStats(
+      ctx as any,
+      'mailbox-1',
+      'workspace-1',
+      24,
+    );
+
+    expect(
+      mailboxSyncServiceMock.getMailboxSyncRunStatsForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+    });
+    expect(result.totalRuns).toBe(10);
+    expect(result.successRuns).toBe(8);
+  });
+
+  it('returns mailbox sync run trend series for current user', async () => {
+    mailboxSyncServiceMock.getMailboxSyncRunSeriesForUser.mockResolvedValue([
+      {
+        bucketStart: new Date('2026-02-16T00:00:00.000Z'),
+        totalRuns: 3,
+        successRuns: 2,
+        partialRuns: 1,
+        failedRuns: 0,
+        skippedRuns: 0,
+        fetchedMessages: 9,
+        acceptedMessages: 8,
+        deduplicatedMessages: 1,
+        rejectedMessages: 0,
+      },
+    ]);
+
+    const result = await resolver.myMailboxSyncRunSeries(
+      ctx as any,
+      'mailbox-1',
+      'workspace-1',
+      24,
+      60,
+    );
+
+    expect(
+      mailboxSyncServiceMock.getMailboxSyncRunSeriesForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+    expect(result).toEqual([
+      expect.objectContaining({
+        totalRuns: 3,
+        successRuns: 2,
+      }),
+    ]);
+  });
+
+  it('exports mailbox sync observability payload for current user', async () => {
+    mailboxSyncServiceMock.exportMailboxSyncDataForUser.mockResolvedValue({
+      generatedAtIso: '2026-02-16T00:00:00.000Z',
+      dataJson: '{"stats":{"totalRuns":2}}',
+    });
+
+    const result = await resolver.myMailboxSyncDataExport(
+      ctx as any,
+      'mailbox-1',
+      'workspace-1',
+      50,
+      24,
+      60,
+    );
+
+    expect(
+      mailboxSyncServiceMock.exportMailboxSyncDataForUser,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      mailboxId: 'mailbox-1',
+      workspaceId: 'workspace-1',
+      limit: 50,
+      windowHours: 24,
+      bucketMinutes: 60,
+    });
+    expect(result.generatedAtIso).toBe('2026-02-16T00:00:00.000Z');
   });
 
   it('triggers mailbox pull sync for current user', async () => {
