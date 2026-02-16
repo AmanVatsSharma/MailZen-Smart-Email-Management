@@ -253,6 +253,38 @@ assert_https_url_value() {
   return 0
 }
 
+extract_url_host() {
+  local url="$1"
+  local no_protocol="${url#https://}"
+  no_protocol="${no_protocol#http://}"
+  echo "${no_protocol%%/*}"
+}
+
+assert_email_value() {
+  local key="$1"
+  local value
+  value="$(read_env_value "${key}")"
+  if [[ ! "${value}" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]]; then
+    log_error "Env key '${key}' must be a valid email address (current: ${value})"
+    return 1
+  fi
+  return 0
+}
+
+assert_url_host_matches_domain() {
+  local key="$1"
+  local expected_domain="$2"
+  local value
+  value="$(read_env_value "${key}")"
+  local host
+  host="$(extract_url_host "${value}")"
+  if [[ "${host}" != "${expected_domain}" ]]; then
+    log_error "Env key '${key}' host must match MAILZEN_DOMAIN (${expected_domain}), current host=${host}"
+    return 1
+  fi
+  return 0
+}
+
 validate_core_env() {
   local failure_count=0
   local domain
@@ -268,8 +300,11 @@ validate_core_env() {
   assert_env_key_present "POSTGRES_PASSWORD" || failure_count=$((failure_count + 1))
 
   assert_domain_value "${domain}" || failure_count=$((failure_count + 1))
+  assert_email_value "ACME_EMAIL" || failure_count=$((failure_count + 1))
   assert_https_url_value "FRONTEND_URL" || failure_count=$((failure_count + 1))
   assert_https_url_value "NEXT_PUBLIC_GRAPHQL_ENDPOINT" || failure_count=$((failure_count + 1))
+  assert_url_host_matches_domain "FRONTEND_URL" "${domain}" || failure_count=$((failure_count + 1))
+  assert_url_host_matches_domain "NEXT_PUBLIC_GRAPHQL_ENDPOINT" "${domain}" || failure_count=$((failure_count + 1))
 
   assert_env_key_min_length "JWT_SECRET" 32 || failure_count=$((failure_count + 1))
   assert_env_key_min_length "OAUTH_STATE_SECRET" 32 || failure_count=$((failure_count + 1))

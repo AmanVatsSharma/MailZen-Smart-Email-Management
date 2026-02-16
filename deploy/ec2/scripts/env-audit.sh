@@ -38,6 +38,30 @@ secret_keys=(
   "OUTLOOK_CLIENT_SECRET"
 )
 
+is_domain_format_valid() {
+  local value="$1"
+  [[ -n "${value}" ]] &&
+    [[ ! "${value}" =~ ^https?:// ]] &&
+    [[ "${value}" =~ ^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]
+}
+
+is_email_format_valid() {
+  local value="$1"
+  [[ "${value}" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]]
+}
+
+is_https_url_format_valid() {
+  local value="$1"
+  [[ "${value}" =~ ^https:// ]]
+}
+
+extract_url_host_for_audit() {
+  local value="$1"
+  local no_protocol="${value#https://}"
+  no_protocol="${no_protocol#http://}"
+  echo "${no_protocol%%/*}"
+}
+
 is_secret_key() {
   local key="$1"
   local candidate
@@ -53,6 +77,9 @@ print_key_status() {
   local key="$1"
   local value
   value="$(read_env_value "${key}")"
+  local domain
+  domain="$(read_env_value "MAILZEN_DOMAIN")"
+  local host=""
 
   if [[ -z "${value}" ]]; then
     printf " - %-32s : MISSING\n" "${key}"
@@ -63,6 +90,34 @@ print_key_status() {
     printf " - %-32s : PLACEHOLDER\n" "${key}"
     return
   fi
+
+  case "${key}" in
+  MAILZEN_DOMAIN)
+    if ! is_domain_format_valid "${value}"; then
+      printf " - %-32s : INVALID_FORMAT (%s)\n" "${key}" "${value}"
+      return
+    fi
+    ;;
+  ACME_EMAIL)
+    if ! is_email_format_valid "${value}"; then
+      printf " - %-32s : INVALID_FORMAT (%s)\n" "${key}" "${value}"
+      return
+    fi
+    ;;
+  FRONTEND_URL|NEXT_PUBLIC_GRAPHQL_ENDPOINT)
+    if ! is_https_url_format_valid "${value}"; then
+      printf " - %-32s : INVALID_HTTPS_URL (%s)\n" "${key}" "${value}"
+      return
+    fi
+    if is_domain_format_valid "${domain}"; then
+      host="$(extract_url_host_for_audit "${value}")"
+      if [[ "${host}" != "${domain}" ]]; then
+        printf " - %-32s : DOMAIN_MISMATCH (host=%s expected=%s)\n" "${key}" "${host}" "${domain}"
+        return
+      fi
+    fi
+    ;;
+  esac
 
   if is_secret_key "${key}"; then
     printf " - %-32s : OK (redacted, len=%s)\n" "${key}" "${#value}"

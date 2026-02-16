@@ -230,6 +230,7 @@ Example:
 
 # Redacted audit of critical env keys
 ./deploy/ec2/scripts/env-audit.sh
+# (also flags INVALID_FORMAT / DOMAIN_MISMATCH issues)
 
 # Generate diagnostics report bundle
 ./deploy/ec2/scripts/doctor.sh
