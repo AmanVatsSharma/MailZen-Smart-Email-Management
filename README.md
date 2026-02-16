@@ -343,6 +343,7 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # 10) Optional emergency rollback using newest backup
 ./deploy/ec2/scripts/rollback-latest.sh
 ./deploy/ec2/scripts/rollback-latest.sh --dry-run
+./deploy/ec2/scripts/rollback-latest.sh --label before-release --dry-run
 
 # 11) Optional list available backups
 ./deploy/ec2/scripts/backup-list.sh

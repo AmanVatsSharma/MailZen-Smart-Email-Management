@@ -321,6 +321,9 @@ Example:
 ./deploy/ec2/scripts/rollback-latest.sh --yes
 ./deploy/ec2/scripts/rollback-latest.sh --dry-run
 
+# Rollback using latest backup for a specific label
+./deploy/ec2/scripts/rollback-latest.sh --label before-release --dry-run
+
 # Logs (all services)
 ./deploy/ec2/scripts/logs.sh
 
@@ -428,6 +431,7 @@ Google/Outlook provider connection flows.
 - `restore-db.sh` is intentionally destructive and requires confirmation
   (or explicit `--yes` for automation).
 - `rollback-latest.sh` delegates to `restore-db.sh` and is also destructive.
+- Use `rollback-latest.sh --label <name>` to target labeled backup series.
 - Use `--dry-run` on backup/restore/rollback scripts to validate commands
   safely before running against production data.
 - Caddy sets baseline browser hardening headers (HSTS, X-Frame-Options,

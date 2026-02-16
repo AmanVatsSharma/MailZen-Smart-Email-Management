@@ -61,6 +61,7 @@ Backup and recovery:
   ./deploy/ec2/scripts/backup-prune.sh 20
   ./deploy/ec2/scripts/restore-db.sh --yes deploy/ec2/backups/your-backup.sql.gz
   ./deploy/ec2/scripts/rollback-latest.sh --yes
+  ./deploy/ec2/scripts/rollback-latest.sh --label before-release --dry-run
 
 Diagnostics:
   ./deploy/ec2/scripts/doctor.sh
