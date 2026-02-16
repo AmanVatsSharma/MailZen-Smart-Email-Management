@@ -6,6 +6,10 @@ import { Mailbox } from '../mailbox/entities/mailbox.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { MailboxSyncService } from '../mailbox/mailbox-sync.service';
 import { EmailProviderService } from '../email-integration/email-provider.service';
+import {
+  fingerprintIdentifier,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 /**
  * InboxService - Manages unified inbox view across mailboxes and providers
@@ -184,7 +188,13 @@ export class InboxService {
       });
 
       this.logger.log(
-        `Set active inbox to MAILBOX ${mailbox.email} for user=${userId}`,
+        serializeStructuredLog({
+          event: 'inbox_active_source_set',
+          userId,
+          sourceType: 'MAILBOX',
+          sourceId: mailbox.id,
+          accountFingerprint: fingerprintIdentifier(mailbox.email),
+        }),
       );
       return this.listUserInboxes(userId);
     }
@@ -203,7 +213,17 @@ export class InboxService {
     });
 
     this.logger.log(
-      `Set active inbox to PROVIDER ${provider.email} for user=${userId}`,
+      serializeStructuredLog({
+        event: 'inbox_active_source_set',
+        userId,
+        sourceType: 'PROVIDER',
+        sourceId: provider.id,
+        providerType:
+          String(provider.type || '')
+            .trim()
+            .toUpperCase() || null,
+        accountFingerprint: fingerprintIdentifier(provider.email),
+      }),
     );
     return this.listUserInboxes(userId);
   }
@@ -238,7 +258,12 @@ export class InboxService {
           ? error.message.slice(0, 500)
           : 'Mailbox sync failed';
       this.logger.warn(
-        `sync-my-inboxes: mailbox sync failed userId=${input.userId} workspaceId=${normalizedWorkspaceId || 'none'} error=${mailboxSyncError}`,
+        serializeStructuredLog({
+          event: 'inbox_sync_mailbox_failed',
+          userId: input.userId,
+          workspaceId: normalizedWorkspaceId,
+          error: mailboxSyncError,
+        }),
       );
     }
 
@@ -265,7 +290,12 @@ export class InboxService {
           ? error.message.slice(0, 500)
           : 'Provider sync failed';
       this.logger.warn(
-        `sync-my-inboxes: provider sync failed userId=${input.userId} workspaceId=${normalizedWorkspaceId || 'none'} error=${providerSyncError}`,
+        serializeStructuredLog({
+          event: 'inbox_sync_provider_failed',
+          userId: input.userId,
+          workspaceId: normalizedWorkspaceId,
+          error: providerSyncError,
+        }),
       );
     }
 

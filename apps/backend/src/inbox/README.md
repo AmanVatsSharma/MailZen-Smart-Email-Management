@@ -61,3 +61,10 @@ flowchart TD
 ## Relation to Unified Inbox
 
 The unified inbox UI uses this module to determine the active provider inbox (or mailbox) and then fetches messages via `UnifiedInboxModule` (`emails/email/updateEmail/folders/labels`).
+
+## Observability
+
+- Structured service events:
+  - `inbox_active_source_set`
+  - `inbox_sync_mailbox_failed`
+  - `inbox_sync_provider_failed`
