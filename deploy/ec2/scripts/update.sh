@@ -112,6 +112,8 @@ if [[ "${RUN_VERIFY}" == false ]] &&
 fi
 
 log_info "Starting MailZen update workflow..."
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
 
 preflight_args=()
 if [[ "${PREFLIGHT_CONFIG_ONLY}" == true ]]; then
