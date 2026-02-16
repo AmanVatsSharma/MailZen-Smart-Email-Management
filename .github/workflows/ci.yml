@@ -62,6 +62,7 @@ jobs:
           common/logging/structured-log.util.spec.ts
           common/rate-limit/request-rate-limiter.spec.ts
           common/rate-limit/http-rate-limit.middleware.spec.ts
+          common/security/http-csrf-origin.middleware.spec.ts
           gmail-sync/gmail-sync.scheduler.spec.ts
           gmail-sync/gmail-sync-webhook.controller.spec.ts
           outlook-sync/outlook-sync.service.spec.ts
@@ -85,6 +86,7 @@ jobs:
           mailbox/mailbox-inbound.controller.spec.ts
           phone/phone.service.spec.ts
           auth/auth.service.spec.ts
+          auth/session-cookie.service.spec.ts
           user/user.service.spec.ts
           user/user.resolver.spec.ts
           workspace/workspace.service.spec.ts
