@@ -142,8 +142,9 @@ export class ProviderSyncIncidentScheduler {
     };
   }
 
-  getIncidentAlertConfigSnapshot(): {
+  async getIncidentAlertConfigSnapshot(input: { userId: string }): Promise<{
     alertsEnabled: boolean;
+    syncFailureEnabled: boolean;
     windowHours: number;
     cooldownMinutes: number;
     maxUsersPerRun: number;
@@ -151,10 +152,14 @@ export class ProviderSyncIncidentScheduler {
     criticalErrorProviderPercent: number;
     minErrorProviders: number;
     evaluatedAtIso: string;
-  } {
+  }> {
     const config = this.resolveMonitorConfig();
+    const preferences = await this.notificationService.getOrCreatePreferences(
+      input.userId,
+    );
     return {
       alertsEnabled: config.alertsEnabled,
+      syncFailureEnabled: preferences.syncFailureEnabled,
       windowHours: config.windowHours,
       cooldownMinutes: config.cooldownMinutes,
       maxUsersPerRun: config.maxUsersPerRun,

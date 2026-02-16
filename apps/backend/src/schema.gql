@@ -193,6 +193,7 @@ type ProviderSyncAlertDeliveryDataExportResponse {
 
 type ProviderSyncIncidentAlertConfigResponse {
   alertsEnabled: Boolean!
+  syncFailureEnabled: Boolean!
   windowHours: Int!
   cooldownMinutes: Int!
   maxUsersPerRun: Int!

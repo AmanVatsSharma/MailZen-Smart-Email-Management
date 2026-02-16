@@ -125,12 +125,15 @@ describe('ProviderSyncIncidentScheduler', () => {
     expect(notificationEventBus.publishSafely).not.toHaveBeenCalled();
   });
 
-  it('returns provider sync incident alert config snapshot', () => {
-    const config = scheduler.getIncidentAlertConfigSnapshot();
+  it('returns provider sync incident alert config snapshot', async () => {
+    const config = await scheduler.getIncidentAlertConfigSnapshot({
+      userId: 'user-1',
+    });
 
     expect(config).toEqual(
       expect.objectContaining({
         alertsEnabled: true,
+        syncFailureEnabled: true,
         windowHours: 24,
         cooldownMinutes: 60,
       }),

@@ -422,6 +422,7 @@ describe('EmailProviderConnectResolver', () => {
     providerSyncIncidentSchedulerMock.getIncidentAlertConfigSnapshot.mockReturnValue(
       {
         alertsEnabled: true,
+        syncFailureEnabled: true,
         windowHours: 24,
         cooldownMinutes: 60,
         maxUsersPerRun: 500,
@@ -432,13 +433,19 @@ describe('EmailProviderConnectResolver', () => {
       },
     );
 
-    const result = resolver.myProviderSyncIncidentAlertConfig();
+    const context = { req: { user: { id: 'user-1' } } };
+    const result = resolver.myProviderSyncIncidentAlertConfig(context);
 
     expect(
       providerSyncIncidentSchedulerMock.getIncidentAlertConfigSnapshot,
-    ).toHaveBeenCalledTimes(1);
-    expect(result.alertsEnabled).toBe(true);
-    expect(result.windowHours).toBe(24);
+    ).toHaveBeenCalledWith({ userId: 'user-1' });
+    return expect(result).resolves.toEqual(
+      expect.objectContaining({
+        alertsEnabled: true,
+        syncFailureEnabled: true,
+        windowHours: 24,
+      }),
+    );
   });
 
   it('delegates provider sync incident alert check mutation to scheduler', async () => {

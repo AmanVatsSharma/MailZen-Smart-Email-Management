@@ -332,8 +332,12 @@ export class EmailProviderConnectResolver {
   }
 
   @Query(() => ProviderSyncIncidentAlertConfigResponse)
-  myProviderSyncIncidentAlertConfig(): ProviderSyncIncidentAlertConfigResponse {
-    return this.providerSyncIncidentScheduler.getIncidentAlertConfigSnapshot();
+  async myProviderSyncIncidentAlertConfig(
+    @Context() ctx: RequestContext,
+  ): Promise<ProviderSyncIncidentAlertConfigResponse> {
+    return this.providerSyncIncidentScheduler.getIncidentAlertConfigSnapshot({
+      userId: ctx.req.user.id,
+    });
   }
 
   @Mutation(() => ProviderSyncIncidentAlertCheckResponse)

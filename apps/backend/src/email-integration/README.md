@@ -72,6 +72,7 @@ This module follows NestJS best practices and consists of:
   - exports provider sync alert delivery stats/series/history as JSON payload
 - `myProviderSyncIncidentAlertConfig: ProviderSyncIncidentAlertConfigResponse!`
   - returns resolved provider sync incident alert scheduler config snapshot
+  - includes current-user `syncFailureEnabled` preference state
 - `myProviderSyncIncidentAlertDeliveryStats(workspaceId?: String, windowHours?: Int): ProviderSyncIncidentAlertDeliveryStatsResponse!`
   - returns aggregate counts for emitted `PROVIDER_SYNC_INCIDENT_ALERT` notifications
 - `myProviderSyncIncidentAlertDeliverySeries(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [ProviderSyncIncidentAlertDeliveryTrendPointResponse!]!`

@@ -5,6 +5,9 @@ export class ProviderSyncIncidentAlertConfigResponse {
   @Field()
   alertsEnabled: boolean;
 
+  @Field()
+  syncFailureEnabled: boolean;
+
   @Field(() => Int)
   windowHours: number;
 
