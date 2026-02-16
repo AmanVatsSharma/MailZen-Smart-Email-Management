@@ -162,11 +162,22 @@ describe('AiAgentGatewayResolver', () => {
       dataJson: '{"sampleCount":2}',
     });
 
-    const result = await resolver.agentPlatformHealthSampleDataExport(50, 24);
+    const result = await resolver.agentPlatformHealthSampleDataExport(
+      50,
+      24,
+      {
+        req: {
+          user: {
+            id: 'admin-1',
+          },
+        },
+      },
+    );
 
     expect(gatewayService.exportPlatformHealthSampleData).toHaveBeenCalledWith({
       limit: 50,
       windowHours: 24,
+      actorUserId: 'admin-1',
     });
     expect(result).toEqual(
       expect.objectContaining({
@@ -283,13 +294,24 @@ describe('AiAgentGatewayResolver', () => {
       dataJson: '{"stats":{"totalCount":3}}',
     });
 
-    const result = await resolver.agentPlatformHealthIncidentDataExport(24, 30);
+    const result = await resolver.agentPlatformHealthIncidentDataExport(
+      24,
+      30,
+      {
+        req: {
+          user: {
+            id: 'admin-1',
+          },
+        },
+      },
+    );
 
     expect(
       gatewayService.exportPlatformHealthIncidentData,
     ).toHaveBeenCalledWith({
       windowHours: 24,
       bucketMinutes: 30,
+      actorUserId: 'admin-1',
     });
     expect(result).toEqual(
       expect.objectContaining({
@@ -632,7 +654,17 @@ describe('AiAgentGatewayResolver', () => {
       executedAtIso: '2026-02-16T00:00:00.000Z',
     });
 
-    const result = await resolver.purgeAgentActionRetentionData(365, 'user-1');
+    const result = await resolver.purgeAgentActionRetentionData(
+      365,
+      'user-1',
+      {
+        req: {
+          user: {
+            id: 'admin-1',
+          },
+        },
+      },
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
@@ -644,6 +676,7 @@ describe('AiAgentGatewayResolver', () => {
     ).toHaveBeenCalledWith({
       retentionDays: 365,
       userId: 'user-1',
+      actorUserId: 'admin-1',
     });
   });
 
@@ -656,6 +689,13 @@ describe('AiAgentGatewayResolver', () => {
 
     const result = await resolver.resetAgentPlatformRuntimeStats(
       'http://localhost:8100',
+      {
+        req: {
+          user: {
+            id: 'admin-1',
+          },
+        },
+      },
     );
 
     expect(result).toEqual(
@@ -665,6 +705,7 @@ describe('AiAgentGatewayResolver', () => {
     );
     expect(gatewayService.resetPlatformRuntimeStats).toHaveBeenCalledWith({
       endpointUrl: 'http://localhost:8100',
+      actorUserId: 'admin-1',
     });
   });
 
@@ -675,7 +716,16 @@ describe('AiAgentGatewayResolver', () => {
       resetAtIso: '2026-02-16T00:00:00.000Z',
     });
 
-    const result = await resolver.resetAgentPlatformSkillRuntimeStats('inbox');
+    const result = await resolver.resetAgentPlatformSkillRuntimeStats(
+      'inbox',
+      {
+        req: {
+          user: {
+            id: 'admin-1',
+          },
+        },
+      },
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
@@ -684,6 +734,7 @@ describe('AiAgentGatewayResolver', () => {
     );
     expect(gatewayService.resetSkillRuntimeStats).toHaveBeenCalledWith({
       skill: 'inbox',
+      actorUserId: 'admin-1',
     });
   });
 
@@ -694,8 +745,16 @@ describe('AiAgentGatewayResolver', () => {
       executedAtIso: '2026-02-16T00:00:00.000Z',
     });
 
-    const result =
-      await resolver.purgeAgentPlatformHealthSampleRetentionData(45);
+    const result = await resolver.purgeAgentPlatformHealthSampleRetentionData(
+      45,
+      {
+        req: {
+          user: {
+            id: 'admin-1',
+          },
+        },
+      },
+    );
 
     expect(result).toEqual(
       expect.objectContaining({
@@ -706,6 +765,7 @@ describe('AiAgentGatewayResolver', () => {
       gatewayService.purgePlatformHealthSampleRetentionData,
     ).toHaveBeenCalledWith({
       retentionDays: 45,
+      actorUserId: 'admin-1',
     });
   });
 });

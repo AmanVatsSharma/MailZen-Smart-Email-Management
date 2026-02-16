@@ -17,6 +17,7 @@ import {
 } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { BillingService } from '../billing/billing.service';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
@@ -54,6 +55,8 @@ describe('AiAgentGatewayService', () => {
   const findSkillRuntimeStatsMock = jest.fn();
   const upsertSkillRuntimeStatMock = jest.fn();
   const deleteSkillRuntimeStatsMock = jest.fn();
+  const createAuditLogMock = jest.fn();
+  const saveAuditLogMock = jest.fn();
 
   const authService = {
     createVerificationToken: createVerificationTokenMock,
@@ -114,6 +117,10 @@ describe('AiAgentGatewayService', () => {
     Repository<AgentPlatformSkillRuntimeStat>,
     'find' | 'upsert' | 'delete'
   >;
+  const auditLogRepo = {
+    create: createAuditLogMock,
+    save: saveAuditLogMock,
+  } as unknown as Pick<Repository<AuditLog>, 'create' | 'save'>;
   const billingService = {
     consumeAiCredits: jest.fn().mockResolvedValue({
       allowed: true,
@@ -138,6 +145,7 @@ describe('AiAgentGatewayService', () => {
       endpointRuntimeStatRepo as Repository<AgentPlatformEndpointRuntimeStat>,
       healthSampleRepo as Repository<AgentPlatformHealthSample>,
       skillRuntimeStatRepo as Repository<AgentPlatformSkillRuntimeStat>,
+      auditLogRepo as Repository<AuditLog>,
       notificationEventBus as NotificationEventBusService,
     );
   const originalPlatformUrls = process.env.AI_AGENT_PLATFORM_URLS;
@@ -166,6 +174,10 @@ describe('AiAgentGatewayService', () => {
     findSkillRuntimeStatsMock.mockResolvedValue([]);
     upsertSkillRuntimeStatMock.mockResolvedValue(undefined);
     deleteSkillRuntimeStatsMock.mockResolvedValue({ affected: 0 });
+    createAuditLogMock.mockImplementation(
+      (value: Record<string, unknown>) => value,
+    );
+    saveAuditLogMock.mockResolvedValue({ id: 'audit-log-1' });
     (billingService.consumeAiCredits as jest.Mock).mockResolvedValue({
       allowed: true,
       planCode: 'PRO',
@@ -500,6 +512,7 @@ describe('AiAgentGatewayService', () => {
 
     const result = await service.purgePlatformHealthSampleRetentionData({
       retentionDays: 45,
+      actorUserId: 'admin-1',
     });
 
     expect(deleteHealthSamplesMock).toHaveBeenCalledWith(
@@ -512,6 +525,12 @@ describe('AiAgentGatewayService', () => {
         deletedSamples: 6,
         retentionDays: 45,
         executedAtIso: expect.any(String),
+      }),
+    );
+    expect(saveAuditLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'agent_platform_health_sample_retention_purged',
       }),
     );
   });
@@ -542,6 +561,7 @@ describe('AiAgentGatewayService', () => {
     const result = await service.exportPlatformHealthSampleData({
       limit: 25,
       windowHours: 24,
+      actorUserId: 'admin-1',
     });
     const payload = JSON.parse(result.dataJson) as {
       sampleCount: number;
@@ -552,6 +572,12 @@ describe('AiAgentGatewayService', () => {
     expect(payload.sampleCount).toBe(1);
     expect(payload.samples[0]?.status).toBe('ok');
     expect(payload.retentionPolicy.retentionDays).toBe(30);
+    expect(saveAuditLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'agent_platform_health_sample_data_export_requested',
+      }),
+    );
   });
 
   it('returns aggregated health trend summary for rolling window', async () => {
@@ -739,6 +765,7 @@ describe('AiAgentGatewayService', () => {
     const result = await service.exportPlatformHealthIncidentData({
       windowHours: 24,
       bucketMinutes: 30,
+      actorUserId: 'admin-1',
     });
     const payload = JSON.parse(result.dataJson) as {
       stats: { totalCount: number };
@@ -748,6 +775,12 @@ describe('AiAgentGatewayService', () => {
     expect(payload.stats.totalCount).toBe(1);
     expect(payload.series.length).toBeGreaterThan(0);
     expect(payload.series.some((point) => point.totalCount > 0)).toBe(true);
+    expect(saveAuditLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'agent_platform_health_incident_data_export_requested',
+      }),
+    );
   });
 
   it('hydrates persisted runtime stats from database on module init', async () => {
@@ -943,7 +976,9 @@ describe('AiAgentGatewayService', () => {
       }),
     );
 
-    const resetResult = await service.resetPlatformRuntimeStats();
+    const resetResult = await service.resetPlatformRuntimeStats({
+      actorUserId: 'admin-1',
+    });
     const afterReset = await service.getPlatformHealth();
     const primaryAfter = afterReset.endpointStats.find(
       (entry: { endpointUrl: string }) =>
@@ -960,6 +995,12 @@ describe('AiAgentGatewayService', () => {
       expect.objectContaining({
         successCount: 0,
         failureCount: 0,
+      }),
+    );
+    expect(saveAuditLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'agent_platform_runtime_stats_reset',
       }),
     );
   });
@@ -1204,6 +1245,7 @@ describe('AiAgentGatewayService', () => {
 
     const resetResult = await service.resetSkillRuntimeStats({
       skill: 'auth',
+      actorUserId: 'admin-1',
     });
     const afterReset = await service.getPlatformHealth();
     expect(
@@ -1215,6 +1257,12 @@ describe('AiAgentGatewayService', () => {
       expect.objectContaining({
         clearedSkills: 1,
         scopedSkill: 'auth',
+      }),
+    );
+    expect(saveAuditLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'agent_platform_skill_runtime_stats_reset',
       }),
     );
   });
@@ -2069,6 +2117,12 @@ describe('AiAgentGatewayService', () => {
         executed: true,
       }),
     ]);
+    expect(saveAuditLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'agent_action_audit_data_export_requested',
+      }),
+    );
   });
 
   it('purges agent action audits using retention policy', async () => {
@@ -2078,6 +2132,7 @@ describe('AiAgentGatewayService', () => {
     const result = await service.purgeAgentActionAuditRetentionData({
       retentionDays: 0,
       userId: '',
+      actorUserId: 'admin-1',
     });
 
     expect(result).toEqual(
@@ -2094,6 +2149,12 @@ describe('AiAgentGatewayService', () => {
     expect(whereCall[0]).toBe('"createdAt" < :cutoff');
     expect(typeof whereCall[1].cutoff).toBe('string');
     expect(deleteAndWhereMock).not.toHaveBeenCalled();
+    expect(saveAuditLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'agent_action_audit_retention_purged',
+      }),
+    );
   });
 
   it('supports user-scoped agent action retention purge', async () => {

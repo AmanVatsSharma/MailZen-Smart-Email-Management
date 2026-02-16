@@ -10,6 +10,7 @@
  */
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { BillingModule } from '../billing/billing.module';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { NotificationModule } from '../notification/notification.module';
@@ -40,6 +41,7 @@ import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-r
       AgentPlatformHealthAlertRun,
       AgentPlatformHealthSample,
       AgentPlatformSkillRuntimeStat,
+      AuditLog,
     ]),
     BillingModule,
     NotificationModule,

@@ -194,12 +194,26 @@ Gateway service structured resilience/retention events:
 - `agent_platform_health_sample_persist_failed`
 - `agent_action_audit_retention_purge_completed`
 - `agent_action_audit_persist_failed`
+- `agent_gateway_audit_log_write_failed`
 - `agent_assist_runtime_context_resolve_failed`
 - `agent_assist_thread_context_cache_hit`
 - `agent_platform_runtime_stats_endpoint_persist_failed`
 - `agent_platform_runtime_stats_skill_persist_failed`
 - `agent_approval_redis_store_failed_fallback`
 - `agent_approval_redis_consume_failed_fallback`
+
+## Compliance / Audit Trail
+
+- Uses shared `AuditLog` persistence for admin-triggered platform control and
+  export actions.
+- Persisted audit actions:
+  - `agent_platform_health_sample_retention_purged`
+  - `agent_platform_health_sample_data_export_requested`
+  - `agent_platform_health_incident_data_export_requested`
+  - `agent_platform_runtime_stats_reset`
+  - `agent_platform_skill_runtime_stats_reset`
+  - `agent_action_audit_data_export_requested`
+  - `agent_action_audit_retention_purged`
 
 ## Changelog
 

@@ -23,6 +23,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createClient, RedisClientType } from 'redis';
 import { LessThan, MoreThanOrEqual, Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { BillingService } from '../billing/billing.service';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
@@ -259,8 +260,34 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     private readonly healthSampleRepo: Repository<AgentPlatformHealthSample>,
     @InjectRepository(AgentPlatformSkillRuntimeStat)
     private readonly skillRuntimeStatRepo: Repository<AgentPlatformSkillRuntimeStat>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'agent_gateway_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
 
   async onModuleInit(): Promise<void> {
     await this.hydrateRuntimeStatsFromDatabase();
@@ -669,6 +696,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
 
   async purgePlatformHealthSampleRetentionData(input?: {
     retentionDays?: number | null;
+    actorUserId?: string | null;
   }): Promise<{
     deletedSamples: number;
     retentionDays: number;
@@ -693,6 +721,18 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         executedAtIso,
       }),
     );
+    const actorUserId = String(input?.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_platform_health_sample_retention_purged',
+        metadata: {
+          deletedSamples,
+          retentionDays,
+          executedAtIso,
+        },
+      });
+    }
     return {
       deletedSamples,
       retentionDays,
@@ -703,6 +743,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   async exportPlatformHealthSampleData(input?: {
     limit?: number | null;
     windowHours?: number | null;
+    actorUserId?: string | null;
   }): Promise<{
     generatedAtIso: string;
     dataJson: string;
@@ -722,6 +763,17 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       sampleCount: samples.length,
       samples,
     };
+    const actorUserId = String(input?.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_platform_health_sample_data_export_requested',
+        metadata: {
+          windowHours: payload.windowHours,
+          sampleCount: payload.sampleCount,
+        },
+      });
+    }
     return {
       generatedAtIso,
       dataJson: JSON.stringify(payload),
@@ -1033,6 +1085,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   async exportPlatformHealthIncidentData(input?: {
     windowHours?: number | null;
     bucketMinutes?: number | null;
+    actorUserId?: string | null;
   }): Promise<{
     generatedAtIso: string;
     dataJson: string;
@@ -1053,6 +1106,18 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       }),
     ]);
     const generatedAtIso = new Date().toISOString();
+    const actorUserId = String(input?.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_platform_health_incident_data_export_requested',
+        metadata: {
+          windowHours,
+          bucketMinutes,
+          totalIncidents: stats.totalCount,
+        },
+      });
+    }
     return {
       generatedAtIso,
       dataJson: JSON.stringify({
@@ -1290,6 +1355,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
 
   async resetPlatformRuntimeStats(input?: {
     endpointUrl?: string | null;
+    actorUserId?: string | null;
   }): Promise<{
     clearedEndpoints: number;
     scopedEndpointUrl: string | null;
@@ -1327,6 +1393,18 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         resetAtIso,
       }),
     );
+    const actorUserId = String(input?.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_platform_runtime_stats_reset',
+        metadata: {
+          scopedEndpointUrl: scopedEndpointUrl || null,
+          clearedEndpoints,
+          resetAtIso,
+        },
+      });
+    }
     return {
       clearedEndpoints,
       scopedEndpointUrl: scopedEndpointUrl || null,
@@ -1334,7 +1412,10 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  async resetSkillRuntimeStats(input?: { skill?: string | null }): Promise<{
+  async resetSkillRuntimeStats(input?: {
+    skill?: string | null;
+    actorUserId?: string | null;
+  }): Promise<{
     clearedSkills: number;
     scopedSkill: string | null;
     resetAtIso: string;
@@ -1369,6 +1450,18 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         resetAtIso,
       }),
     );
+    const actorUserId = String(input?.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_platform_skill_runtime_stats_reset',
+        metadata: {
+          scopedSkill: scopedSkill || null,
+          clearedSkills,
+          resetAtIso,
+        },
+      });
+    }
     return {
       clearedSkills,
       scopedSkill: scopedSkill || null,
@@ -1483,6 +1576,14 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         updatedAtIso: audit.updatedAt.toISOString(),
       })),
     });
+    await this.writeAuditLog({
+      userId,
+      action: 'agent_action_audit_data_export_requested',
+      metadata: {
+        limit,
+        exportedAuditRows: audits.length,
+      },
+    });
     return {
       generatedAtIso,
       dataJson,
@@ -1492,6 +1593,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   async purgeAgentActionAuditRetentionData(input: {
     retentionDays?: number | null;
     userId?: string | null;
+    actorUserId?: string | null;
   }): Promise<{
     deletedRows: number;
     retentionDays: number;
@@ -1525,6 +1627,20 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         executedAtIso,
       }),
     );
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_action_audit_retention_purged',
+        metadata: {
+          targetUserId: userId,
+          deletedRows,
+          retentionDays,
+          userScoped,
+          executedAtIso,
+        },
+      });
+    }
 
     return {
       deletedRows,

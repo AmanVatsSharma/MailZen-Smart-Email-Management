@@ -113,10 +113,13 @@ export class AiAgentGatewayResolver {
     @Args('limit', { type: () => Int, nullable: true }) limit?: number,
     @Args('windowHours', { type: () => Int, nullable: true })
     windowHours?: number,
+    @Context() ctx?: RequestContext,
   ): Promise<AgentPlatformHealthSampleDataExportResponse> {
+    const actorUserId = String(ctx?.req?.user?.id || '').trim();
     return this.gatewayService.exportPlatformHealthSampleData({
       limit,
       windowHours,
+      actorUserId: actorUserId || undefined,
     });
   }
 
@@ -192,10 +195,13 @@ export class AiAgentGatewayResolver {
     windowHours?: number,
     @Args('bucketMinutes', { type: () => Int, nullable: true })
     bucketMinutes?: number,
+    @Context() ctx?: RequestContext,
   ): Promise<AgentPlatformHealthIncidentDataExportResponse> {
+    const actorUserId = String(ctx?.req?.user?.id || '').trim();
     return this.gatewayService.exportPlatformHealthIncidentData({
       windowHours,
       bucketMinutes,
+      actorUserId: actorUserId || undefined,
     });
   }
 
@@ -373,10 +379,13 @@ export class AiAgentGatewayResolver {
   async purgeAgentActionRetentionData(
     @Args('retentionDays', { nullable: true }) retentionDays?: number,
     @Args('userId', { nullable: true }) userId?: string,
+    @Context() ctx?: RequestContext,
   ): Promise<AgentActionAuditRetentionPurgeResponse> {
+    const actorUserId = String(ctx?.req?.user?.id || '').trim();
     return this.gatewayService.purgeAgentActionAuditRetentionData({
       retentionDays,
       userId,
+      actorUserId: actorUserId || undefined,
     });
   }
 
@@ -387,9 +396,12 @@ export class AiAgentGatewayResolver {
   @UseGuards(JwtAuthGuard, AdminGuard)
   async resetAgentPlatformRuntimeStats(
     @Args('endpointUrl', { nullable: true }) endpointUrl?: string,
+    @Context() ctx?: RequestContext,
   ): Promise<AgentPlatformRuntimeResetResponse> {
+    const actorUserId = String(ctx?.req?.user?.id || '').trim();
     return this.gatewayService.resetPlatformRuntimeStats({
       endpointUrl,
+      actorUserId: actorUserId || undefined,
     });
   }
 
@@ -400,9 +412,12 @@ export class AiAgentGatewayResolver {
   @UseGuards(JwtAuthGuard, AdminGuard)
   async resetAgentPlatformSkillRuntimeStats(
     @Args('skill', { nullable: true }) skill?: string,
+    @Context() ctx?: RequestContext,
   ): Promise<AgentPlatformSkillRuntimeResetResponse> {
+    const actorUserId = String(ctx?.req?.user?.id || '').trim();
     return this.gatewayService.resetSkillRuntimeStats({
       skill,
+      actorUserId: actorUserId || undefined,
     });
   }
 
@@ -413,9 +428,12 @@ export class AiAgentGatewayResolver {
   @UseGuards(JwtAuthGuard, AdminGuard)
   async purgeAgentPlatformHealthSampleRetentionData(
     @Args('retentionDays', { nullable: true }) retentionDays?: number,
+    @Context() ctx?: RequestContext,
   ): Promise<AgentPlatformHealthSampleRetentionPurgeResponse> {
+    const actorUserId = String(ctx?.req?.user?.id || '').trim();
     return this.gatewayService.purgePlatformHealthSampleRetentionData({
       retentionDays,
+      actorUserId: actorUserId || undefined,
     });
   }
 
