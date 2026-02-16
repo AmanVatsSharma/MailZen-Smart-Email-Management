@@ -6,6 +6,7 @@ describe('AiAgentGatewayResolver', () => {
     getPlatformHealth: jest.fn(),
     listAgentActionAuditsForUser: jest.fn(),
     exportAgentActionDataForUser: jest.fn(),
+    purgeAgentActionAuditRetentionData: jest.fn(),
   };
   const resolver = new AiAgentGatewayResolver(gatewayService as never);
 
@@ -58,6 +59,29 @@ describe('AiAgentGatewayResolver', () => {
     expect(gatewayService.exportAgentActionDataForUser).toHaveBeenCalledWith({
       userId: 'user-1',
       limit: 150,
+    });
+  });
+
+  it('forwards args to purgeAgentActionRetentionData', async () => {
+    gatewayService.purgeAgentActionAuditRetentionData.mockResolvedValue({
+      deletedRows: 2,
+      retentionDays: 365,
+      userScoped: true,
+      executedAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    const result = await resolver.purgeAgentActionRetentionData(365, 'user-1');
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        deletedRows: 2,
+      }),
+    );
+    expect(
+      gatewayService.purgeAgentActionAuditRetentionData,
+    ).toHaveBeenCalledWith({
+      retentionDays: 365,
+      userId: 'user-1',
     });
   });
 });

@@ -54,6 +54,7 @@ export class AgentActionAudit {
   metadata?: Record<string, unknown> | null;
 
   @Field()
+  @Index()
   @CreateDateColumn()
   createdAt: Date;
 

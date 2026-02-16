@@ -65,6 +65,8 @@
   - `20260216073000-smart-reply-history.ts`
 - Added billing mailbox storage entitlement migration:
   - `20260216081000-billing-mailbox-storage-limit.ts`
+- Added agent-action audit retention index migration:
+  - `20260216083000-agent-action-audit-retention-index.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 

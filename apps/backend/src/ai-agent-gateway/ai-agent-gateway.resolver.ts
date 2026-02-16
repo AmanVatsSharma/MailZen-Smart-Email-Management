@@ -11,8 +11,10 @@
 import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { randomUUID } from 'crypto';
 import { UseGuards } from '@nestjs/common';
+import { AdminGuard } from '../common/guards/admin.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
+import { AgentActionAuditRetentionPurgeResponse } from './dto/agent-action-audit-retention-purge.response';
 import { AgentAssistInput } from './dto/agent-assist.input';
 import { AgentAssistResponse } from './dto/agent-assist.response';
 import { AgentActionDataExportResponse } from './dto/agent-action-data-export.response';
@@ -82,6 +84,20 @@ export class AiAgentGatewayResolver {
     return this.gatewayService.exportAgentActionDataForUser({
       userId,
       limit,
+    });
+  }
+
+  @Mutation(() => AgentActionAuditRetentionPurgeResponse, {
+    description: 'Purge expired agent action audits by retention policy',
+  })
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async purgeAgentActionRetentionData(
+    @Args('retentionDays', { nullable: true }) retentionDays?: number,
+    @Args('userId', { nullable: true }) userId?: string,
+  ): Promise<AgentActionAuditRetentionPurgeResponse> {
+    return this.gatewayService.purgeAgentActionAuditRetentionData({
+      retentionDays,
+      userId,
     });
   }
 }

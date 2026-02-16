@@ -564,6 +564,13 @@ type AgentActionDataExportResponse {
   dataJson: String!
 }
 
+type AgentActionAuditRetentionPurgeResponse {
+  deletedRows: Int!
+  retentionDays: Int!
+  userScoped: Boolean!
+  executedAtIso: String!
+}
+
 type SmartReplySettings {
   id: ID!
   userId: String!
@@ -959,6 +966,10 @@ extend type Mutation {
     webhookRetentionDays: Int
     aiUsageRetentionMonths: Int
   ): BillingRetentionPurgeResponse!
+  purgeAgentActionRetentionData(
+    retentionDays: Int
+    userId: String
+  ): AgentActionAuditRetentionPurgeResponse!
   requestMyPlanUpgrade(
     targetPlanCode: String!
     note: String

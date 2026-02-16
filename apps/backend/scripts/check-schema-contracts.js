@@ -15,6 +15,7 @@ const requiredContracts = [
   'purgeBillingRetentionData',
   'requestMyPlanUpgrade',
   'ingestBillingWebhook',
+  'purgeAgentActionRetentionData',
   'myNotifications',
   'myMailboxInboundSlaIncidentStats',
   'myMailboxInboundSlaIncidentSeries',

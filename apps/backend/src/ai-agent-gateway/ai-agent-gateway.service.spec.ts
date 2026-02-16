@@ -35,6 +35,9 @@ describe('AiAgentGatewayService', () => {
   const findAgentActionAuditMock = jest.fn();
   const createAgentActionAuditMock = jest.fn();
   const saveAgentActionAuditMock = jest.fn();
+  const deleteWhereMock = jest.fn();
+  const deleteAndWhereMock = jest.fn();
+  const deleteExecuteMock = jest.fn();
 
   const authService = {
     createVerificationToken: createVerificationTokenMock,
@@ -54,9 +57,16 @@ describe('AiAgentGatewayService', () => {
     find: findAgentActionAuditMock,
     create: createAgentActionAuditMock,
     save: saveAgentActionAuditMock,
+    createQueryBuilder: jest.fn(() => ({
+      delete: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      where: deleteWhereMock.mockReturnThis(),
+      andWhere: deleteAndWhereMock.mockReturnThis(),
+      execute: deleteExecuteMock,
+    })),
   } as unknown as Pick<
     Repository<AgentActionAudit>,
-    'find' | 'create' | 'save'
+    'find' | 'create' | 'save' | 'createQueryBuilder'
   >;
   const notificationEventBus = {
     publishSafely: createNotificationMock,
@@ -91,6 +101,7 @@ describe('AiAgentGatewayService', () => {
     );
     saveAgentActionAuditMock.mockResolvedValue({ id: 'audit-1' });
     findAgentActionAuditMock.mockResolvedValue([]);
+    deleteExecuteMock.mockResolvedValue({ affected: 0 });
     (billingService.consumeAiCredits as jest.Mock).mockResolvedValue({
       allowed: true,
       planCode: 'PRO',
@@ -692,6 +703,7 @@ describe('AiAgentGatewayService', () => {
       limit: 9999,
     });
     const payload = JSON.parse(result.dataJson) as {
+      retentionPolicy: { retentionDays: number; autoPurgeEnabled: boolean };
       summary: { totalAudits: number; executedCount: number };
       audits: Array<{ id: string; executed: boolean }>;
     };
@@ -704,11 +716,63 @@ describe('AiAgentGatewayService', () => {
     );
     expect(payload.summary.totalAudits).toBe(1);
     expect(payload.summary.executedCount).toBe(1);
+    expect(payload.retentionPolicy).toEqual(
+      expect.objectContaining({
+        retentionDays: 365,
+        autoPurgeEnabled: true,
+      }),
+    );
     expect(payload.audits).toEqual([
       expect.objectContaining({
         id: 'audit-1',
         executed: true,
       }),
     ]);
+  });
+
+  it('purges agent action audits using retention policy', async () => {
+    const service = createService();
+    deleteExecuteMock.mockResolvedValue({ affected: 4 });
+
+    const result = await service.purgeAgentActionAuditRetentionData({
+      retentionDays: 0,
+      userId: '',
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        deletedRows: 4,
+        retentionDays: 7,
+        userScoped: false,
+      }),
+    );
+    const whereCall = deleteWhereMock.mock.calls[0] as [
+      string,
+      { cutoff: string },
+    ];
+    expect(whereCall[0]).toBe('"createdAt" < :cutoff');
+    expect(typeof whereCall[1].cutoff).toBe('string');
+    expect(deleteAndWhereMock).not.toHaveBeenCalled();
+  });
+
+  it('supports user-scoped agent action retention purge', async () => {
+    const service = createService();
+    deleteExecuteMock.mockResolvedValue({ affected: 1 });
+
+    const result = await service.purgeAgentActionAuditRetentionData({
+      retentionDays: 9999,
+      userId: 'user-1',
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        deletedRows: 1,
+        retentionDays: 3650,
+        userScoped: true,
+      }),
+    );
+    expect(deleteAndWhereMock).toHaveBeenCalledWith('"userId" = :userId', {
+      userId: 'user-1',
+    });
   });
 });

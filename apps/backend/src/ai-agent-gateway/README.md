@@ -22,6 +22,9 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - Expose `myAgentActionAudits(limit?)` query for authenticated audit review.
 - Expose `myAgentActionDataExport(limit?)` for authenticated JSON export of
   agent action audit history.
+- Expose admin retention control:
+  - `purgeAgentActionRetentionData(retentionDays?, userId?)`
+- Run daily retention scheduler for stale audit rows.
 - Include current-period AI credit balance (`aiCreditsMonthlyLimit`,
   `aiCreditsUsed`, `aiCreditsRemaining`) in authenticated `agentAssist` responses.
 
@@ -42,6 +45,20 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
   `AI_AGENT_CREDIT_COST_INBOX=2`
 - `AI_AGENT_ALERT_LATENCY_MS` (default `1500`)
 - `AI_AGENT_ALERT_ERROR_RATE_PERCENT` (default `5`)
+- `AI_AGENT_ACTION_AUDIT_AUTOPURGE_ENABLED` (default `true`)
+- `AI_AGENT_ACTION_AUDIT_RETENTION_DAYS` (default `365`, clamp `7..3650`)
+
+## Retention flow
+
+```mermaid
+flowchart TD
+  Cron[Daily scheduler 3AM] --> Toggle{Auto-purge enabled?}
+  Toggle -->|no| Skip[Skip purge run]
+  Toggle -->|yes| Service[Gateway retention purge service]
+  Service --> DB[(agent_action_audits)]
+  Service --> Logs[Structured retention logs]
+  Admin[Admin GraphQL mutation] --> Service
+```
 
 ## Changelog
 
@@ -58,3 +75,4 @@ Backend gateway that exposes `agentAssist` GraphQL mutation and connects to the 
 - 2026-02-15: Added agent action audit persistence with request correlation IDs.
 - 2026-02-16: Added billing-backed AI credit consumption enforcement.
 - 2026-02-16: Added user-scoped agent action audit data export query.
+- 2026-02-16: Added agent action audit retention purge API + scheduler.

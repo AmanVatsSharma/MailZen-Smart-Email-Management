@@ -1085,3 +1085,36 @@ SELECT
 FROM billing_plans
 ORDER BY code;
 ```
+
+## Agent Action Audit Retention Index Rollout Notes (2026-02-16)
+
+New migration: `20260216083000-agent-action-audit-retention-index.ts`
+
+This migration introduces:
+
+- `IDX_agent_action_audits_createdAt` index on `agent_action_audits.createdAt`
+  to improve retention purge scan performance for scheduled/admin cleanup jobs.
+
+### Safe rollout sequence
+
+1. Deploy backend containing migration + AI-agent retention scheduler logic.
+2. Run `npm run migration:run`.
+3. Validate migration status with `npm run migration:show`.
+4. Run smoke checks:
+   - `npm run test -- ai-agent-gateway/ai-agent-gateway.service.spec.ts ai-agent-gateway/ai-agent-gateway.resolver.spec.ts ai-agent-gateway/ai-agent-action-audit-retention.scheduler.spec.ts`
+   - `npm run check:schema:contracts`
+   - `npm run build`
+5. Validate runtime behavior:
+   - daily scheduler purges stale rows when auto-purge is enabled
+   - admin mutation can trigger global or user-scoped retention purges.
+
+### Staging verification SQL
+
+```sql
+SELECT
+  indexname,
+  indexdef
+FROM pg_indexes
+WHERE tablename = 'agent_action_audits'
+  AND indexname = 'IDX_agent_action_audits_createdAt';
+```

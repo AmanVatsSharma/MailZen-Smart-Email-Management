@@ -49,6 +49,7 @@ jobs:
           smart-replies/smart-reply-retention.scheduler.spec.ts
           ai-agent-gateway/ai-agent-gateway.service.spec.ts
           ai-agent-gateway/ai-agent-gateway.resolver.spec.ts
+          ai-agent-gateway/ai-agent-action-audit-retention.scheduler.spec.ts
           common/provider-secrets.util.spec.ts
           common/sms/sms-dispatcher.util.spec.ts
           common/logging/structured-log.util.spec.ts

@@ -14,6 +14,7 @@ import { BillingModule } from '../billing/billing.module';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { NotificationModule } from '../notification/notification.module';
 import { User } from '../user/entities/user.entity';
+import { AiAgentActionAuditRetentionScheduler } from './ai-agent-action-audit-retention.scheduler';
 import { AiAgentGatewayResolver } from './ai-agent-gateway.resolver';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
@@ -24,7 +25,11 @@ import { AgentActionAudit } from './entities/agent-action-audit.entity';
     BillingModule,
     NotificationModule,
   ],
-  providers: [AiAgentGatewayResolver, AiAgentGatewayService],
+  providers: [
+    AiAgentGatewayResolver,
+    AiAgentGatewayService,
+    AiAgentActionAuditRetentionScheduler,
+  ],
   exports: [AiAgentGatewayService],
 })
 export class AiAgentGatewayModule {}

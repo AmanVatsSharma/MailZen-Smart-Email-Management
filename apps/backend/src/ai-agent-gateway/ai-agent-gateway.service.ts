@@ -115,6 +115,9 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AiAgentGatewayService.name);
   private static readonly MIN_AUDIT_EXPORT_LIMIT = 1;
   private static readonly MAX_AUDIT_EXPORT_LIMIT = 500;
+  private static readonly DEFAULT_AUDIT_RETENTION_DAYS = 365;
+  private static readonly MIN_AUDIT_RETENTION_DAYS = 7;
+  private static readonly MAX_AUDIT_RETENTION_DAYS = 3650;
   private readonly rateLimitWindowMs = 60_000;
   private readonly fallbackRateLimitCounters = new Map<
     string,
@@ -459,6 +462,31 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     return rounded;
   }
 
+  private normalizeAuditRetentionDays(retentionDays?: number | null): number {
+    if (typeof retentionDays !== 'number' || !Number.isFinite(retentionDays)) {
+      return AiAgentGatewayService.DEFAULT_AUDIT_RETENTION_DAYS;
+    }
+    const rounded = Math.trunc(retentionDays);
+    if (rounded < AiAgentGatewayService.MIN_AUDIT_RETENTION_DAYS) {
+      return AiAgentGatewayService.MIN_AUDIT_RETENTION_DAYS;
+    }
+    if (rounded > AiAgentGatewayService.MAX_AUDIT_RETENTION_DAYS) {
+      return AiAgentGatewayService.MAX_AUDIT_RETENTION_DAYS;
+    }
+    return rounded;
+  }
+
+  private resolveAuditRetentionDays(retentionDays?: number | null): number {
+    const envValue = Number(process.env.AI_AGENT_ACTION_AUDIT_RETENTION_DAYS);
+    const baseRetentionDays = this.normalizeAuditRetentionDays(
+      Number.isFinite(envValue) ? envValue : undefined,
+    );
+    if (typeof retentionDays !== 'number' || !Number.isFinite(retentionDays)) {
+      return baseRetentionDays;
+    }
+    return this.normalizeAuditRetentionDays(retentionDays);
+  }
+
   async exportAgentActionDataForUser(input: {
     userId: string;
     limit?: number;
@@ -474,10 +502,22 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       take: limit,
     });
     const generatedAtIso = new Date().toISOString();
+    const retentionDays = this.resolveAuditRetentionDays();
+    const autoPurgeEnabled = String(
+      process.env.AI_AGENT_ACTION_AUDIT_AUTOPURGE_ENABLED || 'true',
+    )
+      .trim()
+      .toLowerCase();
     const dataJson = JSON.stringify({
       exportVersion: 'v1',
       generatedAtIso,
       userId,
+      retentionPolicy: {
+        retentionDays,
+        autoPurgeEnabled: !['false', '0', 'off', 'no'].includes(
+          autoPurgeEnabled,
+        ),
+      },
       summary: {
         totalAudits: audits.length,
         executedCount: audits.filter((audit) => audit.executed).length,
@@ -502,6 +542,45 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     return {
       generatedAtIso,
       dataJson,
+    };
+  }
+
+  async purgeAgentActionAuditRetentionData(input: {
+    retentionDays?: number | null;
+    userId?: string | null;
+  }): Promise<{
+    deletedRows: number;
+    retentionDays: number;
+    userScoped: boolean;
+    executedAtIso: string;
+  }> {
+    const retentionDays = this.resolveAuditRetentionDays(input.retentionDays);
+    const cutoffDate = new Date(
+      Date.now() - retentionDays * 24 * 60 * 60 * 1000,
+    );
+    const userId = String(input.userId || '').trim() || null;
+    const deleteQuery = this.agentActionAuditRepo
+      .createQueryBuilder()
+      .delete()
+      .from(AgentActionAudit)
+      .where('"createdAt" < :cutoff', { cutoff: cutoffDate.toISOString() });
+    if (userId) {
+      deleteQuery.andWhere('"userId" = :userId', { userId });
+    }
+    const deleteResult = await deleteQuery.execute();
+    const deletedRows = Number(deleteResult.affected || 0);
+    const executedAtIso = new Date().toISOString();
+    const userScoped = Boolean(userId);
+
+    this.logger.log(
+      `agent-action-audit: retention purge deletedRows=${deletedRows} retentionDays=${retentionDays} userScoped=${userScoped}`,
+    );
+
+    return {
+      deletedRows,
+      retentionDays,
+      userScoped,
+      executedAtIso,
     };
   }
 
