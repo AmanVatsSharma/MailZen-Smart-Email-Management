@@ -56,6 +56,41 @@ Web sessions are persisted with an HttpOnly `token` cookie.
 
 `authMe` returns current user + alias onboarding status, allowing frontend to gate dashboard access safely.
 
+## Auth service structured observability
+
+`AuthService` emits structured JSON logs for token/session and OTP lifecycles:
+
+- refresh token lifecycle:
+  - `auth_refresh_token_generate_start`
+  - `auth_refresh_token_generate_completed`
+  - `auth_refresh_token_rotate_start`
+  - `auth_refresh_token_rotate_invalid_session`
+  - `auth_refresh_token_rotate_user_missing`
+  - `auth_refresh_token_rotate_old_session_revoked`
+  - `auth_refresh_token_rotate_completed`
+- logout lifecycle:
+  - `auth_logout_start`
+  - `auth_logout_session_missing`
+  - `auth_logout_completed`
+- verification token lifecycle:
+  - `auth_verification_token_create_start`
+  - `auth_verification_token_create_completed`
+  - `auth_verification_token_consume_start`
+  - `auth_verification_token_consume_invalid`
+  - `auth_verification_token_consume_completed`
+- signup OTP lifecycle:
+  - `auth_signup_otp_create_start`
+  - `auth_signup_otp_persisted`
+  - `auth_signup_otp_delivery_completed`
+  - `auth_signup_otp_delivery_failed`
+  - `auth_signup_otp_verify_start`
+  - `auth_signup_otp_verify_invalid_or_expired`
+  - `auth_signup_otp_verify_code_mismatch`
+  - `auth_signup_otp_verify_completed`
+
+PII-sensitive identifiers such as phone numbers are logged as irreversible
+fingerprints, not raw values.
+
 ## Google OAuth flow (hardened)
 
 1. Frontend redirects to `GET /auth/google/start`.
@@ -83,3 +118,4 @@ Web sessions are persisted with an HttpOnly `token` cookie.
 - Added global CSRF origin protection middleware for cookie-authenticated
   state-changing requests.
 - Hardened session cookie management with env-configurable SameSite/secure/domain/path options.
+- Added structured auth lifecycle logs with phone-number fingerprinting for OTP flow.
