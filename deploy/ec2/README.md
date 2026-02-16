@@ -42,6 +42,7 @@ Additional deployment flowcharts:
   - `env-audit.sh` (redacted critical env audit)
   - `doctor.sh` (generate diagnostics report for support)
   - `support-bundle.sh` (collect support-ready diagnostics archive)
+  - `rotate-app-secrets.sh` (rotate JWT/OAuth/platform secrets)
 - `backups/`  
   Local backup dump directory (tracked folder; dump files ignored by git).
 - `reports/`  
@@ -143,6 +144,12 @@ The setup script:
 
 # Generate compressed support bundle archive
 ./deploy/ec2/scripts/support-bundle.sh
+
+# Rotate app secrets (interactive confirmation)
+./deploy/ec2/scripts/rotate-app-secrets.sh
+
+# Rotate app secrets non-interactively
+./deploy/ec2/scripts/rotate-app-secrets.sh --yes
 
 # Validate deployment scripts syntax/executable state
 ./deploy/ec2/scripts/self-check.sh
