@@ -460,6 +460,8 @@ flowchart TD
   - `mailbox_sync_audit_log_write_failed`
 - `MailboxSyncRunRetentionScheduler` emits audit resilience event:
   - `mailbox_sync_run_retention_scheduler_audit_log_write_failed`
+- `MailboxInboundRetentionScheduler` emits audit resilience event:
+  - `mailbox_inbound_retention_scheduler_audit_log_write_failed`
 - `MailboxInboundSlaScheduler` emits audit resilience event:
   - `mailbox_inbound_sla_audit_log_write_failed`
 - `MailboxSyncIncidentScheduler` emits audit resilience event:
@@ -475,6 +477,10 @@ flowchart TD
   - `mailbox_created`
   - `mailbox_inbound_data_export_requested`
   - `mailbox_inbound_retention_purged`
+  - `mailbox_inbound_retention_autopurge_started`
+  - `mailbox_inbound_retention_autopurge_completed`
+  - `mailbox_inbound_retention_autopurge_failed`
+  - `mailbox_inbound_retention_autopurge_skipped`
   - `mailbox_sync_run_retention_purged`
   - `mailbox_sync_run_retention_autopurge_started`
   - `mailbox_sync_run_retention_autopurge_completed`
