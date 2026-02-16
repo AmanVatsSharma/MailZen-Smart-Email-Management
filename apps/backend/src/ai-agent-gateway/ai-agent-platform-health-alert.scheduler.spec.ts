@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { UserNotification } from '../notification/entities/user-notification.entity';
 import { User } from '../user/entities/user.entity';
@@ -13,6 +14,7 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
   let userRepo: jest.Mocked<Repository<User>>;
   let notificationRepo: jest.Mocked<Repository<UserNotification>>;
   let alertRunRepo: jest.Mocked<Repository<AgentPlatformHealthAlertRun>>;
+  let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
   let aiAgentGatewayService: jest.Mocked<
     Pick<AiAgentGatewayService, 'getPlatformHealthTrendSummary'>
   >;
@@ -58,6 +60,10 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
         (payload: unknown) => payload as AgentPlatformHealthAlertRun,
       ),
     } as unknown as jest.Mocked<Repository<AgentPlatformHealthAlertRun>>;
+    auditLogRepo = {
+      create: jest.fn((payload: unknown) => payload as AuditLog),
+      save: jest.fn().mockResolvedValue({} as AuditLog),
+    } as unknown as jest.Mocked<Repository<AuditLog>>;
     aiAgentGatewayService = {
       getPlatformHealthTrendSummary: jest.fn(),
     };
@@ -105,6 +111,7 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
       userRepo,
       notificationRepo,
       alertRunRepo,
+      auditLogRepo,
       aiAgentGatewayService as unknown as AiAgentGatewayService,
       notificationEventBus as unknown as NotificationEventBusService,
     );
@@ -213,7 +220,9 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
   it('returns structured result payload from manual health alert check', async () => {
     notificationEventBus.publishSafely.mockResolvedValue(null);
 
-    const result = await scheduler.runHealthAlertCheck({});
+    const result = await scheduler.runHealthAlertCheck({
+      actorUserId: 'admin-1',
+    });
 
     expect(result).toEqual(
       expect.objectContaining({
@@ -221,6 +230,12 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
         severity: 'CRITICAL',
         recipientCount: 1,
         publishedCount: 1,
+      }),
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'agent_platform_health_alert_check_requested',
       }),
     );
   });
@@ -446,6 +461,7 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     const result = await scheduler.exportAlertDeliveryData({
       windowHours: 1,
       bucketMinutes: 15,
+      actorUserId: 'admin-1',
     });
     const payload = JSON.parse(result.dataJson) as {
       stats: { totalCount: number };
@@ -455,6 +471,12 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     expect(payload.stats.totalCount).toBe(1);
     expect(payload.series.length).toBeGreaterThan(0);
     expect(payload.series.some((point) => point.totalCount > 0)).toBe(true);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'agent_platform_health_alert_delivery_export_requested',
+      }),
+    );
   });
 
   it('returns persisted health alert run history', async () => {
@@ -675,6 +697,7 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     const result = await scheduler.exportAlertRunTrendData({
       windowHours: 24,
       bucketMinutes: 60,
+      actorUserId: 'admin-1',
     });
     const payload = JSON.parse(result.dataJson) as {
       summary: { runCount: number };
@@ -683,6 +706,12 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
 
     expect(payload.summary.runCount).toBe(1);
     expect(payload.series.length).toBeGreaterThan(0);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'agent_platform_health_alert_run_trend_export_requested',
+      }),
+    );
   });
 
   it('exports persisted alert run history as JSON payload', async () => {
@@ -709,6 +738,7 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
     const result = await scheduler.exportAlertRunHistoryData({
       limit: 10,
       windowHours: 24,
+      actorUserId: 'admin-1',
     });
     const payload = JSON.parse(result.dataJson) as {
       runCount: number;
@@ -717,6 +747,12 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
 
     expect(payload.runCount).toBe(1);
     expect(payload.runs[0]?.severity).toBe('WARNING');
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'agent_platform_health_alert_run_history_export_requested',
+      }),
+    );
   });
 
   it('purges persisted alert run history by retention policy', async () => {
@@ -726,6 +762,7 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
 
     const result = await scheduler.purgeAlertRunRetentionData({
       retentionDays: 90,
+      actorUserId: 'admin-1',
     });
 
     expect(alertRunRepo.delete).toHaveBeenCalledTimes(1);
@@ -738,6 +775,12 @@ describe('AiAgentPlatformHealthAlertScheduler', () => {
       expect.objectContaining({
         deletedRuns: 7,
         retentionDays: 90,
+      }),
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        action: 'agent_platform_health_alert_run_retention_purged',
       }),
     );
   });

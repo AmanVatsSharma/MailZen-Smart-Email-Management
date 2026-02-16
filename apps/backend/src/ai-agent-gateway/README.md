@@ -181,6 +181,7 @@ Health alert scheduler structured observability events:
 - `agent_platform_health_alert_check_evaluated`
 - `agent_platform_health_alert_run_retention_purge_completed`
 - `agent_platform_health_alert_run_persist_failed`
+- `agent_platform_health_alert_audit_log_write_failed`
 
 Gateway service structured resilience/retention events:
 
@@ -214,6 +215,11 @@ Gateway service structured resilience/retention events:
   - `agent_platform_skill_runtime_stats_reset`
   - `agent_action_audit_data_export_requested`
   - `agent_action_audit_retention_purged`
+  - `agent_platform_health_alert_check_requested`
+  - `agent_platform_health_alert_delivery_export_requested`
+  - `agent_platform_health_alert_run_history_export_requested`
+  - `agent_platform_health_alert_run_trend_export_requested`
+  - `agent_platform_health_alert_run_retention_purged`
 
 ## Changelog
 

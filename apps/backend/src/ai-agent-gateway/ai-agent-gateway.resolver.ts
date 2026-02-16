@@ -246,10 +246,13 @@ export class AiAgentGatewayResolver {
     windowHours?: number,
     @Args('bucketMinutes', { type: () => Int, nullable: true })
     bucketMinutes?: number,
+    @Context() ctx?: RequestContext,
   ): Promise<AgentPlatformHealthAlertDeliveryDataExportResponse> {
+    const actorUserId = String(ctx?.req?.user?.id || '').trim();
     return this.healthAlertScheduler.exportAlertDeliveryData({
       windowHours,
       bucketMinutes,
+      actorUserId: actorUserId || undefined,
     });
   }
 
@@ -287,10 +290,13 @@ export class AiAgentGatewayResolver {
     @Args('limit', { type: () => Int, nullable: true }) limit?: number,
     @Args('windowHours', { type: () => Int, nullable: true })
     windowHours?: number,
+    @Context() ctx?: RequestContext,
   ): Promise<AgentPlatformHealthAlertRunHistoryDataExportResponse> {
+    const actorUserId = String(ctx?.req?.user?.id || '').trim();
     return this.healthAlertScheduler.exportAlertRunHistoryData({
       limit,
       windowHours,
+      actorUserId: actorUserId || undefined,
     });
   }
 
@@ -335,10 +341,13 @@ export class AiAgentGatewayResolver {
     windowHours?: number,
     @Args('bucketMinutes', { type: () => Int, nullable: true })
     bucketMinutes?: number,
+    @Context() ctx?: RequestContext,
   ): Promise<AgentPlatformHealthAlertRunTrendDataExportResponse> {
+    const actorUserId = String(ctx?.req?.user?.id || '').trim();
     return this.healthAlertScheduler.exportAlertRunTrendData({
       windowHours,
       bucketMinutes,
+      actorUserId: actorUserId || undefined,
     });
   }
 
@@ -451,12 +460,15 @@ export class AiAgentGatewayResolver {
     cooldownMinutes?: number,
     @Args('minSampleCount', { type: () => Int, nullable: true })
     minSampleCount?: number,
+    @Context() ctx?: RequestContext,
   ): Promise<AgentPlatformHealthAlertCheckResponse> {
+    const actorUserId = String(ctx?.req?.user?.id || '').trim();
     return this.healthAlertScheduler.runHealthAlertCheck({
       windowHours,
       baselineWindowHours,
       cooldownMinutes,
       minSampleCount,
+      actorUserId: actorUserId || undefined,
     });
   }
 
@@ -468,9 +480,12 @@ export class AiAgentGatewayResolver {
   async purgeAgentPlatformHealthAlertRunRetentionData(
     @Args('retentionDays', { type: () => Int, nullable: true })
     retentionDays?: number,
+    @Context() ctx?: RequestContext,
   ): Promise<AgentPlatformHealthAlertRunRetentionPurgeResponse> {
+    const actorUserId = String(ctx?.req?.user?.id || '').trim();
     return this.healthAlertScheduler.purgeAlertRunRetentionData({
       retentionDays,
+      actorUserId: actorUserId || undefined,
     });
   }
 }

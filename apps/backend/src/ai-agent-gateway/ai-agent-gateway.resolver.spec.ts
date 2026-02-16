@@ -339,6 +339,13 @@ describe('AiAgentGatewayResolver', () => {
       72,
       60,
       4,
+      {
+        req: {
+          user: {
+            id: 'admin-1',
+          },
+        },
+      },
     );
 
     expect(healthAlertScheduler.runHealthAlertCheck).toHaveBeenCalledWith({
@@ -346,6 +353,7 @@ describe('AiAgentGatewayResolver', () => {
       baselineWindowHours: 72,
       cooldownMinutes: 60,
       minSampleCount: 4,
+      actorUserId: 'admin-1',
     });
     expect(result).toEqual(
       expect.objectContaining({
@@ -363,12 +371,19 @@ describe('AiAgentGatewayResolver', () => {
     });
 
     const result =
-      await resolver.purgeAgentPlatformHealthAlertRunRetentionData(120);
+      await resolver.purgeAgentPlatformHealthAlertRunRetentionData(120, {
+        req: {
+          user: {
+            id: 'admin-1',
+          },
+        },
+      });
 
     expect(
       healthAlertScheduler.purgeAlertRunRetentionData,
     ).toHaveBeenCalledWith({
       retentionDays: 120,
+      actorUserId: 'admin-1',
     });
     expect(result).toEqual(
       expect.objectContaining({
@@ -438,11 +453,19 @@ describe('AiAgentGatewayResolver', () => {
     const result = await resolver.agentPlatformHealthAlertDeliveryDataExport(
       24,
       60,
+      {
+        req: {
+          user: {
+            id: 'admin-1',
+          },
+        },
+      },
     );
 
     expect(healthAlertScheduler.exportAlertDeliveryData).toHaveBeenCalledWith({
       windowHours: 24,
       bucketMinutes: 60,
+      actorUserId: 'admin-1',
     });
     expect(result).toEqual(
       expect.objectContaining({
@@ -524,12 +547,20 @@ describe('AiAgentGatewayResolver', () => {
     const result = await resolver.agentPlatformHealthAlertRunHistoryDataExport(
       50,
       24,
+      {
+        req: {
+          user: {
+            id: 'admin-1',
+          },
+        },
+      },
     );
 
     expect(healthAlertScheduler.exportAlertRunHistoryData).toHaveBeenCalledWith(
       {
         limit: 50,
         windowHours: 24,
+        actorUserId: 'admin-1',
       },
     );
     expect(result).toEqual(
@@ -605,11 +636,19 @@ describe('AiAgentGatewayResolver', () => {
     const result = await resolver.agentPlatformHealthAlertRunTrendDataExport(
       24,
       60,
+      {
+        req: {
+          user: {
+            id: 'admin-1',
+          },
+        },
+      },
     );
 
     expect(healthAlertScheduler.exportAlertRunTrendData).toHaveBeenCalledWith({
       windowHours: 24,
       bucketMinutes: 60,
+      actorUserId: 'admin-1',
     });
     expect(result).toEqual(
       expect.objectContaining({

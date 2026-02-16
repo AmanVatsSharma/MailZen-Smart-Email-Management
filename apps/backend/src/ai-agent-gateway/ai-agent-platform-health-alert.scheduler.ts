@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, MoreThanOrEqual, Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { UserNotification } from '../notification/entities/user-notification.entity';
 import { User } from '../user/entities/user.entity';
@@ -58,9 +59,35 @@ export class AiAgentPlatformHealthAlertScheduler {
     private readonly notificationRepo: Repository<UserNotification>,
     @InjectRepository(AgentPlatformHealthAlertRun)
     private readonly alertRunRepo: Repository<AgentPlatformHealthAlertRun>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly aiAgentGatewayService: AiAgentGatewayService,
     private readonly notificationEventBus: NotificationEventBusService,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'agent_platform_health_alert_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
 
   @Cron('*/15 * * * *')
   async monitorPlatformHealthAlerts(): Promise<void> {
@@ -157,6 +184,7 @@ export class AiAgentPlatformHealthAlertScheduler {
     anomalyMultiplier?: number | null;
     anomalyMinErrorDeltaPercent?: number | null;
     anomalyMinLatencyDeltaMs?: number | null;
+    actorUserId?: string | null;
   }): Promise<AgentPlatformHealthAlertCheckResult> {
     const runCorrelationId = resolveCorrelationId(undefined);
     const evaluatedAtIso = new Date().toISOString();
@@ -238,6 +266,26 @@ export class AiAgentPlatformHealthAlertScheduler {
         },
         runCorrelationId,
       );
+      const actorUserId = String(input.actorUserId || '').trim();
+      if (actorUserId) {
+        await this.writeAuditLog({
+          userId: actorUserId,
+          action: 'agent_platform_health_alert_check_requested',
+          metadata: {
+            runCorrelationId,
+            evaluatedAtIso: result.evaluatedAtIso,
+            alertsEnabled: result.alertsEnabled,
+            severity: result.severity || null,
+            reasons: result.reasons,
+            recipientCount: result.recipientCount,
+            publishedCount: result.publishedCount,
+            windowHours: result.windowHours,
+            baselineWindowHours: result.baselineWindowHours,
+            cooldownMinutes: result.cooldownMinutes,
+            minSampleCount: result.minSampleCount,
+          },
+        });
+      }
       return result;
     };
 
@@ -482,6 +530,7 @@ export class AiAgentPlatformHealthAlertScheduler {
   async exportAlertRunHistoryData(input?: {
     limit?: number | null;
     windowHours?: number | null;
+    actorUserId?: string | null;
   }): Promise<{
     generatedAtIso: string;
     dataJson: string;
@@ -495,6 +544,18 @@ export class AiAgentPlatformHealthAlertScheduler {
       windowHours,
     });
     const generatedAtIso = new Date().toISOString();
+    const actorUserId = String(input?.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_platform_health_alert_run_history_export_requested',
+        metadata: {
+          limit,
+          windowHours,
+          runCount: history.length,
+        },
+      });
+    }
     return {
       generatedAtIso,
       dataJson: JSON.stringify({
@@ -672,6 +733,7 @@ export class AiAgentPlatformHealthAlertScheduler {
   async exportAlertRunTrendData(input?: {
     windowHours?: number | null;
     bucketMinutes?: number | null;
+    actorUserId?: string | null;
   }): Promise<{
     generatedAtIso: string;
     dataJson: string;
@@ -692,6 +754,19 @@ export class AiAgentPlatformHealthAlertScheduler {
       }),
     ]);
     const generatedAtIso = new Date().toISOString();
+    const actorUserId = String(input?.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_platform_health_alert_run_trend_export_requested',
+        metadata: {
+          windowHours,
+          bucketMinutes,
+          runCount: summary.runCount,
+          totalPublished: summary.totalPublished,
+        },
+      });
+    }
     return {
       generatedAtIso,
       dataJson: JSON.stringify({
@@ -706,6 +781,7 @@ export class AiAgentPlatformHealthAlertScheduler {
 
   async purgeAlertRunRetentionData(input?: {
     retentionDays?: number | null;
+    actorUserId?: string | null;
   }): Promise<{
     deletedRuns: number;
     retentionDays: number;
@@ -732,6 +808,19 @@ export class AiAgentPlatformHealthAlertScheduler {
         executedAtIso,
       }),
     );
+    const actorUserId = String(input?.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_platform_health_alert_run_retention_purged',
+        metadata: {
+          runCorrelationId,
+          deletedRuns,
+          retentionDays,
+          executedAtIso,
+        },
+      });
+    }
     return {
       deletedRuns,
       retentionDays,
@@ -864,6 +953,7 @@ export class AiAgentPlatformHealthAlertScheduler {
   async exportAlertDeliveryData(input?: {
     windowHours?: number | null;
     bucketMinutes?: number | null;
+    actorUserId?: string | null;
   }): Promise<{
     generatedAtIso: string;
     dataJson: string;
@@ -884,6 +974,19 @@ export class AiAgentPlatformHealthAlertScheduler {
       }),
     ]);
     const generatedAtIso = new Date().toISOString();
+    const actorUserId = String(input?.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_platform_health_alert_delivery_export_requested',
+        metadata: {
+          windowHours,
+          bucketMinutes,
+          totalCount: stats.totalCount,
+          uniqueRecipients: stats.uniqueRecipients,
+        },
+      });
+    }
     return {
       generatedAtIso,
       dataJson: JSON.stringify({
