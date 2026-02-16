@@ -17,22 +17,37 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 LABEL="${1:-manual}"
 DRY_RUN=false
+POSITIONAL_LABEL="manual"
+POSITIONAL_LABEL_SET=false
+LABEL_FLAG_SET=false
+LABEL_FLAG_VALUE=""
 
 if [[ -n "${LABEL}" ]] && [[ "${LABEL}" =~ ^-- ]]; then
   LABEL="manual"
 fi
 if [[ "${LABEL}" != "manual" ]]; then
+  POSITIONAL_LABEL="${LABEL}"
+  POSITIONAL_LABEL_SET=true
   shift
 fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --label)
-    LABEL="${2:-}"
-    if [[ -z "${LABEL}" ]]; then
+    label_arg="${2:-}"
+    if [[ -z "${label_arg}" ]]; then
       log_error "--label requires a value."
       exit 1
     fi
+    if [[ "${LABEL_FLAG_SET}" == true ]] && [[ "${label_arg}" != "${LABEL_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --label '${LABEL_FLAG_VALUE}' overridden by --label '${label_arg}'."
+    fi
+    if [[ "${POSITIONAL_LABEL_SET}" == true ]] && [[ "${label_arg}" != "${POSITIONAL_LABEL}" ]]; then
+      log_warn "Positional label '${POSITIONAL_LABEL}' overridden by --label '${label_arg}'."
+    fi
+    LABEL="${label_arg}"
+    LABEL_FLAG_SET=true
+    LABEL_FLAG_VALUE="${label_arg}"
     shift 2
     ;;
   --dry-run)
