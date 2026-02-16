@@ -6,11 +6,13 @@ import {
   UnauthorizedException,
   BadRequestException,
   UseGuards,
+  Logger,
 } from '@nestjs/common';
 import { AuthResponse } from './dto/auth-response';
 import { CreateUserInput } from '../user/dto/create-user.input';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type { Response } from 'express';
 import { RefreshInput } from './dto/refresh.input';
 import { ForgotPasswordInput } from './dto/forgot-password.input';
 import { ResetPasswordInput } from './dto/reset-password.input';
@@ -23,14 +25,17 @@ import { User } from '../user/entities/user.entity';
 import * as bcrypt from 'bcryptjs';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthMeResponse } from './dto/auth-me.response';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 interface RequestContext {
   req: { user?: { id: string } };
-  res?: any;
+  res?: Response;
 }
 
 @Resolver()
 export class AuthResolver {
+  private readonly logger = new Logger(AuthResolver.name);
+
   constructor(
     private readonly authService: AuthService,
     private readonly userService: UserService,
@@ -39,6 +44,16 @@ export class AuthResolver {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
   ) {}
+
+  private warnMissingResponseContext(operation: string): void {
+    if ((process.env.NODE_ENV || 'development') === 'production') return;
+    this.logger.warn(
+      serializeStructuredLog({
+        event: 'auth_resolver_missing_response_context',
+        operation,
+      }),
+    );
+  }
 
   private async getAliasSetupState(userId: string): Promise<{
     hasMailzenAlias: boolean;
@@ -92,10 +107,7 @@ export class AuthResolver {
     // Enterprise-grade session: set HttpOnly cookie so Next middleware + browser requests remain consistent.
     const res = ctx?.res;
     if (res) this.sessionCookie.setTokenCookie(res, accessToken);
-    else if ((process.env.NODE_ENV || 'development') !== 'production')
-      console.warn(
-        '[AuthResolver.login] Missing res in GraphQL context; cannot set cookie',
-      );
+    else this.warnMissingResponseContext('login');
 
     const aliasState = await this.getAliasSetupState(user.id);
 
@@ -123,10 +135,7 @@ export class AuthResolver {
 
     const res = ctx?.res;
     if (res) this.sessionCookie.setTokenCookie(res, accessToken);
-    else if ((process.env.NODE_ENV || 'development') !== 'production')
-      console.warn(
-        '[AuthResolver.register] Missing res in GraphQL context; cannot set cookie',
-      );
+    else this.warnMissingResponseContext('register');
 
     const aliasState = await this.getAliasSetupState(user.id);
     return { token: accessToken, refreshToken, user, ...aliasState };
@@ -157,10 +166,7 @@ export class AuthResolver {
     // Always clear cookie so browser session ends.
     const res = ctx?.res;
     if (res) this.sessionCookie.clearTokenCookie(res);
-    else if ((process.env.NODE_ENV || 'development') !== 'production')
-      console.warn(
-        '[AuthResolver.logout] Missing res in GraphQL context; cannot clear cookie',
-      );
+    else this.warnMissingResponseContext('logout');
 
     // Refresh tokens are planned “later”; keep backward compatibility if clients still pass it.
     if (input?.refreshToken) {
@@ -237,10 +243,7 @@ export class AuthResolver {
     const refreshToken = await this.authService.generateRefreshToken(user.id);
     const res = ctx?.res;
     if (res) this.sessionCookie.setTokenCookie(res, accessToken);
-    else if ((process.env.NODE_ENV || 'development') !== 'production')
-      console.warn(
-        '[AuthResolver.signupVerify] Missing res in GraphQL context; cannot set cookie',
-      );
+    else this.warnMissingResponseContext('signupVerify');
     const aliasState = await this.getAliasSetupState(user.id);
     return { token: accessToken, refreshToken, user, ...aliasState };
   }
