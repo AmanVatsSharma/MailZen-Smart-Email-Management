@@ -128,6 +128,9 @@ flowchart TD
 - `MAILZEN_MAIL_SYNC_RETRIES` (default `2`)
 - `MAILZEN_MAIL_SYNC_RETRY_BACKOFF_MS` (default `250`)
 - `MAILZEN_MAIL_SYNC_RETRY_JITTER_MS` (default `125`)
+- `MAILZEN_MAIL_SYNC_FAIL_FAST` (default `true`)
+  - when `true`, poll run aborts on first message ingest failure
+  - when `false`, poll run continues remaining messages and advances cursor
 - `MAILZEN_MAIL_SYNC_LEASE_TTL_SECONDS` (default `180`)
   - mailbox-level poll lease TTL used to avoid duplicate workers polling same mailbox
 - `MAILZEN_MAIL_SYNC_BATCH_LIMIT` (default `25`)
@@ -200,7 +203,11 @@ flowchart TD
   - lease expires automatically using `inboundSyncLeaseExpiresAt`
   - scheduler skips leased mailboxes and continues with others
 - If mailbox sync ingest of a pulled message fails:
-  - current mailbox poll run fails fast (cursor is not advanced)
+  - with `MAILZEN_MAIL_SYNC_FAIL_FAST=true`:
+    - current mailbox poll run fails fast (cursor is not advanced)
+  - with `MAILZEN_MAIL_SYNC_FAIL_FAST=false`:
+    - run continues and reports rejected message count
+    - cursor is advanced to avoid replay storms
   - safe retries rely on idempotent inbound dedupe (`mailboxId + messageId`)
 - If keyring/secret encryption config is missing or invalid:
   - production: mailbox provisioning throws `InternalServerErrorException`

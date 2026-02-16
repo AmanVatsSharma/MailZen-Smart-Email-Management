@@ -228,6 +228,64 @@ describe('MailboxSyncService', () => {
     expect(mockedAxios.get).toHaveBeenCalledTimes(1);
   });
 
+  it('continues processing remaining messages when fail-fast disabled', async () => {
+    process.env.MAILZEN_MAIL_SYNC_FAIL_FAST = 'false';
+    mockedAxios.get.mockResolvedValue({
+      data: {
+        messages: [
+          {
+            from: 'broken@example.com',
+            subject: 'broken',
+            textBody: 'broken body',
+            messageId: '<broken-1@example.com>',
+          },
+          {
+            from: 'lead@example.com',
+            subject: 'healthy',
+            textBody: 'healthy body',
+            messageId: '<healthy-1@example.com>',
+          },
+        ],
+        nextCursor: 'cursor-after-errors',
+      },
+    } as never);
+    mailboxInboundServiceMock.ingestInboundEvent
+      .mockRejectedValueOnce(new Error('poison message'))
+      .mockResolvedValueOnce({
+        accepted: true,
+        mailboxId: 'mailbox-1',
+        mailboxEmail: 'sales@mailzen.com',
+        emailId: 'email-healthy',
+        deduplicated: false,
+      });
+
+    const result = await service.pollMailbox({
+      id: 'mailbox-1',
+      email: 'sales@mailzen.com',
+      inboundSyncCursor: 'cursor-before-errors',
+    } as Mailbox);
+
+    expect(mailboxInboundServiceMock.ingestInboundEvent).toHaveBeenCalledTimes(
+      2,
+    );
+    expect(result).toEqual({
+      mailboxId: 'mailbox-1',
+      mailboxEmail: 'sales@mailzen.com',
+      fetchedMessages: 2,
+      acceptedMessages: 1,
+      deduplicatedMessages: 0,
+      rejectedMessages: 1,
+      nextCursor: 'cursor-after-errors',
+    });
+    expect(mailboxRepo.update).toHaveBeenCalledWith(
+      { id: 'mailbox-1' },
+      expect.objectContaining({
+        inboundSyncCursor: 'cursor-after-errors',
+        inboundSyncLastError: null,
+      }),
+    );
+  });
+
   it('polls active mailboxes and continues after failures', async () => {
     mailboxRepo.find.mockResolvedValue([
       {

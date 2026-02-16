@@ -127,6 +127,13 @@ export class MailboxSyncService {
     });
   }
 
+  private resolveSyncFailFastOnMessageError(): boolean {
+    const normalized = String(process.env.MAILZEN_MAIL_SYNC_FAIL_FAST || 'true')
+      .trim()
+      .toLowerCase();
+    return !['false', '0', 'off', 'no'].includes(normalized);
+  }
+
   private resolveCursorParamName(): string {
     const rawValue = String(
       process.env.MAILZEN_MAIL_SYNC_CURSOR_PARAM || 'cursor',
@@ -456,7 +463,9 @@ export class MailboxSyncService {
           this.logger.warn(
             `mailbox-sync: inbound ingest failed mailbox=${mailbox.email} messageId=${String(message.messageId || message.id || 'unknown')} error=${errorMessage}`,
           );
-          throw error;
+          if (this.resolveSyncFailFastOnMessageError()) {
+            throw error;
+          }
         }
       }
 
