@@ -107,8 +107,10 @@ if [[ "${SEED_ENV}" == true ]]; then
 fi
 
 log_bundle "Using temporary work directory: ${WORK_DIR}"
-active_env_file="${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}"
-active_compose_file="${MAILZEN_DEPLOY_COMPOSE_FILE:-${DEPLOY_DIR}/docker-compose.yml}"
+active_env_file="$(get_env_file)"
+active_compose_file="$(get_compose_file)"
+log_bundle "Active env file: ${active_env_file}"
+log_bundle "Active compose file: ${active_compose_file}"
 
 {
   echo "generated_at_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"

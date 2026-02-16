@@ -112,8 +112,8 @@ if [[ "${SEED_ENV}" == true ]]; then
   seed_env_file
 fi
 
-active_env_file="${MAILZEN_DEPLOY_ENV_FILE:-${DEPLOY_DIR}/.env.ec2}"
-active_compose_file="${MAILZEN_DEPLOY_COMPOSE_FILE:-${DEPLOY_DIR}/docker-compose.yml}"
+active_env_file="$(get_env_file)"
+active_compose_file="$(get_compose_file)"
 {
   echo "[mailzen-deploy][DOCTOR] active_env_file: ${active_env_file}"
   echo "[mailzen-deploy][DOCTOR] active_compose_file: ${active_compose_file}"
