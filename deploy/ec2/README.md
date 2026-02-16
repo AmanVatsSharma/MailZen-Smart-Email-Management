@@ -255,6 +255,8 @@ Example:
 # Keep only latest 50 report artifacts
 ./deploy/ec2/scripts/reports-prune.sh 50
 
+# Note: also removes old extracted support-bundle directories
+
 # Rotate app secrets (interactive confirmation)
 ./deploy/ec2/scripts/rotate-app-secrets.sh
 

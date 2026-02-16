@@ -3,7 +3,8 @@
 # -----------------------------------------------------------------------------
 # MailZen EC2 diagnostics report retention script
 # -----------------------------------------------------------------------------
-# Deletes older doctor/support bundle artifacts while keeping latest N files.
+# Deletes older doctor/support bundle artifacts while keeping latest N items.
+# Also prunes extracted support-bundle directories from older runs.
 #
 # Usage:
 #   ./deploy/ec2/scripts/reports-prune.sh
@@ -28,7 +29,21 @@ if [[ ! -d "${REPORT_DIR}" ]]; then
   exit 0
 fi
 
-mapfile -t report_files < <(ls -1t "${REPORT_DIR}"/doctor-*.log "${REPORT_DIR}"/support-bundle-*.tar.gz 2>/dev/null || true)
+report_candidates=()
+shopt -s nullglob
+for candidate in "${REPORT_DIR}"/doctor-*.log "${REPORT_DIR}"/support-bundle-*.tar.gz "${REPORT_DIR}"/support-bundle-*; do
+  if [[ -f "${candidate}" ]] || [[ -d "${candidate}" ]]; then
+    report_candidates+=("${candidate}")
+  fi
+done
+shopt -u nullglob
+
+if [[ "${#report_candidates[@]}" -eq 0 ]]; then
+  log_info "No report artifacts found to prune."
+  exit 0
+fi
+
+mapfile -t report_files < <(printf '%s\n' "${report_candidates[@]}" | awk '!seen[$0]++' | xargs ls -1dt 2>/dev/null || true)
 
 total_count="${#report_files[@]}"
 if [[ "${total_count}" -le "${KEEP_COUNT}" ]]; then
@@ -44,6 +59,9 @@ for ((i = KEEP_COUNT; i < total_count; i++)); do
   if [[ -f "${file}" ]]; then
     log_info "Deleting old report artifact: ${file}"
     rm -f "${file}"
+  elif [[ -d "${file}" ]]; then
+    log_info "Deleting old report directory: ${file}"
+    rm -rf "${file}"
   fi
 done
 
