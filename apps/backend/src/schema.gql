@@ -1352,6 +1352,9 @@ extend type Mutation {
   purgeMyMailboxInboundRetentionData(
     retentionDays: Int
   ): MailboxInboundRetentionPurgeResponse!
+  purgeMyMailboxSyncRunRetentionData(
+    retentionDays: Int
+  ): MailboxSyncRunRetentionPurgeResponse!
   syncMyMailboxPull(
     mailboxId: String
     workspaceId: String
@@ -1584,6 +1587,12 @@ type MailboxSyncRunTrendPointResponse {
 type MailboxSyncDataExportResponse {
   generatedAtIso: String!
   dataJson: String!
+}
+
+type MailboxSyncRunRetentionPurgeResponse {
+  deletedRuns: Int!
+  retentionDays: Int!
+  executedAtIso: String!
 }
 
 type MailboxProvisioningHealthResponse {

@@ -2,7 +2,13 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
-import { FindOptionsWhere, In, MoreThanOrEqual, Repository } from 'typeorm';
+import {
+  FindOptionsWhere,
+  In,
+  LessThan,
+  MoreThanOrEqual,
+  Repository,
+} from 'typeorm';
 import {
   resolveCorrelationId,
   serializeStructuredLog,
@@ -147,6 +153,20 @@ export class MailboxSyncService {
       fallbackValue: MailboxSyncService.DEFAULT_SYNC_RUN_SCAN_LIMIT,
       minimumValue: 100,
       maximumValue: 20000,
+    });
+  }
+
+  private resolveSyncRunRetentionDays(
+    rawValue?: number | string | null,
+  ): number {
+    return this.resolveIntegerEnv({
+      rawValue:
+        rawValue === null || rawValue === undefined
+          ? process.env.MAILZEN_MAILBOX_SYNC_RUN_RETENTION_DAYS
+          : String(rawValue),
+      fallbackValue: 90,
+      minimumValue: 7,
+      maximumValue: 3650,
     });
   }
 
@@ -1442,6 +1462,45 @@ export class MailboxSyncService {
           completedAtIso: run.completedAt.toISOString(),
         })),
       }),
+    };
+  }
+
+  async purgeMailboxSyncRunRetentionData(input: {
+    userId?: string | null;
+    retentionDays?: number | null;
+  }): Promise<{
+    deletedRuns: number;
+    retentionDays: number;
+    executedAtIso: string;
+  }> {
+    const retentionDays = this.resolveSyncRunRetentionDays(input.retentionDays);
+    const cutoffDate = new Date(
+      Date.now() - retentionDays * 24 * 60 * 60 * 1000,
+    );
+    const normalizedUserId = String(input.userId || '').trim();
+    const deleteCriteria = normalizedUserId
+      ? {
+          userId: normalizedUserId,
+          completedAt: LessThan(cutoffDate),
+        }
+      : {
+          completedAt: LessThan(cutoffDate),
+        };
+    const deleteResult = await this.mailboxSyncRunRepo.delete(deleteCriteria);
+    const deletedRuns = Number(deleteResult.affected || 0);
+    const executedAtIso = new Date().toISOString();
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'mailbox_sync_run_retention_purge_completed',
+        userId: normalizedUserId || null,
+        retentionDays,
+        deletedRuns,
+      }),
+    );
+    return {
+      deletedRuns,
+      retentionDays,
+      executedAtIso,
     };
   }
 

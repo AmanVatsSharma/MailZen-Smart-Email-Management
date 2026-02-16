@@ -18,6 +18,7 @@ describe('MailboxSyncService', () => {
     query: jest.fn(),
   } as unknown as jest.Mocked<Repository<Mailbox>>;
   const mailboxSyncRunRepo: jest.Mocked<Repository<MailboxSyncRun>> = {
+    delete: jest.fn(),
     find: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
@@ -48,6 +49,7 @@ describe('MailboxSyncService', () => {
       (value) => value as MailboxSyncRun,
     );
     mailboxSyncRunRepo.save.mockResolvedValue({} as MailboxSyncRun);
+    mailboxSyncRunRepo.delete.mockResolvedValue({ affected: 0 } as never);
     mailboxSyncRunRepo.find.mockResolvedValue([]);
     mailboxInboundServiceMock.ingestInboundEvent.mockResolvedValue({
       accepted: true,
@@ -719,6 +721,27 @@ describe('MailboxSyncService', () => {
     expect(payload.stats.totalRuns).toBe(1);
     expect(payload.series[0]?.totalRuns).toBe(1);
     expect(payload.runs[0]?.id).toBe('run-1');
+  });
+
+  it('purges mailbox sync run retention rows for a scoped user', async () => {
+    mailboxSyncRunRepo.delete.mockResolvedValue({ affected: 4 } as never);
+
+    const result = await service.purgeMailboxSyncRunRetentionData({
+      userId: 'user-1',
+      retentionDays: 30,
+    });
+
+    const deleteCriteria = mailboxSyncRunRepo.delete.mock.calls[0]?.[0] as
+      | { userId?: string; completedAt?: unknown }
+      | undefined;
+    expect(deleteCriteria?.userId).toBe('user-1');
+    expect(deleteCriteria?.completedAt).toBeDefined();
+    expect(result).toEqual(
+      expect.objectContaining({
+        deletedRuns: 4,
+        retentionDays: 30,
+      }),
+    );
   });
 
   it('runs mailbox poll for explicit mailbox id', async () => {

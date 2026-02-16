@@ -23,6 +23,7 @@ describe('MailboxResolver', () => {
     getMailboxSyncRunStatsForUser: jest.fn(),
     getMailboxSyncRunSeriesForUser: jest.fn(),
     exportMailboxSyncDataForUser: jest.fn(),
+    purgeMailboxSyncRunRetentionData: jest.fn(),
   };
 
   const ctx = {
@@ -411,6 +412,27 @@ describe('MailboxResolver', () => {
       bucketMinutes: 60,
     });
     expect(result.generatedAtIso).toBe('2026-02-16T00:00:00.000Z');
+  });
+
+  it('purges mailbox sync run retention rows for current user', async () => {
+    mailboxSyncServiceMock.purgeMailboxSyncRunRetentionData.mockResolvedValue({
+      deletedRuns: 7,
+      retentionDays: 90,
+      executedAtIso: '2026-02-16T00:00:00.000Z',
+    });
+
+    const result = await resolver.purgeMyMailboxSyncRunRetentionData(
+      ctx as any,
+      90,
+    );
+
+    expect(
+      mailboxSyncServiceMock.purgeMailboxSyncRunRetentionData,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      retentionDays: 90,
+    });
+    expect(result.deletedRuns).toBe(7);
   });
 
   it('triggers mailbox pull sync for current user', async () => {

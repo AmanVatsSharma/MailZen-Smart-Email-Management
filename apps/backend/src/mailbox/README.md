@@ -47,6 +47,7 @@ This module covers:
     - `myMailboxSyncRunStats(mailboxId?: String, workspaceId?: String, windowHours?: Int): MailboxSyncRunStatsResponse!`
     - `myMailboxSyncRunSeries(mailboxId?: String, workspaceId?: String, windowHours?: Int, bucketMinutes?: Int): [MailboxSyncRunTrendPointResponse!]!`
     - `myMailboxSyncDataExport(mailboxId?: String, workspaceId?: String, limit?: Int, windowHours?: Int, bucketMinutes?: Int): MailboxSyncDataExportResponse!`
+    - `purgeMyMailboxSyncRunRetentionData(retentionDays?: Int): MailboxSyncRunRetentionPurgeResponse!`
     - `purgeMyMailboxInboundRetentionData(retentionDays?: Int): MailboxInboundRetentionPurgeResponse!`
     - `syncMyMailboxPull(mailboxId?: String, workspaceId?: String): MailboxSyncRunResponse!`
 - `mailbox-inbound.controller.ts`
@@ -175,6 +176,8 @@ flowchart TD
   - default trend bucket size for sync run observability queries
 - `MAILZEN_MAIL_SYNC_OBSERVABILITY_MAX_RUNS_SCAN` (default `5000`)
   - safety cap for run rows scanned per observability query
+- `MAILZEN_MAILBOX_SYNC_RUN_RETENTION_DAYS` (default `90`)
+  - retention horizon for persisted `mailbox_sync_runs` observability rows
 
 ### Inbound webhook authentication
 
@@ -332,6 +335,8 @@ flowchart TD
   - returns bucketed trend points over persisted sync runs for dashboarding
 - `myMailboxSyncDataExport`
   - exports sync run observability payload (stats + trend + recent runs) as JSON
+- `purgeMyMailboxSyncRunRetentionData`
+  - purges persisted mailbox sync run observability rows older than retention cutoff
 - `syncMyMailboxPull`
   - manually triggers pull sync for one mailbox or all active mailboxes for authenticated user
   - result reports aggregate poll counters (polled/skipped/failed/fetched/accepted/deduplicated/rejected)

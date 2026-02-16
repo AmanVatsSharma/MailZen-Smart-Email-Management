@@ -16,6 +16,7 @@ import {
   MailboxSyncRunStatsResponse,
   MailboxSyncRunTrendPointResponse,
 } from './dto/mailbox-sync-observability.response';
+import { MailboxSyncRunRetentionPurgeResponse } from './dto/mailbox-sync-run-retention-purge.response';
 import { MailboxSyncStateResponse } from './dto/mailbox-sync-state.response';
 import { MailboxSyncRunResponse } from './dto/mailbox-sync-run.response';
 import { MailboxProvisioningHealthResponse } from './dto/mailbox-provisioning-health.response';
@@ -229,6 +230,18 @@ export class MailboxResolver {
       limit: limit ?? null,
       windowHours: windowHours ?? null,
       bucketMinutes: bucketMinutes ?? null,
+    });
+  }
+
+  @Mutation(() => MailboxSyncRunRetentionPurgeResponse)
+  async purgeMyMailboxSyncRunRetentionData(
+    @Context() ctx: RequestContext,
+    @Args('retentionDays', { type: () => Int, nullable: true })
+    retentionDays?: number,
+  ): Promise<MailboxSyncRunRetentionPurgeResponse> {
+    return this.mailboxSyncService.purgeMailboxSyncRunRetentionData({
+      userId: ctx.req.user.id,
+      retentionDays: retentionDays ?? null,
     });
   }
 
