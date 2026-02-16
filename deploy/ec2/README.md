@@ -202,6 +202,9 @@ Example:
 # Update with runtime status checks and skip expensive DNS/SSL checks
 ./deploy/ec2/scripts/update.sh --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
 
+# Update with runtime status checks while skipping host + ports checks
+./deploy/ec2/scripts/update.sh --status-runtime-checks --status-skip-host-readiness --status-skip-ports-check
+
 # Config-only preflight + deploy dry-run update simulation
 ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify
 

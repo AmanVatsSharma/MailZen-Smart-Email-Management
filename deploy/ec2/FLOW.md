@@ -37,8 +37,8 @@ flowchart TD
   Preflight --> DeployPull[deploy.sh --pull --force-recreate]
   DeployPull --> VerifyGate{verify enabled?}
   VerifyGate -- yes --> Verify[verify.sh]
-  Verify --> Status[status.sh (optional --with-runtime-checks --ports-check-ports ...)]
-  VerifyGate -- no --> Status[status.sh (optional --with-runtime-checks --ports-check-ports ...)]
+  Verify --> Status[status.sh (optional --with-runtime-checks --ports-check-ports --skip-dns-check --skip-ssl-check ...)]
+  VerifyGate -- no --> Status[status.sh (optional --with-runtime-checks --ports-check-ports --skip-dns-check --skip-ssl-check ...)]
   Status --> UpdateDone[Update complete]
 ```
 
