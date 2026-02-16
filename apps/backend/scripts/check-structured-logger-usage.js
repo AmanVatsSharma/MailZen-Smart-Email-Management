@@ -1,5 +1,5 @@
 /**
- * Fails when raw logger string payloads are introduced.
+ * Fails when runtime logger payloads bypass structured serializer.
  *
  * Why:
  * - enforce structured logger event contracts across backend runtime sources
@@ -17,10 +17,11 @@ function runRipgrep(commandArgs) {
   });
 }
 
-const loggerLiteralPatternResult = runRipgrep([
+const loggerBypassSerializerResult = runRipgrep([
+  '--pcre2',
   '--line-number',
   '--multiline',
-  `${loggerCallPrefixPattern}(log|warn|error|debug)\\(\\s*[\\\`"']`,
+  `${loggerCallPrefixPattern}(log|warn|error|debug)\\((?!\\s*serializeStructuredLog\\()`,
   'src',
   '--glob',
   '*.ts',
@@ -30,20 +31,21 @@ const loggerLiteralPatternResult = runRipgrep([
   '!**/*.d.ts',
 ]);
 
-if (![0, 1].includes(loggerLiteralPatternResult.status || 0)) {
+if (![0, 1].includes(loggerBypassSerializerResult.status || 0)) {
   console.error(
-    '[structured-logger-check] Failed while scanning logger literal calls.',
+    '[structured-logger-check] Failed while scanning logger serializer usage.',
   );
-  if (loggerLiteralPatternResult.error) {
-    console.error(loggerLiteralPatternResult.error.message);
+  if (loggerBypassSerializerResult.error) {
+    console.error(loggerBypassSerializerResult.error.message);
   }
-  if (loggerLiteralPatternResult.stderr) {
-    process.stderr.write(loggerLiteralPatternResult.stderr);
+  if (loggerBypassSerializerResult.stderr) {
+    process.stderr.write(loggerBypassSerializerResult.stderr);
   }
-  process.exit(loggerLiteralPatternResult.status || 2);
+  process.exit(loggerBypassSerializerResult.status || 2);
 }
 
 const loggerJsonStringifyResult = runRipgrep([
+  '--pcre2',
   '--line-number',
   '--multiline',
   `${loggerCallPrefixPattern}(log|warn|error|debug)\\(\\s*JSON\\.stringify\\(`,
@@ -69,21 +71,21 @@ if (![0, 1].includes(loggerJsonStringifyResult.status || 0)) {
   process.exit(loggerJsonStringifyResult.status || 2);
 }
 
-const hasLiteralLoggerCalls = loggerLiteralPatternResult.status === 0;
+const hasBypassSerializerLoggerCalls = loggerBypassSerializerResult.status === 0;
 const hasJsonStringifyLoggerCalls = loggerJsonStringifyResult.status === 0;
 
-if (!hasLiteralLoggerCalls && !hasJsonStringifyLoggerCalls) {
+if (!hasBypassSerializerLoggerCalls && !hasJsonStringifyLoggerCalls) {
   console.log(
-    '[structured-logger-check] OK: no raw logger literals or JSON.stringify payloads found.',
+    '[structured-logger-check] OK: all runtime logger payloads are serialized.',
   );
   process.exit(0);
 }
 
 console.error(
-  '[structured-logger-check] Unstructured logger usage detected in runtime sources:',
+  '[structured-logger-check] Logger payloads bypassing structured serializer detected in runtime sources:',
 );
-if (hasLiteralLoggerCalls) {
-  process.stderr.write(loggerLiteralPatternResult.stdout || '');
+if (hasBypassSerializerLoggerCalls) {
+  process.stderr.write(loggerBypassSerializerResult.stdout || '');
 }
 if (hasJsonStringifyLoggerCalls) {
   process.stderr.write(loggerJsonStringifyResult.stdout || '');
