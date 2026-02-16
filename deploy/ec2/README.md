@@ -246,6 +246,9 @@ Example:
 # Generate support bundle with seeded temporary env (CI-friendly)
 ./deploy/ec2/scripts/support-bundle.sh --seed-env
 
+# Keep support bundle temp work directory for deep debugging
+./deploy/ec2/scripts/support-bundle.sh --seed-env --keep-work-dir
+
 # Keep only latest 20 report artifacts (default)
 ./deploy/ec2/scripts/reports-prune.sh
 

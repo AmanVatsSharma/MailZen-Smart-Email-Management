@@ -20,6 +20,7 @@
 # Usage:
 #   ./deploy/ec2/scripts/support-bundle.sh
 #   ./deploy/ec2/scripts/support-bundle.sh --seed-env
+#   ./deploy/ec2/scripts/support-bundle.sh --seed-env --keep-work-dir
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -34,6 +35,8 @@ BUNDLE_FILE="${REPORT_DIR}/support-bundle-${TIMESTAMP}.tar.gz"
 SEED_ENV=false
 KEEP_SEEDED_ENV=false
 SEEDED_ENV_FILE=""
+KEEP_WORK_DIR=false
+BUNDLE_CREATED=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -45,9 +48,13 @@ while [[ $# -gt 0 ]]; do
     KEEP_SEEDED_ENV=true
     shift
     ;;
+  --keep-work-dir)
+    KEEP_WORK_DIR=true
+    shift
+    ;;
   *)
     echo "[mailzen-deploy][SUPPORT-BUNDLE][ERROR] Unknown argument: $1"
-    echo "[mailzen-deploy][SUPPORT-BUNDLE][INFO] Supported flags: --seed-env --keep-seeded-env"
+    echo "[mailzen-deploy][SUPPORT-BUNDLE][INFO] Supported flags: --seed-env --keep-seeded-env --keep-work-dir"
     exit 1
     ;;
   esac
@@ -68,6 +75,10 @@ cleanup() {
   if [[ -n "${SEEDED_ENV_FILE}" ]] && [[ "${KEEP_SEEDED_ENV}" == false ]] && [[ -f "${SEEDED_ENV_FILE}" ]]; then
     rm -f "${SEEDED_ENV_FILE}"
     log_bundle "Removed seeded env file: ${SEEDED_ENV_FILE}"
+  fi
+  if [[ "${KEEP_WORK_DIR}" == false ]] && [[ "${BUNDLE_CREATED}" == true ]] && [[ -d "${WORK_DIR}" ]]; then
+    rm -rf "${WORK_DIR}"
+    log_bundle "Removed temporary work directory: ${WORK_DIR}"
   fi
 }
 trap cleanup EXIT
@@ -94,6 +105,8 @@ run_capture() {
 if [[ "${SEED_ENV}" == true ]]; then
   seed_env_file
 fi
+
+log_bundle "Using temporary work directory: ${WORK_DIR}"
 
 run_capture "self-check" "\"${SCRIPT_DIR}/self-check.sh\""
 run_capture "env-audit" "\"${SCRIPT_DIR}/env-audit.sh\""
@@ -134,5 +147,6 @@ else
 fi
 
 tar -czf "${BUNDLE_FILE}" -C "${REPORT_DIR}" "$(basename "${WORK_DIR}")"
+BUNDLE_CREATED=true
 log_bundle "Support bundle generated:"
 log_bundle "  ${BUNDLE_FILE}"
