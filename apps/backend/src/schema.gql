@@ -191,6 +191,34 @@ type ProviderSyncAlertDeliveryDataExportResponse {
   dataJson: String!
 }
 
+type ProviderSyncIncidentAlertConfigResponse {
+  alertsEnabled: Boolean!
+  windowHours: Int!
+  cooldownMinutes: Int!
+  maxUsersPerRun: Int!
+  warningErrorProviderPercent: Float!
+  criticalErrorProviderPercent: Float!
+  minErrorProviders: Int!
+  evaluatedAtIso: String!
+}
+
+type ProviderSyncIncidentAlertCheckResponse {
+  alertsEnabled: Boolean!
+  evaluatedAtIso: String!
+  windowHours: Int!
+  warningErrorProviderPercent: Float!
+  criticalErrorProviderPercent: Float!
+  minErrorProviders: Int!
+  status: String!
+  statusReason: String!
+  shouldAlert: Boolean!
+  totalProviders: Int!
+  connectedProviders: Int!
+  syncingProviders: Int!
+  errorProviders: Int!
+  errorProviderPercent: Float!
+}
+
 type InboxMessage {
   id: ID!
   providerId: String!
@@ -425,6 +453,7 @@ type Query {
   myProviderSyncAlertDeliverySeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [ProviderSyncAlertDeliveryTrendPointResponse!]!
   myProviderSyncAlerts(workspaceId: String, windowHours: Int, limit: Int): [ProviderSyncAlertResponse!]!
   myProviderSyncAlertDeliveryDataExport(workspaceId: String, windowHours: Int, bucketMinutes: Int, limit: Int): ProviderSyncAlertDeliveryDataExportResponse!
+  myProviderSyncIncidentAlertConfig: ProviderSyncIncidentAlertConfigResponse!
   getInboxMessages(inboxType: String!, inboxId: String!, limit: Int, offset: Int): [InboxMessage!]!
   myMailboxes(workspaceId: String): [String!]!
   myMailboxInboundEvents(mailboxId: String, workspaceId: String, status: String, limit: Int): [MailboxInboundEventObservabilityResponse!]!
@@ -909,6 +938,12 @@ type Mutation {
   updateProvider(id: String!, isActive: Boolean): Provider!
   syncProvider(id: String!): Provider!
   syncMyProviders(workspaceId: String, providerId: String): ProviderSyncRunResponse!
+  runMyProviderSyncIncidentAlertCheck(
+    windowHours: Int
+    warningErrorProviderPercent: Float
+    criticalErrorProviderPercent: Float
+    minErrorProviders: Int
+  ): ProviderSyncIncidentAlertCheckResponse!
   updateProviderStatus(id: String!, isActive: Boolean): Provider!
   syncGmailProvider(providerId: String!, maxMessages: Int): Boolean!
   login(loginInput: LoginInput!): AuthResponse!

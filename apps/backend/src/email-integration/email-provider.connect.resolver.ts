@@ -1,11 +1,22 @@
-import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  Context,
+  Float,
+  Int,
+  Mutation,
+  Query,
+  Resolver,
+} from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { EmailProviderService } from './email-provider.service';
+import { ProviderSyncIncidentScheduler } from './provider-sync-incident.scheduler';
 import { Provider } from './entities/provider.entity';
 import { ProviderActionResult } from './entities/provider-action-result.entity';
 import { SmtpSettingsInput } from './dto/smtp-settings.input';
 import { ProviderSyncAlertDeliveryDataExportResponse } from './entities/provider-sync-alert-delivery-data-export.response';
+import { ProviderSyncIncidentAlertCheckResponse } from './entities/provider-sync-incident-alert-check.response';
+import { ProviderSyncIncidentAlertConfigResponse } from './entities/provider-sync-incident-alert-config.response';
 import {
   ProviderSyncAlertDeliveryStatsResponse,
   ProviderSyncAlertDeliveryTrendPointResponse,
@@ -32,7 +43,10 @@ interface RequestContext {
 @Resolver(() => Provider)
 @UseGuards(JwtAuthGuard)
 export class EmailProviderConnectResolver {
-  constructor(private readonly emailProviderService: EmailProviderService) {}
+  constructor(
+    private readonly emailProviderService: EmailProviderService,
+    private readonly providerSyncIncidentScheduler: ProviderSyncIncidentScheduler,
+  ) {}
 
   @Mutation(() => Provider)
   async connectGmail(
@@ -218,6 +232,35 @@ export class EmailProviderConnectResolver {
         limit,
       },
     );
+  }
+
+  @Query(() => ProviderSyncIncidentAlertConfigResponse)
+  myProviderSyncIncidentAlertConfig(): ProviderSyncIncidentAlertConfigResponse {
+    return this.providerSyncIncidentScheduler.getIncidentAlertConfigSnapshot();
+  }
+
+  @Mutation(() => ProviderSyncIncidentAlertCheckResponse)
+  async runMyProviderSyncIncidentAlertCheck(
+    @Context() ctx: RequestContext,
+    @Args('windowHours', { type: () => Int, nullable: true })
+    windowHours: number,
+    @Args('warningErrorProviderPercent', { type: () => Float, nullable: true })
+    warningErrorProviderPercent: number,
+    @Args('criticalErrorProviderPercent', {
+      type: () => Float,
+      nullable: true,
+    })
+    criticalErrorProviderPercent: number,
+    @Args('minErrorProviders', { type: () => Int, nullable: true })
+    minErrorProviders: number,
+  ) {
+    return this.providerSyncIncidentScheduler.runIncidentAlertCheck({
+      userId: ctx.req.user.id,
+      windowHours,
+      warningErrorProviderPercent,
+      criticalErrorProviderPercent,
+      minErrorProviders,
+    });
   }
 
   /**

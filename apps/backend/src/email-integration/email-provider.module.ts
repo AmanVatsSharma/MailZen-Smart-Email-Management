@@ -7,9 +7,11 @@ import { ProviderOAuthController } from './provider-oauth.controller';
 import { EmailProviderConnectResolver } from './email-provider.connect.resolver';
 import { BillingModule } from '../billing/billing.module';
 import { GmailSyncModule } from '../gmail-sync/gmail-sync.module';
+import { NotificationModule } from '../notification/notification.module';
 import { OutlookSyncModule } from '../outlook-sync/outlook-sync.module';
 import { WorkspaceModule } from '../workspace/workspace.module';
 import { UserNotification } from '../notification/entities/user-notification.entity';
+import { ProviderSyncIncidentScheduler } from './provider-sync-incident.scheduler';
 
 /**
  * EmailProviderModule - External email provider integration
@@ -20,6 +22,7 @@ import { UserNotification } from '../notification/entities/user-notification.ent
     TypeOrmModule.forFeature([EmailProvider, UserNotification]),
     BillingModule,
     WorkspaceModule,
+    NotificationModule,
     GmailSyncModule,
     OutlookSyncModule,
   ],
@@ -28,6 +31,7 @@ import { UserNotification } from '../notification/entities/user-notification.ent
     EmailProviderService,
     EmailProviderResolver,
     EmailProviderConnectResolver,
+    ProviderSyncIncidentScheduler,
   ],
   exports: [EmailProviderService],
 })

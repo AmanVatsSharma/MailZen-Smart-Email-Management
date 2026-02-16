@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EmailProviderConnectResolver } from './email-provider.connect.resolver';
 import { EmailProviderService } from './email-provider.service';
+import { ProviderSyncIncidentScheduler } from './provider-sync-incident.scheduler';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 describe('EmailProviderConnectResolver', () => {
@@ -22,6 +23,10 @@ describe('EmailProviderConnectResolver', () => {
     exportProviderSyncAlertDeliveryDataForUser: jest.fn(),
     listProvidersUi: jest.fn(),
   };
+  const providerSyncIncidentSchedulerMock = {
+    getIncidentAlertConfigSnapshot: jest.fn(),
+    runIncidentAlertCheck: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -30,6 +35,10 @@ describe('EmailProviderConnectResolver', () => {
       providers: [
         EmailProviderConnectResolver,
         { provide: EmailProviderService, useValue: emailProviderServiceMock },
+        {
+          provide: ProviderSyncIncidentScheduler,
+          useValue: providerSyncIncidentSchedulerMock,
+        },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -263,5 +272,68 @@ describe('EmailProviderConnectResolver', () => {
       bucketMinutes: 60,
       limit: 100,
     });
+  });
+
+  it('returns provider sync incident alert config snapshot', () => {
+    providerSyncIncidentSchedulerMock.getIncidentAlertConfigSnapshot.mockReturnValue(
+      {
+        alertsEnabled: true,
+        windowHours: 24,
+        cooldownMinutes: 60,
+        maxUsersPerRun: 500,
+        warningErrorProviderPercent: 20,
+        criticalErrorProviderPercent: 50,
+        minErrorProviders: 1,
+        evaluatedAtIso: '2026-02-16T00:00:00.000Z',
+      },
+    );
+
+    const result = resolver.myProviderSyncIncidentAlertConfig();
+
+    expect(
+      providerSyncIncidentSchedulerMock.getIncidentAlertConfigSnapshot,
+    ).toHaveBeenCalledTimes(1);
+    expect(result.alertsEnabled).toBe(true);
+    expect(result.windowHours).toBe(24);
+  });
+
+  it('delegates provider sync incident alert check mutation to scheduler', async () => {
+    providerSyncIncidentSchedulerMock.runIncidentAlertCheck.mockResolvedValue({
+      alertsEnabled: true,
+      evaluatedAtIso: '2026-02-16T00:00:00.000Z',
+      windowHours: 24,
+      warningErrorProviderPercent: 20,
+      criticalErrorProviderPercent: 50,
+      minErrorProviders: 1,
+      status: 'WARNING',
+      statusReason: 'error-provider-percent 33% >= 20%',
+      shouldAlert: true,
+      totalProviders: 3,
+      connectedProviders: 1,
+      syncingProviders: 1,
+      errorProviders: 1,
+      errorProviderPercent: 33.33,
+    });
+    const context = { req: { user: { id: 'user-1' } } };
+
+    const result = await resolver.runMyProviderSyncIncidentAlertCheck(
+      context,
+      24,
+      20,
+      50,
+      1,
+    );
+
+    expect(
+      providerSyncIncidentSchedulerMock.runIncidentAlertCheck,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      windowHours: 24,
+      warningErrorProviderPercent: 20,
+      criticalErrorProviderPercent: 50,
+      minErrorProviders: 1,
+    });
+    expect(result.status).toBe('WARNING');
+    expect(result.shouldAlert).toBe(true);
   });
 });

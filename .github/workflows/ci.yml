@@ -68,6 +68,7 @@ jobs:
           outlook-sync/outlook-sync-webhook.controller.spec.ts
           outlook-sync/outlook-sync.scheduler.spec.ts
           email-integration/provider-sync-lease.service.spec.ts
+          email-integration/provider-sync-incident.scheduler.spec.ts
           gmail-sync/gmail-sync.service.spec.ts
           email-integration/email-provider.service.spec.ts
           email-integration/email-provider.connect.resolver.spec.ts

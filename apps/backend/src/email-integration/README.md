@@ -70,6 +70,8 @@ This module follows NestJS best practices and consists of:
   - returns recent provider sync alert notifications with metadata context
 - `myProviderSyncAlertDeliveryDataExport(workspaceId?: String, windowHours?: Int, bucketMinutes?: Int, limit?: Int): ProviderSyncAlertDeliveryDataExportResponse!`
   - exports provider sync alert delivery stats/series/history as JSON payload
+- `myProviderSyncIncidentAlertConfig: ProviderSyncIncidentAlertConfigResponse!`
+  - returns resolved provider sync incident alert scheduler config snapshot
 
 ### Mutations
 
@@ -96,6 +98,9 @@ Frontend-facing (matches `apps/frontend/lib/providers/provider-utils.ts`):
   - optional `workspaceId` enforces workspace ownership/scope
   - returns aggregate counters (`requested/synced/failed/skipped`) and per-provider results
   - skips providers with active lease/status indicating in-flight sync
+- `runMyProviderSyncIncidentAlertCheck(windowHours?: Int, warningErrorProviderPercent?: Float, criticalErrorProviderPercent?: Float, minErrorProviders?: Int): ProviderSyncIncidentAlertCheckResponse!`
+  - runs on-demand provider incident alert evaluation for current user with optional threshold overrides
+  - returns status reason and whether warning/critical alert criteria are currently met
 
 ### Batch sync flow (`syncMyProviders`)
 
@@ -295,6 +300,22 @@ The module automatically handles OAuth token refresh for Gmail and Outlook provi
   - `lastSyncError` (trimmed failure reason)
 - Sync services clear these fields when starting and when completing successfully.
 - Scheduler fallback failures also write these fields when retries are exhausted.
+
+## Provider sync incident alert scheduler
+
+`ProviderSyncIncidentScheduler` runs every 15 minutes and emits
+`PROVIDER_SYNC_INCIDENT_ALERT` notifications when the percentage of providers
+in `error` status breaches warning/critical thresholds for a user.
+
+Configuration:
+
+- `MAILZEN_PROVIDER_SYNC_INCIDENT_ALERTS_ENABLED` (default `true`)
+- `MAILZEN_PROVIDER_SYNC_INCIDENT_ALERT_WINDOW_HOURS` (default `24`)
+- `MAILZEN_PROVIDER_SYNC_INCIDENT_ALERT_COOLDOWN_MINUTES` (default `60`)
+- `MAILZEN_PROVIDER_SYNC_INCIDENT_ALERT_MAX_USERS_PER_RUN` (default `500`)
+- `MAILZEN_PROVIDER_SYNC_INCIDENT_ALERT_WARNING_ERROR_PROVIDER_PERCENT` (default `20`)
+- `MAILZEN_PROVIDER_SYNC_INCIDENT_ALERT_CRITICAL_ERROR_PROVIDER_PERCENT` (default `50`)
+- `MAILZEN_PROVIDER_SYNC_INCIDENT_ALERT_MIN_ERROR_PROVIDERS` (default `1`)
 
 ## Operational runbook: provider sync triage
 
