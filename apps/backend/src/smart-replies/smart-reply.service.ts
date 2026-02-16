@@ -170,7 +170,7 @@ export class SmartReplyService {
     count: number,
   ): Promise<{
     suggestions: string[];
-    source: 'external' | 'internal';
+    source: 'external' | 'internal' | 'openai';
     fallbackUsed: boolean;
   }> {
     return this.providerRouter.generateSuggestions({

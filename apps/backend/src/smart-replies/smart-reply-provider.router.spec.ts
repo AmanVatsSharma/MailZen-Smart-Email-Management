@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { SmartReplyExternalModelAdapter } from './smart-reply-external-model.adapter';
 import { SmartReplyModelProvider } from './smart-reply-model.provider';
+import { SmartReplyOpenAiAdapter } from './smart-reply-openai.adapter';
 import { SmartReplyProviderRouter } from './smart-reply-provider.router';
 
 describe('SmartReplyProviderRouter', () => {
@@ -9,6 +10,10 @@ describe('SmartReplyProviderRouter', () => {
     providerId: 'template',
     generateSuggestions: jest.fn(),
   } as unknown as jest.Mocked<SmartReplyModelProvider>;
+  const openAiProvider: jest.Mocked<SmartReplyOpenAiAdapter> = {
+    providerId: 'openai',
+    generateSuggestions: jest.fn(),
+  } as unknown as jest.Mocked<SmartReplyOpenAiAdapter>;
   const externalProvider: jest.Mocked<SmartReplyExternalModelAdapter> = {
     providerId: 'agent-platform',
     generateSuggestions: jest.fn(),
@@ -18,7 +23,11 @@ describe('SmartReplyProviderRouter', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.SMART_REPLY_PROVIDER_MODE;
-    router = new SmartReplyProviderRouter(templateProvider, externalProvider);
+    router = new SmartReplyProviderRouter(
+      templateProvider,
+      openAiProvider,
+      externalProvider,
+    );
   });
 
   afterAll(() => {
@@ -30,7 +39,10 @@ describe('SmartReplyProviderRouter', () => {
   });
 
   it('uses external provider first in hybrid mode for advanced model', async () => {
-    externalProvider.generateSuggestions.mockResolvedValue(['External reply']);
+    openAiProvider.generateSuggestions.mockResolvedValue(['OpenAI reply']);
+    externalProvider.generateSuggestions.mockResolvedValue([
+      'External fallback',
+    ]);
     templateProvider.generateSuggestions.mockReturnValue(['Template reply']);
 
     const result = await router.generateSuggestions({
@@ -44,16 +56,18 @@ describe('SmartReplyProviderRouter', () => {
       },
     });
 
-    expect(externalProvider.generateSuggestions).toHaveBeenCalled();
+    expect(openAiProvider.generateSuggestions).toHaveBeenCalled();
+    expect(externalProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(templateProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(result).toEqual({
-      suggestions: ['External reply'],
-      source: 'external',
+      suggestions: ['OpenAI reply'],
+      source: 'openai',
       fallbackUsed: false,
     });
   });
 
   it('uses template provider in hybrid mode for balanced model', async () => {
+    openAiProvider.generateSuggestions.mockResolvedValue(['OpenAI reply']);
     externalProvider.generateSuggestions.mockResolvedValue(['External reply']);
     templateProvider.generateSuggestions.mockReturnValue(['Template reply']);
 
@@ -68,6 +82,7 @@ describe('SmartReplyProviderRouter', () => {
       },
     });
 
+    expect(openAiProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(externalProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(templateProvider.generateSuggestions).toHaveBeenCalled();
     expect(result).toEqual({
@@ -79,6 +94,7 @@ describe('SmartReplyProviderRouter', () => {
 
   it('falls back to template provider in agent-platform mode', async () => {
     process.env.SMART_REPLY_PROVIDER_MODE = 'agent_platform';
+    openAiProvider.generateSuggestions.mockResolvedValue(['OpenAI reply']);
     externalProvider.generateSuggestions.mockResolvedValue([]);
     templateProvider.generateSuggestions.mockReturnValue(['Template reply']);
 
@@ -93,6 +109,7 @@ describe('SmartReplyProviderRouter', () => {
       },
     });
 
+    expect(openAiProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(externalProvider.generateSuggestions).toHaveBeenCalled();
     expect(templateProvider.generateSuggestions).toHaveBeenCalled();
     expect(result).toEqual({
@@ -104,6 +121,7 @@ describe('SmartReplyProviderRouter', () => {
 
   it('forces template mode regardless of aiModel preference', async () => {
     process.env.SMART_REPLY_PROVIDER_MODE = 'template';
+    openAiProvider.generateSuggestions.mockResolvedValue(['OpenAI reply']);
     externalProvider.generateSuggestions.mockResolvedValue(['External reply']);
     templateProvider.generateSuggestions.mockReturnValue(['Template reply']);
 
@@ -118,12 +136,66 @@ describe('SmartReplyProviderRouter', () => {
       },
     });
 
+    expect(openAiProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(externalProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(templateProvider.generateSuggestions).toHaveBeenCalled();
     expect(result).toEqual({
       suggestions: ['Template reply'],
       source: 'internal',
       fallbackUsed: false,
+    });
+  });
+
+  it('uses openai mode regardless of model preference', async () => {
+    process.env.SMART_REPLY_PROVIDER_MODE = 'openai';
+    openAiProvider.generateSuggestions.mockResolvedValue(['OpenAI reply']);
+    externalProvider.generateSuggestions.mockResolvedValue(['External reply']);
+    templateProvider.generateSuggestions.mockReturnValue(['Template reply']);
+
+    const result = await router.generateSuggestions({
+      aiModel: 'balanced',
+      request: {
+        conversation: 'Please confirm rollout timeline.',
+        tone: 'professional',
+        length: 'medium',
+        count: 2,
+        includeSignature: false,
+      },
+    });
+
+    expect(openAiProvider.generateSuggestions).toHaveBeenCalled();
+    expect(externalProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(templateProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      suggestions: ['OpenAI reply'],
+      source: 'openai',
+      fallbackUsed: false,
+    });
+  });
+
+  it('falls back from openai to external in hybrid mode', async () => {
+    openAiProvider.generateSuggestions.mockResolvedValue([]);
+    externalProvider.generateSuggestions.mockResolvedValue(['External reply']);
+    templateProvider.generateSuggestions.mockReturnValue(['Template reply']);
+
+    const result = await router.generateSuggestions({
+      aiModel: 'advanced',
+      request: {
+        conversation: 'Need update on escalation ticket.',
+        tone: 'formal',
+        length: 'short',
+        count: 1,
+        includeSignature: false,
+      },
+    });
+
+    expect(openAiProvider.generateSuggestions).toHaveBeenCalled();
+    expect(externalProvider.generateSuggestions).toHaveBeenCalled();
+    expect(templateProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      suggestions: ['External reply'],
+      source: 'external',
+      fallbackUsed: true,
     });
   });
 });

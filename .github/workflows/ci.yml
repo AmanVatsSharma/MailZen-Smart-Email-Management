@@ -47,6 +47,7 @@ jobs:
           smart-replies/smart-reply-provider.router.spec.ts
           smart-replies/smart-reply-model.provider.spec.ts
           smart-replies/smart-reply-external-model.adapter.spec.ts
+          smart-replies/smart-reply-openai.adapter.spec.ts
           smart-replies/smart-reply-retention.scheduler.spec.ts
           ai-agent-gateway/ai-agent-gateway.service.spec.ts
           ai-agent-gateway/ai-agent-gateway.resolver.spec.ts

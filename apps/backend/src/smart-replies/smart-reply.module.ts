@@ -8,6 +8,7 @@ import { SmartReplyHistory } from './entities/smart-reply-history.entity';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
 import { SmartReplyModelProvider } from './smart-reply-model.provider';
 import { SmartReplyProviderRouter } from './smart-reply-provider.router';
+import { SmartReplyOpenAiAdapter } from './smart-reply-openai.adapter';
 
 @Module({
   imports: [TypeOrmModule.forFeature([SmartReplySettings, SmartReplyHistory])],
@@ -16,6 +17,7 @@ import { SmartReplyProviderRouter } from './smart-reply-provider.router';
     SmartReplyResolver,
     SmartReplyRetentionScheduler,
     SmartReplyModelProvider,
+    SmartReplyOpenAiAdapter,
     SmartReplyExternalModelAdapter,
     SmartReplyProviderRouter,
   ],
