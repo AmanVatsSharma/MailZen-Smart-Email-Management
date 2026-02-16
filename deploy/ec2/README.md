@@ -45,22 +45,25 @@ Additional deployment flowcharts:
   Local backup dump directory (tracked folder; dump files ignored by git).
 - `reports/`  
   Generated diagnostics report directory (tracked folder; report files ignored by git).
-  - `status.sh`
-  - `logs.sh`
-  - `restart.sh`
-  - `stop.sh`
+  - Additional ops scripts:
+    - `status.sh`
+    - `logs.sh`
+    - `restart.sh`
+    - `stop.sh`
 
 ## Deployment flow
 
 ```mermaid
 flowchart TD
   A[Run setup.sh] --> B[Generate/validate .env.ec2]
-  B --> C[Run preflight.sh]
-  C --> D[Run deploy.sh]
-  D --> E[docker compose build + up]
-  E --> F[caddy enables HTTPS for domain]
-  F --> G[Access MailZen URL]
-  G --> H[Use status/logs/restart/stop scripts for ops]
+  B --> C[Run dns-check.sh]
+  C --> D[Run ports-check.sh]
+  D --> E[Run preflight.sh]
+  E --> F[Run deploy.sh]
+  F --> G[docker compose build + up]
+  G --> H[caddy enables HTTPS for domain]
+  H --> I[Run verify.sh]
+  I --> J[Use status/logs/restart/stop scripts for ops]
 ```
 
 ## First-time setup
@@ -71,8 +74,12 @@ From repository root:
 # Optional non-technical operator menu
 ./deploy/ec2/scripts/menu.sh
 
-# One-command launch (setup + preflight + deploy + verify + status)
+# One-command launch
+# (setup + dns + ports + preflight + deploy + verify + status)
 ./deploy/ec2/scripts/launch.sh
+
+# Non-interactive launch if env already configured
+./deploy/ec2/scripts/launch.sh --skip-setup
 
 # Optional (Ubuntu EC2 only): install Docker + Compose
 sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
