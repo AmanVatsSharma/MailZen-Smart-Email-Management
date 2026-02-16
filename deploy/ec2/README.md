@@ -97,6 +97,15 @@ The setup script:
 ./deploy/ec2/scripts/stop.sh --purge-data
 ```
 
+Supported service names for `logs.sh` / `restart.sh`:
+
+- `caddy`
+- `frontend`
+- `backend`
+- `ai-agent-platform`
+- `postgres`
+- `redis`
+
 ## Domain + HTTPS requirements
 
 1. DNS `A` record for your chosen domain -> EC2 public IP.

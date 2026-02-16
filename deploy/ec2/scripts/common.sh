@@ -11,6 +11,14 @@ DEPLOY_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 COMPOSE_FILE="${DEPLOY_DIR}/docker-compose.yml"
 ENV_TEMPLATE_FILE="${DEPLOY_DIR}/.env.ec2.example"
 ENV_FILE="${DEPLOY_DIR}/.env.ec2"
+KNOWN_SERVICES=(
+  caddy
+  frontend
+  backend
+  ai-agent-platform
+  postgres
+  redis
+)
 
 log_info() {
   echo "[mailzen-deploy][INFO] $*"
@@ -225,4 +233,25 @@ validate_core_env() {
 
   log_info "Core env validation passed."
   return 0
+}
+
+is_known_service_name() {
+  local candidate="$1"
+  local service
+  for service in "${KNOWN_SERVICES[@]}"; do
+    if [[ "${service}" == "${candidate}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+assert_known_service_name() {
+  local candidate="$1"
+  if is_known_service_name "${candidate}"; then
+    return 0
+  fi
+  log_error "Unknown service '${candidate}'."
+  log_error "Allowed services: ${KNOWN_SERVICES[*]}"
+  return 1
 }

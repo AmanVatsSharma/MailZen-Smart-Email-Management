@@ -14,6 +14,10 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 SERVICE_NAME="${1:-}"
 
+if [[ -n "${SERVICE_NAME}" ]]; then
+  assert_known_service_name "${SERVICE_NAME}"
+fi
+
 log_info "Restarting MailZen services..."
 require_cmd docker
 ensure_required_files_exist
