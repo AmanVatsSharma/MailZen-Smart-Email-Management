@@ -6,6 +6,10 @@ import { GmailSyncService } from './gmail-sync.service';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
 import { NotificationEventBusService } from '../notification/notification-event-bus.service';
+import {
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 /**
  * Periodic Gmail sync.
@@ -74,6 +78,7 @@ export class GmailSyncScheduler {
 
   private async syncProviderWithRetry(input: {
     provider: EmailProvider;
+    runCorrelationId: string;
   }): Promise<
     | { success: true; attempts: number }
     | { success: false; attempts: number; error: unknown }
@@ -95,7 +100,16 @@ export class GmailSyncScheduler {
         }
         const message = error instanceof Error ? error.message : String(error);
         this.logger.warn(
-          `Cron sync retry provider=${input.provider.id} attempt=${attempt + 1} error=${message}`,
+          serializeStructuredLog({
+            event: 'gmail_sync_scheduler_retry',
+            providerId: input.provider.id,
+            userId: input.provider.userId,
+            workspaceId: input.provider.workspaceId || null,
+            runCorrelationId: input.runCorrelationId,
+            attempt: attempt + 1,
+            maxRetries,
+            error: message,
+          }),
         );
         await this.sleep(backoffBaseMs * (attempt + 1));
       }
@@ -125,12 +139,19 @@ export class GmailSyncScheduler {
 
   @Cron(CronExpression.EVERY_10_MINUTES)
   async syncActiveGmailProviders() {
+    const runCorrelationId = resolveCorrelationId(undefined);
     const providers: EmailProvider[] = await this.emailProviderRepo.find({
       where: { type: 'GMAIL', isActive: true },
     });
     if (!providers.length) return;
 
-    this.logger.log(`Cron: syncing ${providers.length} active Gmail providers`);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'gmail_sync_scheduler_start',
+        runCorrelationId,
+        activeProviders: providers.length,
+      }),
+    );
 
     for (const p of providers) {
       const leaseAcquired =
@@ -138,7 +159,18 @@ export class GmailSyncScheduler {
           providerId: p.id,
           providerType: 'GMAIL',
         });
-      if (!leaseAcquired) continue;
+      if (!leaseAcquired) {
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'gmail_sync_scheduler_skip_active_lease',
+            providerId: p.id,
+            userId: p.userId,
+            workspaceId: p.workspaceId || null,
+            runCorrelationId,
+          }),
+        );
+        continue;
+      }
 
       const maxJitterMs = this.getMaxJitterMs();
       if (maxJitterMs > 0) {
@@ -146,8 +178,21 @@ export class GmailSyncScheduler {
         await this.sleep(jitterMs);
       }
 
-      const syncResult = await this.syncProviderWithRetry({ provider: p });
+      const syncResult = await this.syncProviderWithRetry({
+        provider: p,
+        runCorrelationId,
+      });
       if (syncResult.success) {
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'gmail_sync_scheduler_provider_success',
+            providerId: p.id,
+            userId: p.userId,
+            workspaceId: p.workspaceId || null,
+            runCorrelationId,
+            attempts: syncResult.attempts,
+          }),
+        );
         if (String(p.lastSyncError || '').trim()) {
           await this.notificationEventBus.publishSafely({
             userId: p.userId,
@@ -175,7 +220,17 @@ export class GmailSyncScheduler {
         const previousErrorMessage = this.normalizeSyncErrorSignature(
           p.lastSyncError,
         );
-        this.logger.warn(`Cron sync failed for provider=${p.id}: ${message}`);
+        this.logger.warn(
+          serializeStructuredLog({
+            event: 'gmail_sync_scheduler_provider_failed',
+            providerId: p.id,
+            userId: p.userId,
+            workspaceId: p.workspaceId || null,
+            runCorrelationId,
+            attempts: syncResult.attempts,
+            error: normalizedErrorMessage,
+          }),
+        );
         await this.emailProviderRepo.update(
           { id: p.id },
           {
@@ -208,7 +263,14 @@ export class GmailSyncScheduler {
             ? notificationError.message
             : String(notificationError);
         this.logger.warn(
-          `Cron sync failure handling failed for provider=${p.id}: ${notificationMessage}`,
+          serializeStructuredLog({
+            event: 'gmail_sync_scheduler_notification_publish_failed',
+            providerId: p.id,
+            userId: p.userId,
+            workspaceId: p.workspaceId || null,
+            runCorrelationId,
+            error: notificationMessage,
+          }),
         );
       }
     }
@@ -217,13 +279,18 @@ export class GmailSyncScheduler {
   @Cron('15 */6 * * *')
   async refreshGmailPushWatches() {
     if (!this.isPushWatchEnabled()) return;
+    const runCorrelationId = resolveCorrelationId(undefined);
     const providers: EmailProvider[] = await this.emailProviderRepo.find({
       where: { type: 'GMAIL', isActive: true },
     });
     if (!providers.length) return;
 
     this.logger.log(
-      `Cron: refreshing Gmail push watches for ${providers.length} providers`,
+      serializeStructuredLog({
+        event: 'gmail_sync_watch_refresh_start',
+        runCorrelationId,
+        activeProviders: providers.length,
+      }),
     );
 
     for (const provider of providers) {
@@ -232,7 +299,17 @@ export class GmailSyncScheduler {
           providerId: provider.id,
           providerType: 'GMAIL',
         });
-      if (!leaseAcquired) continue;
+      if (!leaseAcquired) {
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'gmail_sync_watch_refresh_skip_active_lease',
+            providerId: provider.id,
+            userId: provider.userId,
+            runCorrelationId,
+          }),
+        );
+        continue;
+      }
 
       try {
         await this.gmailSync.ensurePushWatchForProvider(
@@ -242,7 +319,13 @@ export class GmailSyncScheduler {
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         this.logger.warn(
-          `Cron push watch refresh failed provider=${provider.id}: ${message}`,
+          serializeStructuredLog({
+            event: 'gmail_sync_watch_refresh_failed',
+            providerId: provider.id,
+            userId: provider.userId,
+            runCorrelationId,
+            error: message,
+          }),
         );
       }
     }
