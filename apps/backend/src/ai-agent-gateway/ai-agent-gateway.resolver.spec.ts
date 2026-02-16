@@ -34,6 +34,49 @@ describe('AiAgentGatewayResolver', () => {
     });
   });
 
+  it('delegates agentPlatformHealth to gateway service', async () => {
+    gatewayService.getPlatformHealth.mockResolvedValue({
+      status: 'ok',
+      reachable: true,
+      serviceUrl: 'http://localhost:8100',
+      configuredServiceUrls: ['http://localhost:8100'],
+      probedServiceUrls: ['http://localhost:8100'],
+      endpointStats: [
+        {
+          endpointUrl: 'http://localhost:8100',
+          successCount: 5,
+          failureCount: 1,
+          lastSuccessAtIso: '2026-02-16T00:00:00.000Z',
+          lastFailureAtIso: '2026-02-15T00:00:00.000Z',
+        },
+      ],
+      latencyMs: 12,
+      checkedAtIso: '2026-02-16T00:00:00.000Z',
+      requestCount: 10,
+      errorCount: 1,
+      timeoutErrorCount: 0,
+      errorRatePercent: 10,
+      avgLatencyMs: 20,
+      latencyWarnMs: 1500,
+      errorRateWarnPercent: 5,
+      alertingState: 'healthy',
+    });
+
+    const result = await resolver.agentPlatformHealth();
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'ok',
+        endpointStats: [
+          expect.objectContaining({
+            endpointUrl: 'http://localhost:8100',
+          }),
+        ],
+      }),
+    );
+    expect(gatewayService.getPlatformHealth).toHaveBeenCalled();
+  });
+
   it('forwards user context to myAgentActionDataExport', async () => {
     gatewayService.exportAgentActionDataForUser.mockResolvedValue({
       generatedAtIso: '2026-02-16T00:00:00.000Z',
