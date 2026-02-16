@@ -24,10 +24,18 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
   --domain)
     DOMAIN="${2:-}"
+    if [[ -z "${DOMAIN}" ]]; then
+      log_error "--domain requires a value."
+      exit 1
+    fi
     shift 2
     ;;
   --expected-ip)
     EXPECTED_IP="${2:-}"
+    if [[ -z "${EXPECTED_IP}" ]]; then
+      log_error "--expected-ip requires a value."
+      exit 1
+    fi
     shift 2
     ;;
   *)

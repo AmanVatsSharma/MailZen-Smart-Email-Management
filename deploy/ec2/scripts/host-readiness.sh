@@ -27,14 +27,26 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
   --min-disk-gb)
     MIN_DISK_GB="${2:-}"
+    if [[ -z "${MIN_DISK_GB}" ]]; then
+      log_error "--min-disk-gb requires a value."
+      exit 1
+    fi
     shift 2
     ;;
   --min-memory-mb)
     MIN_MEMORY_MB="${2:-}"
+    if [[ -z "${MIN_MEMORY_MB}" ]]; then
+      log_error "--min-memory-mb requires a value."
+      exit 1
+    fi
     shift 2
     ;;
   --min-cpu-cores)
     MIN_CPU_CORES="${2:-}"
+    if [[ -z "${MIN_CPU_CORES}" ]]; then
+      log_error "--min-cpu-cores requires a value."
+      exit 1
+    fi
     shift 2
     ;;
   *)

@@ -41,10 +41,18 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
   --max-retries)
     MAX_RETRIES="${2:-}"
+    if [[ -z "${MAX_RETRIES}" ]]; then
+      log_error "--max-retries requires a value."
+      exit 1
+    fi
     shift 2
     ;;
   --retry-sleep)
     RETRY_SLEEP_SECONDS="${2:-}"
+    if [[ -z "${RETRY_SLEEP_SECONDS}" ]]; then
+      log_error "--retry-sleep requires a value."
+      exit 1
+    fi
     shift 2
     ;;
   --skip-ssl-check)
