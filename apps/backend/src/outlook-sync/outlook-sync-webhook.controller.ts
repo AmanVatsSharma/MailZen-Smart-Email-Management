@@ -2,13 +2,20 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Headers,
   HttpCode,
   Logger,
   Post,
   Query,
   UnauthorizedException,
 } from '@nestjs/common';
+import { timingSafeEqual } from 'crypto';
 import { OutlookSyncService } from './outlook-sync.service';
+import {
+  fingerprintIdentifier,
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 type OutlookWebhookPayload = {
   providerId?: string;
@@ -31,12 +38,48 @@ export class OutlookSyncWebhookController {
 
   constructor(private readonly outlookSyncService: OutlookSyncService) {}
 
-  private assertWebhookToken(token?: string): void {
+  private assertWebhookToken(input: {
+    requestId: string;
+    token?: string;
+  }): void {
     const expectedToken = String(
       process.env.OUTLOOK_PUSH_WEBHOOK_TOKEN || '',
     ).trim();
     if (!expectedToken) return;
-    if (String(token || '').trim() === expectedToken) return;
+    const inboundToken = String(input.token || '').trim();
+    if (!inboundToken) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'outlook_push_webhook_secret_missing',
+          requestId: input.requestId,
+        }),
+      );
+      throw new UnauthorizedException('Invalid Outlook push webhook token');
+    }
+    if (inboundToken.length !== expectedToken.length) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'outlook_push_webhook_secret_mismatch',
+          requestId: input.requestId,
+          inboundLength: inboundToken.length,
+          expectedLength: expectedToken.length,
+        }),
+      );
+      throw new UnauthorizedException('Invalid Outlook push webhook token');
+    }
+    const matches = timingSafeEqual(
+      Buffer.from(inboundToken),
+      Buffer.from(expectedToken),
+    );
+    if (matches) return;
+    this.logger.warn(
+      serializeStructuredLog({
+        event: 'outlook_push_webhook_secret_mismatch',
+        requestId: input.requestId,
+        inboundLength: inboundToken.length,
+        expectedLength: expectedToken.length,
+      }),
+    );
     throw new UnauthorizedException('Invalid Outlook push webhook token');
   }
 
@@ -85,8 +128,13 @@ export class OutlookSyncWebhookController {
     @Body() body: OutlookWebhookPayload,
     @Query('token') token?: string,
     @Query('providerId') providerId?: string,
+    @Headers('x-request-id') requestIdHeader?: string,
   ) {
-    this.assertWebhookToken(token);
+    const requestId = resolveCorrelationId(requestIdHeader);
+    this.assertWebhookToken({
+      token,
+      requestId,
+    });
     const resolvedProviderId = this.resolveProviderId(providerId, body);
     const resolvedEmailAddress = this.resolveEmailAddress(body);
     if (!resolvedProviderId && !resolvedEmailAddress) {
@@ -100,7 +148,16 @@ export class OutlookSyncWebhookController {
       emailAddress: resolvedEmailAddress,
     });
     this.logger.log(
-      `outlook-push: processed providerId=${resolvedProviderId || 'n/a'} email=${resolvedEmailAddress || 'n/a'} processed=${result.processedProviders} skipped=${result.skippedProviders}`,
+      serializeStructuredLog({
+        event: 'outlook_push_webhook_processed',
+        requestId,
+        providerId: resolvedProviderId || null,
+        accountFingerprint: resolvedEmailAddress
+          ? fingerprintIdentifier(resolvedEmailAddress)
+          : null,
+        processedProviders: result.processedProviders,
+        skippedProviders: result.skippedProviders,
+      }),
     );
     return {
       accepted: true,

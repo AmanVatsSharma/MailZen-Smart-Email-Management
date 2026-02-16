@@ -2,13 +2,20 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Headers,
   HttpCode,
   Logger,
   Post,
   Query,
   UnauthorizedException,
 } from '@nestjs/common';
+import { timingSafeEqual } from 'crypto';
 import { GmailSyncService } from './gmail-sync.service';
+import {
+  fingerprintIdentifier,
+  resolveCorrelationId,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 type GmailPushWebhookEnvelope = {
   message?: {
@@ -28,12 +35,48 @@ export class GmailSyncWebhookController {
 
   constructor(private readonly gmailSyncService: GmailSyncService) {}
 
-  private assertWebhookToken(token?: string): void {
+  private assertWebhookToken(input: {
+    requestId: string;
+    token?: string;
+  }): void {
     const expectedToken = String(
       process.env.GMAIL_PUSH_WEBHOOK_TOKEN || '',
     ).trim();
     if (!expectedToken) return;
-    if (String(token || '').trim() === expectedToken) return;
+    const inboundToken = String(input.token || '').trim();
+    if (!inboundToken) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'gmail_push_webhook_secret_missing',
+          requestId: input.requestId,
+        }),
+      );
+      throw new UnauthorizedException('Invalid Gmail push webhook token');
+    }
+    if (inboundToken.length !== expectedToken.length) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'gmail_push_webhook_secret_mismatch',
+          requestId: input.requestId,
+          inboundLength: inboundToken.length,
+          expectedLength: expectedToken.length,
+        }),
+      );
+      throw new UnauthorizedException('Invalid Gmail push webhook token');
+    }
+    const matches = timingSafeEqual(
+      Buffer.from(inboundToken),
+      Buffer.from(expectedToken),
+    );
+    if (matches) return;
+    this.logger.warn(
+      serializeStructuredLog({
+        event: 'gmail_push_webhook_secret_mismatch',
+        requestId: input.requestId,
+        inboundLength: inboundToken.length,
+        expectedLength: expectedToken.length,
+      }),
+    );
     throw new UnauthorizedException('Invalid Gmail push webhook token');
   }
 
@@ -77,15 +120,29 @@ export class GmailSyncWebhookController {
   async handlePushWebhook(
     @Body() body: GmailPushWebhookEnvelope,
     @Query('token') token?: string,
+    @Headers('x-request-id') requestIdHeader?: string,
   ) {
-    this.assertWebhookToken(token);
+    const requestId = resolveCorrelationId(requestIdHeader);
+    this.assertWebhookToken({
+      token,
+      requestId,
+    });
     const payload = this.decodePushPayload(body);
     const result = await this.gmailSyncService.processPushNotification({
       emailAddress: payload.emailAddress || '',
       historyId: payload.historyId || null,
     });
     this.logger.log(
-      `gmail-push: processed email=${payload.emailAddress} processed=${result.processedProviders} skipped=${result.skippedProviders}`,
+      serializeStructuredLog({
+        event: 'gmail_push_webhook_processed',
+        requestId,
+        accountFingerprint: payload.emailAddress
+          ? fingerprintIdentifier(payload.emailAddress)
+          : null,
+        historyId: payload.historyId || null,
+        processedProviders: result.processedProviders,
+        skippedProviders: result.skippedProviders,
+      }),
     );
     return {
       accepted: true,

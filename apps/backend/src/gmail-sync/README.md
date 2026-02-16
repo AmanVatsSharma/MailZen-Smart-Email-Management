@@ -77,6 +77,10 @@ Scheduler hardening features:
     - validated against `GMAIL_PUSH_WEBHOOK_TOKEN` when configured
   - route resolves matching active Gmail providers by email and triggers
     lease-guarded `processPushNotification` sync path.
+  - structured webhook events:
+    - `gmail_push_webhook_secret_missing`
+    - `gmail_push_webhook_secret_mismatch`
+    - `gmail_push_webhook_processed`
 
 Push tuning env vars:
 

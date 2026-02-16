@@ -74,6 +74,54 @@ describe('GmailSyncWebhookController', () => {
           message: { data: payload },
         },
         'wrong-token',
+        'request-2',
+      ),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(processPushNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it('accepts webhook when query token matches expected value', async () => {
+    process.env.GMAIL_PUSH_WEBHOOK_TOKEN = 'expected-token';
+    processPushNotificationMock.mockResolvedValue({
+      processedProviders: 2,
+      skippedProviders: 1,
+    });
+    const payload = Buffer.from(
+      JSON.stringify({
+        emailAddress: 'founder@mailzen.com',
+        historyId: '200',
+      }),
+      'utf8',
+    ).toString('base64');
+
+    const result = await controller.handlePushWebhook(
+      {
+        message: { data: payload },
+      },
+      'expected-token',
+      'request-3',
+    );
+
+    expect(result.accepted).toBe(true);
+    expect(processPushNotificationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects webhook when same-length token is incorrect', async () => {
+    process.env.GMAIL_PUSH_WEBHOOK_TOKEN = 'secret-12345';
+    const payload = Buffer.from(
+      JSON.stringify({
+        emailAddress: 'founder@mailzen.com',
+      }),
+      'utf8',
+    ).toString('base64');
+
+    await expect(
+      controller.handlePushWebhook(
+        {
+          message: { data: payload },
+        },
+        'secret-12344',
+        'request-4',
       ),
     ).rejects.toThrow(UnauthorizedException);
     expect(processPushNotificationMock).not.toHaveBeenCalled();

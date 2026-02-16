@@ -86,6 +86,43 @@ describe('OutlookSyncWebhookController', () => {
         },
         'bad-token',
         undefined,
+        'request-4',
+      ),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(processPushNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it('accepts webhook when token matches configured value', async () => {
+    process.env.OUTLOOK_PUSH_WEBHOOK_TOKEN = 'expected-token';
+    processPushNotificationMock.mockResolvedValue({
+      processedProviders: 1,
+      skippedProviders: 0,
+    });
+
+    const result = await controller.handlePushWebhook(
+      {
+        providerId: 'provider-2',
+      },
+      'expected-token',
+      undefined,
+      'request-5',
+    );
+
+    expect(result.accepted).toBe(true);
+    expect(processPushNotificationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects webhook when same-length token is incorrect', async () => {
+    process.env.OUTLOOK_PUSH_WEBHOOK_TOKEN = 'secret-12345';
+
+    await expect(
+      controller.handlePushWebhook(
+        {
+          providerId: 'provider-1',
+        },
+        'secret-12344',
+        undefined,
+        'request-6',
       ),
     ).rejects.toThrow(UnauthorizedException);
     expect(processPushNotificationMock).not.toHaveBeenCalled();
