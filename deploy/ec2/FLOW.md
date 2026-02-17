@@ -109,6 +109,7 @@ flowchart TD
   - `rollback-latest.sh --dry-run`
   - `backup-prune.sh --dry-run`
   - `reports-prune.sh --dry-run`
+  - `stop.sh --purge-data --dry-run` (purge rehearsal without destructive confirmation)
 - Periodically run `backup-prune.sh` and `reports-prune.sh` to enforce
   retention.
 - Run `env-audit.sh` whenever secrets/domains are updated.

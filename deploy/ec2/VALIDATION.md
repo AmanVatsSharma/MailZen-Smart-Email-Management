@@ -111,6 +111,9 @@ If any check fails:
 ./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage
 ./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage --docs-include-common
 ./deploy/ec2/scripts/support-bundle.sh --skip-docs-check
+
+# Optional: rehearse destructive stop flow safely (no data deletion)
+./deploy/ec2/scripts/stop.sh --purge-data --dry-run
 ```
 
 ## 5) Pipeline shortcut (config + runtime-smoke chain)
