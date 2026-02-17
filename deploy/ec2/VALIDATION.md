@@ -138,9 +138,15 @@ If any check fails:
 # Update pipeline with optional build/runtime chained validation
 ./deploy/ec2/scripts/update.sh --with-build-check --with-runtime-smoke
 
+# High-level validation profile wrapper (full chain)
+./deploy/ec2/scripts/validate.sh
+
 # Wrapper rehearsal mode for runtime-smoke stage
 ./deploy/ec2/scripts/launch.sh --with-runtime-smoke --runtime-smoke-dry-run --skip-setup --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --preflight-config-only --with-build-check --build-check-dry-run --deploy-dry-run --skip-verify --skip-status
 ./deploy/ec2/scripts/update.sh --with-runtime-smoke --runtime-smoke-dry-run --preflight-config-only --with-build-check --build-check-dry-run --deploy-dry-run --skip-verify --skip-status
+
+# High-level validation profile rehearsal mode
+./deploy/ec2/scripts/validate.sh --dry-run --seed-env
 ```
 
 ## Success criteria

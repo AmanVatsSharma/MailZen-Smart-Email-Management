@@ -91,7 +91,8 @@ show_menu() {
 32) Stop stack (guided)
 33) Runtime smoke checks (container-internal, guided)
 34) Build images check (guided)
-35) Exit
+35) Validation profile runner (guided)
+36) Exit
 ===============================================================================
 MENU
 }
@@ -104,7 +105,7 @@ fi
 
 while true; do
   show_menu
-  read -r -p "Select an option [1-35]: " choice
+  read -r -p "Select an option [1-36]: " choice
 
   case "${choice}" in
   1)
@@ -1118,11 +1119,127 @@ while true; do
     run_step "build-check.sh" "${build_check_args[@]}"
     ;;
   35)
+    validate_args=()
+    validate_dry_run=false
+    validate_skip_verify=false
+    validate_skip_status=false
+    validate_skip_runtime_smoke=false
+    validate_skip_build_check=false
+    if prompt_yes_no "Run validation profile in dry-run mode" "yes"; then
+      validate_dry_run=true
+      validate_args+=(--dry-run)
+    fi
+    if prompt_yes_no "Use seeded env for validation profile run" "no"; then
+      validate_args+=(--seed-env)
+    fi
+    validate_ports="$(prompt_with_default "Custom ports-check targets for validation profile (blank = default)" "")"
+    if [[ -n "${validate_ports}" ]]; then
+      validate_args+=(--ports-check-ports "${validate_ports}")
+    fi
+    if prompt_yes_no "Skip build-check stage in validation profile" "no"; then
+      validate_skip_build_check=true
+      validate_args+=(--skip-build-check)
+    fi
+    verify_default_choice="no"
+    if [[ "${validate_dry_run}" == true ]]; then
+      verify_default_choice="yes"
+    fi
+    if prompt_yes_no "Skip verify stage in validation profile" "${verify_default_choice}"; then
+      validate_skip_verify=true
+      validate_args+=(--skip-verify)
+    else
+      if [[ "${validate_dry_run}" == true ]]; then
+        validate_args+=(--with-verify-in-dry-run)
+      fi
+      validate_verify_retries="$(prompt_with_default "Validation verify max retries (blank = default)" "")"
+      if [[ -n "${validate_verify_retries}" ]]; then
+        if [[ "${validate_verify_retries}" =~ ^[0-9]+$ ]] && [[ "${validate_verify_retries}" -gt 0 ]]; then
+          validate_args+=(--verify-max-retries "${validate_verify_retries}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid validation verify max retries value: ${validate_verify_retries}"
+        fi
+      fi
+      validate_verify_retry_sleep="$(prompt_with_default "Validation verify retry sleep seconds (blank = default)" "")"
+      if [[ -n "${validate_verify_retry_sleep}" ]]; then
+        if [[ "${validate_verify_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${validate_verify_retry_sleep}" -gt 0 ]]; then
+          validate_args+=(--verify-retry-sleep "${validate_verify_retry_sleep}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid validation verify retry sleep value: ${validate_verify_retry_sleep}"
+        fi
+      fi
+      validate_verify_skip_oauth=false
+      if prompt_yes_no "Skip OAuth check in validation verify stage" "no"; then
+        validate_verify_skip_oauth=true
+        validate_args+=(--verify-skip-oauth-check)
+      fi
+      if [[ "${validate_verify_skip_oauth}" == false ]]; then
+        if prompt_yes_no "Require OAuth check in validation verify stage" "no"; then
+          validate_args+=(--verify-require-oauth-check)
+        fi
+      fi
+      if prompt_yes_no "Skip SSL check in validation verify stage" "no"; then
+        validate_args+=(--verify-skip-ssl-check)
+      fi
+    fi
+    if prompt_yes_no "Skip runtime-smoke stage in validation profile" "no"; then
+      validate_skip_runtime_smoke=true
+      validate_args+=(--skip-runtime-smoke)
+    else
+      validate_runtime_smoke_retries="$(prompt_with_default "Validation runtime-smoke max retries (blank = default)" "")"
+      if [[ -n "${validate_runtime_smoke_retries}" ]]; then
+        if [[ "${validate_runtime_smoke_retries}" =~ ^[0-9]+$ ]] && [[ "${validate_runtime_smoke_retries}" -gt 0 ]]; then
+          validate_args+=(--runtime-smoke-max-retries "${validate_runtime_smoke_retries}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid validation runtime-smoke max retries value: ${validate_runtime_smoke_retries}"
+        fi
+      fi
+      validate_runtime_smoke_retry_sleep="$(prompt_with_default "Validation runtime-smoke retry sleep seconds (blank = default)" "")"
+      if [[ -n "${validate_runtime_smoke_retry_sleep}" ]]; then
+        if [[ "${validate_runtime_smoke_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${validate_runtime_smoke_retry_sleep}" -gt 0 ]]; then
+          validate_args+=(--runtime-smoke-retry-sleep "${validate_runtime_smoke_retry_sleep}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid validation runtime-smoke retry sleep value: ${validate_runtime_smoke_retry_sleep}"
+        fi
+      fi
+      if prompt_yes_no "Skip backend dependency check in validation runtime-smoke stage" "no"; then
+        validate_args+=(--runtime-smoke-skip-backend-dependency-check)
+      fi
+      if prompt_yes_no "Skip compose status snapshot in validation runtime-smoke stage" "no"; then
+        validate_args+=(--runtime-smoke-skip-compose-ps)
+      fi
+    fi
+    if prompt_yes_no "Skip status stage in validation profile" "no"; then
+      validate_skip_status=true
+      validate_args+=(--skip-status)
+    else
+      if prompt_yes_no "Disable runtime checks in validation status stage" "no"; then
+        validate_args+=(--status-no-runtime-checks)
+      else
+        if prompt_yes_no "Skip host readiness in validation status runtime checks" "no"; then
+          validate_args+=(--status-skip-host-readiness)
+        fi
+        if prompt_yes_no "Skip DNS check in validation status runtime checks" "no"; then
+          validate_args+=(--status-skip-dns-check)
+        fi
+        if prompt_yes_no "Skip SSL check in validation status runtime checks" "no"; then
+          validate_args+=(--status-skip-ssl-check)
+        fi
+        if prompt_yes_no "Skip ports check in validation status runtime checks" "no"; then
+          validate_args+=(--status-skip-ports-check)
+        fi
+      fi
+      if prompt_yes_no "Enable strict mode in validation status stage" "no"; then
+        validate_args+=(--status-strict)
+      fi
+    fi
+    run_step "validate.sh" "${validate_args[@]}"
+    ;;
+  36)
     echo "[mailzen-deploy][INFO] Exiting menu."
     exit 0
     ;;
   *)
-    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-35."
+    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-36."
     ;;
   esac
 done

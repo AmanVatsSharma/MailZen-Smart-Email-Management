@@ -146,5 +146,7 @@ flowchart TD
 - Use `pipeline-check.sh --with-verify` and `--with-status` when you want
   public endpoint smoke checks and/or status snapshots as part of the same
   pipeline execution.
+- Use `validate.sh` for a high-level one-command profile that orchestrates
+  build/verify/runtime-smoke/status chains with sane dry-run defaults.
 - Run `help.sh` for quick operator command lookup.
 - Use `self-check.sh` after editing deployment scripts.

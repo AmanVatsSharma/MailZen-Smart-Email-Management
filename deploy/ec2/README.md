@@ -43,6 +43,7 @@ Additional deployment flowcharts:
   - `support-bundle.sh` (collect support-ready diagnostics archive)
   - `rotate-app-secrets.sh` (rotate JWT/OAuth/platform secrets)
   - `pipeline-check.sh` (CI validation sequence with optional build-check/verify/runtime-smoke/status chaining)
+  - `validate.sh` (high-level validation profile wrapper over pipeline-check)
   - `reports-prune.sh` (report/support bundle retention cleanup)
   - `help.sh` (command reference quick guide)
   - `self-check.sh` (validate deployment script integrity)
@@ -503,6 +504,15 @@ Example:
 
 # Run pipeline checks plus status checks
 ./deploy/ec2/scripts/pipeline-check.sh --with-status --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
+
+# Run high-level validation profile (full readiness chain)
+./deploy/ec2/scripts/validate.sh
+
+# Run high-level validation profile in dry-run rehearsal mode
+./deploy/ec2/scripts/validate.sh --dry-run
+
+# Run high-level validation profile in dry-run with seeded env and custom ports
+./deploy/ec2/scripts/validate.sh --dry-run --seed-env --ports-check-ports 80,443,8100
 
 # Show command quick-reference
 ./deploy/ec2/scripts/help.sh

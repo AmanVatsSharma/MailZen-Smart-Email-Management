@@ -30,6 +30,7 @@ scripts=(
   "doctor.sh"
   "support-bundle.sh"
   "pipeline-check.sh"
+  "validate.sh"
   "reports-prune.sh"
   "help.sh"
   "self-check.sh"

@@ -137,6 +137,11 @@ Diagnostics:
   ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke --runtime-smoke-dry-run
   ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke --runtime-smoke-max-retries 15 --runtime-smoke-retry-sleep 4
   ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps
+  ./deploy/ec2/scripts/validate.sh
+  ./deploy/ec2/scripts/validate.sh --dry-run
+  ./deploy/ec2/scripts/validate.sh --dry-run --seed-env --ports-check-ports 80,443,8100
+  ./deploy/ec2/scripts/validate.sh --with-verify-in-dry-run --verify-skip-oauth-check --verify-skip-ssl-check
+  ./deploy/ec2/scripts/validate.sh --skip-runtime-smoke --skip-status
   ./deploy/ec2/scripts/reports-prune.sh --keep-count 50 --dry-run
   ./deploy/ec2/scripts/reports-prune.sh 20
   ./deploy/ec2/scripts/self-check.sh
