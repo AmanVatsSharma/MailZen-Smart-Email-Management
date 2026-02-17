@@ -6,6 +6,7 @@ on an EC2 instance using Docker Compose, a public domain, and HTTPS.
 Additional deployment flowcharts:
 
 - `deploy/ec2/FLOW.md`
+- `deploy/ec2/VALIDATION.md` (step-by-step validation runbook)
 
 ## What this module includes
 

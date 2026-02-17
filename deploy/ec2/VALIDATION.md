@@ -1,0 +1,106 @@
+# MailZen EC2 Validation Runbook
+
+This runbook maps directly to deployment readiness checks and gives operators a
+repeatable command sequence to confirm the stack is healthy.
+
+## Validation flow
+
+```mermaid
+flowchart TD
+  A[Run setup + preflight] --> B[Validate compose config]
+  B --> C[Deploy or update stack]
+  C --> D[Public smoke checks verify.sh]
+  D --> E[Container-internal smoke checks runtime-smoke.sh]
+  E --> F[Status + logs triage]
+  F --> G{All checks pass?}
+  G -- no --> H[Fix config/runtime and redeploy]
+  H --> D
+  G -- yes --> I[Deployment validated]
+```
+
+## 1) Config and build validation
+
+Run from repository root:
+
+```bash
+# Baseline script integrity
+./deploy/ec2/scripts/self-check.sh
+
+# Env + compose structure validation
+./deploy/ec2/scripts/preflight.sh
+
+# Optional: config-only validation when daemon is unavailable
+./deploy/ec2/scripts/preflight.sh --config-only
+
+# Optional CI chain (seeded env + config checks)
+./deploy/ec2/scripts/pipeline-check.sh --seed-env
+```
+
+## 2) Runtime validation (service-level)
+
+After deployment (`deploy.sh` or `update.sh`), run:
+
+```bash
+# Public endpoint smoke checks (HTTPS/domain path)
+./deploy/ec2/scripts/verify.sh
+
+# Container-internal smoke checks (independent of public DNS/TLS)
+./deploy/ec2/scripts/runtime-smoke.sh
+```
+
+Useful runtime variants:
+
+```bash
+# Tune retries for slower cold starts
+./deploy/ec2/scripts/runtime-smoke.sh --max-retries 15 --retry-sleep 4
+
+# Rehearse runtime-smoke command path without executing checks
+./deploy/ec2/scripts/runtime-smoke.sh --dry-run
+```
+
+## 3) Basic app-journey validation
+
+Use both public and container-internal probes:
+
+1. `verify.sh` confirms:
+   - frontend home responds over HTTPS
+   - GraphQL endpoint responds over HTTPS
+   - GraphQL POST responds
+2. `runtime-smoke.sh` confirms:
+   - frontend container serves `/`
+   - backend serves GraphQL GET + POST
+   - AI platform serves `/health`
+   - backend can reach postgres + redis over compose network
+
+## 4) Diagnostics and triage
+
+If any check fails:
+
+```bash
+./deploy/ec2/scripts/status.sh
+./deploy/ec2/scripts/logs.sh --service backend --tail 500 --no-follow
+./deploy/ec2/scripts/logs.sh --service frontend --tail 500 --no-follow
+./deploy/ec2/scripts/logs.sh --service ai-agent-platform --tail 500 --no-follow
+./deploy/ec2/scripts/doctor.sh
+./deploy/ec2/scripts/support-bundle.sh
+```
+
+## 5) Pipeline shortcut (config + runtime-smoke chain)
+
+```bash
+# Config checks + runtime smoke rehearsal
+./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke --runtime-smoke-dry-run
+
+# Config checks + live runtime-smoke checks
+./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke
+```
+
+## Success criteria
+
+Deployment can be considered validated when:
+
+- `self-check.sh`, `preflight.sh`, and `pipeline-check.sh` pass.
+- `verify.sh` passes for domain HTTPS checks.
+- `runtime-smoke.sh` passes for container-internal checks.
+- `status.sh` shows expected running/healthy services.
+- No unresolved critical errors remain in service logs.
