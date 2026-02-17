@@ -435,6 +435,12 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: print deployment command quick-reference
 ./deploy/ec2/scripts/help.sh
 
+# Optional: validate docs-to-script consistency
+./deploy/ec2/scripts/docs-check.sh
+
+# Optional: fail when any deployment script is not referenced in docs
+./deploy/ec2/scripts/docs-check.sh --strict-coverage
+
 # 3) Build and run the stack
 ./deploy/ec2/scripts/deploy.sh
 

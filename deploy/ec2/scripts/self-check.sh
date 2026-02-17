@@ -33,6 +33,7 @@ scripts=(
   "validate.sh"
   "reports-prune.sh"
   "help.sh"
+  "docs-check.sh"
   "self-check.sh"
   "status.sh"
   "runtime-smoke.sh"

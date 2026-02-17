@@ -81,7 +81,7 @@ show_menu() {
 22) Run pipeline check (optional build/verify/runtime-smoke/status + custom ports)
 23) Prune old diagnostics reports (keep latest 20)
 24) Show command help
-25) Run script self-check
+25) Run script self-check + docs consistency check
 26) Launch config-only dry-run validation + build-check rehearsal (skip status)
 27) Verify deployment (skip oauth + ssl checks)
 28) Run diagnostics report (doctor, seeded env, optional custom ports)
@@ -867,6 +867,18 @@ while true; do
     ;;
   25)
     run_step "self-check.sh"
+    docs_check_args=()
+    docs_check_strict=false
+    if prompt_yes_no "Enable strict docs coverage check (all scripts must be referenced in docs)" "no"; then
+      docs_check_strict=true
+      docs_check_args+=(--strict-coverage)
+    fi
+    if [[ "${docs_check_strict}" == true ]]; then
+      if prompt_yes_no "Include common.sh in strict docs coverage check" "no"; then
+        docs_check_args+=(--include-common)
+      fi
+    fi
+    run_step "docs-check.sh" "${docs_check_args[@]}"
     ;;
   26)
     run_step "launch.sh" --skip-setup --skip-dns-check --skip-ssl-check --preflight-config-only --with-build-check --build-check-dry-run --deploy-dry-run --skip-verify --skip-status

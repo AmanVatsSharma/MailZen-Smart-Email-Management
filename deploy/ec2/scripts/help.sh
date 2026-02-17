@@ -142,6 +142,8 @@ Diagnostics:
   ./deploy/ec2/scripts/validate.sh --dry-run --seed-env --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/validate.sh --with-verify-in-dry-run --verify-skip-oauth-check --verify-skip-ssl-check
   ./deploy/ec2/scripts/validate.sh --skip-runtime-smoke --skip-status
+  ./deploy/ec2/scripts/docs-check.sh
+  ./deploy/ec2/scripts/docs-check.sh --strict-coverage
   ./deploy/ec2/scripts/reports-prune.sh --keep-count 50 --dry-run
   ./deploy/ec2/scripts/reports-prune.sh 20
   ./deploy/ec2/scripts/self-check.sh

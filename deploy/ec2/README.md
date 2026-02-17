@@ -44,6 +44,7 @@ Additional deployment flowcharts:
   - `rotate-app-secrets.sh` (rotate JWT/OAuth/platform secrets)
   - `pipeline-check.sh` (CI validation sequence with optional build-check/verify/runtime-smoke/status chaining)
   - `validate.sh` (high-level validation profile wrapper over pipeline-check)
+  - `docs-check.sh` (docs-to-script consistency checks)
   - `reports-prune.sh` (report/support bundle retention cleanup)
   - `help.sh` (command reference quick guide)
   - `self-check.sh` (validate deployment script integrity)
@@ -516,6 +517,12 @@ Example:
 
 # Show command quick-reference
 ./deploy/ec2/scripts/help.sh
+
+# Validate docs-to-script consistency
+./deploy/ec2/scripts/docs-check.sh
+
+# Fail when any deployment script is not referenced in docs
+./deploy/ec2/scripts/docs-check.sh --strict-coverage
 
 # Validate deployment scripts syntax/executable state
 ./deploy/ec2/scripts/self-check.sh

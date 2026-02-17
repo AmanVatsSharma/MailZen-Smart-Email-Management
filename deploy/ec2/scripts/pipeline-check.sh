@@ -368,6 +368,7 @@ if [[ "${RUN_STATUS}" == true ]]; then
 fi
 
 "${SCRIPT_DIR}/self-check.sh"
+"${SCRIPT_DIR}/docs-check.sh"
 "${SCRIPT_DIR}/env-audit.sh"
 "${SCRIPT_DIR}/preflight.sh" --config-only
 "${SCRIPT_DIR}/host-readiness.sh" --min-disk-gb 1 --min-memory-mb 256 --min-cpu-cores 1

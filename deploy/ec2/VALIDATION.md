@@ -26,6 +26,9 @@ Run from repository root:
 # Baseline script integrity
 ./deploy/ec2/scripts/self-check.sh
 
+# Docs-to-script consistency
+./deploy/ec2/scripts/docs-check.sh
+
 # Env + compose structure validation
 ./deploy/ec2/scripts/preflight.sh
 

@@ -148,5 +148,8 @@ flowchart TD
   pipeline execution.
 - Use `validate.sh` for a high-level one-command profile that orchestrates
   build/verify/runtime-smoke/status chains with sane dry-run defaults.
+- Run `docs-check.sh` after doc/script updates to ensure docs reference valid
+  script paths and to catch drift (`--strict-coverage` for full coverage
+  enforcement).
 - Run `help.sh` for quick operator command lookup.
 - Use `self-check.sh` after editing deployment scripts.
