@@ -20,6 +20,7 @@ POSITIONAL_SERVICE=""
 POSITIONAL_SERVICE_SET=false
 SERVICE_FLAG_SET=false
 SERVICE_FLAG_VALUE=""
+DRY_RUN_FLAG_SET=false
 WAIT_SECONDS_FLAG_SET=false
 WAIT_SECONDS_FLAG_VALUE=""
 
@@ -53,7 +54,11 @@ while [[ $# -gt 0 ]]; do
     shift 2
     ;;
   --dry-run)
+    if [[ "${DRY_RUN_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --dry-run flag detected; keeping --dry-run enabled."
+    fi
     DRY_RUN=true
+    DRY_RUN_FLAG_SET=true
     shift
     ;;
   --wait-seconds)
@@ -100,24 +105,22 @@ if [[ "${DRY_RUN}" == false ]]; then
   fi
 fi
 
+restart_args=()
 if [[ -n "${SERVICE_NAME}" ]]; then
-  if [[ "${DRY_RUN}" == true ]]; then
-    log_info "Dry-run: docker compose restart ${SERVICE_NAME}"
-  else
-    compose restart "${SERVICE_NAME}"
-    log_info "Restarted service: ${SERVICE_NAME}"
-  fi
-else
-  if [[ "${DRY_RUN}" == true ]]; then
-    log_info "Dry-run: docker compose restart (all services)"
-  else
-    compose restart
-    log_info "Restarted all services."
-  fi
+  restart_args+=("${SERVICE_NAME}")
 fi
 
+log_info "Command preview: $(format_command_for_logs docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" restart "${restart_args[@]}")"
 if [[ "${DRY_RUN}" == true ]]; then
+  log_info "Dry-run enabled; command not executed."
   exit 0
+fi
+
+compose restart "${restart_args[@]}"
+if [[ -n "${SERVICE_NAME}" ]]; then
+  log_info "Restarted service: ${SERVICE_NAME}"
+else
+  log_info "Restarted all services."
 fi
 
 if [[ "${WAIT_SECONDS}" -gt 0 ]]; then

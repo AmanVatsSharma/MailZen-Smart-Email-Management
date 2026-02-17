@@ -29,6 +29,7 @@ TAIL_FLAG_SET=false
 TAIL_FLAG_VALUE=""
 SINCE_FLAG_SET=false
 SINCE_FLAG_VALUE=""
+NO_FOLLOW_FLAG_SET=false
 
 # Backward-compatible positional arguments:
 #   logs.sh [service] [tail]
@@ -96,7 +97,11 @@ while [[ $# -gt 0 ]]; do
     shift 2
     ;;
   --no-follow)
+    if [[ "${NO_FOLLOW_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --no-follow flag detected; log streaming already disabled."
+    fi
     FOLLOW=false
+    NO_FOLLOW_FLAG_SET=true
     shift
     ;;
   *)
@@ -122,17 +127,24 @@ ensure_required_files_exist
 log_info "Active env file: $(get_env_file)"
 log_info "Active compose file: $(get_compose_file)"
 
-if ! docker info >/dev/null 2>&1; then
-  log_error "Docker daemon is not reachable. Start Docker and retry."
-  exit 1
-fi
-
 log_args=(--tail "${TAIL_LINES}")
 if [[ -n "${SINCE_WINDOW}" ]]; then
   log_args+=(--since "${SINCE_WINDOW}")
 fi
 if [[ "${FOLLOW}" == true ]]; then
   log_args+=(-f)
+fi
+
+log_command_args=(docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" logs "${log_args[@]}")
+if [[ -n "${SERVICE_NAME}" ]]; then
+  log_command_args+=("${SERVICE_NAME}")
+fi
+
+log_info "Command preview: $(format_command_for_logs "${log_command_args[@]}")"
+
+if ! docker info >/dev/null 2>&1; then
+  log_error "Docker daemon is not reachable. Start Docker and retry."
+  exit 1
 fi
 
 if [[ -n "${SERVICE_NAME}" ]]; then
