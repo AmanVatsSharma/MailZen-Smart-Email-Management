@@ -44,16 +44,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+assert_ports_csv_value "--ports" "${PORTS_RAW}" || exit 1
+
 IFS=',' read -r -a parsed_ports <<<"${PORTS_RAW}"
 declare -A seen_ports=()
 for raw_port in "${parsed_ports[@]}"; do
   port="$(printf '%s' "${raw_port}" | tr -d '[:space:]')"
   if [[ -z "${port}" ]]; then
     continue
-  fi
-  if [[ ! "${port}" =~ ^[0-9]+$ ]] || [[ "${port}" -lt 1 ]] || [[ "${port}" -gt 65535 ]]; then
-    log_error "Invalid port in --ports: ${port} (must be integer 1..65535)"
-    exit 1
   fi
   if [[ -z "${seen_ports[${port}]:-}" ]]; then
     PORTS+=("${port}")
