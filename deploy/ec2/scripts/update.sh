@@ -28,6 +28,8 @@
 #   --build-check-pull
 #   --build-check-no-cache
 #   --build-check-skip-config-check
+#   --build-check-with-image-pull-check
+#   --build-check-image-service <name> (repeatable)
 #   --build-check-service <name> (repeatable)
 #   --preflight-config-only
 #   --deploy-dry-run
@@ -65,6 +67,7 @@ BUILD_CHECK_DRY_RUN=false
 BUILD_CHECK_PULL=false
 BUILD_CHECK_NO_CACHE=false
 BUILD_CHECK_SKIP_CONFIG_CHECK=false
+BUILD_CHECK_WITH_IMAGE_PULL_CHECK=false
 STATUS_RUNTIME_CHECKS=false
 STATUS_STRICT=false
 STATUS_SKIP_HOST_READINESS=false
@@ -83,6 +86,7 @@ RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE=""
 RUNTIME_SMOKE_RETRY_SLEEP_FLAG_SET=false
 RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE=""
 BUILD_CHECK_SERVICE_ARGS=()
+BUILD_CHECK_IMAGE_SERVICE_ARGS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -190,6 +194,19 @@ while [[ $# -gt 0 ]]; do
     BUILD_CHECK_SKIP_CONFIG_CHECK=true
     shift
     ;;
+  --build-check-with-image-pull-check)
+    BUILD_CHECK_WITH_IMAGE_PULL_CHECK=true
+    shift
+    ;;
+  --build-check-image-service)
+    build_check_image_service_arg="${2:-}"
+    if [[ -z "${build_check_image_service_arg}" ]]; then
+      log_error "--build-check-image-service requires a value."
+      exit 1
+    fi
+    BUILD_CHECK_IMAGE_SERVICE_ARGS+=(--image-service "${build_check_image_service_arg}")
+    shift 2
+    ;;
   --build-check-service)
     build_check_service_arg="${2:-}"
     if [[ -z "${build_check_service_arg}" ]]; then
@@ -251,7 +268,7 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --skip-verify --with-build-check --with-runtime-smoke --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --build-check-dry-run --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-service <name> --preflight-config-only --deploy-dry-run --skip-status --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...>"
+    log_error "Supported flags: --skip-verify --with-build-check --with-runtime-smoke --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --build-check-dry-run --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-with-image-pull-check --build-check-image-service <name> --build-check-service <name> --preflight-config-only --deploy-dry-run --skip-status --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...>"
     exit 1
     ;;
   esac
@@ -295,7 +312,7 @@ if [[ "${RUN_RUNTIME_SMOKE}" == true ]] && [[ "${DEPLOY_DRY_RUN}" == true ]]; th
   log_warn "Runtime-smoke step will be skipped because deploy runs with --deploy-dry-run."
 fi
 if [[ "${RUN_BUILD_CHECK}" == false ]] &&
-  { [[ "${BUILD_CHECK_DRY_RUN}" == true ]] || [[ "${BUILD_CHECK_PULL}" == true ]] || [[ "${BUILD_CHECK_NO_CACHE}" == true ]] || [[ "${BUILD_CHECK_SKIP_CONFIG_CHECK}" == true ]] || [[ "${#BUILD_CHECK_SERVICE_ARGS[@]}" -gt 0 ]]; }; then
+  { [[ "${BUILD_CHECK_DRY_RUN}" == true ]] || [[ "${BUILD_CHECK_PULL}" == true ]] || [[ "${BUILD_CHECK_NO_CACHE}" == true ]] || [[ "${BUILD_CHECK_SKIP_CONFIG_CHECK}" == true ]] || [[ "${BUILD_CHECK_WITH_IMAGE_PULL_CHECK}" == true ]] || [[ "${#BUILD_CHECK_SERVICE_ARGS[@]}" -gt 0 ]] || [[ "${#BUILD_CHECK_IMAGE_SERVICE_ARGS[@]}" -gt 0 ]]; }; then
   log_warn "Build-check-related flags were provided without --with-build-check; build-check flags will be ignored."
 fi
 if [[ "${RUN_STATUS}" == false ]] &&
@@ -343,8 +360,14 @@ if [[ "${RUN_BUILD_CHECK}" == true ]]; then
   if [[ "${BUILD_CHECK_SKIP_CONFIG_CHECK}" == true ]]; then
     build_check_args+=(--skip-config-check)
   fi
+  if [[ "${BUILD_CHECK_WITH_IMAGE_PULL_CHECK}" == true ]]; then
+    build_check_args+=(--with-image-pull-check)
+  fi
   if [[ "${#BUILD_CHECK_SERVICE_ARGS[@]}" -gt 0 ]]; then
     build_check_args+=("${BUILD_CHECK_SERVICE_ARGS[@]}")
+  fi
+  if [[ "${#BUILD_CHECK_IMAGE_SERVICE_ARGS[@]}" -gt 0 ]]; then
+    build_check_args+=("${BUILD_CHECK_IMAGE_SERVICE_ARGS[@]}")
   fi
   "${SCRIPT_DIR}/build-check.sh" "${build_check_args[@]}"
 fi

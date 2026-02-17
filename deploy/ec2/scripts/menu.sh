@@ -155,6 +155,19 @@ while true; do
       if prompt_yes_no "Pull newer base images during build-check" "no"; then
         launch_args+=(--build-check-pull)
       fi
+      if prompt_yes_no "Run image pull-check for image-only services during build-check" "no"; then
+        launch_args+=(--build-check-with-image-pull-check)
+        launch_build_image_services="$(prompt_with_default "Image pull-check services (comma-separated: caddy,postgres,redis; blank = all image services)" "")"
+        if [[ -n "${launch_build_image_services}" ]]; then
+          IFS=',' read -r -a launch_build_image_services_array <<<"${launch_build_image_services}"
+          for launch_build_image_service in "${launch_build_image_services_array[@]}"; do
+            launch_build_image_service_trimmed="$(echo "${launch_build_image_service}" | tr -d '[:space:]')"
+            if [[ -n "${launch_build_image_service_trimmed}" ]]; then
+              launch_args+=(--build-check-image-service "${launch_build_image_service_trimmed}")
+            fi
+          done
+        fi
+      fi
       if prompt_yes_no "Disable Docker build cache during build-check" "no"; then
         launch_args+=(--build-check-no-cache)
       fi
@@ -483,6 +496,19 @@ while true; do
       if prompt_yes_no "Pull newer base images during build-check" "no"; then
         update_args+=(--build-check-pull)
       fi
+      if prompt_yes_no "Run image pull-check for image-only services during build-check" "no"; then
+        update_args+=(--build-check-with-image-pull-check)
+        update_build_image_services="$(prompt_with_default "Image pull-check services (comma-separated: caddy,postgres,redis; blank = all image services)" "")"
+        if [[ -n "${update_build_image_services}" ]]; then
+          IFS=',' read -r -a update_build_image_services_array <<<"${update_build_image_services}"
+          for update_build_image_service in "${update_build_image_services_array[@]}"; do
+            update_build_image_service_trimmed="$(echo "${update_build_image_service}" | tr -d '[:space:]')"
+            if [[ -n "${update_build_image_service_trimmed}" ]]; then
+              update_args+=(--build-check-image-service "${update_build_image_service_trimmed}")
+            fi
+          done
+        fi
+      fi
       if prompt_yes_no "Disable Docker build cache during build-check" "no"; then
         update_args+=(--build-check-no-cache)
       fi
@@ -715,6 +741,19 @@ while true; do
       if prompt_yes_no "Pull newer base images during pipeline build checks" "no"; then
         pipeline_check_args+=(--build-check-pull)
       fi
+      if prompt_yes_no "Run image pull-check for image-only services during pipeline build checks" "no"; then
+        pipeline_check_args+=(--build-check-with-image-pull-check)
+        pipeline_build_image_services="$(prompt_with_default "Image pull-check services (comma-separated: caddy,postgres,redis; blank = all image services)" "")"
+        if [[ -n "${pipeline_build_image_services}" ]]; then
+          IFS=',' read -r -a pipeline_build_image_services_array <<<"${pipeline_build_image_services}"
+          for pipeline_build_image_service in "${pipeline_build_image_services_array[@]}"; do
+            pipeline_build_image_service_trimmed="$(echo "${pipeline_build_image_service}" | tr -d '[:space:]')"
+            if [[ -n "${pipeline_build_image_service_trimmed}" ]]; then
+              pipeline_check_args+=(--build-check-image-service "${pipeline_build_image_service_trimmed}")
+            fi
+          done
+        fi
+      fi
       if prompt_yes_no "Disable Docker build cache during pipeline build checks" "no"; then
         pipeline_check_args+=(--build-check-no-cache)
       fi
@@ -811,6 +850,19 @@ while true; do
       fi
       if prompt_yes_no "Pull newer base images during seeded pipeline build checks" "no"; then
         pipeline_seeded_args+=(--build-check-pull)
+      fi
+      if prompt_yes_no "Run image pull-check for image-only services during seeded pipeline build checks" "no"; then
+        pipeline_seeded_args+=(--build-check-with-image-pull-check)
+        pipeline_seeded_build_image_services="$(prompt_with_default "Image pull-check services (comma-separated: caddy,postgres,redis; blank = all image services)" "")"
+        if [[ -n "${pipeline_seeded_build_image_services}" ]]; then
+          IFS=',' read -r -a pipeline_seeded_build_image_services_array <<<"${pipeline_seeded_build_image_services}"
+          for pipeline_seeded_build_image_service in "${pipeline_seeded_build_image_services_array[@]}"; do
+            pipeline_seeded_build_image_service_trimmed="$(echo "${pipeline_seeded_build_image_service}" | tr -d '[:space:]')"
+            if [[ -n "${pipeline_seeded_build_image_service_trimmed}" ]]; then
+              pipeline_seeded_args+=(--build-check-image-service "${pipeline_seeded_build_image_service_trimmed}")
+            fi
+          done
+        fi
       fi
       if prompt_yes_no "Disable Docker build cache during seeded pipeline build checks" "no"; then
         pipeline_seeded_args+=(--build-check-no-cache)

@@ -15,6 +15,7 @@
 #   ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps
 #   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-dry-run
 #   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-service backend --build-check-service frontend --build-check-pull
+#   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-with-image-pull-check --build-check-image-service caddy --build-check-image-service postgres --build-check-dry-run
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -42,8 +43,11 @@ BUILD_CHECK_DRY_RUN=false
 BUILD_CHECK_PULL=false
 BUILD_CHECK_NO_CACHE=false
 BUILD_CHECK_SKIP_CONFIG_CHECK=false
+BUILD_CHECK_WITH_IMAGE_PULL_CHECK=false
 BUILD_CHECK_SERVICE_FLAGS_SET=false
+BUILD_CHECK_IMAGE_SERVICE_FLAGS_SET=false
 BUILD_CHECK_SERVICE_ARGS=()
+BUILD_CHECK_IMAGE_SERVICE_ARGS=()
 
 cleanup() {
   if [[ -n "${SEEDED_ENV_FILE}" ]] && [[ "${KEEP_SEEDED_ENV}" == false ]] && [[ -f "${SEEDED_ENV_FILE}" ]]; then
@@ -141,6 +145,10 @@ while [[ $# -gt 0 ]]; do
     BUILD_CHECK_SKIP_CONFIG_CHECK=true
     shift
     ;;
+  --build-check-with-image-pull-check)
+    BUILD_CHECK_WITH_IMAGE_PULL_CHECK=true
+    shift
+    ;;
   --build-check-service)
     build_check_service_arg="${2:-}"
     if [[ -z "${build_check_service_arg}" ]]; then
@@ -151,9 +159,19 @@ while [[ $# -gt 0 ]]; do
     BUILD_CHECK_SERVICE_FLAGS_SET=true
     shift 2
     ;;
+  --build-check-image-service)
+    build_check_image_service_arg="${2:-}"
+    if [[ -z "${build_check_image_service_arg}" ]]; then
+      echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] --build-check-image-service requires a value."
+      exit 1
+    fi
+    BUILD_CHECK_IMAGE_SERVICE_ARGS+=("--image-service" "${build_check_image_service_arg}")
+    BUILD_CHECK_IMAGE_SERVICE_FLAGS_SET=true
+    shift 2
+    ;;
   *)
     echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] Unknown argument: $1"
-    echo "[mailzen-deploy][PIPELINE-CHECK][INFO] Supported flags: --seed-env --keep-seeded-env --ports-check-ports <p1,p2,...> --with-build-check --build-check-dry-run --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-service <name> --with-runtime-smoke --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --runtime-smoke-dry-run"
+    echo "[mailzen-deploy][PIPELINE-CHECK][INFO] Supported flags: --seed-env --keep-seeded-env --ports-check-ports <p1,p2,...> --with-build-check --build-check-dry-run --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-with-image-pull-check --build-check-service <name> --build-check-image-service <name> --with-runtime-smoke --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --runtime-smoke-dry-run"
     exit 1
     ;;
   esac
@@ -178,7 +196,9 @@ if [[ "${RUN_BUILD_CHECK}" == false ]] &&
     [[ "${BUILD_CHECK_PULL}" == true ]] ||
     [[ "${BUILD_CHECK_NO_CACHE}" == true ]] ||
     [[ "${BUILD_CHECK_SKIP_CONFIG_CHECK}" == true ]] ||
-    [[ "${BUILD_CHECK_SERVICE_FLAGS_SET}" == true ]]; }; then
+    [[ "${BUILD_CHECK_WITH_IMAGE_PULL_CHECK}" == true ]] ||
+    [[ "${BUILD_CHECK_SERVICE_FLAGS_SET}" == true ]] ||
+    [[ "${BUILD_CHECK_IMAGE_SERVICE_FLAGS_SET}" == true ]]; }; then
   echo "[mailzen-deploy][PIPELINE-CHECK][WARN] Build-check-specific flags were provided without --with-build-check; they will be ignored."
 fi
 
@@ -234,8 +254,14 @@ if [[ "${RUN_BUILD_CHECK}" == true ]]; then
   if [[ "${BUILD_CHECK_SKIP_CONFIG_CHECK}" == true ]]; then
     build_check_args+=(--skip-config-check)
   fi
+  if [[ "${BUILD_CHECK_WITH_IMAGE_PULL_CHECK}" == true ]]; then
+    build_check_args+=(--with-image-pull-check)
+  fi
   if [[ "${BUILD_CHECK_SERVICE_FLAGS_SET}" == true ]]; then
     build_check_args+=("${BUILD_CHECK_SERVICE_ARGS[@]}")
+  fi
+  if [[ "${BUILD_CHECK_IMAGE_SERVICE_FLAGS_SET}" == true ]]; then
+    build_check_args+=("${BUILD_CHECK_IMAGE_SERVICE_ARGS[@]}")
   fi
   echo "[mailzen-deploy][PIPELINE-CHECK] running build checks..."
   "${SCRIPT_DIR}/build-check.sh" "${build_check_args[@]}"

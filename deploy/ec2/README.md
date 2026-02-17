@@ -166,6 +166,14 @@ From repository root:
   --build-check-service frontend \
   --build-check-pull
 
+# Launch with build-check image pull-check rehearsal for image-only services
+./deploy/ec2/scripts/launch.sh \
+  --with-build-check \
+  --build-check-with-image-pull-check \
+  --build-check-image-service caddy \
+  --build-check-image-service postgres \
+  --build-check-dry-run
+
 # Launch with runtime-smoke chaining after deploy/verify
 ./deploy/ec2/scripts/launch.sh \
   --with-runtime-smoke \
@@ -300,6 +308,14 @@ Example:
   --build-check-service backend \
   --build-check-service frontend \
   --build-check-pull
+
+# Update with build-check image pull-check rehearsal for image-only services
+./deploy/ec2/scripts/update.sh \
+  --with-build-check \
+  --build-check-with-image-pull-check \
+  --build-check-image-service caddy \
+  --build-check-image-service postgres \
+  --build-check-dry-run
 
 # Update with runtime-smoke chaining after deploy/verify
 ./deploy/ec2/scripts/update.sh \
@@ -458,6 +474,14 @@ Example:
   --build-check-service backend \
   --build-check-service frontend \
   --build-check-pull
+
+# Run pipeline checks plus build-check image pull-check rehearsal
+./deploy/ec2/scripts/pipeline-check.sh \
+  --with-build-check \
+  --build-check-with-image-pull-check \
+  --build-check-image-service caddy \
+  --build-check-image-service postgres \
+  --build-check-dry-run
 
 # Run pipeline checks plus runtime smoke checks (dry-run)
 ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke --runtime-smoke-dry-run

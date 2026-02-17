@@ -81,6 +81,9 @@ flowchart TD
   (especially on new hosts/base-image changes).
 - Include image-only service pull validation when needed:
   - `build-check.sh --with-image-pull-check --dry-run`
+  - `launch.sh --with-build-check --build-check-with-image-pull-check --build-check-dry-run`
+  - `update.sh --with-build-check --build-check-with-image-pull-check --build-check-dry-run`
+  - `pipeline-check.sh --with-build-check --build-check-with-image-pull-check --build-check-dry-run`
 - Prefer `verify.sh` immediately after deploy/update.
 - Prefer `runtime-smoke.sh` after deploy/update to validate container-internal service/runtime dependency health.
 - For one-command wrappers, use optional chaining:

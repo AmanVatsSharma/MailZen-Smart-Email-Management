@@ -41,6 +41,11 @@ Run from repository root:
 # Optional: build + image pull-check rehearsal for image-only services
 ./deploy/ec2/scripts/build-check.sh --with-image-pull-check --dry-run
 
+# Optional: chained launch/update/pipeline build-check image pull-check rehearsal
+./deploy/ec2/scripts/launch.sh --with-build-check --build-check-with-image-pull-check --build-check-dry-run --skip-setup --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --preflight-config-only --deploy-dry-run --skip-verify --skip-status
+./deploy/ec2/scripts/update.sh --with-build-check --build-check-with-image-pull-check --build-check-dry-run --preflight-config-only --deploy-dry-run --skip-verify --skip-status
+./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-with-image-pull-check --build-check-dry-run
+
 # Optional CI chain (seeded env + config checks)
 ./deploy/ec2/scripts/pipeline-check.sh --seed-env
 ```
