@@ -198,16 +198,19 @@ fi
 if [[ "${WITH_RUNTIME_CHECKS}" == true ]]; then
   log_info "Running runtime checks from status script..."
   if [[ "${RUN_HOST_READINESS}" == true ]]; then
+    log_info "Command preview: $(format_command_for_logs "${SCRIPT_DIR}/host-readiness.sh")"
     "${SCRIPT_DIR}/host-readiness.sh"
   else
     log_warn "Skipping host-readiness check (--skip-host-readiness)."
   fi
   if [[ "${RUN_DNS_CHECK}" == true ]]; then
+    log_info "Command preview: $(format_command_for_logs "${SCRIPT_DIR}/dns-check.sh")"
     "${SCRIPT_DIR}/dns-check.sh"
   else
     log_warn "Skipping DNS check (--skip-dns-check)."
   fi
   if [[ "${RUN_SSL_CHECK}" == true ]]; then
+    log_info "Command preview: $(format_command_for_logs "${SCRIPT_DIR}/ssl-check.sh")"
     "${SCRIPT_DIR}/ssl-check.sh"
   else
     log_warn "Skipping SSL check (--skip-ssl-check)."
