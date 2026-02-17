@@ -37,8 +37,12 @@ while [[ $# -gt 0 ]]; do
       log_error "--min-disk-gb requires a value."
       exit 1
     fi
-    if [[ "${MIN_DISK_FLAG_SET}" == true ]] && [[ "${min_disk_arg}" != "${MIN_DISK_FLAG_VALUE}" ]]; then
-      log_warn "Earlier --min-disk-gb '${MIN_DISK_FLAG_VALUE}' overridden by --min-disk-gb '${min_disk_arg}'."
+    if [[ "${MIN_DISK_FLAG_SET}" == true ]]; then
+      if [[ "${min_disk_arg}" != "${MIN_DISK_FLAG_VALUE}" ]]; then
+        log_warn "Earlier --min-disk-gb '${MIN_DISK_FLAG_VALUE}' overridden by --min-disk-gb '${min_disk_arg}'."
+      else
+        log_warn "Duplicate --min-disk-gb flag detected; keeping --min-disk-gb '${min_disk_arg}'."
+      fi
     fi
     MIN_DISK_GB="${min_disk_arg}"
     MIN_DISK_FLAG_SET=true
@@ -51,8 +55,12 @@ while [[ $# -gt 0 ]]; do
       log_error "--min-memory-mb requires a value."
       exit 1
     fi
-    if [[ "${MIN_MEMORY_FLAG_SET}" == true ]] && [[ "${min_memory_arg}" != "${MIN_MEMORY_FLAG_VALUE}" ]]; then
-      log_warn "Earlier --min-memory-mb '${MIN_MEMORY_FLAG_VALUE}' overridden by --min-memory-mb '${min_memory_arg}'."
+    if [[ "${MIN_MEMORY_FLAG_SET}" == true ]]; then
+      if [[ "${min_memory_arg}" != "${MIN_MEMORY_FLAG_VALUE}" ]]; then
+        log_warn "Earlier --min-memory-mb '${MIN_MEMORY_FLAG_VALUE}' overridden by --min-memory-mb '${min_memory_arg}'."
+      else
+        log_warn "Duplicate --min-memory-mb flag detected; keeping --min-memory-mb '${min_memory_arg}'."
+      fi
     fi
     MIN_MEMORY_MB="${min_memory_arg}"
     MIN_MEMORY_FLAG_SET=true
@@ -65,8 +73,12 @@ while [[ $# -gt 0 ]]; do
       log_error "--min-cpu-cores requires a value."
       exit 1
     fi
-    if [[ "${MIN_CPU_FLAG_SET}" == true ]] && [[ "${min_cpu_arg}" != "${MIN_CPU_FLAG_VALUE}" ]]; then
-      log_warn "Earlier --min-cpu-cores '${MIN_CPU_FLAG_VALUE}' overridden by --min-cpu-cores '${min_cpu_arg}'."
+    if [[ "${MIN_CPU_FLAG_SET}" == true ]]; then
+      if [[ "${min_cpu_arg}" != "${MIN_CPU_FLAG_VALUE}" ]]; then
+        log_warn "Earlier --min-cpu-cores '${MIN_CPU_FLAG_VALUE}' overridden by --min-cpu-cores '${min_cpu_arg}'."
+      else
+        log_warn "Duplicate --min-cpu-cores flag detected; keeping --min-cpu-cores '${min_cpu_arg}'."
+      fi
     fi
     MIN_CPU_CORES="${min_cpu_arg}"
     MIN_CPU_FLAG_SET=true

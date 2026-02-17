@@ -28,8 +28,12 @@ while [[ $# -gt 0 ]]; do
       log_error "--ports requires a comma-separated value (example: --ports 80,443)."
       exit 1
     fi
-    if [[ "${PORTS_FLAG_SET}" == true ]] && [[ "${ports_arg}" != "${PORTS_FLAG_VALUE}" ]]; then
-      log_warn "Earlier --ports '${PORTS_FLAG_VALUE}' overridden by --ports '${ports_arg}'."
+    if [[ "${PORTS_FLAG_SET}" == true ]]; then
+      if [[ "${ports_arg}" != "${PORTS_FLAG_VALUE}" ]]; then
+        log_warn "Earlier --ports '${PORTS_FLAG_VALUE}' overridden by --ports '${ports_arg}'."
+      else
+        log_warn "Duplicate --ports flag detected; keeping --ports '${ports_arg}'."
+      fi
     fi
     PORTS_RAW="${ports_arg}"
     PORTS_FLAG_SET=true

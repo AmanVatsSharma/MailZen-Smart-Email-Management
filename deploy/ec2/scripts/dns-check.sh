@@ -49,8 +49,12 @@ while [[ $# -gt 0 ]]; do
       log_error "--domain requires a value."
       exit 1
     fi
-    if [[ "${DOMAIN_FLAG_SET}" == true ]] && [[ "${domain_arg}" != "${DOMAIN_FLAG_VALUE}" ]]; then
-      log_warn "Earlier --domain '${DOMAIN_FLAG_VALUE}' overridden by --domain '${domain_arg}'."
+    if [[ "${DOMAIN_FLAG_SET}" == true ]]; then
+      if [[ "${domain_arg}" != "${DOMAIN_FLAG_VALUE}" ]]; then
+        log_warn "Earlier --domain '${DOMAIN_FLAG_VALUE}' overridden by --domain '${domain_arg}'."
+      else
+        log_warn "Duplicate --domain flag detected; keeping --domain '${domain_arg}'."
+      fi
     fi
     DOMAIN="${domain_arg}"
     DOMAIN_FLAG_SET=true
@@ -63,8 +67,12 @@ while [[ $# -gt 0 ]]; do
       log_error "--expected-ip requires a value."
       exit 1
     fi
-    if [[ "${EXPECTED_IP_FLAG_SET}" == true ]] && [[ "${expected_ip_arg}" != "${EXPECTED_IP_FLAG_VALUE}" ]]; then
-      log_warn "Earlier --expected-ip '${EXPECTED_IP_FLAG_VALUE}' overridden by --expected-ip '${expected_ip_arg}'."
+    if [[ "${EXPECTED_IP_FLAG_SET}" == true ]]; then
+      if [[ "${expected_ip_arg}" != "${EXPECTED_IP_FLAG_VALUE}" ]]; then
+        log_warn "Earlier --expected-ip '${EXPECTED_IP_FLAG_VALUE}' overridden by --expected-ip '${expected_ip_arg}'."
+      else
+        log_warn "Duplicate --expected-ip flag detected; keeping --expected-ip '${expected_ip_arg}'."
+      fi
     fi
     EXPECTED_IP="${expected_ip_arg}"
     EXPECTED_IP_FLAG_SET=true
