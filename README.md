@@ -304,6 +304,9 @@ For production-style EC2 deployment, use the deployment module:
 # docs consistency checks, runtime smoke checks, and pipeline validation with optional build/verify/runtime-smoke/status chaining
 # (useful for non-technical EC2 operators)
 
+# Maintainer note: shared helper library (sourced by scripts; not run directly)
+./deploy/ec2/scripts/common.sh
+
 # Optional on fresh Ubuntu EC2: install Docker + Compose
 sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 

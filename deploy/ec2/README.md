@@ -48,6 +48,7 @@ Additional deployment flowcharts:
   - `reports-prune.sh` (report/support bundle retention cleanup)
   - `help.sh` (command reference quick guide)
   - `self-check.sh` (validate deployment script integrity)
+  - `common.sh` (shared shell helpers sourced by deployment scripts; not run directly)
   - `status.sh`
   - `logs.sh`
   - `restart.sh`
@@ -61,6 +62,12 @@ Additional deployment flowcharts:
   Local backup dump directory (tracked folder; dump files ignored by git).
 - `reports/`  
   Generated diagnostics report directory (tracked folder; report files ignored by git).
+
+Maintainer note (shared helper library, sourced internally by scripts):
+
+```bash
+./deploy/ec2/scripts/common.sh
+```
 
 ## Deployment flow
 
