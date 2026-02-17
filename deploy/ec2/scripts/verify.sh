@@ -9,10 +9,11 @@
 #
 # Checks:
 # 1) Frontend home page over HTTPS
-# 2) GraphQL endpoint over HTTPS
-# 3) Optional OAuth start endpoint over HTTPS
-# 4) TLS certificate health check (via ssl-check.sh)
-# 5) Optional docker compose status (when docker is available)
+# 2) Frontend login page over HTTPS
+# 3) GraphQL endpoint over HTTPS
+# 4) Optional OAuth start endpoint over HTTPS
+# 5) TLS certificate health check (via ssl-check.sh)
+# 6) Optional docker compose status (when docker is available)
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -128,6 +129,7 @@ log_info "Active compose file: $(get_compose_file)"
 
 domain="$(read_env_value "MAILZEN_DOMAIN")"
 frontend_url="https://${domain}/"
+login_url="https://${domain}/login"
 graphql_url="https://${domain}/graphql"
 oauth_start_url="https://${domain}/auth/google/start"
 google_client_id="$(read_env_value "GOOGLE_CLIENT_ID")"
@@ -216,12 +218,14 @@ log_info "Starting MailZen deployment smoke checks..."
 print_service_urls
 
 frontend_ok=true
+login_ok=true
 graphql_get_ok=true
 graphql_post_ok=true
 oauth_ok=true
 ssl_ok=true
 
 check_http_status "${frontend_url}" "frontend-home" 200 399 || frontend_ok=false
+check_http_status "${login_url}" "frontend-login" 200 399 || login_ok=false
 check_http_status "${graphql_url}" "graphql-get" 200 499 || graphql_get_ok=false
 check_graphql_post || graphql_post_ok=false
 if [[ "${RUN_OAUTH_CHECK}" == true ]]; then
@@ -243,6 +247,7 @@ else
 fi
 
 if [[ "${frontend_ok}" == true ]] &&
+  [[ "${login_ok}" == true ]] &&
   [[ "${graphql_get_ok}" == true ]] &&
   [[ "${graphql_post_ok}" == true ]] &&
   [[ "${oauth_ok}" == true ]] &&

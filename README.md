@@ -359,6 +359,7 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # 4) Verify URLs and core endpoints
 ./deploy/ec2/scripts/verify.sh
+# (checks frontend home + login, GraphQL GET/POST, optional OAuth, and SSL)
 
 # Optional: verify with custom retries/sleep
 ./deploy/ec2/scripts/verify.sh --max-retries 10 --retry-sleep 5
@@ -371,6 +372,7 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: runtime smoke checks from inside containers
 ./deploy/ec2/scripts/runtime-smoke.sh
+# (checks frontend home + login, backend GraphQL GET/POST, AI health, backend dependency reachability)
 
 # Optional: runtime smoke checks with custom retries
 ./deploy/ec2/scripts/runtime-smoke.sh --max-retries 15 --retry-sleep 4

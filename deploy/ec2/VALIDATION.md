@@ -64,10 +64,12 @@ Use both public and container-internal probes:
 
 1. `verify.sh` confirms:
    - frontend home responds over HTTPS
+   - login page responds over HTTPS
    - GraphQL endpoint responds over HTTPS
    - GraphQL POST responds
 2. `runtime-smoke.sh` confirms:
    - frontend container serves `/`
+   - frontend container serves `/login`
    - backend serves GraphQL GET + POST
    - AI platform serves `/health`
    - backend can reach postgres + redis over compose network

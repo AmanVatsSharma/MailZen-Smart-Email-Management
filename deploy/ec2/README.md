@@ -263,6 +263,7 @@ Example:
 
 # Run post-deploy smoke checks (default retries: 5, sleep: 3s)
 ./deploy/ec2/scripts/verify.sh
+# (checks frontend home + login, GraphQL GET/POST, optional OAuth, and SSL)
 
 # Custom retries/sleep
 ./deploy/ec2/scripts/verify.sh 10 5
@@ -281,6 +282,7 @@ Example:
 
 # Run runtime smoke checks from inside containers (no public DNS/TLS dependency)
 ./deploy/ec2/scripts/runtime-smoke.sh
+# (checks frontend home + login, backend GraphQL GET/POST, AI health, backend dependency reachability)
 
 # Runtime smoke checks with custom retries/sleep
 ./deploy/ec2/scripts/runtime-smoke.sh --max-retries 15 --retry-sleep 4

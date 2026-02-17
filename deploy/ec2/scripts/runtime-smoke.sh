@@ -10,10 +10,11 @@
 #
 # Checks:
 # 1) frontend internal HTTP endpoint (`http://127.0.0.1:3000/`)
-# 2) backend GraphQL GET endpoint (`http://127.0.0.1:4000/graphql`)
-# 3) backend GraphQL POST introspection-lite query (`__typename`)
-# 4) ai-agent-platform health endpoint (`http://127.0.0.1:8100/health`)
-# 5) backend container TCP reachability to postgres:5432 + redis:6379
+# 2) frontend login endpoint (`http://127.0.0.1:3000/login`)
+# 3) backend GraphQL GET endpoint (`http://127.0.0.1:4000/graphql`)
+# 4) backend GraphQL POST introspection-lite query (`__typename`)
+# 5) ai-agent-platform health endpoint (`http://127.0.0.1:8100/health`)
+# 6) backend container TCP reachability to postgres:5432 + redis:6379
 #
 # Usage:
 #   ./deploy/ec2/scripts/runtime-smoke.sh
@@ -106,6 +107,7 @@ log_info "Active compose file: $(get_compose_file)"
 if [[ "${DRY_RUN}" == true ]]; then
   log_info "Dry-run enabled; runtime checks will not execute."
   log_info "Would validate frontend internal HTTP endpoint."
+  log_info "Would validate frontend login endpoint."
   log_info "Would validate backend GraphQL GET endpoint."
   log_info "Would validate backend GraphQL POST endpoint."
   log_info "Would validate AI health endpoint."
@@ -161,6 +163,10 @@ check_frontend_internal() {
   compose exec -T frontend node -e "require('http').get('http://127.0.0.1:3000/', (res) => process.exit((res.statusCode >= 200 && res.statusCode < 500) ? 0 : 1)).on('error', () => process.exit(1));"
 }
 
+check_frontend_login() {
+  compose exec -T frontend node -e "require('http').get('http://127.0.0.1:3000/login', (res) => process.exit((res.statusCode >= 200 && res.statusCode < 500) ? 0 : 1)).on('error', () => process.exit(1));"
+}
+
 check_backend_graphql_get() {
   compose exec -T backend node -e "require('http').get('http://127.0.0.1:4000/graphql', (res) => process.exit((res.statusCode >= 200 && res.statusCode < 500) ? 0 : 1)).on('error', () => process.exit(1));"
 }
@@ -185,12 +191,14 @@ if [[ "${RUN_COMPOSE_PS}" == true ]]; then
 fi
 
 frontend_ok=true
+frontend_login_ok=true
 backend_graphql_get_ok=true
 backend_graphql_post_ok=true
 ai_health_ok=true
 backend_dependency_ok=true
 
 retry_check "frontend-internal-http" "GET / on frontend container localhost:3000" check_frontend_internal || frontend_ok=false
+retry_check "frontend-login" "GET /login on frontend container localhost:3000" check_frontend_login || frontend_login_ok=false
 retry_check "backend-graphql-get" "GET /graphql on backend container localhost:4000" check_backend_graphql_get || backend_graphql_get_ok=false
 retry_check "backend-graphql-post" "POST /graphql query { __typename } on backend container localhost:4000" check_backend_graphql_post || backend_graphql_post_ok=false
 retry_check "ai-health" "GET /health on ai-agent-platform container localhost:8100" check_ai_health || ai_health_ok=false
@@ -202,6 +210,7 @@ else
 fi
 
 if [[ "${frontend_ok}" == true ]] &&
+  [[ "${frontend_login_ok}" == true ]] &&
   [[ "${backend_graphql_get_ok}" == true ]] &&
   [[ "${backend_graphql_post_ok}" == true ]] &&
   [[ "${ai_health_ok}" == true ]] &&
