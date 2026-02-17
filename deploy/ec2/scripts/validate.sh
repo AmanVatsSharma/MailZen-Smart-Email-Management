@@ -466,5 +466,6 @@ if [[ "${RUN_STATUS}" == true ]]; then
   fi
 fi
 
+log_info "Command preview: $(format_command_for_logs "${SCRIPT_DIR}/pipeline-check.sh" "${pipeline_args[@]}")"
 "${SCRIPT_DIR}/pipeline-check.sh" "${pipeline_args[@]}"
 log_info "Validation profile completed successfully."
