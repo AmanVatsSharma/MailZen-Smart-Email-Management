@@ -100,7 +100,7 @@ log_info "Active compose file: $(get_compose_file)"
 
 if [[ "${DRY_RUN}" == false ]]; then
   if ! docker info >/dev/null 2>&1; then
-    log_error "Docker daemon is not reachable. Start Docker and retry."
+    log_docker_daemon_unreachable
     exit 1
   fi
 fi

@@ -138,7 +138,7 @@ validate_core_env
 
 if [[ "${CONFIG_ONLY}" == false ]]; then
   if ! docker info >/dev/null 2>&1; then
-    log_error "Docker daemon is not reachable. Start Docker and retry."
+    log_docker_daemon_unreachable
     log_error "Tip: run preflight in config-only mode: ./deploy/ec2/scripts/preflight.sh --config-only"
     exit 1
   fi

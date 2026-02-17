@@ -100,7 +100,7 @@ validate_core_env
 
 if [[ "${CONFIG_ONLY}" == false ]] && [[ "${DRY_RUN}" == false ]]; then
   if ! docker info >/dev/null 2>&1; then
-    log_error "Docker daemon is not reachable. Start Docker and retry."
+    log_docker_daemon_unreachable
     log_error "Tip: run ./deploy/ec2/scripts/deploy.sh --config-only to validate configuration without daemon."
     exit 1
   fi

@@ -97,7 +97,7 @@ if [[ "${DRY_RUN}" == true ]]; then
 fi
 
 if ! docker info >/dev/null 2>&1; then
-  log_error "Docker daemon is not reachable. Start Docker and retry."
+  log_docker_daemon_unreachable
   exit 1
 fi
 

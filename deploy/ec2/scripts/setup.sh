@@ -194,7 +194,7 @@ fi
 
 if [[ "${SKIP_DAEMON}" == false ]]; then
   if ! docker info >/dev/null 2>&1; then
-    log_error "Docker daemon is not reachable. Start Docker and retry."
+    log_docker_daemon_unreachable
     log_error "Tip: use --skip-daemon to continue setup when only env preparation is needed."
     exit 1
   fi

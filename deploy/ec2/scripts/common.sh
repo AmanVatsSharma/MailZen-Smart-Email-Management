@@ -51,6 +51,21 @@ require_cmd() {
   fi
 }
 
+log_docker_daemon_unreachable() {
+  local docker_endpoint="${DOCKER_HOST:-unix:///var/run/docker.sock}"
+  log_error "Docker daemon is not reachable. Start Docker and retry."
+  log_warn "Docker endpoint: ${docker_endpoint}"
+  if [[ "${docker_endpoint}" == unix://* ]]; then
+    local socket_path="${docker_endpoint#unix://}"
+    if [[ ! -S "${socket_path}" ]]; then
+      log_warn "Docker socket is not available at ${socket_path}."
+    fi
+  fi
+  if [[ ! -d "/run/systemd/system" ]]; then
+    log_warn "Systemd is not available in this environment; service management commands may not work."
+  fi
+}
+
 ensure_required_files_exist() {
   local active_compose_file
   active_compose_file="$(get_compose_file)"
