@@ -365,6 +365,21 @@ assert_safe_label() {
   return 1
 }
 
+is_positive_integer() {
+  local candidate="${1:-}"
+  [[ "${candidate}" =~ ^[0-9]+$ ]] && [[ "${candidate}" -ge 1 ]]
+}
+
+assert_positive_integer() {
+  local flag_name="$1"
+  local candidate="$2"
+  if is_positive_integer "${candidate}"; then
+    return 0
+  fi
+  log_error "${flag_name} must be a positive integer."
+  return 1
+}
+
 assert_ports_csv_value() {
   local flag_name="$1"
   local ports_raw="$2"

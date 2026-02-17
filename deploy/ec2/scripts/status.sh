@@ -141,13 +141,11 @@ if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
   assert_ports_csv_value "--ports-check-ports" "${PORTS_CHECK_PORTS}" || exit 1
 fi
 
-if [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]] && { [[ ! "${RUNTIME_SMOKE_MAX_RETRIES}" =~ ^[0-9]+$ ]] || [[ "${RUNTIME_SMOKE_MAX_RETRIES}" -lt 1 ]]; }; then
-  log_error "--runtime-smoke-max-retries must be a positive integer."
-  exit 1
+if [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]]; then
+  assert_positive_integer "--runtime-smoke-max-retries" "${RUNTIME_SMOKE_MAX_RETRIES}" || exit 1
 fi
-if [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]] && { [[ ! "${RUNTIME_SMOKE_RETRY_SLEEP}" =~ ^[0-9]+$ ]] || [[ "${RUNTIME_SMOKE_RETRY_SLEEP}" -lt 1 ]]; }; then
-  log_error "--runtime-smoke-retry-sleep must be a positive integer."
-  exit 1
+if [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]]; then
+  assert_positive_integer "--runtime-smoke-retry-sleep" "${RUNTIME_SMOKE_RETRY_SLEEP}" || exit 1
 fi
 
 if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${WITH_RUNTIME_CHECKS}" == false ]]; then

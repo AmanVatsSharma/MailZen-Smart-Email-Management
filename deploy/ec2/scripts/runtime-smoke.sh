@@ -88,15 +88,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ ! "${MAX_RETRIES}" =~ ^[0-9]+$ ]] || [[ "${MAX_RETRIES}" -lt 1 ]]; then
-  log_error "MAX_RETRIES must be a positive integer (received: ${MAX_RETRIES})"
-  exit 1
-fi
-
-if [[ ! "${RETRY_SLEEP_SECONDS}" =~ ^[0-9]+$ ]] || [[ "${RETRY_SLEEP_SECONDS}" -lt 1 ]]; then
-  log_error "RETRY_SLEEP_SECONDS must be a positive integer (received: ${RETRY_SLEEP_SECONDS})"
-  exit 1
-fi
+assert_positive_integer "--max-retries" "${MAX_RETRIES}" || exit 1
+assert_positive_integer "--retry-sleep" "${RETRY_SLEEP_SECONDS}" || exit 1
 
 require_cmd docker
 ensure_required_files_exist

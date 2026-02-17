@@ -412,22 +412,17 @@ if [[ "${DOCS_INCLUDE_COMMON}" == true ]] && [[ "${DOCS_STRICT_COVERAGE}" == fal
   log_warn "[LAUNCH] --docs-include-common is most useful with --docs-strict-coverage."
 fi
 
-if [[ -n "${VERIFY_MAX_RETRIES}" ]] && { [[ ! "${VERIFY_MAX_RETRIES}" =~ ^[0-9]+$ ]] || [[ "${VERIFY_MAX_RETRIES}" -lt 1 ]]; }; then
-  log_error "--verify-max-retries must be a positive integer."
-  exit 1
+if [[ -n "${VERIFY_MAX_RETRIES}" ]]; then
+  assert_positive_integer "--verify-max-retries" "${VERIFY_MAX_RETRIES}" || exit 1
 fi
-
-if [[ -n "${VERIFY_RETRY_SLEEP}" ]] && { [[ ! "${VERIFY_RETRY_SLEEP}" =~ ^[0-9]+$ ]] || [[ "${VERIFY_RETRY_SLEEP}" -lt 1 ]]; }; then
-  log_error "--verify-retry-sleep must be a positive integer."
-  exit 1
+if [[ -n "${VERIFY_RETRY_SLEEP}" ]]; then
+  assert_positive_integer "--verify-retry-sleep" "${VERIFY_RETRY_SLEEP}" || exit 1
 fi
-if [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]] && { [[ ! "${RUNTIME_SMOKE_MAX_RETRIES}" =~ ^[0-9]+$ ]] || [[ "${RUNTIME_SMOKE_MAX_RETRIES}" -lt 1 ]]; }; then
-  log_error "--runtime-smoke-max-retries must be a positive integer."
-  exit 1
+if [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]]; then
+  assert_positive_integer "--runtime-smoke-max-retries" "${RUNTIME_SMOKE_MAX_RETRIES}" || exit 1
 fi
-if [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]] && { [[ ! "${RUNTIME_SMOKE_RETRY_SLEEP}" =~ ^[0-9]+$ ]] || [[ "${RUNTIME_SMOKE_RETRY_SLEEP}" -lt 1 ]]; }; then
-  log_error "--runtime-smoke-retry-sleep must be a positive integer."
-  exit 1
+if [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]]; then
+  assert_positive_integer "--runtime-smoke-retry-sleep" "${RUNTIME_SMOKE_RETRY_SLEEP}" || exit 1
 fi
 if [[ "${VERIFY_SKIP_OAUTH_CHECK}" == true ]] && [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; then
   log_error "--verify-skip-oauth-check cannot be combined with --verify-require-oauth-check."
