@@ -30,6 +30,11 @@ DRY_RUN=false
 SKIP_CONFIG_CHECK=false
 ALL_SERVICES_FLAG_SET=false
 SERVICE_FLAG_SET=false
+RUN_IMAGE_PULL_CHECK_FLAG_SET=false
+PULL_IMAGES_FLAG_SET=false
+NO_CACHE_FLAG_SET=false
+DRY_RUN_FLAG_SET=false
+SKIP_CONFIG_CHECK_FLAG_SET=false
 
 is_buildable_service() {
   local candidate="$1"
@@ -80,6 +85,9 @@ while [[ $# -gt 0 ]]; do
     shift 2
     ;;
   --all-services)
+    if [[ "${ALL_SERVICES_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --all-services flag detected; all build services remain selected."
+    fi
     if [[ "${SERVICE_FLAG_SET}" == true ]]; then
       log_warn "Explicit --service selections overridden by --all-services."
     fi
@@ -90,7 +98,11 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --with-image-pull-check)
+    if [[ "${RUN_IMAGE_PULL_CHECK_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --with-image-pull-check flag detected; image pull checks remain enabled."
+    fi
     RUN_IMAGE_PULL_CHECK=true
+    RUN_IMAGE_PULL_CHECK_FLAG_SET=true
     shift
     ;;
   --image-service)
@@ -113,19 +125,35 @@ while [[ $# -gt 0 ]]; do
     shift 2
     ;;
   --pull)
+    if [[ "${PULL_IMAGES_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --pull flag detected; build pull mode remains enabled."
+    fi
     PULL_IMAGES=true
+    PULL_IMAGES_FLAG_SET=true
     shift
     ;;
   --no-cache)
+    if [[ "${NO_CACHE_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --no-cache flag detected; no-cache mode remains enabled."
+    fi
     NO_CACHE=true
+    NO_CACHE_FLAG_SET=true
     shift
     ;;
   --skip-config-check)
+    if [[ "${SKIP_CONFIG_CHECK_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --skip-config-check flag detected; compose config precheck remains skipped."
+    fi
     SKIP_CONFIG_CHECK=true
+    SKIP_CONFIG_CHECK_FLAG_SET=true
     shift
     ;;
   --dry-run)
+    if [[ "${DRY_RUN_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --dry-run flag detected; build execution remains disabled."
+    fi
     DRY_RUN=true
+    DRY_RUN_FLAG_SET=true
     shift
     ;;
   *)
