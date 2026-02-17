@@ -411,3 +411,27 @@ assert_ports_csv_value() {
 
   return 0
 }
+
+normalize_ports_csv() {
+  local ports_raw="$1"
+  local normalized_ports=()
+  IFS=',' read -r -a parsed_ports <<<"${ports_raw}"
+  for raw_port in "${parsed_ports[@]}"; do
+    local port
+    port="$(printf '%s' "${raw_port}" | tr -d '[:space:]')"
+    if [[ -n "${port}" ]]; then
+      normalized_ports+=("${port}")
+    fi
+  done
+
+  local joined=""
+  local normalized_port
+  for normalized_port in "${normalized_ports[@]}"; do
+    if [[ -z "${joined}" ]]; then
+      joined="${normalized_port}"
+    else
+      joined="${joined},${normalized_port}"
+    fi
+  done
+  echo "${joined}"
+}

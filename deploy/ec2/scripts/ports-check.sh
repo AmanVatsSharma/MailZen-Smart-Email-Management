@@ -45,6 +45,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 assert_ports_csv_value "--ports" "${PORTS_RAW}" || exit 1
+PORTS_RAW="$(normalize_ports_csv "${PORTS_RAW}")"
 
 IFS=',' read -r -a parsed_ports <<<"${PORTS_RAW}"
 declare -A seen_ports=()
