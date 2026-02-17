@@ -2,12 +2,14 @@ import { NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { ContactService } from './contact.service';
 import { Contact } from './entities/contact.entity';
 
 describe('ContactService', () => {
   let service: ContactService;
   let contactRepo: jest.Mocked<Repository<Contact>>;
+  let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
 
   const contact = {
     id: 'contact-1',
@@ -28,16 +30,22 @@ describe('ContactService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     } as unknown as jest.Mocked<Repository<Contact>>;
+    const auditRepoMock = {
+      create: jest.fn((payload: unknown) => payload as AuditLog),
+      save: jest.fn().mockResolvedValue({} as AuditLog),
+    } as unknown as jest.Mocked<Repository<AuditLog>>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ContactService,
         { provide: getRepositoryToken(Contact), useValue: repoMock },
+        { provide: getRepositoryToken(AuditLog), useValue: auditRepoMock },
       ],
     }).compile();
 
     service = module.get<ContactService>(ContactService);
     contactRepo = module.get(getRepositoryToken(Contact));
+    auditLogRepo = module.get(getRepositoryToken(AuditLog));
   });
 
   afterEach(() => {
@@ -61,6 +69,12 @@ describe('ContactService', () => {
       userId: 'user-1',
     });
     expect(contactRepo.save).toHaveBeenCalledWith(contact);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'contact_created',
+      }),
+    );
     expect(result).toEqual(contact);
   });
 
@@ -87,6 +101,12 @@ describe('ContactService', () => {
       { id: contact.id },
       { name: 'Updated Name' },
     );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'contact_updated',
+      }),
+    );
     expect(result).toEqual(updated);
   });
 
@@ -97,6 +117,26 @@ describe('ContactService', () => {
     const result = await service.deleteContact('user-1', contact.id);
 
     expect(contactRepo.delete).toHaveBeenCalledWith({ id: contact.id });
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'contact_deleted',
+      }),
+    );
+    expect(result).toEqual(contact);
+  });
+
+  it('continues contact creation when audit log write fails', async () => {
+    contactRepo.create.mockReturnValue(contact);
+    contactRepo.save.mockResolvedValue(contact);
+    auditLogRepo.save.mockRejectedValueOnce(new Error('audit unavailable'));
+
+    const result = await service.createContact('user-1', {
+      name: 'John Doe',
+      email: 'john@example.com',
+      phone: '+1234567890',
+    });
+
     expect(result).toEqual(contact);
   });
 });

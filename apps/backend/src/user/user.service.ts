@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,6 +12,17 @@ import { CreateUserInput } from './dto/create-user.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { AuditLog } from '../auth/entities/audit-log.entity';
 import * as bcrypt from 'bcryptjs';
+import { AccountDataExportResponse } from './dto/account-data-export.response';
+import { EmailProvider } from '../email-integration/entities/email-provider.entity';
+import { Mailbox } from '../mailbox/entities/mailbox.entity';
+import { WorkspaceMember } from '../workspace/entities/workspace-member.entity';
+import { UserSubscription } from '../billing/entities/user-subscription.entity';
+import { BillingInvoice } from '../billing/entities/billing-invoice.entity';
+import { UserNotification } from '../notification/entities/user-notification.entity';
+import {
+  fingerprintIdentifier,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 /**
  * UserService - Handles user CRUD operations and authentication validation
@@ -18,13 +30,49 @@ import * as bcrypt from 'bcryptjs';
  */
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(AuditLog)
     private readonly auditLogRepository: Repository<AuditLog>,
-  ) {
-    console.log('[UserService] Initialized with TypeORM repositories');
+    @InjectRepository(EmailProvider)
+    private readonly emailProviderRepository: Repository<EmailProvider>,
+    @InjectRepository(Mailbox)
+    private readonly mailboxRepository: Repository<Mailbox>,
+    @InjectRepository(WorkspaceMember)
+    private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
+    @InjectRepository(UserSubscription)
+    private readonly userSubscriptionRepository: Repository<UserSubscription>,
+    @InjectRepository(BillingInvoice)
+    private readonly billingInvoiceRepository: Repository<BillingInvoice>,
+    @InjectRepository(UserNotification)
+    private readonly userNotificationRepository: Repository<UserNotification>,
+  ) {}
+
+  private async writeAuditLog(input: {
+    action: string;
+    userId?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepository.create({
+        action: input.action,
+        userId: input.userId,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepository.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'user_audit_log_write_failed',
+          action: input.action,
+          userId: input.userId || null,
+          error: String(error),
+        }),
+      );
+    }
   }
 
   /**
@@ -33,7 +81,13 @@ export class UserService {
    * @returns Created user entity
    */
   async createUser(createUserInput: CreateUserInput): Promise<User> {
-    console.log('[UserService] Creating user:', createUserInput.email);
+    const emailFingerprint = fingerprintIdentifier(createUserInput.email || '');
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_create_start',
+        emailFingerprint,
+      }),
+    );
 
     const normalizedEmail = createUserInput.email.trim().toLowerCase();
     if (!normalizedEmail) {
@@ -45,7 +99,12 @@ export class UserService {
       where: { email: normalizedEmail },
     });
     if (existing) {
-      console.log('[UserService] Email already registered:', normalizedEmail);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'user_create_conflict_email_exists',
+          emailFingerprint,
+        }),
+      );
       throw new ConflictException('Email already registered');
     }
 
@@ -60,7 +119,20 @@ export class UserService {
     });
 
     const created = await this.userRepository.save(user);
-    console.log('[UserService] User created successfully:', created.id);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_create_completed',
+        userId: created.id,
+        emailFingerprint,
+      }),
+    );
+    await this.writeAuditLog({
+      userId: created.id,
+      action: 'user_registered',
+      metadata: {
+        emailFingerprint,
+      },
+    });
 
     return created;
   }
@@ -73,7 +145,13 @@ export class UserService {
    * @returns User entity if valid, null otherwise
    */
   async validateUser(email: string, password: string): Promise<User | null> {
-    console.log('[UserService] Validating user:', email);
+    const emailFingerprint = fingerprintIdentifier(email || '');
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_validate_start',
+        emailFingerprint,
+      }),
+    );
 
     const normalizedEmail = email.trim().toLowerCase();
     const dbUser = await this.userRepository.findOne({
@@ -82,25 +160,37 @@ export class UserService {
     const now = new Date();
 
     if (!dbUser || !dbUser.password) {
-      console.log(
-        '[UserService] User not found or no password set:',
-        normalizedEmail,
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'user_validate_missing_or_passwordless',
+          emailFingerprint,
+        }),
       );
       // Audit login failure without user id
-      await this.auditLogRepository.save({
+      await this.writeAuditLog({
         action: 'LOGIN_FAILED',
-        metadata: { email: normalizedEmail },
+        metadata: {
+          emailFingerprint,
+        },
       });
       return null;
     }
 
     // Check if account is locked out
     if (dbUser.lockoutUntil && dbUser.lockoutUntil > now) {
-      console.log('[UserService] Account locked until:', dbUser.lockoutUntil);
-      await this.auditLogRepository.save({
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'user_validate_locked_out',
+          userId: dbUser.id,
+          lockoutUntilIso: dbUser.lockoutUntil.toISOString(),
+        }),
+      );
+      await this.writeAuditLog({
         action: 'LOGIN_LOCKED',
         userId: dbUser.id,
-        metadata: { until: dbUser.lockoutUntil },
+        metadata: {
+          untilIso: dbUser.lockoutUntil.toISOString(),
+        },
       });
       return null;
     }
@@ -108,7 +198,12 @@ export class UserService {
     // Verify password with bcrypt
     const isPasswordValid = await bcrypt.compare(password, dbUser.password);
     if (!isPasswordValid) {
-      console.log('[UserService] Invalid password for user:', dbUser.id);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'user_validate_invalid_password',
+          userId: dbUser.id,
+        }),
+      );
 
       // Track failed login attempts
       const maxAttempts = parseInt(process.env.LOGIN_MAX_ATTEMPTS || '5', 10);
@@ -129,15 +224,18 @@ export class UserService {
           now.getTime() + lockoutMinutes * 60 * 1000,
         );
         updates.failedLoginAttempts = 0;
-        console.log(
-          '[UserService] Account locked after',
-          maxAttempts,
-          'failed attempts',
+        this.logger.warn(
+          serializeStructuredLog({
+            event: 'user_validate_lockout_applied',
+            userId: dbUser.id,
+            maxAttempts,
+            lockoutMinutes,
+          }),
         );
       }
 
       await this.userRepository.update(dbUser.id, updates);
-      await this.auditLogRepository.save({
+      await this.writeAuditLog({
         action: 'LOGIN_FAILED',
         userId: dbUser.id,
       });
@@ -145,13 +243,18 @@ export class UserService {
     }
 
     // Successful login - reset failed attempts
-    console.log('[UserService] Login successful for user:', dbUser.id);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_validate_success',
+        userId: dbUser.id,
+      }),
+    );
     await this.userRepository.update(dbUser.id, {
       lastLoginAt: now,
       failedLoginAttempts: 0,
       lockoutUntil: undefined,
     });
-    await this.auditLogRepository.save({
+    await this.writeAuditLog({
       action: 'LOGIN_SUCCESS',
       userId: dbUser.id,
     });
@@ -165,10 +268,20 @@ export class UserService {
    * @returns User entity
    */
   getUser = async (id: string): Promise<User> => {
-    console.log('[UserService] Fetching user by id:', id);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_get_by_id_start',
+        userId: id,
+      }),
+    );
     const dbUser = await this.userRepository.findOne({ where: { id } });
     if (!dbUser) {
-      console.log('[UserService] User not found:', id);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'user_get_by_id_missing',
+          userId: id,
+        }),
+      );
       throw new NotFoundException(`User with id ${id} not found.`);
     }
     return dbUser;
@@ -179,9 +292,18 @@ export class UserService {
    * @returns Array of user entities
    */
   async getAllUsers(): Promise<User[]> {
-    console.log('[UserService] Fetching all users');
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_list_start',
+      }),
+    );
     const users = await this.userRepository.find();
-    console.log('[UserService] Found', users.length, 'users');
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_list_completed',
+        userCount: users.length,
+      }),
+    );
     return users;
   }
 
@@ -191,7 +313,12 @@ export class UserService {
    * @returns Updated user entity
    */
   async updateUser(updateUserInput: UpdateUserInput): Promise<User> {
-    console.log('[UserService] Updating user:', updateUserInput.id);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_update_start',
+        userId: updateUserInput.id,
+      }),
+    );
 
     const updates: Partial<User> = {};
     if (updateUserInput.email) {
@@ -219,7 +346,223 @@ export class UserService {
       );
     }
 
-    console.log('[UserService] User updated successfully:', updated.id);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_update_completed',
+        userId: updated.id,
+      }),
+    );
+    await this.writeAuditLog({
+      userId: updated.id,
+      action: 'user_profile_updated',
+      metadata: {
+        changedFields: Object.keys(updates),
+        emailFingerprint: updates.email
+          ? fingerprintIdentifier(String(updates.email))
+          : null,
+      },
+    });
     return updated;
+  }
+
+  async exportUserDataSnapshot(
+    userId: string,
+  ): Promise<AccountDataExportResponse> {
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_data_export_start',
+        userId,
+      }),
+    );
+    const user = await this.getUser(userId);
+    const generatedAt = new Date();
+
+    const [providers, mailboxes, workspaceMemberships, subscription, invoices] =
+      await Promise.all([
+        this.emailProviderRepository.find({
+          where: { userId },
+          order: { createdAt: 'DESC' },
+          take: 100,
+        }),
+        this.mailboxRepository.find({
+          where: { userId },
+          order: { createdAt: 'DESC' },
+          take: 100,
+        }),
+        this.workspaceMemberRepository.find({
+          where: { userId },
+          order: { createdAt: 'DESC' },
+          take: 200,
+        }),
+        this.userSubscriptionRepository.findOne({
+          where: { userId, status: 'active' },
+          order: { createdAt: 'DESC' },
+        }),
+        this.billingInvoiceRepository.find({
+          where: { userId },
+          order: { createdAt: 'DESC' },
+          take: 100,
+        }),
+      ]);
+    const notifications = await this.userNotificationRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: 200,
+    });
+    const unreadNotifications = notifications.filter(
+      (notification) => !notification.isRead,
+    ).length;
+
+    const payload = {
+      generatedAtIso: generatedAt.toISOString(),
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name || null,
+        role: user.role,
+        isEmailVerified: user.isEmailVerified,
+        isPhoneVerified: user.isPhoneVerified,
+        activeWorkspaceId: user.activeWorkspaceId || null,
+        activeInboxType: user.activeInboxType || null,
+        activeInboxId: user.activeInboxId || null,
+        createdAtIso: user.createdAt.toISOString(),
+        updatedAtIso: user.updatedAt.toISOString(),
+      },
+      providers: providers.map((provider) => ({
+        id: provider.id,
+        type: provider.type,
+        email: provider.email,
+        status: provider.status,
+        isActive: provider.isActive,
+        createdAtIso: provider.createdAt.toISOString(),
+        updatedAtIso: provider.updatedAt.toISOString(),
+      })),
+      mailboxes: mailboxes.map((mailbox) => ({
+        id: mailbox.id,
+        email: mailbox.email,
+        status: mailbox.status,
+        workspaceId: mailbox.workspaceId || null,
+        quotaLimitMb: mailbox.quotaLimitMb,
+        usedBytes: mailbox.usedBytes,
+        createdAtIso: mailbox.createdAt.toISOString(),
+        updatedAtIso: mailbox.updatedAt.toISOString(),
+      })),
+      workspaceMemberships: workspaceMemberships.map((membership) => ({
+        id: membership.id,
+        workspaceId: membership.workspaceId,
+        email: membership.email,
+        role: membership.role,
+        status: membership.status,
+        invitedByUserId: membership.invitedByUserId,
+        createdAtIso: membership.createdAt.toISOString(),
+        updatedAtIso: membership.updatedAt.toISOString(),
+      })),
+      subscription: subscription
+        ? {
+            id: subscription.id,
+            planCode: subscription.planCode,
+            status: subscription.status,
+            startedAtIso: subscription.startedAt.toISOString(),
+            endsAtIso: subscription.endsAt
+              ? subscription.endsAt.toISOString()
+              : null,
+            isTrial: subscription.isTrial,
+            trialEndsAtIso: subscription.trialEndsAt
+              ? subscription.trialEndsAt.toISOString()
+              : null,
+            cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+          }
+        : null,
+      invoices: invoices.map((invoice) => ({
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        planCode: invoice.planCode,
+        status: invoice.status,
+        amountCents: invoice.amountCents,
+        currency: invoice.currency,
+        provider: invoice.provider,
+        providerInvoiceId: invoice.providerInvoiceId || null,
+        createdAtIso: invoice.createdAt.toISOString(),
+      })),
+      notificationSummary: {
+        total: notifications.length,
+        unread: unreadNotifications,
+      },
+      notifications: notifications.map((notification) => ({
+        id: notification.id,
+        type: notification.type,
+        title: notification.title,
+        isRead: notification.isRead,
+        workspaceId: notification.workspaceId || null,
+        createdAtIso: notification.createdAt.toISOString(),
+      })),
+    };
+
+    const response = {
+      generatedAtIso: generatedAt.toISOString(),
+      dataJson: JSON.stringify(payload),
+    };
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_data_export_completed',
+        userId,
+        providerCount: providers.length,
+        mailboxCount: mailboxes.length,
+        workspaceMembershipCount: workspaceMemberships.length,
+        invoiceCount: invoices.length,
+        notificationCount: notifications.length,
+      }),
+    );
+    await this.writeAuditLog({
+      userId,
+      action: 'user_data_export_requested',
+      metadata: {
+        providerCount: providers.length,
+        mailboxCount: mailboxes.length,
+        workspaceMembershipCount: workspaceMemberships.length,
+        invoiceCount: invoices.length,
+        notificationCount: notifications.length,
+      },
+    });
+    return response;
+  }
+
+  async exportUserDataSnapshotForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+  }): Promise<AccountDataExportResponse> {
+    const targetUserId = String(input.targetUserId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!targetUserId) {
+      throw new BadRequestException('Target user id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_data_export_admin_start',
+        actorUserId,
+        targetUserId,
+      }),
+    );
+    const response = await this.exportUserDataSnapshot(targetUserId);
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'user_data_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        selfRequested: actorUserId === targetUserId,
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_data_export_admin_completed',
+        actorUserId,
+        targetUserId,
+      }),
+    );
+    return response;
   }
 }

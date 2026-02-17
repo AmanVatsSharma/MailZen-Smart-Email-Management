@@ -13,8 +13,8 @@ import { gql } from '@apollo/client';
 
 // Query to get UI-shaped providers for the current user
 export const GET_PROVIDERS = gql`
-  query Providers {
-    providers {
+  query Providers($workspaceId: String) {
+    providers(workspaceId: $workspaceId) {
       id
       type
       name
@@ -22,6 +22,7 @@ export const GET_PROVIDERS = gql`
       isActive
       lastSynced
       status
+      workspaceId
     }
   }
 `;
@@ -37,6 +38,7 @@ export const CONNECT_SMTP = gql`
       isActive
       lastSynced
       status
+      workspaceId
     }
   }
 `;

@@ -8,6 +8,8 @@ import { UserModule } from './user/user.module';
 import { EmailModule } from './email/email.module';
 import { AuthModule } from './auth/auth.module';
 import { FeatureModule } from './feature/feature.module';
+import { BillingModule } from './billing/billing.module';
+import { NotificationModule } from './notification/notification.module';
 import { TemplateModule } from './template/template.module';
 import { ScheduledEmailModule } from './scheduled-email/scheduled-email.module';
 import { EmailAnalyticsModule } from './email-analytics/email-analytics.module';
@@ -16,7 +18,9 @@ import { MailboxModule } from './mailbox/mailbox.module';
 import { PhoneModule } from './phone/phone.module';
 import { InboxModule } from './inbox/inbox.module';
 import { GmailSyncModule } from './gmail-sync/gmail-sync.module';
+import { OutlookSyncModule } from './outlook-sync/outlook-sync.module';
 import { UnifiedInboxModule } from './unified-inbox/unified-inbox.module';
+import { WorkspaceModule } from './workspace/workspace.module';
 import { SmartReplyModule } from './smart-replies/smart-reply.module';
 import { LabelModule } from './organization/label.module';
 import { QuestionModule } from './question/question.module';
@@ -54,6 +58,8 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
     EmailModule,
     AuthModule,
     FeatureModule,
+    BillingModule,
+    NotificationModule,
     TemplateModule,
     ScheduledEmailModule,
     EmailAnalyticsModule,
@@ -62,7 +68,9 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
     PhoneModule,
     InboxModule,
     GmailSyncModule,
+    OutlookSyncModule,
     UnifiedInboxModule,
+    WorkspaceModule,
     SmartReplyModule,
     LabelModule,
     QuestionModule,

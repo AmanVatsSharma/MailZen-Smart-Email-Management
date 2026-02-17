@@ -1,5 +1,5 @@
-import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
-import { Feature } from './feature.entity';
+import { Resolver, Query, Mutation, Args, Context } from '@nestjs/graphql';
+import { Feature } from './entities/feature.entity';
 import { FeatureService } from './feature.service';
 import { CreateFeatureInput } from './dto/create-feature.input';
 import { UpdateFeatureInput } from './dto/update-feature.input';
@@ -7,14 +7,37 @@ import { UseGuards, SetMetadata } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AdminGuard } from '../common/guards/admin.guard';
 
+interface RequestContext {
+  req: {
+    user: {
+      id: string;
+    };
+  };
+}
+
 @Resolver(() => Feature)
 @UseGuards(JwtAuthGuard)
 export class FeatureResolver {
   constructor(private readonly featureService: FeatureService) {}
 
   @Query(() => [Feature], { description: 'Get all features' })
-  getAllFeatures(): Feature[] {
+  async getAllFeatures(): Promise<Feature[]> {
     return this.featureService.getAllFeatures();
+  }
+
+  @Query(() => Boolean, {
+    description: 'Resolve feature enablement for current user context',
+  })
+  async isFeatureEnabled(
+    @Args('name') name: string,
+    @Context() ctx: RequestContext,
+    @Args('workspaceId', { nullable: true }) workspaceId?: string,
+  ): Promise<boolean> {
+    return this.featureService.isFeatureEnabledForContext({
+      name,
+      userId: ctx.req.user.id,
+      workspaceId: workspaceId || null,
+    });
   }
 
   @Mutation(() => Feature, { description: 'Create a new feature' })
@@ -22,8 +45,9 @@ export class FeatureResolver {
   @UseGuards(AdminGuard)
   createFeature(
     @Args('createFeatureInput') createFeatureInput: CreateFeatureInput,
-  ): Feature {
-    return this.featureService.createFeature(createFeatureInput);
+    @Context() ctx: RequestContext,
+  ): Promise<Feature> {
+    return this.featureService.createFeature(createFeatureInput, ctx.req.user.id);
   }
 
   @Mutation(() => Feature, { description: 'Update a feature' })
@@ -31,14 +55,18 @@ export class FeatureResolver {
   @UseGuards(AdminGuard)
   updateFeature(
     @Args('updateFeatureInput') updateFeatureInput: UpdateFeatureInput,
-  ): Feature {
-    return this.featureService.updateFeature(updateFeatureInput);
+    @Context() ctx: RequestContext,
+  ): Promise<Feature> {
+    return this.featureService.updateFeature(updateFeatureInput, ctx.req.user.id);
   }
 
   @Mutation(() => Feature, { description: 'Delete a feature' })
   @SetMetadata('roles', ['ADMIN'])
   @UseGuards(AdminGuard)
-  deleteFeature(@Args('id') id: string): Feature {
-    return this.featureService.deleteFeature(id);
+  deleteFeature(
+    @Args('id') id: string,
+    @Context() ctx: RequestContext,
+  ): Promise<Feature> {
+    return this.featureService.deleteFeature(id, ctx.req.user.id);
   }
 }

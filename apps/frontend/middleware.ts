@@ -9,17 +9,37 @@ const publicAuthPaths = [
   '/auth/oauth-success',
 ];
 
+const publicMarketingPaths = [
+  '/',
+  '/features',
+  '/pricing',
+  '/integrations',
+  '/security',
+  '/about',
+  '/contact',
+  '/privacy',
+  '/terms',
+];
+
 const legacyRedirects: Record<string, string> = {
   '/login': '/auth/login',
   '/register': '/auth/register',
   '/forgot-password': '/auth/forgot-password',
-  '/dashboard': '/',
 };
 
-const isPublicPath = (path: string): boolean =>
+const isPublicAuthPath = (path: string): boolean =>
   publicAuthPaths.some((publicPath) => {
     return path === publicPath || path.startsWith(`${publicPath}/`);
   });
+
+const isPublicMarketingPath = (path: string): boolean =>
+  publicMarketingPaths.some((publicPath) => {
+    return path === publicPath || path.startsWith(`${publicPath}/`);
+  });
+
+const isPublicPath = (path: string): boolean => {
+  return isPublicAuthPath(path) || isPublicMarketingPath(path);
+};
 
 const isBypassPath = (path: string): boolean => {
   return (
@@ -55,12 +75,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
+  if (isAuthenticated && pathname === '/') {
+    return NextResponse.redirect(new URL('/inbox', request.url));
+  }
+
   if (
     isAuthenticated &&
-    isPublicPath(pathname) &&
+    isPublicAuthPath(pathname) &&
     !isAllowedAuthedPublicPath(pathname)
   ) {
-    return NextResponse.redirect(new URL('/', request.url));
+    return NextResponse.redirect(new URL('/inbox', request.url));
   }
 
   return NextResponse.next();

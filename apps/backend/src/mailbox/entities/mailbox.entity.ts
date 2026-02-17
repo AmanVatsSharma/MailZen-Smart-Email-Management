@@ -28,6 +28,11 @@ export class Mailbox {
   @Index()
   userId: string;
 
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  @Index()
+  workspaceId?: string | null;
+
   @ManyToOne(() => User, (user) => user.mailboxes)
   @JoinColumn({ name: 'userId' })
   user: User;
@@ -77,6 +82,27 @@ export class Mailbox {
 
   @Column({ nullable: true })
   passwordIv?: string;
+
+  @Column({ type: 'text', nullable: true })
+  inboundSyncCursor?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  inboundSyncLastPolledAt?: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  inboundSyncStatus?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  inboundSyncLastError?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  inboundSyncLastErrorAt?: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  inboundSyncLeaseToken?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  inboundSyncLeaseExpiresAt?: Date | null;
 
   @Field()
   @CreateDateColumn()

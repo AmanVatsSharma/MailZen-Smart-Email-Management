@@ -1,13 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { UserSession } from './entities/user-session.entity';
+import { AuditLog } from './entities/audit-log.entity';
 import { VerificationToken } from './entities/verification-token.entity';
 import { SignupVerification } from '../phone/entities/signup-verification.entity';
+import { dispatchSmsOtp } from '../common/sms/sms-dispatcher.util';
 import { randomBytes, createHash } from 'crypto';
 import { addSeconds, addMinutes, isAfter } from 'date-fns';
+import {
+  fingerprintIdentifier,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
 
 /**
  * AuthService - Handles JWT authentication, refresh tokens, and verification flows
@@ -15,18 +21,52 @@ import { addSeconds, addMinutes, isAfter } from 'date-fns';
  */
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly jwtService: JwtService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserSession)
     private readonly sessionRepository: Repository<UserSession>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepository: Repository<AuditLog>,
     @InjectRepository(VerificationToken)
     private readonly verificationTokenRepository: Repository<VerificationToken>,
     @InjectRepository(SignupVerification)
     private readonly signupVerificationRepository: Repository<SignupVerification>,
-  ) {
-    console.log('[AuthService] Initialized with TypeORM repositories');
+  ) {}
+
+  private async writeAuditLog(input: {
+    action: string;
+    userId?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepository.create({
+        action: input.action,
+        userId: input.userId,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepository.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'auth_audit_log_write_failed',
+          action: input.action,
+          userId: input.userId || null,
+          error: String(error),
+        }),
+      );
+    }
+  }
+
+  async recordSecurityAuditAction(input: {
+    action: string;
+    userId?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    await this.writeAuditLog(input);
   }
 
   /**
@@ -46,10 +86,22 @@ export class AuthService {
     if (Number.isFinite(asNumber) && asNumber > 0) return Math.floor(asNumber);
 
     // Loud logging for debugging; safe fallback.
-    console.warn(
-      `[AuthService] Invalid JWT_EXPIRATION='${raw}'. Expected a positive number (seconds). Falling back to 86400.`,
+    this.logger.warn(
+      serializeStructuredLog({
+        event: 'auth_jwt_expiration_invalid',
+        rawJwtExpiration: raw,
+        fallbackSeconds: 60 * 60 * 24,
+      }),
     );
     return 60 * 60 * 24;
+  }
+
+  private resolveSignupOtpMaxAttempts(): number {
+    const parsed = Number(process.env.MAILZEN_SIGNUP_OTP_MAX_ATTEMPTS || '5');
+    const candidate = Number.isFinite(parsed) ? Math.floor(parsed) : 5;
+    if (candidate < 1) return 1;
+    if (candidate > 20) return 20;
+    return candidate;
   }
 
   validateToken(token: string): any {
@@ -60,7 +112,9 @@ export class AuthService {
     return this.jwtService.verify(token, { secret });
   }
 
-  login(user: any): { accessToken: string } {
+  login(user: { id: string; email: string; role?: string; roles?: string }): {
+    accessToken: string;
+  } {
     // Keep JWT payload minimal and stable across auth methods (password, OAuth, etc.)
     // NOTE: Some older callers may pass `roles`; current auth payload uses `role` (string).
     const payload = {
@@ -100,7 +154,12 @@ export class AuthService {
     userAgent?: string,
     ip?: string,
   ): Promise<string> {
-    console.log('[AuthService] Generating refresh token for user:', userId);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_refresh_token_generate_start',
+        userId,
+      }),
+    );
 
     const raw = randomBytes(48).toString('hex');
     const hash = createHash('sha256').update(raw).digest('hex');
@@ -118,7 +177,21 @@ export class AuthService {
     });
 
     await this.sessionRepository.save(session);
-    console.log('[AuthService] Refresh token session created:', session.id);
+    await this.writeAuditLog({
+      action: 'auth_refresh_token_issued',
+      userId,
+      metadata: {
+        sessionId: session.id,
+        expiresAtIso: session.expiresAt.toISOString(),
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_refresh_token_generate_completed',
+        userId,
+        sessionId: session.id,
+      }),
+    );
 
     return raw;
   }
@@ -135,7 +208,11 @@ export class AuthService {
     userAgent?: string,
     ip?: string,
   ): Promise<{ token: string; refreshToken: string; userId: string }> {
-    console.log('[AuthService] Rotating refresh token');
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_refresh_token_rotate_start',
+      }),
+    );
 
     const hash = createHash('sha256').update(refreshToken).digest('hex');
     const session = await this.sessionRepository.findOne({
@@ -147,7 +224,11 @@ export class AuthService {
       session.revokedAt ||
       isAfter(new Date(), session.expiresAt)
     ) {
-      console.log('[AuthService] Invalid or expired refresh token');
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'auth_refresh_token_rotate_invalid_session',
+        }),
+      );
       throw new Error('Invalid refresh token');
     }
 
@@ -156,7 +237,12 @@ export class AuthService {
       where: { id: session.userId },
     });
     if (!user) {
-      console.log('[AuthService] User not found for session:', session.userId);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'auth_refresh_token_rotate_user_missing',
+          userId: session.userId,
+        }),
+      );
       throw new Error('User not found');
     }
 
@@ -165,7 +251,12 @@ export class AuthService {
       { refreshTokenHash: hash },
       { revokedAt: new Date(), revokedReason: 'rotated' },
     );
-    console.log('[AuthService] Old session revoked');
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_refresh_token_rotate_old_session_revoked',
+        userId: user.id,
+      }),
+    );
 
     // Issue new refresh token
     const newRefresh = await this.generateRefreshToken(user.id, userAgent, ip);
@@ -176,7 +267,19 @@ export class AuthService {
       { secret: this.getJwtSecret(), expiresIn: this.getJwtExpiresInSeconds() },
     );
 
-    console.log('[AuthService] Token rotation successful for user:', user.id);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_refresh_token_rotate_completed',
+        userId: user.id,
+      }),
+    );
+    await this.writeAuditLog({
+      action: 'auth_refresh_token_rotated',
+      userId: user.id,
+      metadata: {
+        revokedSessionId: session.id,
+      },
+    });
     return { token, refreshToken: newRefresh, userId: user.id };
   }
 
@@ -186,7 +289,11 @@ export class AuthService {
    * @returns Success status
    */
   async logout(refreshToken: string): Promise<boolean> {
-    console.log('[AuthService] Logging out user');
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_logout_start',
+      }),
+    );
 
     const hash = createHash('sha256').update(refreshToken).digest('hex');
     const session = await this.sessionRepository.findOne({
@@ -194,7 +301,11 @@ export class AuthService {
     });
 
     if (!session) {
-      console.log('[AuthService] Session not found, already logged out');
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'auth_logout_session_missing',
+        }),
+      );
       return true;
     }
 
@@ -202,8 +313,21 @@ export class AuthService {
       { refreshTokenHash: hash },
       { revokedAt: new Date(), revokedReason: 'logout' },
     );
+    await this.writeAuditLog({
+      action: 'auth_logout_completed',
+      userId: session.userId,
+      metadata: {
+        sessionId: session.id,
+      },
+    });
 
-    console.log('[AuthService] Session revoked successfully');
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_logout_completed',
+        userId: session.userId,
+        sessionId: session.id,
+      }),
+    );
     return true;
   }
 
@@ -217,11 +341,12 @@ export class AuthService {
     userId: string,
     type: 'EMAIL_VERIFY' | 'PASSWORD_RESET',
   ): Promise<string> {
-    console.log(
-      '[AuthService] Creating verification token:',
-      type,
-      'for user:',
-      userId,
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_verification_token_create_start',
+        verificationType: type,
+        userId,
+      }),
     );
 
     const token = randomBytes(32).toString('hex');
@@ -235,9 +360,22 @@ export class AuthService {
     });
 
     await this.verificationTokenRepository.save(verificationToken);
-    console.log(
-      '[AuthService] Verification token created:',
-      verificationToken.id,
+    await this.writeAuditLog({
+      action: 'auth_verification_token_issued',
+      userId,
+      metadata: {
+        verificationType: type,
+        verificationTokenId: verificationToken.id,
+        expiresAtIso: verificationToken.expiresAt.toISOString(),
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_verification_token_create_completed',
+        verificationType: type,
+        userId,
+        verificationTokenId: verificationToken.id,
+      }),
     );
 
     return token;
@@ -253,7 +391,12 @@ export class AuthService {
     token: string,
     type: 'EMAIL_VERIFY' | 'PASSWORD_RESET',
   ): Promise<string> {
-    console.log('[AuthService] Consuming verification token:', type);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_verification_token_consume_start',
+        verificationType: type,
+      }),
+    );
 
     const record = await this.verificationTokenRepository.findOne({
       where: { token },
@@ -265,7 +408,12 @@ export class AuthService {
       record.consumedAt ||
       isAfter(new Date(), record.expiresAt)
     ) {
-      console.log('[AuthService] Invalid or expired verification token');
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'auth_verification_token_consume_invalid',
+          verificationType: type,
+        }),
+      );
       throw new Error('Invalid token');
     }
 
@@ -273,10 +421,22 @@ export class AuthService {
       { token },
       { consumedAt: new Date() },
     );
+    await this.writeAuditLog({
+      action: 'auth_verification_token_consumed',
+      userId: record.userId,
+      metadata: {
+        verificationType: type,
+        verificationTokenId: record.id,
+      },
+    });
 
-    console.log(
-      '[AuthService] Verification token consumed for user:',
-      record.userId,
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_verification_token_consume_completed',
+        verificationType: type,
+        userId: record.userId,
+        verificationTokenId: record.id,
+      }),
     );
     return record.userId;
   }
@@ -287,7 +447,13 @@ export class AuthService {
    * @returns Success status
    */
   async createSignupOtp(phoneNumber: string): Promise<boolean> {
-    console.log('[AuthService] Creating signup OTP for phone:', phoneNumber);
+    const phoneFingerprint = fingerprintIdentifier(phoneNumber);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_signup_otp_create_start',
+        phoneFingerprint,
+      }),
+    );
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -297,11 +463,51 @@ export class AuthService {
       expiresAt: addMinutes(new Date(), 10),
     });
 
-    await this.signupVerificationRepository.save(verification);
-    console.log('[AuthService] Signup OTP created:', code);
+    const savedRecord =
+      await this.signupVerificationRepository.save(verification);
+    await this.writeAuditLog({
+      action: 'auth_signup_otp_requested',
+      metadata: {
+        signupVerificationId: savedRecord.id,
+        phoneFingerprint,
+        expiresAtIso: savedRecord.expiresAt.toISOString(),
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_signup_otp_persisted',
+        phoneFingerprint,
+        signupVerificationId: savedRecord.id,
+      }),
+    );
 
-    // TODO: integrate AWS SNS to send code
-    console.log('[AuthService] TODO: Send OTP via SMS service');
+    try {
+      const deliveryResult = await dispatchSmsOtp({
+        phoneNumber,
+        code,
+        purpose: 'SIGNUP_OTP',
+      });
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'auth_signup_otp_delivery_completed',
+          phoneFingerprint,
+          provider: deliveryResult.provider,
+          delivered: deliveryResult.delivered,
+        }),
+      );
+    } catch (error: unknown) {
+      const reason = error instanceof Error ? error.message : String(error);
+      await this.signupVerificationRepository.delete({ id: savedRecord.id });
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'auth_signup_otp_delivery_failed',
+          phoneFingerprint,
+          signupVerificationId: savedRecord.id,
+          error: reason,
+        }),
+      );
+      throw new BadRequestException(`Failed to deliver signup OTP: ${reason}`);
+    }
 
     return true;
   }
@@ -313,7 +519,13 @@ export class AuthService {
    * @returns Success status
    */
   async verifySignupOtp(phoneNumber: string, code: string): Promise<boolean> {
-    console.log('[AuthService] Verifying signup OTP for phone:', phoneNumber);
+    const phoneFingerprint = fingerprintIdentifier(phoneNumber);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_signup_otp_verify_start',
+        phoneFingerprint,
+      }),
+    );
 
     const record = await this.signupVerificationRepository.findOne({
       where: { phoneNumber },
@@ -321,14 +533,40 @@ export class AuthService {
     });
 
     if (!record || record.consumedAt || isAfter(new Date(), record.expiresAt)) {
-      console.log('[AuthService] Invalid or expired OTP');
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'auth_signup_otp_verify_invalid_or_expired',
+          phoneFingerprint,
+        }),
+      );
+      throw new Error('Invalid or expired code');
+    }
+
+    const maxAttempts = this.resolveSignupOtpMaxAttempts();
+    if (record.attempts >= maxAttempts) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'auth_signup_otp_verify_attempts_exceeded',
+          phoneFingerprint,
+          attempts: record.attempts,
+          maxAttempts,
+        }),
+      );
       throw new Error('Invalid or expired code');
     }
 
     if (record.code !== code) {
-      console.log('[AuthService] Incorrect OTP code');
+      const updatedAttempts = record.attempts + 1;
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'auth_signup_otp_verify_code_mismatch',
+          phoneFingerprint,
+          attempts: updatedAttempts,
+          maxAttempts,
+        }),
+      );
       await this.signupVerificationRepository.update(record.id, {
-        attempts: record.attempts + 1,
+        attempts: updatedAttempts,
       });
       throw new Error('Invalid code');
     }
@@ -336,8 +574,21 @@ export class AuthService {
     await this.signupVerificationRepository.update(record.id, {
       consumedAt: new Date(),
     });
+    await this.writeAuditLog({
+      action: 'auth_signup_otp_verified',
+      metadata: {
+        signupVerificationId: record.id,
+        phoneFingerprint,
+      },
+    });
 
-    console.log('[AuthService] Signup OTP verified successfully');
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'auth_signup_otp_verify_completed',
+        phoneFingerprint,
+        signupVerificationId: record.id,
+      }),
+    );
     return true;
   }
 }

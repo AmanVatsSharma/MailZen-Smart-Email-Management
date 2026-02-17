@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import {
   CreateAttachmentInput,
   DeleteAttachmentInput,
@@ -9,9 +10,11 @@ import { Storage } from '@google-cloud/storage';
 import { ConfigService } from '@nestjs/config';
 import { Attachment } from './entities/attachment.entity';
 import { Email } from './entities/email.entity';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 @Injectable()
 export class AttachmentService {
+  private readonly logger = new Logger(AttachmentService.name);
   private storage: Storage;
   private bucket: string;
 
@@ -20,6 +23,8 @@ export class AttachmentService {
     private readonly attachmentRepo: Repository<Attachment>,
     @InjectRepository(Email)
     private readonly emailRepo: Repository<Email>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     private readonly configService: ConfigService,
   ) {
     this.storage = new Storage({
@@ -32,6 +37,30 @@ export class AttachmentService {
     this.bucket =
       this.configService.get('GOOGLE_CLOUD_STORAGE_BUCKET') ||
       'mailzen-attachments';
+  }
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'attachment_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
   }
 
   async uploadAttachment(
@@ -63,7 +92,7 @@ export class AttachmentService {
     const url = `https://storage.googleapis.com/${this.bucket}/${filename}`;
 
     // Create attachment record
-    return this.attachmentRepo.save(
+    const savedAttachment = await this.attachmentRepo.save(
       this.attachmentRepo.create({
         filename: input.attachment.filename,
         contentType: input.attachment.contentType,
@@ -72,6 +101,18 @@ export class AttachmentService {
         emailId: input.emailId,
       }),
     );
+    await this.writeAuditLog({
+      userId,
+      action: 'attachment_uploaded',
+      metadata: {
+        attachmentId: savedAttachment.id,
+        emailId: savedAttachment.emailId,
+        filename: savedAttachment.filename,
+        contentType: savedAttachment.contentType,
+        size: savedAttachment.size ?? null,
+      },
+    });
+    return savedAttachment;
   }
 
   async deleteAttachment(
@@ -101,14 +142,30 @@ export class AttachmentService {
       }
     } catch (e) {
       // Best-effort: DB delete still proceeds for MVP.
-      console.warn(
-        '[AttachmentService] Failed to delete from storage (continuing)',
-        e,
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'attachment_storage_delete_failed',
+          attachmentId: input.attachmentId,
+          userId,
+          error:
+            e instanceof Error ? e.message : 'unknown storage delete error',
+        }),
       );
     }
 
     // Delete from database
     await this.attachmentRepo.delete({ id: input.attachmentId });
+    await this.writeAuditLog({
+      userId,
+      action: 'attachment_deleted',
+      metadata: {
+        attachmentId: attachment.id,
+        emailId: attachment.emailId,
+        filename: attachment.filename,
+        contentType: attachment.contentType,
+        size: attachment.size ?? null,
+      },
+    });
 
     return true;
   }

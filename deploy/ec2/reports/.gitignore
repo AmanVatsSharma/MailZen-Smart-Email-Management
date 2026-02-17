@@ -1,0 +1,3 @@
+# Keep reports folder in git, ignore generated diagnostics reports.
+*
+!.gitignore

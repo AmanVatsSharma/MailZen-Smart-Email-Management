@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 import {
   CreateEmailFilterInput,
   FilterCondition,
@@ -19,6 +21,8 @@ interface EmailWithProvider extends Email {
 
 @Injectable()
 export class EmailFilterService {
+  private readonly logger = new Logger(EmailFilterService.name);
+
   constructor(
     private emailService: EmailService,
     @InjectRepository(EmailFilter)
@@ -27,20 +31,56 @@ export class EmailFilterService {
     private readonly emailRepo: Repository<Email>,
     @InjectRepository(EmailLabelAssignment)
     private readonly emailLabelAssignmentRepo: Repository<EmailLabelAssignment>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
   ) {}
+
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'email_filter_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
 
   async createFilter(
     input: CreateEmailFilterInput,
     userId: string,
   ): Promise<EmailFilter> {
     // Persist as JSON array
-    return this.emailFilterRepo.save(
+    const savedFilter = await this.emailFilterRepo.save(
       this.emailFilterRepo.create({
         name: input.name,
         rules: input.rules as unknown as any,
         userId,
       }),
     );
+    await this.writeAuditLog({
+      userId,
+      action: 'email_filter_created',
+      metadata: {
+        filterId: savedFilter.id,
+        filterName: savedFilter.name,
+        ruleCount: Array.isArray(input.rules) ? input.rules.length : 0,
+      },
+    });
+    return savedFilter;
   }
 
   async getFilters(userId: string): Promise<EmailFilter[]> {
@@ -60,6 +100,15 @@ export class EmailFilterService {
     }
 
     await this.emailFilterRepo.delete({ id });
+    await this.writeAuditLog({
+      userId,
+      action: 'email_filter_deleted',
+      metadata: {
+        filterId: filter.id,
+        filterName: filter.name,
+        ruleCount: Array.isArray(filter.rules) ? filter.rules.length : 0,
+      },
+    });
     return filter;
   }
 
@@ -115,7 +164,7 @@ export class EmailFilterService {
   ): Promise<void> {
     switch (rule.action) {
       case FilterAction.MARK_READ:
-        await this.emailService.markEmailRead(email.id);
+        await this.emailService.markEmailRead(email.id, email.userId);
         break;
       case FilterAction.MARK_IMPORTANT:
         await this.emailRepo.update({ id: email.id }, { isImportant: true });

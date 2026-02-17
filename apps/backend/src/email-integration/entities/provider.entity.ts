@@ -34,4 +34,13 @@ export class Provider {
    */
   @Field()
   status: string;
+
+  @Field({ nullable: true })
+  lastSyncErrorAt?: string | null;
+
+  @Field({ nullable: true })
+  lastSyncError?: string | null;
+
+  @Field({ nullable: true })
+  workspaceId?: string | null;
 }

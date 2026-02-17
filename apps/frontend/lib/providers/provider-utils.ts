@@ -13,6 +13,7 @@ export interface Provider {
   isActive: boolean;
   lastSynced: string;
   status: ProviderStatus;
+  workspaceId?: string | null;
   settings?: Record<string, unknown>;
 }
 

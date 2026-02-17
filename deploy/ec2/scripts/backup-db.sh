@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+
+# -----------------------------------------------------------------------------
+# MailZen EC2 PostgreSQL backup script
+# -----------------------------------------------------------------------------
+# Creates a compressed SQL dump from the running postgres container.
+#
+# Usage:
+#   ./deploy/ec2/scripts/backup-db.sh
+#   ./deploy/ec2/scripts/backup-db.sh custom-label
+#   ./deploy/ec2/scripts/backup-db.sh --label pre-release --dry-run
+# -----------------------------------------------------------------------------
+
+set -Eeuo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+
+LABEL="${1:-manual}"
+DRY_RUN=false
+POSITIONAL_LABEL="manual"
+POSITIONAL_LABEL_SET=false
+LABEL_FLAG_SET=false
+LABEL_FLAG_VALUE=""
+DRY_RUN_FLAG_SET=false
+
+if [[ -n "${LABEL}" ]] && [[ "${LABEL}" =~ ^-- ]]; then
+  LABEL="manual"
+fi
+if [[ "${LABEL}" != "manual" ]]; then
+  POSITIONAL_LABEL="${LABEL}"
+  POSITIONAL_LABEL_SET=true
+  shift
+fi
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --label)
+    label_arg="${2:-}"
+    if [[ -z "${label_arg}" ]]; then
+      log_error "--label requires a value."
+      exit 1
+    fi
+    if [[ "${LABEL_FLAG_SET}" == true ]] && [[ "${label_arg}" != "${LABEL_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --label '${LABEL_FLAG_VALUE}' overridden by --label '${label_arg}'."
+    fi
+    if [[ "${POSITIONAL_LABEL_SET}" == true ]] && [[ "${label_arg}" != "${POSITIONAL_LABEL}" ]]; then
+      log_warn "Positional label '${POSITIONAL_LABEL}' overridden by --label '${label_arg}'."
+    fi
+    LABEL="${label_arg}"
+    LABEL_FLAG_SET=true
+    LABEL_FLAG_VALUE="${label_arg}"
+    shift 2
+    ;;
+  --dry-run)
+    if [[ "${DRY_RUN_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --dry-run flag detected; backup execution remains disabled."
+    fi
+    DRY_RUN=true
+    DRY_RUN_FLAG_SET=true
+    shift
+    ;;
+  *)
+    log_error "Unknown argument: $1"
+    log_error "Supported flags: [label] --label <name> --dry-run"
+    exit 1
+    ;;
+  esac
+done
+
+assert_safe_label "Backup label" "${LABEL}" || exit 1
+
+TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+BACKUP_DIR="${DEPLOY_DIR}/backups"
+BACKUP_FILE="${BACKUP_DIR}/mailzen-${LABEL}-${TIMESTAMP}.sql.gz"
+
+require_cmd docker
+require_cmd gzip
+ensure_required_files_exist
+validate_core_env
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
+
+mkdir -p "${BACKUP_DIR}"
+
+db_name="$(read_env_value "POSTGRES_DB")"
+db_user="$(read_env_value "POSTGRES_USER")"
+
+log_info "Creating PostgreSQL backup..."
+log_info "Backup file: ${BACKUP_FILE}"
+backup_dump_cmd=(docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" exec -T postgres pg_dump -U "${db_user}" "${db_name}")
+backup_pipeline_preview="$(format_command_for_logs "${backup_dump_cmd[@]}") | gzip > $(printf '%q' "${BACKUP_FILE}")"
+log_info "Command preview: ${backup_pipeline_preview}"
+
+if [[ "${DRY_RUN}" == true ]]; then
+  log_info "Dry-run enabled; backup command not executed."
+  exit 0
+fi
+
+if ! docker info >/dev/null 2>&1; then
+  log_docker_daemon_unreachable
+  exit 1
+fi
+
+if ! "${backup_dump_cmd[@]}" | gzip >"${BACKUP_FILE}"; then
+  log_error "Backup failed. Removing partial backup file."
+  rm -f "${BACKUP_FILE}"
+  exit 1
+fi
+
+if ! gzip -t "${BACKUP_FILE}" >/dev/null 2>&1; then
+  log_error "Backup archive integrity check failed (gzip -t). Removing file: ${BACKUP_FILE}"
+  rm -f "${BACKUP_FILE}"
+  exit 1
+fi
+
+log_info "Backup completed successfully."
+log_info "Saved: ${BACKUP_FILE}"

@@ -1,4 +1,7 @@
 import {
+  BellRing,
+  Building2,
+  CreditCard,
   Contact,
   Filter,
   LayoutDashboard,
@@ -106,6 +109,21 @@ export const secondaryPanelBySection: Record<DashboardSectionId, SecondaryPanelC
         href: '/settings/smart-replies',
         description: 'AI response preferences',
       },
+      {
+        label: 'Billing',
+        href: '/settings/billing',
+        description: 'Subscription plans and limits',
+      },
+      {
+        label: 'Workspaces',
+        href: '/settings/workspaces',
+        description: 'Team access and members',
+      },
+      {
+        label: 'Notifications',
+        href: '/settings/notifications',
+        description: 'Notification channel preferences',
+      },
     ],
   },
   providers: {
@@ -125,6 +143,9 @@ export const automationQuickLinks = [
   { label: 'Filters', href: '/filters', icon: Filter },
   { label: 'Warmup', href: '/warmup', icon: Zap },
   { label: 'Smart Replies', href: '/settings/smart-replies', icon: MessageSquareText },
+  { label: 'Billing', href: '/settings/billing', icon: CreditCard },
+  { label: 'Workspaces', href: '/settings/workspaces', icon: Building2 },
+  { label: 'Notifications', href: '/settings/notifications', icon: BellRing },
 ];
 
 export const mailFolderRoutes = new Set(['/inbox', '/sent', '/archive', '/trash']);
@@ -153,7 +174,10 @@ export const getSectionFromPathname = (pathname: string): DashboardSectionId => 
   if (
     normalized === '/filters' ||
     normalized === '/warmup' ||
-    normalized.startsWith('/settings/smart-replies')
+    normalized.startsWith('/settings/billing') ||
+    normalized.startsWith('/settings/workspaces') ||
+    normalized.startsWith('/settings/smart-replies') ||
+    normalized.startsWith('/settings/notifications')
   ) {
     return 'automation';
   }

@@ -21,7 +21,10 @@ This route group contains all authenticated dashboard pages and renders inside
 - `filters/page.tsx`: Filter automation
 - `contacts/page.tsx`: Contacts manager
 - `warmup/page.tsx`: Warmup controls and metrics
+- `settings/billing/page.tsx`: Plan catalog and subscription controls
+- `settings/workspaces/page.tsx`: Workspace and member management skeleton
 - `settings/smart-replies/page.tsx`: Smart reply settings
+- `settings/notifications/page.tsx`: Notification channel preferences
 - `design-system/page.tsx`: Design system showcase
 
 ## Navigation behavior
@@ -60,6 +63,34 @@ flowchart TD
 
 ## Changelog
 
+- 2026-02-15: Added dashboard mailbox inbound SLA incidents card powered by
+  workspace/time-window/type-filtered notifications query (`MAILBOX_INBOUND_SLA_ALERT`).
+- 2026-02-15: Migrated SLA incidents card to dedicated incident-stats query for
+  lightweight workspace-scoped warning/critical aggregates.
+- 2026-02-15: Added SLA incident hourly trend visualization using dedicated
+  incident-series query.
+- 2026-02-15: Added dashboard action to acknowledge (bulk mark-read) SLA
+  incidents for the active workspace window.
+- 2026-02-15: Added mailbox inbound SLA alert toggle in notification settings
+  to control warning/critical alert notifications.
+- 2026-02-15: Added notification-settings controls for mailbox inbound SLA
+  thresholds consumed by dashboard observability health indicators.
+- 2026-02-15: Added per-user mailbox inbound SLA alert cooldown control in
+  notification settings to tune duplicate incident suppression.
+- 2026-02-15: Added notification-settings toggle for unread notification email
+  digests to control hourly digest delivery.
+- 2026-02-15: Added threshold-aware SLA indicators to mailbox inbound dashboard
+  health cards.
+- 2026-02-15: Scoped mailbox inbound dashboard health widgets to active
+  workspace context.
+- 2026-02-15: Added mailbox inbound hourly trend visualization support on the
+  dashboard health card.
+- 2026-02-15: Expanded notification settings with mailbox inbound status
+  toggles (accepted/deduplicated/rejected).
+- 2026-02-15: Added dashboard-level mailbox inbound health snapshot card with
+  24h accepted/deduplicated/rejected telemetry summary.
+- 2026-02-15: Enhanced email provider management with mailbox inbound
+  observability filters and event timeline telemetry.
 - 2026-02-14: Migrated dashboard pages to shared scaffold patterns and removed
   duplicated page-level sidebars from mail routes.
 - 2026-02-14: Hardened mail-page responsive layouts (Sent/Archive/Trash), added

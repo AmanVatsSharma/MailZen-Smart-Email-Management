@@ -18,20 +18,30 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import axios from 'axios';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createClient, RedisClientType } from 'redis';
-import { Repository } from 'typeorm';
+import { LessThan, MoreThanOrEqual, Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
+import { AuditLog } from '../auth/entities/audit-log.entity';
+import { BillingService } from '../billing/billing.service';
+import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
+import { NotificationEventBusService } from '../notification/notification-event-bus.service';
 import { User } from '../user/entities/user.entity';
+import { WorkspaceMember } from '../workspace/entities/workspace-member.entity';
 import { AgentAssistInput, AgentMessageInput } from './dto/agent-assist.input';
 import { AgentPlatformHealthResponse } from './dto/agent-platform-health.response';
+import { AgentActionAudit } from './entities/agent-action-audit.entity';
+import { AgentPlatformEndpointRuntimeStat } from './entities/agent-platform-endpoint-runtime-stat.entity';
+import { AgentPlatformHealthSample } from './entities/agent-platform-health-sample.entity';
+import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-runtime-stat.entity';
 import {
   AgentActionExecutionResponse,
   AgentAssistResponse,
   AgentSafetyFlagResponse,
   AgentSuggestedActionResponse,
 } from './dto/agent-assist.response';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 interface AgentPlatformPayload {
   version: 'v1';
@@ -64,6 +74,12 @@ interface AgentPlatformResponse {
   safetyFlags: Array<{ code: string; severity: string; message: string }>;
 }
 
+interface AgentPlatformCallResult {
+  response: AgentPlatformResponse;
+  endpointUrl: string;
+  attemptCount: number;
+}
+
 interface GatewayRequestMeta {
   requestId?: string;
   ip?: string;
@@ -76,6 +92,25 @@ interface SkillPolicy {
   access: SkillAccess;
   allowedActions: Set<string>;
   serverExecutableActions: Set<string>;
+  humanApprovalActions: Set<string>;
+}
+
+interface GatewaySuggestedAction {
+  name: string;
+  label: string;
+  payload: Record<string, string>;
+  requiresApproval?: boolean;
+  approvalToken?: string;
+  approvalTokenExpiresAtIso?: string;
+}
+
+interface PendingActionApproval {
+  token: string;
+  action: string;
+  skill: string;
+  userId: string;
+  requestId: string;
+  expiresAtMs: number;
 }
 
 interface GatewayMetrics {
@@ -87,16 +122,70 @@ interface GatewayMetrics {
   lastErrorAtIso?: string;
 }
 
+interface EndpointRuntimeStats {
+  successCount: number;
+  failureCount: number;
+  lastSuccessAtIso?: string;
+  lastFailureAtIso?: string;
+}
+
+interface SkillRuntimeStats {
+  totalRequests: number;
+  failedRequests: number;
+  timeoutFailures: number;
+  totalLatencyMs: number;
+  lastLatencyMs: number;
+  lastErrorAtIso?: string;
+}
+
 @Injectable()
 export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AiAgentGatewayService.name);
+  private static readonly MIN_AUDIT_EXPORT_LIMIT = 1;
+  private static readonly MAX_AUDIT_EXPORT_LIMIT = 500;
+  private static readonly DEFAULT_HEALTH_HISTORY_LIMIT = 50;
+  private static readonly MIN_HEALTH_HISTORY_LIMIT = 1;
+  private static readonly MAX_HEALTH_HISTORY_LIMIT = 500;
+  private static readonly MAX_HEALTH_TREND_SAMPLE_SCAN = 5000;
+  private static readonly DEFAULT_HEALTH_HISTORY_WINDOW_HOURS = 24;
+  private static readonly MIN_HEALTH_HISTORY_WINDOW_HOURS = 1;
+  private static readonly MAX_HEALTH_HISTORY_WINDOW_HOURS = 24 * 30;
+  private static readonly DEFAULT_HEALTH_TREND_BUCKET_MINUTES = 60;
+  private static readonly MIN_HEALTH_TREND_BUCKET_MINUTES = 5;
+  private static readonly MAX_HEALTH_TREND_BUCKET_MINUTES = 24 * 60;
+  private static readonly DEFAULT_HEALTH_SAMPLE_RETENTION_DAYS = 30;
+  private static readonly MIN_HEALTH_SAMPLE_RETENTION_DAYS = 1;
+  private static readonly MAX_HEALTH_SAMPLE_RETENTION_DAYS = 3650;
+  private static readonly DEFAULT_THREAD_CONTEXT_CACHE_TTL_MS = 300_000;
+  private static readonly MIN_THREAD_CONTEXT_CACHE_TTL_MS = 10_000;
+  private static readonly MAX_THREAD_CONTEXT_CACHE_TTL_MS = 3_600_000;
+  private static readonly DEFAULT_AUDIT_RETENTION_DAYS = 365;
+  private static readonly MIN_AUDIT_RETENTION_DAYS = 7;
+  private static readonly MAX_AUDIT_RETENTION_DAYS = 3650;
   private readonly rateLimitWindowMs = 60_000;
   private readonly fallbackRateLimitCounters = new Map<
     string,
     { count: number; windowStartMs: number }
   >();
+  private readonly fallbackPendingApprovals = new Map<
+    string,
+    PendingActionApproval
+  >();
+  private readonly threadContextCache = new Map<
+    string,
+    {
+      threadSummary: string | null;
+      userStyleProfile: string | null;
+      expiresAtMs: number;
+    }
+  >();
   private redisClient: RedisClientType | null = null;
   private redisConnected = false;
+  private readonly endpointRuntimeStats = new Map<
+    string,
+    EndpointRuntimeStats
+  >();
+  private readonly skillRuntimeStats = new Map<string, SkillRuntimeStats>();
   private readonly metrics: GatewayMetrics = {
     totalRequests: 0,
     failedRequests: 0,
@@ -114,6 +203,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         'auth.send_signup_otp',
       ]),
       serverExecutableActions: new Set(['auth.forgot_password']),
+      humanApprovalActions: new Set(),
     },
     'auth-login': {
       access: 'public',
@@ -124,47 +214,167 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         'auth.send_signup_otp',
       ]),
       serverExecutableActions: new Set(['auth.forgot_password']),
+      humanApprovalActions: new Set(),
     },
     inbox: {
       access: 'authenticated',
       allowedActions: new Set([
         'inbox.summarize_thread',
+        'inbox.extract_action_items',
+        'inbox.classify_thread',
+        'inbox.prioritize_thread',
         'inbox.compose_reply_draft',
+        'inbox.schedule_followup',
         'inbox.open_thread',
       ]),
-      serverExecutableActions: new Set(),
+      serverExecutableActions: new Set([
+        'inbox.summarize_thread',
+        'inbox.extract_action_items',
+        'inbox.classify_thread',
+        'inbox.prioritize_thread',
+        'inbox.compose_reply_draft',
+        'inbox.schedule_followup',
+        'inbox.open_thread',
+      ]),
+      humanApprovalActions: new Set([
+        'inbox.compose_reply_draft',
+        'inbox.schedule_followup',
+      ]),
     },
   };
 
   constructor(
     private readonly authService: AuthService,
+    private readonly billingService: BillingService,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(ExternalEmailMessage)
+    private readonly externalEmailMessageRepo: Repository<ExternalEmailMessage>,
+    @InjectRepository(WorkspaceMember)
+    private readonly workspaceMemberRepo: Repository<WorkspaceMember>,
+    @InjectRepository(AgentActionAudit)
+    private readonly agentActionAuditRepo: Repository<AgentActionAudit>,
+    @InjectRepository(AgentPlatformEndpointRuntimeStat)
+    private readonly endpointRuntimeStatRepo: Repository<AgentPlatformEndpointRuntimeStat>,
+    @InjectRepository(AgentPlatformHealthSample)
+    private readonly healthSampleRepo: Repository<AgentPlatformHealthSample>,
+    @InjectRepository(AgentPlatformSkillRuntimeStat)
+    private readonly skillRuntimeStatRepo: Repository<AgentPlatformSkillRuntimeStat>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
+    private readonly notificationEventBus: NotificationEventBusService,
   ) {}
 
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'agent_gateway_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
+
   async onModuleInit(): Promise<void> {
+    await this.hydrateRuntimeStatsFromDatabase();
     if (!this.shouldUseRedisRateLimit()) return;
 
     this.redisClient = createClient({ url: this.getRedisUrl() });
     this.redisClient.on('error', (error) => {
       this.logger.warn(
-        `[agent-rate-limit] redis error; falling back to memory: ${String(error)}`,
+        serializeStructuredLog({
+          event: 'agent_rate_limit_redis_error_fallback',
+          error: String(error),
+        }),
       );
     });
 
     try {
       await this.redisClient.connect();
       this.redisConnected = true;
-      this.logger.log('[agent-rate-limit] connected to redis store');
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'agent_rate_limit_redis_connected',
+        }),
+      );
     } catch (error) {
       this.redisConnected = false;
       this.logger.warn(
-        `[agent-rate-limit] redis connect failed; using memory fallback: ${String(error)}`,
+        serializeStructuredLog({
+          event: 'agent_rate_limit_redis_connect_failed_fallback',
+          error: String(error),
+        }),
+      );
+    }
+  }
+
+  private async hydrateRuntimeStatsFromDatabase(): Promise<void> {
+    try {
+      const [endpointStats, skillStats] = await Promise.all([
+        this.endpointRuntimeStatRepo.find(),
+        this.skillRuntimeStatRepo.find(),
+      ]);
+      this.endpointRuntimeStats.clear();
+      this.skillRuntimeStats.clear();
+      for (const stat of endpointStats) {
+        const endpointUrl = this.normalizePlatformBaseUrl(stat.endpointUrl);
+        if (!endpointUrl) continue;
+        this.endpointRuntimeStats.set(endpointUrl, {
+          successCount: Number(stat.successCount || 0),
+          failureCount: Number(stat.failureCount || 0),
+          lastSuccessAtIso: stat.lastSuccessAt?.toISOString(),
+          lastFailureAtIso: stat.lastFailureAt?.toISOString(),
+        });
+      }
+      for (const stat of skillStats) {
+        const skill = String(stat.skill || '').trim();
+        if (!skill) continue;
+        this.skillRuntimeStats.set(skill, {
+          totalRequests: Number(stat.totalRequests || 0),
+          failedRequests: Number(stat.failedRequests || 0),
+          timeoutFailures: Number(stat.timeoutFailures || 0),
+          totalLatencyMs: Number(stat.totalLatencyMs || 0),
+          lastLatencyMs: Number(stat.lastLatencyMs || 0),
+          lastErrorAtIso: stat.lastErrorAt?.toISOString(),
+        });
+      }
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'agent_platform_runtime_stats_hydrated',
+          endpointRowCount: endpointStats.length,
+          skillRowCount: skillStats.length,
+        }),
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'agent_platform_runtime_stats_hydrate_failed',
+          error: message,
+        }),
       );
     }
   }
 
   async onModuleDestroy(): Promise<void> {
+    this.fallbackPendingApprovals.clear();
+    this.threadContextCache.clear();
+    this.endpointRuntimeStats.clear();
+    this.skillRuntimeStats.clear();
     if (!this.redisClient || !this.redisConnected) return;
     await this.redisClient.quit();
   }
@@ -183,16 +393,22 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const userId = this.enforceSkillAccess(skill, requestMeta?.headers);
+      let aiCreditBalance: {
+        allowed: boolean;
+        monthlyLimit: number;
+        usedCredits: number;
+        remainingCredits: number;
+      } | null = null;
       await this.enforceRateLimit(skill, requestMeta?.ip || 'unknown');
 
-      const sanitizedPayload = this.buildSanitizedPayload(
+      const sanitizedPayload = await this.buildSanitizedPayload(
         input,
         skill,
         requestId,
         userId,
       );
       this.logger.log(
-        JSON.stringify({
+        serializeStructuredLog({
           event: 'agent_assist_start',
           skill,
           requestId,
@@ -201,16 +417,37 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         }),
       );
 
-      const platformResponse = await this.callPlatform(
+      const platformCall = await this.callPlatform(
         sanitizedPayload,
         requestId,
         requestMeta?.ip,
       );
+      const platformResponse = platformCall.response;
+      if (userId) {
+        aiCreditBalance = await this.billingService.consumeAiCredits({
+          userId,
+          credits: this.resolveAiCreditCost(skill),
+          requestId,
+        });
+        if (!aiCreditBalance.allowed) {
+          throw new BadRequestException(
+            `AI credit limit reached for current period. Remaining credits: ${aiCreditBalance.remainingCredits}.`,
+          );
+        }
+      }
+      const suggestedActions = await this.decorateSuggestedActionsWithApproval({
+        suggestedActions: platformResponse.suggestedActions,
+        requestId,
+        skill,
+        userId,
+      });
 
       const executedAction = await this.executeRequestedActionIfAllowed(
         input,
-        platformResponse,
+        suggestedActions,
         skill,
+        userId,
+        requestId,
       );
 
       return {
@@ -220,7 +457,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         assistantText: platformResponse.assistantText,
         intent: platformResponse.intent,
         confidence: platformResponse.confidence,
-        suggestedActions: platformResponse.suggestedActions.map(
+        suggestedActions: suggestedActions.map(
           (action): AgentSuggestedActionResponse => ({
             name: action.name,
             label: action.label,
@@ -228,6 +465,9 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
               Object.keys(action.payload || {}).length > 0
                 ? JSON.stringify(action.payload)
                 : undefined,
+            requiresApproval: Boolean(action.requiresApproval),
+            approvalToken: action.approvalToken,
+            approvalTokenExpiresAtIso: action.approvalTokenExpiresAtIso,
           }),
         ),
         safetyFlags: platformResponse.safetyFlags.map(
@@ -241,6 +481,11 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
           Object.keys(platformResponse.uiHints || {}).length > 0
             ? JSON.stringify(platformResponse.uiHints)
             : undefined,
+        aiCreditsMonthlyLimit: aiCreditBalance?.monthlyLimit,
+        aiCreditsUsed: aiCreditBalance?.usedCredits,
+        aiCreditsRemaining: aiCreditBalance?.remainingCredits,
+        platformEndpointUsed: platformCall.endpointUrl,
+        platformAttemptCount: platformCall.attemptCount,
         executedAction: executedAction || undefined,
       };
     } catch (error) {
@@ -249,7 +494,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       throw error;
     } finally {
       const latencyMs = Date.now() - startedAtMs;
-      this.recordGatewayMetrics(latencyMs, failed, timeoutFailure);
+      await this.recordGatewayMetrics(skill, latencyMs, failed, timeoutFailure);
       this.logAssistCompletion(
         requestId,
         skill,
@@ -269,9 +514,29 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  private resolveAiCreditCost(skill: string): number {
+    const skillKey = skill.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+    const skillOverride = Number(
+      process.env[`AI_AGENT_CREDIT_COST_${skillKey}`],
+    );
+    if (Number.isFinite(skillOverride) && skillOverride > 0) {
+      return Math.floor(skillOverride);
+    }
+
+    const fallback = Number(process.env.AI_AGENT_CREDIT_COST || 1);
+    if (Number.isFinite(fallback) && fallback > 0) {
+      return Math.floor(fallback);
+    }
+    return 1;
+  }
+
   async getPlatformHealth(): Promise<AgentPlatformHealthResponse> {
     const checkedAtIso = new Date().toISOString();
-    const serviceUrl = this.getPlatformBaseUrl();
+    const platformBaseUrls = this.getPlatformBaseUrls();
+    let serviceUrl = platformBaseUrls[0] || this.getPlatformBaseUrl();
+    const probedServiceUrls: string[] = [];
+    const endpointStats = this.buildEndpointStatsSnapshot(platformBaseUrls);
+    const skillStats = this.buildSkillStatsSnapshot();
     const thresholdLatencyMs = this.getLatencyWarnThresholdMs();
     const thresholdErrorRate = this.getErrorRateWarnPercent();
     const requestCount = this.metrics.totalRequests;
@@ -286,27 +551,42 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     let status = 'down';
     let latencyMs = 0;
 
-    const startedAtMs = Date.now();
-    try {
-      const response = await axios.get<{ status?: string }>(
-        `${serviceUrl}/health`,
-        {
-          timeout: this.getPlatformTimeoutMs(),
-          headers: {
-            'x-request-id': `health-${randomUUID()}`,
-            ...(process.env.AI_AGENT_PLATFORM_KEY
-              ? { 'x-agent-platform-key': process.env.AI_AGENT_PLATFORM_KEY }
-              : {}),
+    for (let index = 0; index < platformBaseUrls.length; index += 1) {
+      const candidateBaseUrl = platformBaseUrls[index];
+      if (!candidateBaseUrl) continue;
+      probedServiceUrls.push(candidateBaseUrl);
+      const startedAtMs = Date.now();
+      try {
+        const response = await axios.get<{ status?: string }>(
+          `${candidateBaseUrl}/health`,
+          {
+            timeout: this.getPlatformTimeoutMs(),
+            headers: {
+              'x-request-id': `health-${randomUUID()}`,
+              ...(process.env.AI_AGENT_PLATFORM_KEY
+                ? { 'x-agent-platform-key': process.env.AI_AGENT_PLATFORM_KEY }
+                : {}),
+            },
           },
-        },
-      );
-      latencyMs = Date.now() - startedAtMs;
-      reachable = true;
-      status = response.data?.status || 'ok';
-    } catch {
-      latencyMs = Date.now() - startedAtMs;
-      reachable = false;
-      status = 'down';
+        );
+        latencyMs = Date.now() - startedAtMs;
+        reachable = true;
+        status = response.data?.status || 'ok';
+        serviceUrl = candidateBaseUrl;
+        break;
+      } catch (error: unknown) {
+        latencyMs = Date.now() - startedAtMs;
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          serializeStructuredLog({
+            event: 'agent_platform_health_probe_failed',
+            probe: index + 1,
+            serviceUrl: candidateBaseUrl,
+            message: errorMessage.slice(0, 200),
+          }),
+        );
+      }
     }
 
     const alertingState = this.resolveAlertingState(
@@ -317,10 +597,14 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       thresholdErrorRate,
     );
 
-    return {
+    const healthResponse: AgentPlatformHealthResponse = {
       status,
       reachable,
       serviceUrl,
+      configuredServiceUrls: platformBaseUrls,
+      probedServiceUrls,
+      endpointStats,
+      skillStats,
       latencyMs,
       checkedAtIso,
       requestCount,
@@ -331,6 +615,1085 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       latencyWarnMs: thresholdLatencyMs,
       errorRateWarnPercent: thresholdErrorRate,
       alertingState,
+    };
+    await this.persistPlatformHealthSample(healthResponse);
+    return healthResponse;
+  }
+
+  async getPlatformHealthHistory(input?: {
+    limit?: number | null;
+    windowHours?: number | null;
+  }): Promise<
+    Array<{
+      status: string;
+      reachable: boolean;
+      serviceUrl: string;
+      configuredServiceUrls: string[];
+      probedServiceUrls: string[];
+      endpointStats: Array<{
+        endpointUrl: string;
+        successCount: number;
+        failureCount: number;
+        lastSuccessAtIso?: string;
+        lastFailureAtIso?: string;
+      }>;
+      skillStats: Array<{
+        skill: string;
+        totalRequests: number;
+        failedRequests: number;
+        timeoutFailures: number;
+        avgLatencyMs: number;
+        lastLatencyMs: number;
+        errorRatePercent: number;
+        lastErrorAtIso?: string;
+      }>;
+      checkedAtIso: string;
+      requestCount: number;
+      errorCount: number;
+      timeoutErrorCount: number;
+      errorRatePercent: number;
+      avgLatencyMs: number;
+      latencyWarnMs: number;
+      errorRateWarnPercent: number;
+      alertingState: string;
+    }>
+  > {
+    const limit = this.normalizeHealthHistoryLimit(input?.limit);
+    const windowHours = this.normalizeHealthHistoryWindowHours(
+      input?.windowHours,
+    );
+    const windowStart = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const rows = await this.healthSampleRepo.find({
+      where: {
+        checkedAt: MoreThanOrEqual(windowStart),
+      },
+      order: {
+        checkedAt: 'DESC',
+      },
+      take: limit,
+    });
+    return rows.map((row) => ({
+      status: row.status,
+      reachable: row.reachable,
+      serviceUrl: row.serviceUrl,
+      configuredServiceUrls: this.normalizeStringArray(
+        row.configuredServiceUrls,
+      ),
+      probedServiceUrls: this.normalizeStringArray(row.probedServiceUrls),
+      endpointStats: this.normalizeEndpointStats(row.endpointStats),
+      skillStats: this.normalizeSkillStats(row.skillStats),
+      checkedAtIso: row.checkedAt.toISOString(),
+      requestCount: Number(row.requestCount || 0),
+      errorCount: Number(row.errorCount || 0),
+      timeoutErrorCount: Number(row.timeoutErrorCount || 0),
+      errorRatePercent: Number(row.errorRatePercent || 0),
+      avgLatencyMs: Number(row.avgLatencyMs || 0),
+      latencyWarnMs: Number(row.latencyWarnMs || 0),
+      errorRateWarnPercent: Number(row.errorRateWarnPercent || 0),
+      alertingState: row.alertingState,
+    }));
+  }
+
+  async purgePlatformHealthSampleRetentionData(input?: {
+    retentionDays?: number | null;
+    actorUserId?: string | null;
+  }): Promise<{
+    deletedSamples: number;
+    retentionDays: number;
+    executedAtIso: string;
+  }> {
+    const retentionDays = this.normalizeHealthSampleRetentionDays(
+      input?.retentionDays,
+    );
+    const cutoffDate = new Date(
+      Date.now() - retentionDays * 24 * 60 * 60 * 1000,
+    );
+    const deleteResult = await this.healthSampleRepo.delete({
+      checkedAt: LessThan(cutoffDate),
+    });
+    const deletedSamples = Number(deleteResult.affected || 0);
+    const executedAtIso = new Date().toISOString();
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'agent_platform_health_sample_retention_purge_completed',
+        deletedSamples,
+        retentionDays,
+        executedAtIso,
+      }),
+    );
+    const actorUserId = String(input?.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_platform_health_sample_retention_purged',
+        metadata: {
+          deletedSamples,
+          retentionDays,
+          executedAtIso,
+        },
+      });
+    }
+    return {
+      deletedSamples,
+      retentionDays,
+      executedAtIso,
+    };
+  }
+
+  async exportPlatformHealthSampleData(input?: {
+    limit?: number | null;
+    windowHours?: number | null;
+    actorUserId?: string | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const generatedAtIso = new Date().toISOString();
+    const samples = await this.getPlatformHealthHistory({
+      limit: input?.limit ?? null,
+      windowHours: input?.windowHours ?? null,
+    });
+    const retentionDays = this.normalizeHealthSampleRetentionDays(null);
+    const payload = {
+      generatedAtIso,
+      retentionPolicy: {
+        retentionDays,
+      },
+      windowHours: this.normalizeHealthHistoryWindowHours(input?.windowHours),
+      sampleCount: samples.length,
+      samples,
+    };
+    const actorUserId = String(input?.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_platform_health_sample_data_export_requested',
+        metadata: {
+          windowHours: payload.windowHours,
+          sampleCount: payload.sampleCount,
+        },
+      });
+    }
+    return {
+      generatedAtIso,
+      dataJson: JSON.stringify(payload),
+    };
+  }
+
+  async getPlatformHealthTrendSummary(input?: {
+    windowHours?: number | null;
+  }): Promise<{
+    windowHours: number;
+    sampleCount: number;
+    healthyCount: number;
+    warnCount: number;
+    criticalCount: number;
+    avgErrorRatePercent: number;
+    peakErrorRatePercent: number;
+    avgLatencyMs: number;
+    peakLatencyMs: number;
+    latestCheckedAtIso?: string;
+  }> {
+    const windowHours = this.normalizeHealthHistoryWindowHours(
+      input?.windowHours,
+    );
+    const windowStart = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const samples = await this.healthSampleRepo.find({
+      where: {
+        checkedAt: MoreThanOrEqual(windowStart),
+      },
+      order: {
+        checkedAt: 'DESC',
+      },
+      take: AiAgentGatewayService.MAX_HEALTH_TREND_SAMPLE_SCAN,
+    });
+    const sampleCount = samples.length;
+    const healthyCount = samples.filter(
+      (sample) =>
+        String(sample.alertingState || '').toLowerCase() === 'healthy',
+    ).length;
+    const warnCount = samples.filter(
+      (sample) => String(sample.alertingState || '').toLowerCase() === 'warn',
+    ).length;
+    const criticalCount = samples.filter(
+      (sample) =>
+        String(sample.alertingState || '').toLowerCase() === 'critical',
+    ).length;
+    const totalErrorRate = samples.reduce(
+      (sum, sample) => sum + Number(sample.errorRatePercent || 0),
+      0,
+    );
+    const totalLatency = samples.reduce(
+      (sum, sample) => sum + Number(sample.avgLatencyMs || 0),
+      0,
+    );
+    const peakErrorRatePercent = samples.reduce(
+      (peak, sample) => Math.max(peak, Number(sample.errorRatePercent || 0)),
+      0,
+    );
+    const peakLatencyMs = samples.reduce(
+      (peak, sample) => Math.max(peak, Number(sample.avgLatencyMs || 0)),
+      0,
+    );
+    return {
+      windowHours,
+      sampleCount,
+      healthyCount,
+      warnCount,
+      criticalCount,
+      avgErrorRatePercent: sampleCount > 0 ? totalErrorRate / sampleCount : 0,
+      peakErrorRatePercent,
+      avgLatencyMs: sampleCount > 0 ? totalLatency / sampleCount : 0,
+      peakLatencyMs,
+      latestCheckedAtIso: samples[0]?.checkedAt?.toISOString(),
+    };
+  }
+
+  async getPlatformHealthTrendSeries(input?: {
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<
+    Array<{
+      bucketStartIso: string;
+      sampleCount: number;
+      healthyCount: number;
+      warnCount: number;
+      criticalCount: number;
+      avgErrorRatePercent: number;
+      avgLatencyMs: number;
+    }>
+  > {
+    const windowHours = this.normalizeHealthHistoryWindowHours(
+      input?.windowHours,
+    );
+    const bucketMinutes = this.normalizeHealthTrendBucketMinutes(
+      input?.bucketMinutes,
+    );
+    const bucketMs = bucketMinutes * 60 * 1000;
+    const nowMs = Date.now();
+    const windowStartMs = nowMs - windowHours * 60 * 60 * 1000;
+    const windowStart = new Date(windowStartMs);
+    const samples = await this.healthSampleRepo.find({
+      where: {
+        checkedAt: MoreThanOrEqual(windowStart),
+      },
+      order: {
+        checkedAt: 'ASC',
+      },
+      take: AiAgentGatewayService.MAX_HEALTH_TREND_SAMPLE_SCAN,
+    });
+    const buckets = new Map<
+      number,
+      {
+        sampleCount: number;
+        healthyCount: number;
+        warnCount: number;
+        criticalCount: number;
+        totalErrorRatePercent: number;
+        totalLatencyMs: number;
+      }
+    >();
+    for (const sample of samples) {
+      const bucketStartMs =
+        Math.floor(sample.checkedAt.getTime() / bucketMs) * bucketMs;
+      const existing = buckets.get(bucketStartMs) || {
+        sampleCount: 0,
+        healthyCount: 0,
+        warnCount: 0,
+        criticalCount: 0,
+        totalErrorRatePercent: 0,
+        totalLatencyMs: 0,
+      };
+      const alertingState = String(sample.alertingState || '')
+        .trim()
+        .toLowerCase();
+      existing.sampleCount += 1;
+      if (alertingState === 'healthy') {
+        existing.healthyCount += 1;
+      } else if (alertingState === 'warn') {
+        existing.warnCount += 1;
+      } else if (alertingState === 'critical') {
+        existing.criticalCount += 1;
+      }
+      existing.totalErrorRatePercent += Number(sample.errorRatePercent || 0);
+      existing.totalLatencyMs += Number(sample.avgLatencyMs || 0);
+      buckets.set(bucketStartMs, existing);
+    }
+    const normalizedWindowStartMs =
+      Math.floor(windowStartMs / bucketMs) * bucketMs;
+    const series: Array<{
+      bucketStartIso: string;
+      sampleCount: number;
+      healthyCount: number;
+      warnCount: number;
+      criticalCount: number;
+      avgErrorRatePercent: number;
+      avgLatencyMs: number;
+    }> = [];
+    for (
+      let cursor = normalizedWindowStartMs;
+      cursor <= nowMs;
+      cursor += bucketMs
+    ) {
+      const bucket = buckets.get(cursor);
+      const sampleCount = bucket?.sampleCount || 0;
+      series.push({
+        bucketStartIso: new Date(cursor).toISOString(),
+        sampleCount,
+        healthyCount: bucket?.healthyCount || 0,
+        warnCount: bucket?.warnCount || 0,
+        criticalCount: bucket?.criticalCount || 0,
+        avgErrorRatePercent:
+          sampleCount > 0
+            ? (bucket?.totalErrorRatePercent || 0) / sampleCount
+            : 0,
+        avgLatencyMs:
+          sampleCount > 0 ? (bucket?.totalLatencyMs || 0) / sampleCount : 0,
+      });
+    }
+    return series;
+  }
+
+  async getPlatformHealthIncidentStats(input?: {
+    windowHours?: number | null;
+  }): Promise<{
+    windowHours: number;
+    totalCount: number;
+    warnCount: number;
+    criticalCount: number;
+    lastIncidentAtIso?: string;
+  }> {
+    const windowHours = this.normalizeHealthHistoryWindowHours(
+      input?.windowHours,
+    );
+    const windowStart = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const samples = await this.healthSampleRepo.find({
+      where: {
+        checkedAt: MoreThanOrEqual(windowStart),
+      },
+      order: {
+        checkedAt: 'DESC',
+      },
+      take: AiAgentGatewayService.MAX_HEALTH_TREND_SAMPLE_SCAN,
+    });
+    const incidents = samples.filter((sample) =>
+      ['warn', 'critical'].includes(
+        String(sample.alertingState || '')
+          .trim()
+          .toLowerCase(),
+      ),
+    );
+    const warnCount = incidents.filter(
+      (sample) =>
+        String(sample.alertingState || '')
+          .trim()
+          .toLowerCase() === 'warn',
+    ).length;
+    const criticalCount = incidents.filter(
+      (sample) =>
+        String(sample.alertingState || '')
+          .trim()
+          .toLowerCase() === 'critical',
+    ).length;
+    return {
+      windowHours,
+      totalCount: incidents.length,
+      warnCount,
+      criticalCount,
+      lastIncidentAtIso: incidents[0]?.checkedAt?.toISOString(),
+    };
+  }
+
+  async getPlatformHealthIncidentSeries(input?: {
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+  }): Promise<
+    Array<{
+      bucketStartIso: string;
+      totalCount: number;
+      warnCount: number;
+      criticalCount: number;
+    }>
+  > {
+    const windowHours = this.normalizeHealthHistoryWindowHours(
+      input?.windowHours,
+    );
+    const bucketMinutes = this.normalizeHealthTrendBucketMinutes(
+      input?.bucketMinutes,
+    );
+    const bucketMs = bucketMinutes * 60 * 1000;
+    const nowMs = Date.now();
+    const windowStartMs = nowMs - windowHours * 60 * 60 * 1000;
+    const windowStart = new Date(windowStartMs);
+    const samples = await this.healthSampleRepo.find({
+      where: {
+        checkedAt: MoreThanOrEqual(windowStart),
+      },
+      order: {
+        checkedAt: 'ASC',
+      },
+      take: AiAgentGatewayService.MAX_HEALTH_TREND_SAMPLE_SCAN,
+    });
+    const buckets = new Map<
+      number,
+      { totalCount: number; warnCount: number; criticalCount: number }
+    >();
+    for (const sample of samples) {
+      const state = String(sample.alertingState || '')
+        .trim()
+        .toLowerCase();
+      if (state !== 'warn' && state !== 'critical') continue;
+      const bucketStartMs =
+        Math.floor(sample.checkedAt.getTime() / bucketMs) * bucketMs;
+      const existing = buckets.get(bucketStartMs) || {
+        totalCount: 0,
+        warnCount: 0,
+        criticalCount: 0,
+      };
+      existing.totalCount += 1;
+      if (state === 'critical') {
+        existing.criticalCount += 1;
+      } else {
+        existing.warnCount += 1;
+      }
+      buckets.set(bucketStartMs, existing);
+    }
+    const normalizedWindowStartMs =
+      Math.floor(windowStartMs / bucketMs) * bucketMs;
+    const series: Array<{
+      bucketStartIso: string;
+      totalCount: number;
+      warnCount: number;
+      criticalCount: number;
+    }> = [];
+    for (
+      let cursor = normalizedWindowStartMs;
+      cursor <= nowMs;
+      cursor += bucketMs
+    ) {
+      const bucket = buckets.get(cursor);
+      series.push({
+        bucketStartIso: new Date(cursor).toISOString(),
+        totalCount: bucket?.totalCount || 0,
+        warnCount: bucket?.warnCount || 0,
+        criticalCount: bucket?.criticalCount || 0,
+      });
+    }
+    return series;
+  }
+
+  async exportPlatformHealthIncidentData(input?: {
+    windowHours?: number | null;
+    bucketMinutes?: number | null;
+    actorUserId?: string | null;
+  }): Promise<{
+    generatedAtIso: string;
+    dataJson: string;
+  }> {
+    const windowHours = this.normalizeHealthHistoryWindowHours(
+      input?.windowHours,
+    );
+    const bucketMinutes = this.normalizeHealthTrendBucketMinutes(
+      input?.bucketMinutes,
+    );
+    const [stats, series] = await Promise.all([
+      this.getPlatformHealthIncidentStats({
+        windowHours,
+      }),
+      this.getPlatformHealthIncidentSeries({
+        windowHours,
+        bucketMinutes,
+      }),
+    ]);
+    const generatedAtIso = new Date().toISOString();
+    const actorUserId = String(input?.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_platform_health_incident_data_export_requested',
+        metadata: {
+          windowHours,
+          bucketMinutes,
+          totalIncidents: stats.totalCount,
+        },
+      });
+    }
+    return {
+      generatedAtIso,
+      dataJson: JSON.stringify({
+        generatedAtIso,
+        windowHours,
+        bucketMinutes,
+        stats,
+        series,
+      }),
+    };
+  }
+
+  private normalizeHealthHistoryLimit(limit?: number | null): number {
+    if (typeof limit !== 'number' || !Number.isFinite(limit)) {
+      return AiAgentGatewayService.DEFAULT_HEALTH_HISTORY_LIMIT;
+    }
+    const rounded = Math.trunc(limit);
+    if (rounded < AiAgentGatewayService.MIN_HEALTH_HISTORY_LIMIT) {
+      return AiAgentGatewayService.MIN_HEALTH_HISTORY_LIMIT;
+    }
+    if (rounded > AiAgentGatewayService.MAX_HEALTH_HISTORY_LIMIT) {
+      return AiAgentGatewayService.MAX_HEALTH_HISTORY_LIMIT;
+    }
+    return rounded;
+  }
+
+  private normalizeHealthHistoryWindowHours(
+    windowHours?: number | null,
+  ): number {
+    if (typeof windowHours !== 'number' || !Number.isFinite(windowHours)) {
+      return AiAgentGatewayService.DEFAULT_HEALTH_HISTORY_WINDOW_HOURS;
+    }
+    const rounded = Math.trunc(windowHours);
+    if (rounded < AiAgentGatewayService.MIN_HEALTH_HISTORY_WINDOW_HOURS) {
+      return AiAgentGatewayService.MIN_HEALTH_HISTORY_WINDOW_HOURS;
+    }
+    if (rounded > AiAgentGatewayService.MAX_HEALTH_HISTORY_WINDOW_HOURS) {
+      return AiAgentGatewayService.MAX_HEALTH_HISTORY_WINDOW_HOURS;
+    }
+    return rounded;
+  }
+
+  private normalizeHealthTrendBucketMinutes(
+    bucketMinutes?: number | null,
+  ): number {
+    if (typeof bucketMinutes !== 'number' || !Number.isFinite(bucketMinutes)) {
+      return AiAgentGatewayService.DEFAULT_HEALTH_TREND_BUCKET_MINUTES;
+    }
+    const rounded = Math.trunc(bucketMinutes);
+    if (rounded < AiAgentGatewayService.MIN_HEALTH_TREND_BUCKET_MINUTES) {
+      return AiAgentGatewayService.MIN_HEALTH_TREND_BUCKET_MINUTES;
+    }
+    if (rounded > AiAgentGatewayService.MAX_HEALTH_TREND_BUCKET_MINUTES) {
+      return AiAgentGatewayService.MAX_HEALTH_TREND_BUCKET_MINUTES;
+    }
+    return rounded;
+  }
+
+  private normalizeHealthSampleRetentionDays(
+    retentionDays?: number | null,
+  ): number {
+    const envValue = Number(process.env.AI_AGENT_HEALTH_SAMPLE_RETENTION_DAYS);
+    const fallback = Number.isFinite(envValue)
+      ? envValue
+      : AiAgentGatewayService.DEFAULT_HEALTH_SAMPLE_RETENTION_DAYS;
+    const candidate =
+      typeof retentionDays === 'number' && Number.isFinite(retentionDays)
+        ? Math.trunc(retentionDays)
+        : Math.trunc(fallback);
+    if (candidate < AiAgentGatewayService.MIN_HEALTH_SAMPLE_RETENTION_DAYS) {
+      return AiAgentGatewayService.MIN_HEALTH_SAMPLE_RETENTION_DAYS;
+    }
+    if (candidate > AiAgentGatewayService.MAX_HEALTH_SAMPLE_RETENTION_DAYS) {
+      return AiAgentGatewayService.MAX_HEALTH_SAMPLE_RETENTION_DAYS;
+    }
+    return candidate;
+  }
+
+  private normalizeStringArray(values: unknown): string[] {
+    if (!Array.isArray(values)) return [];
+    return values.map((value) => String(value || '').trim()).filter(Boolean);
+  }
+
+  private normalizeEndpointStats(values: unknown): Array<{
+    endpointUrl: string;
+    successCount: number;
+    failureCount: number;
+    lastSuccessAtIso?: string;
+    lastFailureAtIso?: string;
+  }> {
+    if (!Array.isArray(values)) return [];
+    const normalized: Array<{
+      endpointUrl: string;
+      successCount: number;
+      failureCount: number;
+      lastSuccessAtIso?: string;
+      lastFailureAtIso?: string;
+    }> = [];
+    for (const entry of values) {
+      if (!entry || typeof entry !== 'object') continue;
+      const payload = entry as {
+        endpointUrl?: unknown;
+        successCount?: unknown;
+        failureCount?: unknown;
+        lastSuccessAtIso?: unknown;
+        lastFailureAtIso?: unknown;
+      };
+      const endpointUrl =
+        typeof payload.endpointUrl === 'string'
+          ? payload.endpointUrl.trim()
+          : '';
+      if (!endpointUrl) continue;
+      const nextEntry: {
+        endpointUrl: string;
+        successCount: number;
+        failureCount: number;
+        lastSuccessAtIso?: string;
+        lastFailureAtIso?: string;
+      } = {
+        endpointUrl,
+        successCount: Number(payload.successCount || 0),
+        failureCount: Number(payload.failureCount || 0),
+      };
+      if (typeof payload.lastSuccessAtIso === 'string') {
+        nextEntry.lastSuccessAtIso = payload.lastSuccessAtIso;
+      }
+      if (typeof payload.lastFailureAtIso === 'string') {
+        nextEntry.lastFailureAtIso = payload.lastFailureAtIso;
+      }
+      normalized.push(nextEntry);
+    }
+    return normalized;
+  }
+
+  private normalizeSkillStats(values: unknown): Array<{
+    skill: string;
+    totalRequests: number;
+    failedRequests: number;
+    timeoutFailures: number;
+    avgLatencyMs: number;
+    lastLatencyMs: number;
+    errorRatePercent: number;
+    lastErrorAtIso?: string;
+  }> {
+    if (!Array.isArray(values)) return [];
+    const normalized: Array<{
+      skill: string;
+      totalRequests: number;
+      failedRequests: number;
+      timeoutFailures: number;
+      avgLatencyMs: number;
+      lastLatencyMs: number;
+      errorRatePercent: number;
+      lastErrorAtIso?: string;
+    }> = [];
+    for (const entry of values) {
+      if (!entry || typeof entry !== 'object') continue;
+      const payload = entry as {
+        skill?: unknown;
+        totalRequests?: unknown;
+        failedRequests?: unknown;
+        timeoutFailures?: unknown;
+        avgLatencyMs?: unknown;
+        lastLatencyMs?: unknown;
+        errorRatePercent?: unknown;
+        lastErrorAtIso?: unknown;
+      };
+      const skill =
+        typeof payload.skill === 'string' ? payload.skill.trim() : '';
+      if (!skill) continue;
+      const nextEntry: {
+        skill: string;
+        totalRequests: number;
+        failedRequests: number;
+        timeoutFailures: number;
+        avgLatencyMs: number;
+        lastLatencyMs: number;
+        errorRatePercent: number;
+        lastErrorAtIso?: string;
+      } = {
+        skill,
+        totalRequests: Number(payload.totalRequests || 0),
+        failedRequests: Number(payload.failedRequests || 0),
+        timeoutFailures: Number(payload.timeoutFailures || 0),
+        avgLatencyMs: Number(payload.avgLatencyMs || 0),
+        lastLatencyMs: Number(payload.lastLatencyMs || 0),
+        errorRatePercent: Number(payload.errorRatePercent || 0),
+      };
+      if (typeof payload.lastErrorAtIso === 'string') {
+        nextEntry.lastErrorAtIso = payload.lastErrorAtIso;
+      }
+      normalized.push(nextEntry);
+    }
+    return normalized;
+  }
+
+  private async persistPlatformHealthSample(
+    health: AgentPlatformHealthResponse,
+  ): Promise<void> {
+    const persistEnabled = String(
+      process.env.AI_AGENT_HEALTH_SAMPLE_PERSIST_ENABLED || 'true',
+    )
+      .trim()
+      .toLowerCase();
+    if (['false', '0', 'off', 'no'].includes(persistEnabled)) return;
+    try {
+      await this.healthSampleRepo.save({
+        status: health.status,
+        reachable: health.reachable,
+        serviceUrl: health.serviceUrl,
+        checkedAt: new Date(health.checkedAtIso),
+        requestCount: health.requestCount,
+        errorCount: health.errorCount,
+        timeoutErrorCount: health.timeoutErrorCount,
+        errorRatePercent: health.errorRatePercent,
+        avgLatencyMs: health.avgLatencyMs,
+        latencyWarnMs: health.latencyWarnMs,
+        errorRateWarnPercent: health.errorRateWarnPercent,
+        alertingState: health.alertingState,
+        configuredServiceUrls: health.configuredServiceUrls,
+        probedServiceUrls: health.probedServiceUrls,
+        endpointStats: health.endpointStats,
+        skillStats: health.skillStats,
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'agent_platform_health_sample_persist_failed',
+          error: message,
+        }),
+      );
+    }
+  }
+
+  async resetPlatformRuntimeStats(input?: {
+    endpointUrl?: string | null;
+    actorUserId?: string | null;
+  }): Promise<{
+    clearedEndpoints: number;
+    scopedEndpointUrl: string | null;
+    resetAtIso: string;
+  }> {
+    const scopedEndpointUrl = this.normalizePlatformBaseUrl(
+      String(input?.endpointUrl || ''),
+    );
+    let clearedEndpoints = 0;
+
+    if (scopedEndpointUrl) {
+      const inMemoryDeleted = this.endpointRuntimeStats.delete(
+        scopedEndpointUrl,
+      )
+        ? 1
+        : 0;
+      const deleteResult = await this.endpointRuntimeStatRepo.delete({
+        endpointUrl: scopedEndpointUrl,
+      });
+      const persistedDeleted = Number(deleteResult.affected || 0);
+      clearedEndpoints = Math.max(inMemoryDeleted, persistedDeleted);
+    } else {
+      const inMemoryDeleted = this.endpointRuntimeStats.size;
+      this.endpointRuntimeStats.clear();
+      const deleteResult = await this.endpointRuntimeStatRepo.delete({});
+      const persistedDeleted = Number(deleteResult.affected || 0);
+      clearedEndpoints = Math.max(inMemoryDeleted, persistedDeleted);
+    }
+    const resetAtIso = new Date().toISOString();
+    this.logger.warn(
+      serializeStructuredLog({
+        event: 'agent_platform_runtime_stats_reset',
+        scopedEndpointUrl: scopedEndpointUrl || null,
+        clearedEndpoints,
+        resetAtIso,
+      }),
+    );
+    const actorUserId = String(input?.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_platform_runtime_stats_reset',
+        metadata: {
+          scopedEndpointUrl: scopedEndpointUrl || null,
+          clearedEndpoints,
+          resetAtIso,
+        },
+      });
+    }
+    return {
+      clearedEndpoints,
+      scopedEndpointUrl: scopedEndpointUrl || null,
+      resetAtIso,
+    };
+  }
+
+  async resetSkillRuntimeStats(input?: {
+    skill?: string | null;
+    actorUserId?: string | null;
+  }): Promise<{
+    clearedSkills: number;
+    scopedSkill: string | null;
+    resetAtIso: string;
+  }> {
+    const scopedSkill = String(input?.skill || '')
+      .trim()
+      .toLowerCase();
+    let clearedSkills = 0;
+
+    if (scopedSkill) {
+      const inMemoryDeleted = this.skillRuntimeStats.delete(scopedSkill)
+        ? 1
+        : 0;
+      const deleteResult = await this.skillRuntimeStatRepo.delete({
+        skill: scopedSkill,
+      });
+      const persistedDeleted = Number(deleteResult.affected || 0);
+      clearedSkills = Math.max(inMemoryDeleted, persistedDeleted);
+    } else {
+      const inMemoryDeleted = this.skillRuntimeStats.size;
+      this.skillRuntimeStats.clear();
+      const deleteResult = await this.skillRuntimeStatRepo.delete({});
+      const persistedDeleted = Number(deleteResult.affected || 0);
+      clearedSkills = Math.max(inMemoryDeleted, persistedDeleted);
+    }
+    const resetAtIso = new Date().toISOString();
+    this.logger.warn(
+      serializeStructuredLog({
+        event: 'agent_platform_skill_runtime_stats_reset',
+        scopedSkill: scopedSkill || null,
+        clearedSkills,
+        resetAtIso,
+      }),
+    );
+    const actorUserId = String(input?.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_platform_skill_runtime_stats_reset',
+        metadata: {
+          scopedSkill: scopedSkill || null,
+          clearedSkills,
+          resetAtIso,
+        },
+      });
+    }
+    return {
+      clearedSkills,
+      scopedSkill: scopedSkill || null,
+      resetAtIso,
+    };
+  }
+
+  async listAgentActionAuditsForUser(input: {
+    userId: string;
+    limit?: number;
+  }): Promise<AgentActionAudit[]> {
+    const userId = String(input.userId || '').trim();
+    if (!userId) {
+      throw new BadRequestException('Authenticated user id is required');
+    }
+    const limit = Math.max(1, Math.min(100, input.limit || 20));
+    return this.agentActionAuditRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+  }
+
+  private normalizeAuditExportLimit(limit?: number): number {
+    if (typeof limit !== 'number' || !Number.isFinite(limit)) {
+      return 200;
+    }
+    const rounded = Math.trunc(limit);
+    if (rounded < AiAgentGatewayService.MIN_AUDIT_EXPORT_LIMIT) {
+      return AiAgentGatewayService.MIN_AUDIT_EXPORT_LIMIT;
+    }
+    if (rounded > AiAgentGatewayService.MAX_AUDIT_EXPORT_LIMIT) {
+      return AiAgentGatewayService.MAX_AUDIT_EXPORT_LIMIT;
+    }
+    return rounded;
+  }
+
+  private normalizeAuditRetentionDays(retentionDays?: number | null): number {
+    if (typeof retentionDays !== 'number' || !Number.isFinite(retentionDays)) {
+      return AiAgentGatewayService.DEFAULT_AUDIT_RETENTION_DAYS;
+    }
+    const rounded = Math.trunc(retentionDays);
+    if (rounded < AiAgentGatewayService.MIN_AUDIT_RETENTION_DAYS) {
+      return AiAgentGatewayService.MIN_AUDIT_RETENTION_DAYS;
+    }
+    if (rounded > AiAgentGatewayService.MAX_AUDIT_RETENTION_DAYS) {
+      return AiAgentGatewayService.MAX_AUDIT_RETENTION_DAYS;
+    }
+    return rounded;
+  }
+
+  private resolveAuditRetentionDays(retentionDays?: number | null): number {
+    const envValue = Number(process.env.AI_AGENT_ACTION_AUDIT_RETENTION_DAYS);
+    const baseRetentionDays = this.normalizeAuditRetentionDays(
+      Number.isFinite(envValue) ? envValue : undefined,
+    );
+    if (typeof retentionDays !== 'number' || !Number.isFinite(retentionDays)) {
+      return baseRetentionDays;
+    }
+    return this.normalizeAuditRetentionDays(retentionDays);
+  }
+
+  async exportAgentActionDataForUser(input: {
+    userId: string;
+    limit?: number;
+  }): Promise<{ generatedAtIso: string; dataJson: string }> {
+    const userId = String(input.userId || '').trim();
+    if (!userId) {
+      throw new BadRequestException('Authenticated user id is required');
+    }
+    const limit = this.normalizeAuditExportLimit(input.limit);
+    const audits = await this.agentActionAuditRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+    const generatedAtIso = new Date().toISOString();
+    const retentionDays = this.resolveAuditRetentionDays();
+    const autoPurgeEnabled = String(
+      process.env.AI_AGENT_ACTION_AUDIT_AUTOPURGE_ENABLED || 'true',
+    )
+      .trim()
+      .toLowerCase();
+    const dataJson = JSON.stringify({
+      exportVersion: 'v1',
+      generatedAtIso,
+      userId,
+      retentionPolicy: {
+        retentionDays,
+        autoPurgeEnabled: !['false', '0', 'off', 'no'].includes(
+          autoPurgeEnabled,
+        ),
+      },
+      summary: {
+        totalAudits: audits.length,
+        executedCount: audits.filter((audit) => audit.executed).length,
+        blockedCount: audits.filter((audit) => !audit.executed).length,
+        approvalRequiredCount: audits.filter((audit) => audit.approvalRequired)
+          .length,
+      },
+      audits: audits.map((audit) => ({
+        id: audit.id,
+        requestId: audit.requestId,
+        skill: audit.skill,
+        action: audit.action,
+        executed: audit.executed,
+        approvalRequired: audit.approvalRequired,
+        approvalTokenSuffix: audit.approvalTokenSuffix || null,
+        message: audit.message,
+        metadata: audit.metadata || null,
+        createdAtIso: audit.createdAt.toISOString(),
+        updatedAtIso: audit.updatedAt.toISOString(),
+      })),
+    });
+    await this.writeAuditLog({
+      userId,
+      action: 'agent_action_audit_data_export_requested',
+      metadata: {
+        limit,
+        exportedAuditRows: audits.length,
+      },
+    });
+    return {
+      generatedAtIso,
+      dataJson,
+    };
+  }
+
+  async exportAgentActionDataForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+    limit?: number;
+  }): Promise<{ generatedAtIso: string; dataJson: string }> {
+    const targetUserId = String(input.targetUserId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!targetUserId) {
+      throw new BadRequestException('Target user id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+    const limit = this.normalizeAuditExportLimit(input.limit);
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'agent_action_data_export_admin_start',
+        actorUserId,
+        targetUserId,
+        limit,
+      }),
+    );
+    const exportPayload = await this.exportAgentActionDataForUser({
+      userId: targetUserId,
+      limit,
+    });
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'agent_action_audit_data_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        limit,
+        generatedAtIso: exportPayload.generatedAtIso,
+        selfRequested: actorUserId === targetUserId,
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'agent_action_data_export_admin_completed',
+        actorUserId,
+        targetUserId,
+        limit,
+      }),
+    );
+    return exportPayload;
+  }
+
+  async purgeAgentActionAuditRetentionData(input: {
+    retentionDays?: number | null;
+    userId?: string | null;
+    actorUserId?: string | null;
+  }): Promise<{
+    deletedRows: number;
+    retentionDays: number;
+    userScoped: boolean;
+    executedAtIso: string;
+  }> {
+    const retentionDays = this.resolveAuditRetentionDays(input.retentionDays);
+    const cutoffDate = new Date(
+      Date.now() - retentionDays * 24 * 60 * 60 * 1000,
+    );
+    const userId = String(input.userId || '').trim() || null;
+    const deleteQuery = this.agentActionAuditRepo
+      .createQueryBuilder()
+      .delete()
+      .from(AgentActionAudit)
+      .where('"createdAt" < :cutoff', { cutoff: cutoffDate.toISOString() });
+    if (userId) {
+      deleteQuery.andWhere('"userId" = :userId', { userId });
+    }
+    const deleteResult = await deleteQuery.execute();
+    const deletedRows = Number(deleteResult.affected || 0);
+    const executedAtIso = new Date().toISOString();
+    const userScoped = Boolean(userId);
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'agent_action_audit_retention_purge_completed',
+        deletedRows,
+        retentionDays,
+        userScoped,
+        executedAtIso,
+      }),
+    );
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (actorUserId) {
+      await this.writeAuditLog({
+        userId: actorUserId,
+        action: 'agent_action_audit_retention_purged',
+        metadata: {
+          targetUserId: userId,
+          deletedRows,
+          retentionDays,
+          userScoped,
+          executedAtIso,
+        },
+      });
+    }
+
+    return {
+      deletedRows,
+      retentionDays,
+      userScoped,
+      executedAtIso,
     };
   }
 
@@ -443,7 +1806,10 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
       this.logger.warn(
-        `[agent-rate-limit] redis enforcement failed; using memory fallback: ${String(error)}`,
+        serializeStructuredLog({
+          event: 'agent_rate_limit_redis_enforcement_failed_fallback',
+          error: String(error),
+        }),
       );
       return false;
     }
@@ -501,12 +1867,12 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     return policy;
   }
 
-  private buildSanitizedPayload(
+  private async buildSanitizedPayload(
     input: AgentAssistInput,
     skill: string,
     requestId: string,
     userId: string | null,
-  ): AgentPlatformPayload {
+  ): Promise<AgentPlatformPayload> {
     const skillPolicy = this.getSkillPolicy(skill);
     const messages = input.messages.map((message) =>
       this.sanitizeMessage(message),
@@ -521,9 +1887,11 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     const allowedActions = candidateActions.filter((action) =>
       skillPolicy.allowedActions.has(action),
     );
-    const metadata = this.parseContextMetadata(input.context?.metadataJson);
-    if (userId) metadata.userId = userId;
-    metadata.requestId = requestId;
+    const metadata = await this.buildContextMetadata({
+      input,
+      requestId,
+      userId,
+    });
 
     return {
       version: 'v1',
@@ -540,6 +1908,244 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       requestedAction: input.requestedAction || null,
       requestedActionPayload: {},
     };
+  }
+
+  private async buildContextMetadata(input: {
+    input: AgentAssistInput;
+    requestId: string;
+    userId: string | null;
+  }): Promise<Record<string, string>> {
+    const metadata = this.parseContextMetadata(
+      input.input.context?.metadataJson,
+    );
+    metadata.requestId = input.requestId;
+    if (!input.userId) return metadata;
+
+    metadata.userId = input.userId;
+    try {
+      const user = await this.userRepo.findOne({
+        where: { id: input.userId },
+      });
+      if (user?.name) {
+        metadata.userProfileName = this.sanitizeMetadataValue({
+          rawValue: user.name,
+          maxLength: 120,
+        });
+      }
+      if (user?.email) {
+        metadata.userProfileEmailDomain = this.sanitizeMetadataValue({
+          rawValue: user.email.split('@')[1] || 'unknown',
+          maxLength: 120,
+        });
+      }
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        null;
+      const cacheKey = this.resolveThreadContextCacheKey({
+        userId: input.userId,
+        threadId,
+      });
+      const cachedThreadContext = this.getCachedThreadContext(cacheKey);
+      if (cachedThreadContext) {
+        if (cachedThreadContext.threadSummary) {
+          metadata.threadSummary = cachedThreadContext.threadSummary;
+        }
+        if (cachedThreadContext.userStyleProfile) {
+          metadata.userStyleProfile = cachedThreadContext.userStyleProfile;
+        }
+      } else {
+        const threadMessages = await this.externalEmailMessageRepo.find({
+          where: threadId
+            ? { userId: input.userId, threadId }
+            : { userId: input.userId },
+          order: { internalDate: 'DESC', createdAt: 'DESC' },
+          take: threadId ? 5 : 3,
+        });
+        const normalizedThreadMessages =
+          this.normalizeExternalMessages(threadMessages);
+        const threadSummary = this.buildThreadSummary(normalizedThreadMessages);
+        if (threadSummary) {
+          metadata.threadSummary = threadSummary;
+        }
+        const styleProfile = this.buildUserStyleProfile(
+          normalizedThreadMessages,
+        );
+        if (styleProfile) {
+          metadata.userStyleProfile = styleProfile;
+        }
+        this.setCachedThreadContext(cacheKey, {
+          threadSummary: threadSummary || null,
+          userStyleProfile: styleProfile || null,
+        });
+      }
+      const workspacePolicySummary = await this.resolveWorkspacePolicySummary({
+        user,
+        userId: input.userId,
+      });
+      if (workspacePolicySummary) {
+        metadata.workspacePolicy = workspacePolicySummary;
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'agent_assist_runtime_context_resolve_failed',
+          requestId: input.requestId,
+          userId: input.userId,
+          error: errorMessage,
+        }),
+      );
+    }
+    return metadata;
+  }
+
+  private sanitizeMetadataValue(input: {
+    rawValue: string;
+    maxLength: number;
+  }): string {
+    return String(input.rawValue || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, input.maxLength);
+  }
+
+  private buildThreadSummary(messages: ExternalEmailMessage[]): string | null {
+    if (!messages.length) return null;
+    const summaryParts = messages.slice(0, 2).map((message, index) => {
+      const subject = this.sanitizeMetadataValue({
+        rawValue: message.subject || 'Untitled',
+        maxLength: 100,
+      });
+      const snippet = this.sanitizeMetadataValue({
+        rawValue: message.snippet || 'No preview',
+        maxLength: 140,
+      });
+      return `${index + 1}) ${subject}: ${snippet}`;
+    });
+    return summaryParts.join(' | ');
+  }
+
+  private buildUserStyleProfile(
+    messages: ExternalEmailMessage[],
+  ): string | null {
+    if (!messages.length) return null;
+    const snippets = messages
+      .map((message) =>
+        this.sanitizeMetadataValue({
+          rawValue: message.snippet || '',
+          maxLength: 160,
+        }),
+      )
+      .filter(Boolean);
+    if (!snippets.length) return null;
+    const wordsPerSnippet = snippets.map(
+      (snippet) => snippet.split(/\s+/).filter(Boolean).length,
+    );
+    const averageWords = Math.round(
+      wordsPerSnippet.reduce((sum, count) => sum + count, 0) /
+        wordsPerSnippet.length,
+    );
+    const questionSnippetCount = snippets.filter((snippet) =>
+      snippet.includes('?'),
+    ).length;
+    const questionRatio = Math.round(
+      (questionSnippetCount / snippets.length) * 100,
+    );
+    return `avgWords=${averageWords};questionRatio=${questionRatio};samples=${snippets.length}`;
+  }
+
+  private async resolveWorkspacePolicySummary(input: {
+    user?: User | null;
+    userId: string;
+  }): Promise<string | null> {
+    const activeWorkspaceId = String(
+      input.user?.activeWorkspaceId || '',
+    ).trim();
+    if (!activeWorkspaceId) return null;
+    const membership = await this.workspaceMemberRepo.findOne({
+      where: {
+        workspaceId: activeWorkspaceId,
+        userId: input.userId,
+        status: 'active',
+      },
+    });
+    const normalizedRole = String(membership?.role || 'MEMBER')
+      .trim()
+      .toUpperCase();
+    const policyMode =
+      normalizedRole === 'OWNER' || normalizedRole === 'ADMIN'
+        ? 'elevated-review'
+        : 'standard-review';
+    return `workspace=${activeWorkspaceId};role=${normalizedRole};mode=${policyMode}`;
+  }
+
+  private normalizeExternalMessages(
+    messages: ExternalEmailMessage[] | null | undefined,
+  ): ExternalEmailMessage[] {
+    if (!Array.isArray(messages)) return [];
+    return messages;
+  }
+
+  private resolveThreadContextCacheKey(input: {
+    userId: string;
+    threadId: string | null;
+  }): string {
+    const normalizedThreadId = String(input.threadId || '').trim() || 'global';
+    return `${input.userId}:${normalizedThreadId}`;
+  }
+
+  private resolveThreadContextCacheTtlMs(): number {
+    const rawValue = Number(process.env.AI_AGENT_THREAD_CONTEXT_CACHE_TTL_MS);
+    if (!Number.isFinite(rawValue)) {
+      return AiAgentGatewayService.DEFAULT_THREAD_CONTEXT_CACHE_TTL_MS;
+    }
+    const rounded = Math.trunc(rawValue);
+    if (rounded < AiAgentGatewayService.MIN_THREAD_CONTEXT_CACHE_TTL_MS) {
+      return AiAgentGatewayService.MIN_THREAD_CONTEXT_CACHE_TTL_MS;
+    }
+    if (rounded > AiAgentGatewayService.MAX_THREAD_CONTEXT_CACHE_TTL_MS) {
+      return AiAgentGatewayService.MAX_THREAD_CONTEXT_CACHE_TTL_MS;
+    }
+    return rounded;
+  }
+
+  private getCachedThreadContext(cacheKey: string): {
+    threadSummary: string | null;
+    userStyleProfile: string | null;
+  } | null {
+    const cached = this.threadContextCache.get(cacheKey);
+    if (!cached) return null;
+    if (cached.expiresAtMs <= Date.now()) {
+      this.threadContextCache.delete(cacheKey);
+      return null;
+    }
+    this.logger.debug(
+      serializeStructuredLog({
+        event: 'agent_assist_thread_context_cache_hit',
+        cacheKey,
+      }),
+    );
+    return {
+      threadSummary: cached.threadSummary,
+      userStyleProfile: cached.userStyleProfile,
+    };
+  }
+
+  private setCachedThreadContext(
+    cacheKey: string,
+    value: {
+      threadSummary: string | null;
+      userStyleProfile: string | null;
+    },
+  ): void {
+    const ttlMs = this.resolveThreadContextCacheTtlMs();
+    this.threadContextCache.set(cacheKey, {
+      ...value,
+      expiresAtMs: Date.now() + ttlMs,
+    });
   }
 
   private parseContextMetadata(metadataJson?: string): Record<string, string> {
@@ -583,7 +2189,178 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   }
 
   private getPlatformBaseUrl(): string {
-    return process.env.AI_AGENT_PLATFORM_URL || 'http://localhost:8100';
+    const rawUrl = process.env.AI_AGENT_PLATFORM_URL || 'http://localhost:8100';
+    return this.normalizePlatformBaseUrl(rawUrl);
+  }
+
+  private normalizePlatformBaseUrl(rawUrl: string): string {
+    return String(rawUrl || '')
+      .trim()
+      .replace(/\/+$/, '');
+  }
+
+  private getPlatformBaseUrls(): string[] {
+    const urlsFromEnv = String(process.env.AI_AGENT_PLATFORM_URLS || '')
+      .split(',')
+      .map((url) => this.normalizePlatformBaseUrl(url))
+      .filter(Boolean);
+    if (urlsFromEnv.length > 0) {
+      return Array.from(new Set(urlsFromEnv));
+    }
+    return [this.getPlatformBaseUrl()];
+  }
+
+  private isPlatformLoadBalancingEnabled(): boolean {
+    const normalized = String(
+      process.env.AI_AGENT_PLATFORM_LOAD_BALANCE_ENABLED || 'false',
+    )
+      .trim()
+      .toLowerCase();
+    return ['true', '1', 'yes', 'on'].includes(normalized);
+  }
+
+  private orderPlatformBaseUrlsForRequest(
+    baseUrls: string[],
+    requestId: string,
+  ): string[] {
+    if (baseUrls.length <= 1) return baseUrls;
+    if (!this.isPlatformLoadBalancingEnabled()) return baseUrls;
+    const normalizedRequestId = String(requestId || '').trim();
+    if (!normalizedRequestId) return baseUrls;
+
+    const digest = createHash('sha1')
+      .update(normalizedRequestId)
+      .digest('hex')
+      .slice(0, 8);
+    const hashSeed = parseInt(digest, 16);
+    const safeSeed = Number.isFinite(hashSeed) ? hashSeed : 0;
+    const startIndex = safeSeed % baseUrls.length;
+    return [...baseUrls.slice(startIndex), ...baseUrls.slice(0, startIndex)];
+  }
+
+  private async recordEndpointCallResult(input: {
+    endpointUrl: string;
+    success: boolean;
+  }): Promise<void> {
+    const endpointUrl = this.normalizePlatformBaseUrl(input.endpointUrl);
+    if (!endpointUrl) return;
+    const existing = this.endpointRuntimeStats.get(endpointUrl) || {
+      successCount: 0,
+      failureCount: 0,
+    };
+    const nowIso = new Date().toISOString();
+    const next: EndpointRuntimeStats = {
+      ...existing,
+      successCount: input.success
+        ? existing.successCount + 1
+        : existing.successCount,
+      failureCount: input.success
+        ? existing.failureCount
+        : existing.failureCount + 1,
+      lastSuccessAtIso: input.success ? nowIso : existing.lastSuccessAtIso,
+      lastFailureAtIso: input.success ? existing.lastFailureAtIso : nowIso,
+    };
+    this.endpointRuntimeStats.set(endpointUrl, next);
+    await this.persistEndpointRuntimeStat(endpointUrl, next);
+  }
+
+  private async persistEndpointRuntimeStat(
+    endpointUrl: string,
+    stats: EndpointRuntimeStats,
+  ): Promise<void> {
+    try {
+      await this.endpointRuntimeStatRepo.upsert(
+        {
+          endpointUrl,
+          successCount: stats.successCount,
+          failureCount: stats.failureCount,
+          lastSuccessAt: stats.lastSuccessAtIso
+            ? new Date(stats.lastSuccessAtIso)
+            : null,
+          lastFailureAt: stats.lastFailureAtIso
+            ? new Date(stats.lastFailureAtIso)
+            : null,
+        },
+        ['endpointUrl'],
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'agent_platform_runtime_stats_endpoint_persist_failed',
+          endpointUrl,
+          error: message,
+        }),
+      );
+    }
+  }
+
+  private buildEndpointStatsSnapshot(configuredUrls: string[]): Array<{
+    endpointUrl: string;
+    successCount: number;
+    failureCount: number;
+    lastSuccessAtIso?: string;
+    lastFailureAtIso?: string;
+  }> {
+    const orderedConfigured = Array.from(
+      new Set(configuredUrls.map((url) => this.normalizePlatformBaseUrl(url))),
+    ).filter(Boolean);
+    const seen = new Set<string>();
+    const stats = orderedConfigured.map((endpointUrl) => {
+      seen.add(endpointUrl);
+      const runtimeStats = this.endpointRuntimeStats.get(endpointUrl);
+      return {
+        endpointUrl,
+        successCount: runtimeStats?.successCount || 0,
+        failureCount: runtimeStats?.failureCount || 0,
+        lastSuccessAtIso: runtimeStats?.lastSuccessAtIso,
+        lastFailureAtIso: runtimeStats?.lastFailureAtIso,
+      };
+    });
+    for (const [
+      endpointUrl,
+      runtimeStats,
+    ] of this.endpointRuntimeStats.entries()) {
+      if (seen.has(endpointUrl)) continue;
+      stats.push({
+        endpointUrl,
+        successCount: runtimeStats.successCount,
+        failureCount: runtimeStats.failureCount,
+        lastSuccessAtIso: runtimeStats.lastSuccessAtIso,
+        lastFailureAtIso: runtimeStats.lastFailureAtIso,
+      });
+    }
+    return stats;
+  }
+
+  private buildSkillStatsSnapshot(): Array<{
+    skill: string;
+    totalRequests: number;
+    failedRequests: number;
+    timeoutFailures: number;
+    avgLatencyMs: number;
+    lastLatencyMs: number;
+    errorRatePercent: number;
+    lastErrorAtIso?: string;
+  }> {
+    return Array.from(this.skillRuntimeStats.entries())
+      .map(([skill, stats]) => ({
+        skill,
+        totalRequests: stats.totalRequests,
+        failedRequests: stats.failedRequests,
+        timeoutFailures: stats.timeoutFailures,
+        avgLatencyMs:
+          stats.totalRequests > 0
+            ? stats.totalLatencyMs / stats.totalRequests
+            : 0,
+        lastLatencyMs: stats.lastLatencyMs,
+        errorRatePercent:
+          stats.totalRequests > 0
+            ? (stats.failedRequests / stats.totalRequests) * 100
+            : 0,
+        lastErrorAtIso: stats.lastErrorAtIso,
+      }))
+      .sort((left, right) => right.totalRequests - left.totalRequests);
   }
 
   private getPlatformTimeoutMs(): number {
@@ -596,8 +2373,11 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     payload: AgentPlatformPayload,
     requestId: string,
     ip?: string,
-  ): Promise<AgentPlatformResponse> {
-    const url = `${this.getPlatformBaseUrl()}/v1/agent/respond`;
+  ): Promise<AgentPlatformCallResult> {
+    const baseUrls = this.orderPlatformBaseUrlsForRequest(
+      this.getPlatformBaseUrls(),
+      requestId,
+    );
     const headers: Record<string, string> = {
       'x-request-id': requestId,
     };
@@ -610,31 +2390,60 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     const maxRetries = Number(process.env.AI_AGENT_PLATFORM_RETRIES || 1);
     let lastError: unknown;
     let timeoutFailure = false;
+    let attemptCount = 0;
 
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
-      try {
-        const response = await axios.post<AgentPlatformResponse>(url, payload, {
-          timeout: this.getPlatformTimeoutMs(),
-          headers,
-        });
-        return response.data;
-      } catch (error) {
-        lastError = error;
-        timeoutFailure =
-          timeoutFailure ||
-          (axios.isAxiosError(error) && error.code === 'ECONNABORTED');
-        const statusCode = axios.isAxiosError(error)
-          ? (error.response?.status ?? 'unknown')
-          : 'unknown';
-        this.logger.warn(
-          JSON.stringify({
-            event: 'agent_platform_call_failed',
-            attempt: attempt + 1,
-            requestId,
-            statusCode,
-            timeoutFailure,
-          }),
-        );
+      for (
+        let endpointIndex = 0;
+        endpointIndex < baseUrls.length;
+        endpointIndex += 1
+      ) {
+        const baseUrl = baseUrls[endpointIndex];
+        if (!baseUrl) continue;
+        const url = `${baseUrl}/v1/agent/respond`;
+        try {
+          attemptCount += 1;
+          const response = await axios.post<AgentPlatformResponse>(
+            url,
+            payload,
+            {
+              timeout: this.getPlatformTimeoutMs(),
+              headers,
+            },
+          );
+          await this.recordEndpointCallResult({
+            endpointUrl: baseUrl,
+            success: true,
+          });
+          return {
+            response: response.data,
+            endpointUrl: baseUrl,
+            attemptCount,
+          };
+        } catch (error) {
+          await this.recordEndpointCallResult({
+            endpointUrl: baseUrl,
+            success: false,
+          });
+          lastError = error;
+          timeoutFailure =
+            timeoutFailure ||
+            (axios.isAxiosError(error) && error.code === 'ECONNABORTED');
+          const statusCode = axios.isAxiosError(error)
+            ? (error.response?.status ?? 'unknown')
+            : 'unknown';
+          this.logger.warn(
+            serializeStructuredLog({
+              event: 'agent_platform_call_failed',
+              attempt: attempt + 1,
+              endpointIndex: endpointIndex + 1,
+              endpointUrl: baseUrl,
+              requestId,
+              statusCode,
+              timeoutFailure,
+            }),
+          );
+        }
       }
     }
 
@@ -642,11 +2451,12 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       ? (lastError.response?.status ?? 'unknown')
       : 'unknown';
     this.logger.error(
-      JSON.stringify({
+      serializeStructuredLog({
         event: 'agent_platform_unavailable',
         requestId,
         finalStatus,
         timeoutFailure,
+        attemptedEndpoints: attemptCount,
       }),
     );
     throw new ServiceUnavailableException({
@@ -656,10 +2466,237 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  private async decorateSuggestedActionsWithApproval(input: {
+    suggestedActions: Array<{
+      name: string;
+      label: string;
+      payload: Record<string, string>;
+    }>;
+    requestId: string;
+    skill: string;
+    userId: string | null;
+  }): Promise<GatewaySuggestedAction[]> {
+    const skillPolicy = this.getSkillPolicy(input.skill);
+    const result: GatewaySuggestedAction[] = [];
+    for (const action of input.suggestedActions) {
+      const requiresApproval = skillPolicy.humanApprovalActions.has(
+        action.name,
+      );
+      if (!requiresApproval || !input.userId) {
+        result.push({
+          ...action,
+          requiresApproval: false,
+        });
+        continue;
+      }
+      const approval = await this.createActionApprovalToken({
+        action: action.name,
+        skill: input.skill,
+        userId: input.userId,
+        requestId: input.requestId,
+      });
+      result.push({
+        ...action,
+        requiresApproval: true,
+        approvalToken: approval.token,
+        approvalTokenExpiresAtIso: new Date(approval.expiresAtMs).toISOString(),
+      });
+    }
+    return result;
+  }
+
+  private async assertActionApprovalIfRequired(input: {
+    skill: string;
+    skillPolicy: SkillPolicy;
+    requestedAction: string;
+    userId: string | null;
+    requestedApprovalToken?: string;
+  }): Promise<void> {
+    if (!input.skillPolicy.humanApprovalActions.has(input.requestedAction)) {
+      return;
+    }
+    if (!input.userId) {
+      throw new BadRequestException(
+        `Action '${input.requestedAction}' requires authenticated user approval`,
+      );
+    }
+    const requestedApprovalToken = String(
+      input.requestedApprovalToken || '',
+    ).trim();
+    if (!requestedApprovalToken) {
+      throw new BadRequestException(
+        `Action '${input.requestedAction}' requires human approval token`,
+      );
+    }
+    const isValidApproval = await this.consumeActionApprovalToken({
+      token: requestedApprovalToken,
+      action: input.requestedAction,
+      skill: input.skill,
+      userId: input.userId,
+    });
+    if (!isValidApproval) {
+      throw new BadRequestException(
+        `Action '${input.requestedAction}' has invalid or expired approval token`,
+      );
+    }
+  }
+
+  private async createActionApprovalToken(input: {
+    action: string;
+    skill: string;
+    userId: string;
+    requestId: string;
+  }): Promise<PendingActionApproval> {
+    const token = `appr_${randomUUID()}`;
+    const expiresAtMs = Date.now() + this.getActionApprovalTtlMs();
+    const pendingApproval: PendingActionApproval = {
+      token,
+      action: input.action,
+      skill: input.skill,
+      userId: input.userId,
+      requestId: input.requestId,
+      expiresAtMs,
+    };
+    const persistedToRedis =
+      await this.storeActionApprovalInRedis(pendingApproval);
+    if (!persistedToRedis) {
+      this.fallbackPendingApprovals.set(token, pendingApproval);
+      this.compactExpiredFallbackApprovals();
+    }
+    return pendingApproval;
+  }
+
+  private async consumeActionApprovalToken(input: {
+    token: string;
+    action: string;
+    skill: string;
+    userId: string;
+  }): Promise<boolean> {
+    const normalizedToken = String(input.token || '').trim();
+    if (!normalizedToken) return false;
+
+    const fromRedis =
+      await this.consumeActionApprovalFromRedis(normalizedToken);
+    if (fromRedis) {
+      return this.matchesApprovalRecord(fromRedis, input);
+    }
+
+    const fallback = this.fallbackPendingApprovals.get(normalizedToken);
+    if (!fallback) return false;
+    this.fallbackPendingApprovals.delete(normalizedToken);
+    return this.matchesApprovalRecord(fallback, input);
+  }
+
+  private matchesApprovalRecord(
+    approval: PendingActionApproval,
+    expected: {
+      action: string;
+      skill: string;
+      userId: string;
+    },
+  ): boolean {
+    if (approval.expiresAtMs < Date.now()) return false;
+    if (approval.action !== expected.action) return false;
+    if (approval.skill !== expected.skill) return false;
+    if (approval.userId !== expected.userId) return false;
+    return true;
+  }
+
+  private async storeActionApprovalInRedis(
+    approval: PendingActionApproval,
+  ): Promise<boolean> {
+    if (!this.redisClient || !this.redisConnected) return false;
+    try {
+      const key = this.getActionApprovalKey(approval.token);
+      const ttlSeconds = Math.max(
+        1,
+        Math.ceil((approval.expiresAtMs - Date.now()) / 1000),
+      );
+      await this.redisClient.set(key, JSON.stringify(approval), {
+        EX: ttlSeconds,
+      });
+      return true;
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'agent_approval_redis_store_failed_fallback',
+          error: String(error),
+        }),
+      );
+      return false;
+    }
+  }
+
+  private async consumeActionApprovalFromRedis(
+    token: string,
+  ): Promise<PendingActionApproval | null> {
+    if (!this.redisClient || !this.redisConnected) return null;
+    const key = this.getActionApprovalKey(token);
+    try {
+      const rawValue = await this.redisClient.get(key);
+      if (!rawValue) return null;
+      await this.redisClient.del(key);
+      const parsed = JSON.parse(rawValue) as Partial<PendingActionApproval>;
+      if (
+        !parsed ||
+        typeof parsed.action !== 'string' ||
+        typeof parsed.skill !== 'string' ||
+        typeof parsed.userId !== 'string' ||
+        typeof parsed.token !== 'string' ||
+        typeof parsed.requestId !== 'string' ||
+        typeof parsed.expiresAtMs !== 'number'
+      ) {
+        return null;
+      }
+      return {
+        token: parsed.token,
+        action: parsed.action,
+        skill: parsed.skill,
+        userId: parsed.userId,
+        requestId: parsed.requestId,
+        expiresAtMs: parsed.expiresAtMs,
+      };
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'agent_approval_redis_consume_failed_fallback',
+          error: String(error),
+        }),
+      );
+      return null;
+    }
+  }
+
+  private compactExpiredFallbackApprovals(): void {
+    const nowMs = Date.now();
+    for (const [token, approval] of this.fallbackPendingApprovals.entries()) {
+      if (approval.expiresAtMs >= nowMs) continue;
+      this.fallbackPendingApprovals.delete(token);
+    }
+  }
+
+  private getActionApprovalKey(token: string): string {
+    return `ai-agent-approval:${token}`;
+  }
+
+  private getActionApprovalTtlMs(): number {
+    const rawSeconds = Number(
+      process.env.AI_AGENT_ACTION_APPROVAL_TTL_SECONDS || 10 * 60,
+    );
+    const normalizedSeconds = Number.isFinite(rawSeconds)
+      ? Math.floor(rawSeconds)
+      : 10 * 60;
+    if (normalizedSeconds < 30) return 30 * 1000;
+    if (normalizedSeconds > 24 * 60 * 60) return 24 * 60 * 60 * 1000;
+    return normalizedSeconds * 1000;
+  }
+
   private async executeRequestedActionIfAllowed(
     input: AgentAssistInput,
-    platformResponse: AgentPlatformResponse,
+    suggestedActions: GatewaySuggestedAction[],
     skill: string,
+    userId: string | null,
+    requestId: string,
   ): Promise<AgentActionExecutionResponse | null> {
     if (!input.executeRequestedAction || !input.requestedAction) {
       return null;
@@ -668,7 +2705,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     const skillPolicy = this.getSkillPolicy(skill);
     const requestedAction = input.requestedAction.trim();
     const suggestedActionNames = new Set(
-      platformResponse.suggestedActions.map((action) => action.name),
+      suggestedActions.map((action) => action.name),
     );
 
     if (!suggestedActionNames.has(requestedAction)) {
@@ -677,13 +2714,26 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
+    await this.assertActionApprovalIfRequired({
+      skill,
+      skillPolicy,
+      requestedAction,
+      userId,
+      requestedApprovalToken: input.requestedActionApprovalToken,
+    });
+
     if (!skillPolicy.serverExecutableActions.has(requestedAction)) {
-      return {
+      return this.finalizeActionExecution({
         action: requestedAction,
         executed: false,
         message:
           'Action is approved but not executable on backend; handle it in UI flow.',
-      };
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+      });
     }
 
     if (requestedAction === 'auth.forgot_password') {
@@ -704,12 +2754,276 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         );
       }
 
-      return {
+      return this.finalizeActionExecution({
         action: requestedAction,
         executed: true,
         message:
           'If an account exists for this email, a password reset flow has been initiated.',
-      };
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          email: normalizedEmail,
+        },
+      });
+    }
+
+    if (requestedAction === 'inbox.summarize_thread') {
+      if (!userId) {
+        throw new BadRequestException(
+          'Authenticated user is required for inbox summary action',
+        );
+      }
+
+      const metadata = this.parseContextMetadata(input.context?.metadataJson);
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        '';
+      const summary = await this.summarizeThreadForUser(
+        userId,
+        threadId || undefined,
+      );
+
+      return this.finalizeActionExecution({
+        action: requestedAction,
+        executed: true,
+        message: summary,
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          threadId: threadId || null,
+        },
+      });
+    }
+
+    if (requestedAction === 'inbox.classify_thread') {
+      if (!userId) {
+        throw new BadRequestException(
+          'Authenticated user is required for inbox classification action',
+        );
+      }
+
+      const metadata = this.parseContextMetadata(input.context?.metadataJson);
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        '';
+      const classification = await this.classifyThreadForUser(
+        userId,
+        threadId || undefined,
+      );
+
+      return this.finalizeActionExecution({
+        action: requestedAction,
+        executed: true,
+        message: classification.message,
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          threadId: threadId || null,
+          classificationLabel: classification.label,
+          classificationConfidence: classification.confidence,
+        },
+      });
+    }
+
+    if (requestedAction === 'inbox.extract_action_items') {
+      if (!userId) {
+        throw new BadRequestException(
+          'Authenticated user is required for inbox action-item extraction',
+        );
+      }
+
+      const metadata = this.parseContextMetadata(input.context?.metadataJson);
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        '';
+      const actionItems = await this.extractActionItemsForUser(
+        userId,
+        threadId || undefined,
+      );
+
+      return this.finalizeActionExecution({
+        action: requestedAction,
+        executed: true,
+        message: actionItems.message,
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          threadId: threadId || null,
+          actionItemsCount: actionItems.items.length,
+          actionItems: actionItems.items,
+        },
+      });
+    }
+
+    if (requestedAction === 'inbox.prioritize_thread') {
+      if (!userId) {
+        throw new BadRequestException(
+          'Authenticated user is required for inbox prioritization action',
+        );
+      }
+
+      const metadata = this.parseContextMetadata(input.context?.metadataJson);
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        '';
+      const priority = await this.prioritizeThreadForUser(
+        userId,
+        threadId || undefined,
+      );
+
+      return this.finalizeActionExecution({
+        action: requestedAction,
+        executed: true,
+        message: priority.message,
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          threadId: threadId || null,
+          priorityLevel: priority.level,
+          priorityScore: priority.score,
+        },
+      });
+    }
+
+    if (requestedAction === 'inbox.open_thread') {
+      if (!userId) {
+        throw new BadRequestException(
+          'Authenticated user is required for inbox open-thread action',
+        );
+      }
+
+      const metadata = this.parseContextMetadata(input.context?.metadataJson);
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        '';
+      const openedThread = await this.openThreadForUser(
+        userId,
+        threadId || undefined,
+      );
+
+      return this.finalizeActionExecution({
+        action: requestedAction,
+        executed: true,
+        message: openedThread.message,
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          threadId: openedThread.threadId,
+          threadMessageCount: openedThread.messageCount,
+          threadSubject: openedThread.subject,
+        },
+      });
+    }
+
+    if (requestedAction === 'inbox.compose_reply_draft') {
+      if (!userId) {
+        throw new BadRequestException(
+          'Authenticated user is required for inbox draft action',
+        );
+      }
+
+      const metadata = this.parseContextMetadata(input.context?.metadataJson);
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        '';
+      const draft = await this.composeReplyDraftForUser(
+        userId,
+        threadId || undefined,
+      );
+
+      return this.finalizeActionExecution({
+        action: requestedAction,
+        executed: true,
+        message: draft,
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          threadId: threadId || null,
+        },
+      });
+    }
+
+    if (requestedAction === 'inbox.schedule_followup') {
+      if (!userId) {
+        throw new BadRequestException(
+          'Authenticated user is required for follow-up scheduling action',
+        );
+      }
+
+      const metadata = this.parseContextMetadata(input.context?.metadataJson);
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        '';
+      const followupAtIso = metadata.followupAt || metadata.followupAtIso;
+      const workspaceId = metadata.workspaceId || metadata.activeWorkspaceId;
+      const providerId = metadata.providerId || metadata.activeProviderId;
+      const followupLabel = followupAtIso || 'the requested time';
+
+      await this.notificationEventBus.publishSafely({
+        userId,
+        type: 'AGENT_ACTION_REQUIRED',
+        title: 'Follow-up reminder scheduled',
+        message: `MailZen AI scheduled a follow-up reminder for ${followupLabel}.`,
+        metadata: {
+          threadId: threadId || undefined,
+          followupAt: followupAtIso || undefined,
+          workspaceId: workspaceId || undefined,
+          providerId: providerId || undefined,
+          sourceAction: requestedAction,
+        },
+      });
+
+      return this.finalizeActionExecution({
+        action: requestedAction,
+        executed: true,
+        message: `Follow-up reminder scheduled for ${followupLabel}.`,
+        skill,
+        userId,
+        requestId,
+        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        requestedApprovalToken: input.requestedActionApprovalToken,
+        metadata: {
+          threadId: threadId || null,
+          followupAtIso: followupAtIso || null,
+          workspaceId: workspaceId || null,
+          providerId: providerId || null,
+        },
+      });
     }
 
     throw new BadRequestException(
@@ -717,20 +3031,498 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  private recordGatewayMetrics(
+  private async finalizeActionExecution(input: {
+    action: string;
+    executed: boolean;
+    message: string;
+    skill: string;
+    userId: string | null;
+    requestId: string;
+    approvalRequired: boolean;
+    requestedApprovalToken?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<AgentActionExecutionResponse> {
+    await this.recordAgentActionAudit(input);
+    return {
+      action: input.action,
+      executed: input.executed,
+      message: input.message,
+    };
+  }
+
+  private async recordAgentActionAudit(input: {
+    action: string;
+    executed: boolean;
+    message: string;
+    skill: string;
+    userId: string | null;
+    requestId: string;
+    approvalRequired: boolean;
+    requestedApprovalToken?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const approvalTokenSuffix = this.resolveApprovalTokenSuffix(
+        input.requestedApprovalToken,
+      );
+      const audit = this.agentActionAuditRepo.create({
+        userId: input.userId,
+        requestId: input.requestId,
+        skill: input.skill,
+        action: input.action,
+        executed: input.executed,
+        approvalRequired: input.approvalRequired,
+        approvalTokenSuffix,
+        message: input.message,
+        metadata: input.metadata || null,
+      });
+      await this.agentActionAuditRepo.save(audit);
+    } catch (error) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'agent_action_audit_persist_failed',
+          requestId: input.requestId,
+          action: input.action,
+          error: String(error),
+        }),
+      );
+    }
+  }
+
+  private resolveApprovalTokenSuffix(rawToken?: string): string | null {
+    const normalized = String(rawToken || '').trim();
+    if (!normalized) return null;
+    if (normalized.length <= 8) return normalized;
+    return normalized.slice(-8);
+  }
+
+  private async loadThreadMessagesForUser(input: {
+    userId: string;
+    threadId?: string;
+    take: number;
+  }): Promise<ExternalEmailMessage[]> {
+    const messages = await this.externalEmailMessageRepo.find({
+      where: input.threadId
+        ? { userId: input.userId, threadId: input.threadId }
+        : { userId: input.userId },
+      order: { internalDate: 'DESC', createdAt: 'DESC' },
+      take: input.take,
+    });
+    return this.normalizeExternalMessages(messages);
+  }
+
+  private buildThreadSignalText(messages: ExternalEmailMessage[]): string {
+    return messages
+      .map((message) =>
+        [
+          String(message.subject || ''),
+          String(message.snippet || ''),
+          String(message.from || ''),
+        ]
+          .join(' ')
+          .toLowerCase(),
+      )
+      .join(' ');
+  }
+
+  private async classifyThreadForUser(
+    userId: string,
+    threadId?: string,
+  ): Promise<{
+    label: string;
+    confidence: number;
+    message: string;
+  }> {
+    const messages = await this.loadThreadMessagesForUser({
+      userId,
+      threadId,
+      take: 5,
+    });
+    if (!messages.length) {
+      return {
+        label: 'general',
+        confidence: 0.35,
+        message:
+          'Thread classified as GENERAL (confidence 35%) because no synced context is available yet.',
+      };
+    }
+    const signalText = this.buildThreadSignalText(messages);
+    if (
+      /(urgent|asap|blocker|blocked|outage|critical|failure|escalat)/.test(
+        signalText,
+      )
+    ) {
+      return {
+        label: 'urgent_issue',
+        confidence: 0.91,
+        message:
+          'Thread classified as URGENT_ISSUE (confidence 91%) due to high-severity urgency signals.',
+      };
+    }
+    if (
+      /(meeting|schedule|calendar|availability|slot|reschedul)/.test(signalText)
+    ) {
+      return {
+        label: 'coordination',
+        confidence: 0.84,
+        message:
+          'Thread classified as COORDINATION (confidence 84%) based on scheduling vocabulary.',
+      };
+    }
+    if (
+      /(invoice|pricing|quote|contract|payment|renewal|budget)/.test(signalText)
+    ) {
+      return {
+        label: 'commercial',
+        confidence: 0.8,
+        message:
+          'Thread classified as COMMERCIAL (confidence 80%) from billing/pricing context.',
+      };
+    }
+    if (
+      /(status|update|timeline|eta|follow up|follow-up|progress)/.test(
+        signalText,
+      )
+    ) {
+      return {
+        label: 'status_tracking',
+        confidence: 0.74,
+        message:
+          'Thread classified as STATUS_TRACKING (confidence 74%) from progress-tracking language.',
+      };
+    }
+    return {
+      label: 'general',
+      confidence: 0.62,
+      message:
+        'Thread classified as GENERAL (confidence 62%) with no high-priority special-case signals.',
+    };
+  }
+
+  private async prioritizeThreadForUser(
+    userId: string,
+    threadId?: string,
+  ): Promise<{
+    level: 'HIGH' | 'MEDIUM' | 'LOW';
+    score: number;
+    message: string;
+  }> {
+    const messages = await this.loadThreadMessagesForUser({
+      userId,
+      threadId,
+      take: 5,
+    });
+    if (!messages.length) {
+      return {
+        level: 'MEDIUM',
+        score: 50,
+        message:
+          'Priority set to MEDIUM (score 50) because no thread history is available yet.',
+      };
+    }
+
+    const signalText = this.buildThreadSignalText(messages);
+    const reasons: string[] = [];
+    let score = 0;
+    if (
+      /(urgent|asap|blocker|blocked|outage|critical|failure|escalat)/.test(
+        signalText,
+      )
+    ) {
+      score += 55;
+      reasons.push('urgent language detected');
+    }
+    const questionRatio = messages.filter((message) =>
+      String(message.snippet || '').includes('?'),
+    ).length;
+    if (questionRatio > 0) {
+      score += 12;
+      reasons.push('direct question found');
+    }
+    const recentActivity = messages.some((message) => {
+      if (!message.internalDate) return false;
+      return (
+        Date.now() - new Date(message.internalDate).getTime() <
+        24 * 60 * 60 * 1000
+      );
+    });
+    if (recentActivity) {
+      score += 10;
+      reasons.push('recent activity (<24h)');
+    }
+    const executiveSender = messages.some((message) =>
+      /(ceo|founder|director|vp|head)/i.test(String(message.from || '')),
+    );
+    if (executiveSender) {
+      score += 18;
+      reasons.push('executive sender detected');
+    }
+    if (/(invoice|contract|renewal|payment)/.test(signalText)) {
+      score += 8;
+      reasons.push('commercial risk context');
+    }
+
+    const cappedScore = Math.max(0, Math.min(100, score));
+    const level: 'HIGH' | 'MEDIUM' | 'LOW' =
+      cappedScore >= 65 ? 'HIGH' : cappedScore >= 30 ? 'MEDIUM' : 'LOW';
+    const reasonSummary = reasons.length
+      ? reasons.join('; ')
+      : 'no escalations detected';
+    return {
+      level,
+      score: cappedScore,
+      message: `Priority set to ${level} (score ${cappedScore}) because ${reasonSummary}.`,
+    };
+  }
+
+  private async extractActionItemsForUser(
+    userId: string,
+    threadId?: string,
+  ): Promise<{
+    items: string[];
+    message: string;
+  }> {
+    const messages = await this.loadThreadMessagesForUser({
+      userId,
+      threadId,
+      take: 5,
+    });
+    if (!messages.length) {
+      return {
+        items: [],
+        message:
+          'No thread messages are available yet, so no action items could be extracted.',
+      };
+    }
+
+    const candidateSentences = messages.flatMap((message) =>
+      String(message.snippet || '')
+        .split(/[.!?]/)
+        .map((sentence) => sentence.replace(/\s+/g, ' ').trim())
+        .filter(Boolean),
+    );
+    const actionSignals =
+      /(please|need to|action|todo|follow up|follow-up|deadline|by (monday|tuesday|wednesday|thursday|friday|eod|tomorrow)|can you|let's|kindly)/i;
+    const extractedItems = Array.from(
+      new Set(
+        candidateSentences
+          .filter((sentence) => actionSignals.test(sentence))
+          .map((sentence) => sentence.slice(0, 180)),
+      ),
+    ).slice(0, 5);
+
+    if (!extractedItems.length) {
+      return {
+        items: [],
+        message:
+          'No explicit action items were detected in recent thread snippets.',
+      };
+    }
+
+    const bulletItems = extractedItems
+      .map((item, index) => `${index + 1}. ${item}`)
+      .join(' ');
+    return {
+      items: extractedItems,
+      message: `Extracted ${extractedItems.length} action item(s): ${bulletItems}`,
+    };
+  }
+
+  private async summarizeThreadForUser(
+    userId: string,
+    threadId?: string,
+  ): Promise<string> {
+    const messages = await this.loadThreadMessagesForUser({
+      userId,
+      threadId,
+      take: 5,
+    });
+
+    if (!messages.length) {
+      return 'No email messages were found for this thread yet.';
+    }
+
+    const subject = messages[0]?.subject || 'Untitled thread';
+    const bulletPoints = messages
+      .slice(0, 3)
+      .map((message, index) => {
+        const from = message.from || 'unknown sender';
+        const snippet = (message.snippet || 'No preview available')
+          .replace(/\s+/g, ' ')
+          .trim();
+        return `${index + 1}. ${from}: ${snippet}`;
+      })
+      .join(' ');
+
+    return `Thread "${subject}" summary: ${bulletPoints}`;
+  }
+
+  private async openThreadForUser(
+    userId: string,
+    threadId?: string,
+  ): Promise<{
+    threadId: string | null;
+    messageCount: number;
+    subject: string | null;
+    message: string;
+  }> {
+    let resolvedThreadId = String(threadId || '').trim();
+    if (!resolvedThreadId) {
+      const recentMessages = this.normalizeExternalMessages(
+        await this.externalEmailMessageRepo.find({
+          where: { userId },
+          order: { internalDate: 'DESC', createdAt: 'DESC' },
+          take: 1,
+        }),
+      );
+      resolvedThreadId = String(recentMessages[0]?.threadId || '').trim();
+    }
+
+    if (!resolvedThreadId) {
+      return {
+        threadId: null,
+        messageCount: 0,
+        subject: null,
+        message:
+          'No thread is available to open yet. Sync your inbox and try again.',
+      };
+    }
+
+    const messages = await this.loadThreadMessagesForUser({
+      userId,
+      threadId: resolvedThreadId,
+      take: 8,
+    });
+    if (!messages.length) {
+      return {
+        threadId: resolvedThreadId,
+        messageCount: 0,
+        subject: null,
+        message: `Thread ${resolvedThreadId} was requested, but no messages are currently accessible for it.`,
+      };
+    }
+
+    const subject = String(messages[0]?.subject || 'Untitled thread').trim();
+    const participants = Array.from(
+      new Set(
+        messages
+          .map((message) => String(message.from || '').trim())
+          .filter(Boolean),
+      ),
+    ).slice(0, 3);
+    const participantSummary = participants.length
+      ? `participants: ${participants.join(', ')}`
+      : 'participants are unavailable';
+    return {
+      threadId: resolvedThreadId,
+      messageCount: messages.length,
+      subject,
+      message: `Opened thread "${subject}" (${messages.length} recent messages; ${participantSummary}).`,
+    };
+  }
+
+  private async composeReplyDraftForUser(
+    userId: string,
+    threadId?: string,
+  ): Promise<string> {
+    const messages = await this.loadThreadMessagesForUser({
+      userId,
+      threadId,
+      take: 1,
+    });
+
+    const latest = messages[0];
+    if (!latest) {
+      return 'Draft reply: Thank you for your message. I will review and get back to you shortly.';
+    }
+
+    const sender = latest.from || 'there';
+    const subject = latest.subject || 'your email';
+    const snippet = (latest.snippet || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 240);
+
+    return [
+      `Draft reply for "${subject}":`,
+      '',
+      `Hi ${sender},`,
+      '',
+      'Thank you for your email. I have reviewed your note and appreciate the context you shared.',
+      snippet
+        ? `Regarding your message (“${snippet}”), I will proceed with the required next steps and share a clear update shortly.`
+        : 'I will proceed with the required next steps and share a clear update shortly.',
+      '',
+      'Best regards,',
+      'MailZen User',
+    ].join('\n');
+  }
+
+  private async recordGatewayMetrics(
+    skill: string,
     latencyMs: number,
     failed: boolean,
     timeoutFailure: boolean,
-  ): void {
+  ): Promise<void> {
+    const normalizedSkill = String(skill || 'unknown').trim() || 'unknown';
     this.metrics.totalRequests += 1;
     this.metrics.totalLatencyMs += latencyMs;
     this.metrics.lastLatencyMs = latencyMs;
+    const currentSkillStats = this.skillRuntimeStats.get(normalizedSkill) || {
+      totalRequests: 0,
+      failedRequests: 0,
+      timeoutFailures: 0,
+      totalLatencyMs: 0,
+      lastLatencyMs: 0,
+    };
+    const updatedSkillStats: SkillRuntimeStats = {
+      ...currentSkillStats,
+      totalRequests: currentSkillStats.totalRequests + 1,
+      totalLatencyMs: currentSkillStats.totalLatencyMs + latencyMs,
+      lastLatencyMs: latencyMs,
+    };
     if (failed) {
       this.metrics.failedRequests += 1;
       this.metrics.lastErrorAtIso = new Date().toISOString();
+      updatedSkillStats.failedRequests += 1;
+      updatedSkillStats.lastErrorAtIso = this.metrics.lastErrorAtIso;
     }
     if (timeoutFailure) {
       this.metrics.timeoutFailures += 1;
+      updatedSkillStats.timeoutFailures += 1;
+    }
+    this.skillRuntimeStats.set(normalizedSkill, updatedSkillStats);
+    await this.persistSkillRuntimeStat(normalizedSkill, updatedSkillStats);
+  }
+
+  private async persistSkillRuntimeStat(
+    skill: string,
+    stats: SkillRuntimeStats,
+  ): Promise<void> {
+    try {
+      await this.skillRuntimeStatRepo.upsert(
+        {
+          skill,
+          totalRequests: stats.totalRequests,
+          failedRequests: stats.failedRequests,
+          timeoutFailures: stats.timeoutFailures,
+          totalLatencyMs: stats.totalLatencyMs,
+          lastLatencyMs: stats.lastLatencyMs,
+          lastErrorAt: stats.lastErrorAtIso
+            ? new Date(stats.lastErrorAtIso)
+            : null,
+        },
+        ['skill'],
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'agent_platform_runtime_stats_skill_persist_failed',
+          skill,
+          error: message,
+        }),
+      );
     }
   }
 
@@ -752,10 +3544,10 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     };
 
     if (latencyMs > this.getLatencyWarnThresholdMs()) {
-      this.logger.warn(JSON.stringify(payload));
+      this.logger.warn(serializeStructuredLog(payload));
       return;
     }
-    this.logger.log(JSON.stringify(payload));
+    this.logger.log(serializeStructuredLog(payload));
   }
 
   private getLatencyWarnThresholdMs(): number {

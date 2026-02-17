@@ -10,6 +10,9 @@ type EmailProvider {
   isActive: Boolean!
   lastSyncedAt: DateTime
   status: String!
+  lastSyncErrorAt: DateTime
+  lastSyncError: String
+  workspaceId: String
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -111,11 +114,152 @@ type Provider {
   isActive: Boolean!
   lastSynced: String
   status: String!
+  lastSyncErrorAt: String
+  lastSyncError: String
+  workspaceId: String
 }
 
 type ProviderActionResult {
   success: Boolean!
   message: String!
+}
+
+type ProviderSyncRunItem {
+  providerId: String!
+  providerType: String!
+  providerEmail: String!
+  success: Boolean!
+  error: String
+}
+
+type ProviderSyncRunResponse {
+  requestedProviders: Int!
+  syncedProviders: Int!
+  failedProviders: Int!
+  skippedProviders: Int!
+  results: [ProviderSyncRunItem!]!
+  executedAtIso: String!
+}
+
+type ProviderSyncStatsResponse {
+  totalProviders: Int!
+  connectedProviders: Int!
+  syncingProviders: Int!
+  errorProviders: Int!
+  recentlySyncedProviders: Int!
+  recentlyErroredProviders: Int!
+  windowHours: Int!
+  executedAtIso: String!
+}
+
+type ProviderSyncDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type ProviderSyncAlertDeliveryStatsResponse {
+  workspaceId: String
+  windowHours: Int!
+  totalAlerts: Int!
+  failedAlerts: Int!
+  recoveredAlerts: Int!
+  lastAlertAtIso: String
+}
+
+type ProviderSyncAlertDeliveryTrendPointResponse {
+  bucketStart: DateTime!
+  totalAlerts: Int!
+  failedAlerts: Int!
+  recoveredAlerts: Int!
+}
+
+type ProviderSyncAlertResponse {
+  notificationId: String!
+  workspaceId: String
+  status: String!
+  title: String!
+  message: String!
+  providerId: String
+  providerType: String
+  attempts: Int
+  error: String
+  createdAt: DateTime!
+}
+
+type ProviderSyncAlertDeliveryDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type ProviderSyncIncidentAlertConfigResponse {
+  alertsEnabled: Boolean!
+  syncFailureEnabled: Boolean!
+  windowHours: Int!
+  cooldownMinutes: Int!
+  maxUsersPerRun: Int!
+  warningErrorProviderPercent: Float!
+  criticalErrorProviderPercent: Float!
+  minErrorProviders: Int!
+  evaluatedAtIso: String!
+}
+
+type ProviderSyncIncidentAlertCheckResponse {
+  alertsEnabled: Boolean!
+  syncFailureEnabled: Boolean!
+  evaluatedAtIso: String!
+  windowHours: Int!
+  warningErrorProviderPercent: Float!
+  criticalErrorProviderPercent: Float!
+  minErrorProviders: Int!
+  status: String!
+  statusReason: String!
+  shouldAlert: Boolean!
+  totalProviders: Int!
+  connectedProviders: Int!
+  syncingProviders: Int!
+  errorProviders: Int!
+  errorProviderPercent: Float!
+}
+
+type ProviderSyncIncidentAlertDeliveryStatsResponse {
+  workspaceId: String
+  windowHours: Int!
+  totalAlerts: Int!
+  warningAlerts: Int!
+  criticalAlerts: Int!
+  lastAlertAtIso: String
+}
+
+type ProviderSyncIncidentAlertDeliveryTrendPointResponse {
+  bucketStart: DateTime!
+  totalAlerts: Int!
+  warningAlerts: Int!
+  criticalAlerts: Int!
+}
+
+type ProviderSyncIncidentAlertResponse {
+  notificationId: String!
+  workspaceId: String
+  status: String!
+  title: String!
+  message: String!
+  errorProviderPercent: Float!
+  errorProviders: Int!
+  totalProviders: Int!
+  warningErrorProviderPercent: Float!
+  criticalErrorProviderPercent: Float!
+  minErrorProviders: Int!
+  createdAt: DateTime!
+}
+
+type ProviderSyncIncidentAlertDeliveryDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type ProviderSyncIncidentAlertHistoryDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
 }
 
 type InboxMessage {
@@ -140,6 +284,9 @@ type AuthResponse {
 type Feature {
   id: ID!
   name: String!
+  targetType: String!
+  targetValue: String
+  rolloutPercentage: Int!
   isActive: Boolean!
 }
 
@@ -183,6 +330,42 @@ type Inbox {
   address: String!
   isActive: Boolean!
   status: String
+  syncStatus: String
+  lastSyncedAt: DateTime
+  lastSyncError: String
+  lastSyncErrorAt: DateTime
+  sourceKind: String
+}
+
+type InboxSyncRunResponse {
+  mailboxPolledMailboxes: Int!
+  mailboxSkippedMailboxes: Int!
+  mailboxFailedMailboxes: Int!
+  providerRequestedProviders: Int!
+  providerSyncedProviders: Int!
+  providerFailedProviders: Int!
+  providerSkippedProviders: Int!
+  success: Boolean!
+  mailboxSyncError: String
+  providerSyncError: String
+  executedAtIso: String!
+}
+
+type InboxSourceHealthStatsResponse {
+  totalInboxes: Int!
+  mailboxInboxes: Int!
+  providerInboxes: Int!
+  activeInboxes: Int!
+  connectedInboxes: Int!
+  syncingInboxes: Int!
+  errorInboxes: Int!
+  pendingInboxes: Int!
+  disabledInboxes: Int!
+  recentlySyncedInboxes: Int!
+  recentlyErroredInboxes: Int!
+  windowHours: Int!
+  workspaceId: String
+  executedAtIso: String!
 }
 
 type EmailAttachment {
@@ -247,6 +430,46 @@ type EmailLabel {
   count: Float!
 }
 
+type MailboxInboundEventObservabilityResponse {
+  id: String!
+  mailboxId: String!
+  mailboxEmail: String
+  messageId: String
+  emailId: String
+  inboundThreadKey: String
+  status: String!
+  sourceIp: String
+  signatureValidated: Boolean!
+  errorReason: String
+  createdAt: DateTime!
+}
+
+type MailboxInboundEventStatsResponse {
+  mailboxId: String
+  mailboxEmail: String
+  windowHours: Int!
+  totalCount: Int!
+  acceptedCount: Int!
+  deduplicatedCount: Int!
+  rejectedCount: Int!
+  successRatePercent: Float!
+  rejectionRatePercent: Float!
+  slaTargetSuccessPercent: Float!
+  slaWarningRejectedPercent: Float!
+  slaCriticalRejectedPercent: Float!
+  slaStatus: String!
+  meetsSla: Boolean!
+  lastProcessedAt: DateTime
+}
+
+type MailboxInboundEventTrendPointResponse {
+  bucketStart: DateTime!
+  totalCount: Int!
+  acceptedCount: Int!
+  deduplicatedCount: Int!
+  rejectedCount: Int!
+}
+
 type Query {
   users: [User!]!
   user(id: ID!): User
@@ -265,13 +488,29 @@ type Query {
   getAllProviders: [EmailProvider!]!
   getProviderById(id: String!): EmailProvider!
   validateProvider(id: String!): Boolean!
-  providers: [Provider!]!
-  getEmailProviders: [Provider!]!
+  providers(workspaceId: String): [Provider!]!
+  getEmailProviders(workspaceId: String): [Provider!]!
+  myProviderSyncStats(workspaceId: String, windowHours: Int): ProviderSyncStatsResponse!
+  myProviderSyncDataExport(workspaceId: String, limit: Int! = 200): ProviderSyncDataExportResponse!
+  myProviderSyncAlertDeliveryStats(workspaceId: String, windowHours: Int): ProviderSyncAlertDeliveryStatsResponse!
+  myProviderSyncAlertDeliverySeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [ProviderSyncAlertDeliveryTrendPointResponse!]!
+  myProviderSyncAlerts(workspaceId: String, windowHours: Int, limit: Int): [ProviderSyncAlertResponse!]!
+  myProviderSyncAlertDeliveryDataExport(workspaceId: String, windowHours: Int, bucketMinutes: Int, limit: Int): ProviderSyncAlertDeliveryDataExportResponse!
+  myProviderSyncIncidentAlertConfig: ProviderSyncIncidentAlertConfigResponse!
+  myProviderSyncIncidentAlertDeliveryStats(workspaceId: String, windowHours: Int): ProviderSyncIncidentAlertDeliveryStatsResponse!
+  myProviderSyncIncidentAlertDeliverySeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [ProviderSyncIncidentAlertDeliveryTrendPointResponse!]!
+  myProviderSyncIncidentAlerts(workspaceId: String, windowHours: Int, limit: Int): [ProviderSyncIncidentAlertResponse!]!
+  myProviderSyncIncidentAlertHistoryDataExport(workspaceId: String, windowHours: Int, limit: Int): ProviderSyncIncidentAlertHistoryDataExportResponse!
+  myProviderSyncIncidentAlertDeliveryDataExport(workspaceId: String, windowHours: Int, bucketMinutes: Int, limit: Int): ProviderSyncIncidentAlertDeliveryDataExportResponse!
   getInboxMessages(inboxType: String!, inboxId: String!, limit: Int, offset: Int): [InboxMessage!]!
-  myMailboxes: [String!]!
+  myMailboxes(workspaceId: String): [String!]!
+  myMailboxInboundEvents(mailboxId: String, workspaceId: String, status: String, limit: Int): [MailboxInboundEventObservabilityResponse!]!
+  myMailboxInboundEventStats(mailboxId: String, workspaceId: String, windowHours: Int): MailboxInboundEventStatsResponse!
+  myMailboxInboundEventSeries(mailboxId: String, workspaceId: String, windowHours: Int, bucketMinutes: Int): [MailboxInboundEventTrendPointResponse!]!
 
   """Get all features"""
   getAllFeatures: [Feature!]!
+  isFeatureEnabled(name: String!, workspaceId: String): Boolean!
 
   """Get all templates"""
   getAllTemplates: [Template!]!
@@ -291,6 +530,10 @@ type Query {
   """Get a contact by id"""
   getContact(id: String!): Contact!
   myInboxes: [Inbox!]!
+  myInboxSourceHealthStats(
+    workspaceId: String
+    windowHours: Int
+  ): InboxSourceHealthStatsResponse!
   emails(limit: Int, offset: Int, filter: EmailFilterInput, sort: EmailSortInput): [EmailThread!]!
   email(id: String!): EmailThread!
   folders: [EmailFolder!]!
@@ -301,6 +544,13 @@ type Query {
 
   """Get suggested replies for an email"""
   getSuggestedReplies(emailBody: String!, count: Int! = 3): [String!]!
+  smartReplySettings: SmartReplySettings!
+  mySmartReplyHistory(limit: Int! = 20): [SmartReplyHistory!]!
+  mySmartReplyDataExport(limit: Int! = 200): SmartReplyDataExportResponse!
+  mySmartReplyProviderHealth: SmartReplyProviderHealthResponse!
+  agentPlatformHealth: AgentPlatformHealthResponse!
+  myAgentActionAudits(limit: Int): [AgentActionAudit!]!
+  myAgentActionDataExport(limit: Int! = 200): AgentActionDataExportResponse!
 }
 
 input EmailFilterInput {
@@ -319,6 +569,395 @@ input EmailSortInput {
 
 input SmartReplyInput {
   conversation: String!
+}
+
+input UpdateSmartReplySettingsInput {
+  enabled: Boolean
+  defaultTone: String
+  defaultLength: String
+  aiModel: String
+  includeSignature: Boolean
+  personalization: Int
+  creativityLevel: Int
+  maxSuggestions: Int
+  customInstructions: String
+  keepHistory: Boolean
+  historyLength: Int
+}
+
+input AgentMessageInput {
+  role: String!
+  content: String!
+}
+
+input AgentContextInput {
+  surface: String
+  locale: String
+  email: String
+  metadataJson: String
+}
+
+input AgentAssistInput {
+  skill: String! = "auth"
+  messages: [AgentMessageInput!]!
+  context: AgentContextInput
+  allowedActions: [String!]
+  requestedAction: String
+  requestedActionApprovalToken: String
+  executeRequestedAction: Boolean! = false
+}
+
+type AgentSuggestedActionResponse {
+  name: String!
+  label: String!
+  payloadJson: String
+  requiresApproval: Boolean!
+  approvalToken: String
+  approvalTokenExpiresAtIso: String
+}
+
+type AgentSafetyFlagResponse {
+  code: String!
+  severity: String!
+  message: String!
+}
+
+type AgentActionExecutionResponse {
+  action: String!
+  executed: Boolean!
+  message: String!
+}
+
+type AgentAssistResponse {
+  version: String!
+  skill: String!
+  requestId: String!
+  assistantText: String!
+  intent: String!
+  confidence: Float!
+  suggestedActions: [AgentSuggestedActionResponse!]!
+  safetyFlags: [AgentSafetyFlagResponse!]!
+  uiHintsJson: String
+  aiCreditsMonthlyLimit: Int
+  aiCreditsUsed: Int
+  aiCreditsRemaining: Int
+  platformEndpointUsed: String
+  platformAttemptCount: Int
+  executedAction: AgentActionExecutionResponse
+}
+
+type AgentPlatformHealthResponse {
+  status: String!
+  reachable: Boolean!
+  serviceUrl: String!
+  configuredServiceUrls: [String!]!
+  probedServiceUrls: [String!]!
+  endpointStats: [AgentPlatformEndpointStatResponse!]!
+  skillStats: [AgentPlatformSkillStatResponse!]!
+  latencyMs: Float!
+  checkedAtIso: String!
+  requestCount: Int!
+  errorCount: Int!
+  timeoutErrorCount: Int!
+  errorRatePercent: Float!
+  avgLatencyMs: Float!
+  latencyWarnMs: Float!
+  errorRateWarnPercent: Float!
+  alertingState: String!
+}
+
+type AgentPlatformHealthSampleResponse {
+  status: String!
+  reachable: Boolean!
+  serviceUrl: String!
+  configuredServiceUrls: [String!]!
+  probedServiceUrls: [String!]!
+  endpointStats: [AgentPlatformEndpointStatResponse!]!
+  skillStats: [AgentPlatformSkillStatResponse!]!
+  checkedAtIso: String!
+  requestCount: Int!
+  errorCount: Int!
+  timeoutErrorCount: Int!
+  errorRatePercent: Float!
+  avgLatencyMs: Float!
+  latencyWarnMs: Float!
+  errorRateWarnPercent: Float!
+  alertingState: String!
+}
+
+type AgentPlatformHealthSampleDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type AgentPlatformHealthTrendSummaryResponse {
+  windowHours: Int!
+  sampleCount: Int!
+  healthyCount: Int!
+  warnCount: Int!
+  criticalCount: Int!
+  avgErrorRatePercent: Float!
+  peakErrorRatePercent: Float!
+  avgLatencyMs: Float!
+  peakLatencyMs: Float!
+  latestCheckedAtIso: String
+}
+
+type AgentPlatformHealthTrendPointResponse {
+  bucketStartIso: String!
+  sampleCount: Int!
+  healthyCount: Int!
+  warnCount: Int!
+  criticalCount: Int!
+  avgErrorRatePercent: Float!
+  avgLatencyMs: Float!
+}
+
+type AgentPlatformHealthIncidentStatsResponse {
+  windowHours: Int!
+  totalCount: Int!
+  warnCount: Int!
+  criticalCount: Int!
+  lastIncidentAtIso: String
+}
+
+type AgentPlatformHealthIncidentTrendPointResponse {
+  bucketStartIso: String!
+  totalCount: Int!
+  warnCount: Int!
+  criticalCount: Int!
+}
+
+type AgentPlatformHealthIncidentDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type AgentPlatformHealthAlertCheckResponse {
+  alertsEnabled: Boolean!
+  evaluatedAtIso: String!
+  windowHours: Int!
+  baselineWindowHours: Int!
+  cooldownMinutes: Int!
+  minSampleCount: Int!
+  severity: String
+  reasons: [String!]!
+  recipientCount: Int!
+  publishedCount: Int!
+}
+
+type AgentPlatformHealthAlertDeliveryStatsResponse {
+  windowHours: Int!
+  totalCount: Int!
+  warningCount: Int!
+  criticalCount: Int!
+  uniqueRecipients: Int!
+  lastAlertAtIso: String
+}
+
+type AgentPlatformHealthAlertDeliveryTrendPointResponse {
+  bucketStartIso: String!
+  totalCount: Int!
+  warningCount: Int!
+  criticalCount: Int!
+  uniqueRecipients: Int!
+}
+
+type AgentPlatformHealthAlertDeliveryDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type AgentPlatformHealthAlertConfigResponse {
+  alertsEnabled: Boolean!
+  scanAdminUsers: Boolean!
+  configuredRecipientUserIds: [String!]!
+  windowHours: Int!
+  baselineWindowHours: Int!
+  cooldownMinutes: Int!
+  minSampleCount: Int!
+  anomalyMultiplier: Float!
+  anomalyMinErrorDeltaPercent: Float!
+  anomalyMinLatencyDeltaMs: Float!
+  errorRateWarnPercent: Float!
+  latencyWarnMs: Float!
+  maxDeliverySampleScan: Int!
+  evaluatedAtIso: String!
+}
+
+type AgentPlatformHealthAlertRunResponse {
+  alertsEnabled: Boolean!
+  severity: String
+  reasons: [String!]!
+  windowHours: Int!
+  baselineWindowHours: Int!
+  cooldownMinutes: Int!
+  minSampleCount: Int!
+  anomalyMultiplier: Float!
+  anomalyMinErrorDeltaPercent: Float!
+  anomalyMinLatencyDeltaMs: Float!
+  errorRateWarnPercent: Float!
+  latencyWarnMs: Float!
+  recipientCount: Int!
+  publishedCount: Int!
+  evaluatedAtIso: String!
+}
+
+type AgentPlatformHealthAlertRunHistoryDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type AgentPlatformHealthAlertRunTrendSummaryResponse {
+  windowHours: Int!
+  runCount: Int!
+  alertsEnabledRunCount: Int!
+  noAlertRunCount: Int!
+  warningRunCount: Int!
+  criticalRunCount: Int!
+  totalRecipients: Int!
+  totalPublished: Int!
+  avgPublishedPerRun: Float!
+  latestEvaluatedAtIso: String
+}
+
+type AgentPlatformHealthAlertRunTrendPointResponse {
+  bucketStartIso: String!
+  runCount: Int!
+  noAlertRunCount: Int!
+  warningRunCount: Int!
+  criticalRunCount: Int!
+  totalRecipients: Int!
+  totalPublished: Int!
+}
+
+type AgentPlatformHealthAlertRunTrendDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type AgentPlatformHealthAlertRunRetentionPurgeResponse {
+  deletedRuns: Int!
+  retentionDays: Int!
+  executedAtIso: String!
+}
+
+type AgentPlatformEndpointStatResponse {
+  endpointUrl: String!
+  successCount: Int!
+  failureCount: Int!
+  lastSuccessAtIso: String
+  lastFailureAtIso: String
+}
+
+type AgentPlatformSkillStatResponse {
+  skill: String!
+  totalRequests: Int!
+  failedRequests: Int!
+  timeoutFailures: Int!
+  avgLatencyMs: Float!
+  lastLatencyMs: Float!
+  errorRatePercent: Float!
+  lastErrorAtIso: String
+}
+
+type AgentPlatformRuntimeResetResponse {
+  clearedEndpoints: Int!
+  scopedEndpointUrl: String
+  resetAtIso: String!
+}
+
+type AgentPlatformSkillRuntimeResetResponse {
+  clearedSkills: Int!
+  scopedSkill: String
+  resetAtIso: String!
+}
+
+type AgentPlatformHealthSampleRetentionPurgeResponse {
+  deletedSamples: Int!
+  retentionDays: Int!
+  executedAtIso: String!
+}
+
+type AgentActionAudit {
+  id: ID!
+  userId: String
+  requestId: String!
+  skill: String!
+  action: String!
+  executed: Boolean!
+  approvalRequired: Boolean!
+  approvalTokenSuffix: String
+  message: String!
+  metadata: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type AgentActionDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type AgentActionAuditRetentionPurgeResponse {
+  deletedRows: Int!
+  retentionDays: Int!
+  userScoped: Boolean!
+  executedAtIso: String!
+}
+
+type SmartReplySettings {
+  id: ID!
+  userId: String!
+  enabled: Boolean!
+  defaultTone: String!
+  defaultLength: String!
+  aiModel: String!
+  includeSignature: Boolean!
+  personalization: Int!
+  creativityLevel: Int!
+  maxSuggestions: Int!
+  customInstructions: String
+  keepHistory: Boolean!
+  historyLength: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type SmartReplyHistory {
+  id: ID!
+  userId: String!
+  conversationPreview: String!
+  suggestions: [String!]!
+  source: String!
+  blockedSensitive: Boolean!
+  fallbackUsed: Boolean!
+  createdAt: DateTime!
+}
+
+type SmartReplyHistoryPurgeResponse {
+  purgedRows: Int!
+  executedAtIso: String!
+}
+
+type SmartReplyDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type SmartReplyProviderHealthItemResponse {
+  providerId: String!
+  enabled: Boolean!
+  configured: Boolean!
+  priority: Int!
+  note: String
+}
+
+type SmartReplyProviderHealthResponse {
+  mode: String!
+  hybridPrimary: String!
+  providers: [SmartReplyProviderHealthItemResponse!]!
+  executedAtIso: String!
 }
 
 type Mutation {
@@ -346,6 +985,13 @@ type Mutation {
   disconnectProvider(id: String!): ProviderActionResult!
   updateProvider(id: String!, isActive: Boolean): Provider!
   syncProvider(id: String!): Provider!
+  syncMyProviders(workspaceId: String, providerId: String): ProviderSyncRunResponse!
+  runMyProviderSyncIncidentAlertCheck(
+    windowHours: Int
+    warningErrorProviderPercent: Float
+    criticalErrorProviderPercent: Float
+    minErrorProviders: Int
+  ): ProviderSyncIncidentAlertCheckResponse!
   updateProviderStatus(id: String!, isActive: Boolean): Provider!
   syncGmailProvider(providerId: String!, maxMessages: Int): Boolean!
   login(loginInput: LoginInput!): AuthResponse!
@@ -394,7 +1040,11 @@ type Mutation {
   sendPhoneOtp(phoneNumber: String!): Boolean!
   verifyPhoneOtp(code: String!): Boolean!
   setActiveInbox(input: SetActiveInboxInput!): [Inbox!]!
+  syncMyInboxes(workspaceId: String): InboxSyncRunResponse!
   updateEmail(id: String!, input: EmailUpdateInput!): EmailThread!
+  updateSmartReplySettings(input: UpdateSmartReplySettingsInput!): SmartReplySettings!
+  purgeMySmartReplyHistory: SmartReplyHistoryPurgeResponse!
+  agentAssist(input: AgentAssistInput!): AgentAssistResponse!
 }
 
 input CreateUserInput {
@@ -565,12 +1215,18 @@ input VerifySignupInput {
 input CreateFeatureInput {
   name: String!
   isActive: Boolean! = false
+  targetType: String = "GLOBAL"
+  targetValue: String
+  rolloutPercentage: Int = 100
 }
 
 input UpdateFeatureInput {
   id: ID!
   name: String
   isActive: Boolean
+  targetType: String
+  targetValue: String
+  rolloutPercentage: Int
 }
 
 input CreateTemplateInput {
@@ -625,4 +1281,770 @@ input EmailUpdateInput {
   folder: String
   addLabelIds: [String!]
   removeLabelIds: [String!]
+}
+
+"""Incremental schema contract extensions for billing + notifications."""
+extend type Query {
+  myAccountDataExport: AccountDataExportResponse!
+  billingPlans: [BillingPlan!]!
+  mySubscription: UserSubscription!
+  myAiCreditBalance: AiCreditBalanceResponse!
+  myEntitlementUsage(workspaceId: String): EntitlementUsageResponse!
+  myBillingInvoices(limit: Int): [BillingInvoice!]!
+  myBillingDataExport: BillingDataExportResponse!
+  myNotifications(limit: Int, unreadOnly: Boolean, workspaceId: String, sinceHours: Int, types: [String!]): [UserNotification!]!
+  myNotificationDataExport(limit: Int): NotificationDataExportResponse!
+  myMailboxInboundDataExport(
+    mailboxId: String
+    workspaceId: String
+    limit: Int
+    windowHours: Int
+    bucketMinutes: Int
+  ): MailboxInboundDataExportResponse!
+  myMailboxProvisioningHealth: MailboxProvisioningHealthResponse!
+  myMailboxSyncStates(
+    workspaceId: String
+  ): [MailboxSyncStateResponse!]!
+  myMailboxSyncRuns(
+    mailboxId: String
+    workspaceId: String
+    windowHours: Int
+    limit: Int
+  ): [MailboxSyncRunObservabilityResponse!]!
+  myMailboxSyncRunStats(
+    mailboxId: String
+    workspaceId: String
+    windowHours: Int
+  ): MailboxSyncRunStatsResponse!
+  myMailboxSyncRunSeries(
+    mailboxId: String
+    workspaceId: String
+    windowHours: Int
+    bucketMinutes: Int
+  ): [MailboxSyncRunTrendPointResponse!]!
+  myMailboxSyncIncidentStats(
+    mailboxId: String
+    workspaceId: String
+    windowHours: Int
+  ): MailboxSyncIncidentStatsResponse!
+  myMailboxSyncIncidentSeries(
+    mailboxId: String
+    workspaceId: String
+    windowHours: Int
+    bucketMinutes: Int
+  ): [MailboxSyncIncidentTrendPointResponse!]!
+  myMailboxSyncIncidentDataExport(
+    mailboxId: String
+    workspaceId: String
+    windowHours: Int
+    bucketMinutes: Int
+  ): MailboxSyncIncidentDataExportResponse!
+  myMailboxSyncIncidentAlertConfig: MailboxSyncIncidentAlertConfigResponse!
+  myMailboxSyncIncidentAlertDeliveryStats(
+    workspaceId: String
+    windowHours: Int
+  ): MailboxSyncIncidentAlertDeliveryStatsResponse!
+  myMailboxSyncIncidentAlerts(
+    workspaceId: String
+    windowHours: Int
+    limit: Int
+  ): [MailboxSyncIncidentAlertResponse!]!
+  myMailboxSyncIncidentAlertHistoryDataExport(
+    workspaceId: String
+    windowHours: Int
+    limit: Int
+  ): MailboxSyncIncidentAlertHistoryDataExportResponse!
+  myMailboxSyncIncidentAlertDeliverySeries(
+    workspaceId: String
+    windowHours: Int
+    bucketMinutes: Int
+  ): [MailboxSyncIncidentAlertDeliveryTrendPointResponse!]!
+  myMailboxSyncIncidentAlertDeliveryDataExport(
+    workspaceId: String
+    windowHours: Int
+    bucketMinutes: Int
+  ): MailboxSyncIncidentAlertDeliveryDataExportResponse!
+  myMailboxSyncDataExport(
+    mailboxId: String
+    workspaceId: String
+    limit: Int
+    windowHours: Int
+    bucketMinutes: Int
+  ): MailboxSyncDataExportResponse!
+  myMailboxInboundSlaIncidentStats(workspaceId: String, windowHours: Int): MailboxInboundSlaIncidentStatsResponse!
+  myMailboxInboundSlaIncidentSeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [MailboxInboundSlaIncidentTrendPointResponse!]!
+  myMailboxInboundSlaIncidentAlerts(workspaceId: String, windowHours: Int, limit: Int): [MailboxInboundSlaIncidentAlertResponse!]!
+  myMailboxInboundSlaIncidentDataExport(workspaceId: String, windowHours: Int, bucketMinutes: Int, limit: Int): MailboxInboundSlaIncidentDataExportResponse!
+  myMailboxInboundSlaIncidentAlertConfig: MailboxInboundSlaIncidentAlertConfigResponse!
+  myUnreadNotificationCount(workspaceId: String): Int!
+  myNotificationPreferences: UserNotificationPreference!
+  myNotificationPushSubscriptions(workspaceId: String): [NotificationPushSubscription!]!
+  agentPlatformHealthHistory(
+    limit: Int
+    windowHours: Int
+  ): [AgentPlatformHealthSampleResponse!]!
+  agentPlatformHealthSampleDataExport(
+    limit: Int
+    windowHours: Int
+  ): AgentPlatformHealthSampleDataExportResponse!
+  agentPlatformHealthTrendSummary(
+    windowHours: Int
+  ): AgentPlatformHealthTrendSummaryResponse!
+  agentPlatformHealthTrendSeries(
+    windowHours: Int
+    bucketMinutes: Int
+  ): [AgentPlatformHealthTrendPointResponse!]!
+  agentPlatformHealthIncidentStats(
+    windowHours: Int
+  ): AgentPlatformHealthIncidentStatsResponse!
+  agentPlatformHealthIncidentSeries(
+    windowHours: Int
+    bucketMinutes: Int
+  ): [AgentPlatformHealthIncidentTrendPointResponse!]!
+  agentPlatformHealthIncidentDataExport(
+    windowHours: Int
+    bucketMinutes: Int
+  ): AgentPlatformHealthIncidentDataExportResponse!
+  agentPlatformHealthAlertDeliveryStats(
+    windowHours: Int
+  ): AgentPlatformHealthAlertDeliveryStatsResponse!
+  agentPlatformHealthAlertDeliverySeries(
+    windowHours: Int
+    bucketMinutes: Int
+  ): [AgentPlatformHealthAlertDeliveryTrendPointResponse!]!
+  agentPlatformHealthAlertDeliveryDataExport(
+    windowHours: Int
+    bucketMinutes: Int
+  ): AgentPlatformHealthAlertDeliveryDataExportResponse!
+  agentPlatformHealthAlertConfig: AgentPlatformHealthAlertConfigResponse!
+  agentPlatformHealthAlertRunHistory(
+    limit: Int
+    windowHours: Int
+  ): [AgentPlatformHealthAlertRunResponse!]!
+  agentPlatformHealthAlertRunHistoryDataExport(
+    limit: Int
+    windowHours: Int
+  ): AgentPlatformHealthAlertRunHistoryDataExportResponse!
+  agentPlatformHealthAlertRunTrendSummary(
+    windowHours: Int
+  ): AgentPlatformHealthAlertRunTrendSummaryResponse!
+  agentPlatformHealthAlertRunTrendSeries(
+    windowHours: Int
+    bucketMinutes: Int
+  ): [AgentPlatformHealthAlertRunTrendPointResponse!]!
+  agentPlatformHealthAlertRunTrendDataExport(
+    windowHours: Int
+    bucketMinutes: Int
+  ): AgentPlatformHealthAlertRunTrendDataExportResponse!
+  myWorkspaces: [Workspace!]!
+  myActiveWorkspace: Workspace
+  myWorkspaceDataExport(workspaceId: String!): WorkspaceDataExportResponse!
+  workspaceMembers(workspaceId: String!): [WorkspaceMember!]!
+  myPendingWorkspaceInvitations: [WorkspaceMember!]!
+}
+
+extend type Mutation {
+  selectMyPlan(planCode: String!): UserSubscription!
+  startMyPlanTrial(planCode: String!, trialDays: Int): UserSubscription!
+  purgeBillingRetentionData(
+    webhookRetentionDays: Int
+    aiUsageRetentionMonths: Int
+  ): BillingRetentionPurgeResponse!
+  purgeAgentActionRetentionData(
+    retentionDays: Int
+    userId: String
+  ): AgentActionAuditRetentionPurgeResponse!
+  resetAgentPlatformRuntimeStats(
+    endpointUrl: String
+  ): AgentPlatformRuntimeResetResponse!
+  resetAgentPlatformSkillRuntimeStats(
+    skill: String
+  ): AgentPlatformSkillRuntimeResetResponse!
+  purgeAgentPlatformHealthSampleRetentionData(
+    retentionDays: Int
+  ): AgentPlatformHealthSampleRetentionPurgeResponse!
+  purgeAgentPlatformHealthAlertRunRetentionData(
+    retentionDays: Int
+  ): AgentPlatformHealthAlertRunRetentionPurgeResponse!
+  runAgentPlatformHealthAlertCheck(
+    windowHours: Int
+    baselineWindowHours: Int
+    cooldownMinutes: Int
+    minSampleCount: Int
+  ): AgentPlatformHealthAlertCheckResponse!
+  requestMyPlanUpgrade(
+    targetPlanCode: String!
+    note: String
+  ): BillingUpgradeIntentResponse!
+  ingestBillingWebhook(
+    provider: String!
+    eventType: String!
+    externalEventId: String!
+    payloadJson: String
+  ): BillingWebhookEvent!
+  markNotificationRead(id: String!): UserNotification!
+  markMyNotificationsRead(
+    workspaceId: String
+    sinceHours: Int
+    types: [String!]
+  ): Int!
+  updateMyNotificationPreferences(
+    input: UpdateNotificationPreferencesInput!
+  ): UserNotificationPreference!
+  purgeNotificationRetentionData(
+    notificationRetentionDays: Int
+    disabledPushRetentionDays: Int
+  ): NotificationRetentionPurgeResponse!
+  registerMyNotificationPushSubscription(
+    input: RegisterNotificationPushSubscriptionInput!
+  ): NotificationPushSubscription!
+  unregisterMyNotificationPushSubscription(endpoint: String!): Boolean!
+  createWorkspace(name: String!): Workspace!
+  setActiveWorkspace(workspaceId: String!): Workspace!
+  inviteWorkspaceMember(
+    workspaceId: String!
+    email: String!
+    role: String
+  ): WorkspaceMember!
+  updateWorkspaceMemberRole(
+    workspaceMemberId: String!
+    role: String!
+  ): WorkspaceMember!
+  removeWorkspaceMember(workspaceMemberId: String!): WorkspaceMember!
+  respondWorkspaceInvitation(
+    workspaceMemberId: String!
+    accept: Boolean!
+  ): WorkspaceMember!
+  purgeMyMailboxInboundRetentionData(
+    retentionDays: Int
+  ): MailboxInboundRetentionPurgeResponse!
+  purgeMyMailboxSyncRunRetentionData(
+    retentionDays: Int
+  ): MailboxSyncRunRetentionPurgeResponse!
+  runMyMailboxSyncIncidentAlertCheck(
+    windowHours: Int
+    warningRatePercent: Float
+    criticalRatePercent: Float
+    minIncidentRuns: Int
+  ): MailboxSyncIncidentAlertCheckResponse!
+  runMyMailboxInboundSlaAlertCheck(
+    windowHours: Int
+  ): MailboxInboundSlaAlertCheckResponse!
+  syncMyMailboxPull(
+    mailboxId: String
+    workspaceId: String
+  ): MailboxSyncRunResponse!
+}
+
+type BillingPlan {
+  id: ID!
+  code: String!
+  name: String!
+  priceMonthlyCents: Int!
+  currency: String!
+  providerLimit: Int!
+  mailboxLimit: Int!
+  workspaceLimit: Int!
+  workspaceMemberLimit: Int!
+  aiCreditsPerMonth: Int!
+  mailboxStorageLimitMb: Int!
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type UserSubscription {
+  id: ID!
+  userId: String!
+  planCode: String!
+  status: String!
+  startedAt: DateTime!
+  endsAt: DateTime
+  isTrial: Boolean!
+  trialEndsAt: DateTime
+  cancelAtPeriodEnd: Boolean!
+  billingProviderCustomerId: String
+  metadata: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type BillingInvoice {
+  id: ID!
+  userId: String!
+  subscriptionId: String
+  planCode: String!
+  invoiceNumber: String!
+  provider: String!
+  providerInvoiceId: String
+  status: String!
+  amountCents: Int!
+  currency: String!
+  periodStart: DateTime!
+  periodEnd: DateTime!
+  dueAt: DateTime
+  paidAt: DateTime
+  metadata: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type BillingWebhookEvent {
+  id: ID!
+  provider: String!
+  eventType: String!
+  externalEventId: String!
+  status: String!
+  processedAt: DateTime
+  errorMessage: String
+  payload: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type AiCreditBalanceResponse {
+  planCode: String!
+  monthlyLimit: Int!
+  usedCredits: Int!
+  remainingCredits: Int!
+  periodStart: String!
+  lastConsumedAtIso: String
+}
+
+type BillingUpgradeIntentResponse {
+  success: Boolean!
+  targetPlanCode: String!
+  message: String!
+}
+
+type AccountDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type BillingDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type EntitlementUsageResponse {
+  planCode: String!
+  providerLimit: Int!
+  providerUsed: Int!
+  providerRemaining: Int!
+  mailboxLimit: Int!
+  mailboxUsed: Int!
+  mailboxRemaining: Int!
+  workspaceLimit: Int!
+  workspaceUsed: Int!
+  workspaceRemaining: Int!
+  workspaceMemberLimit: Int!
+  workspaceMemberUsed: Int!
+  workspaceMemberRemaining: Int!
+  workspaceMemberWorkspaceId: String
+  mailboxStorageLimitMb: Int!
+  mailboxesOverEntitledStorageLimit: Int!
+  aiCreditsPerMonth: Int!
+  aiCreditsUsed: Int!
+  aiCreditsRemaining: Int!
+  periodStart: String!
+  evaluatedAtIso: String!
+}
+
+type BillingRetentionPurgeResponse {
+  webhookEventsDeleted: Int!
+  aiUsageRowsDeleted: Int!
+  webhookRetentionDays: Int!
+  aiUsageRetentionMonths: Int!
+  executedAtIso: String!
+}
+
+type UserNotification {
+  id: ID!
+  userId: String!
+  workspaceId: String
+  type: String!
+  title: String!
+  message: String!
+  isRead: Boolean!
+  metadata: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type NotificationDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type NotificationRetentionPurgeResponse {
+  notificationsDeleted: Int!
+  pushSubscriptionsDeleted: Int!
+  notificationRetentionDays: Int!
+  disabledPushRetentionDays: Int!
+  executedAtIso: String!
+}
+
+type MailboxInboundDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type MailboxInboundRetentionPurgeResponse {
+  deletedEvents: Int!
+  retentionDays: Int!
+  executedAtIso: String!
+}
+
+type MailboxSyncStateResponse {
+  mailboxId: String!
+  mailboxEmail: String!
+  workspaceId: String
+  inboundSyncCursor: String
+  inboundSyncStatus: String
+  inboundSyncLastPolledAt: DateTime
+  inboundSyncLastError: String
+  inboundSyncLastErrorAt: DateTime
+  inboundSyncLeaseExpiresAt: DateTime
+}
+
+type MailboxSyncRunObservabilityResponse {
+  id: String!
+  mailboxId: String!
+  mailboxEmail: String
+  workspaceId: String
+  triggerSource: String!
+  runCorrelationId: String!
+  status: String!
+  fetchedMessages: Int!
+  acceptedMessages: Int!
+  deduplicatedMessages: Int!
+  rejectedMessages: Int!
+  nextCursor: String
+  errorMessage: String
+  startedAt: DateTime!
+  completedAt: DateTime!
+  durationMs: Int!
+}
+
+type MailboxSyncRunStatsResponse {
+  mailboxId: String
+  workspaceId: String
+  windowHours: Int!
+  totalRuns: Int!
+  successRuns: Int!
+  partialRuns: Int!
+  failedRuns: Int!
+  skippedRuns: Int!
+  schedulerRuns: Int!
+  manualRuns: Int!
+  fetchedMessages: Int!
+  acceptedMessages: Int!
+  deduplicatedMessages: Int!
+  rejectedMessages: Int!
+  avgDurationMs: Float!
+  latestCompletedAtIso: String
+}
+
+type MailboxSyncRunTrendPointResponse {
+  bucketStart: DateTime!
+  totalRuns: Int!
+  successRuns: Int!
+  partialRuns: Int!
+  failedRuns: Int!
+  skippedRuns: Int!
+  fetchedMessages: Int!
+  acceptedMessages: Int!
+  deduplicatedMessages: Int!
+  rejectedMessages: Int!
+}
+
+type MailboxSyncIncidentStatsResponse {
+  mailboxId: String
+  workspaceId: String
+  windowHours: Int!
+  totalRuns: Int!
+  incidentRuns: Int!
+  failedRuns: Int!
+  partialRuns: Int!
+  incidentRatePercent: Float!
+  lastIncidentAtIso: String
+}
+
+type MailboxSyncIncidentTrendPointResponse {
+  bucketStart: DateTime!
+  totalRuns: Int!
+  incidentRuns: Int!
+  failedRuns: Int!
+  partialRuns: Int!
+}
+
+type MailboxSyncIncidentDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type MailboxSyncIncidentAlertConfigResponse {
+  alertsEnabled: Boolean!
+  windowHours: Int!
+  cooldownMinutes: Int!
+  maxUsersPerRun: Int!
+  warningRatePercent: Float!
+  criticalRatePercent: Float!
+  minIncidentRuns: Int!
+  evaluatedAtIso: String!
+}
+
+type MailboxSyncIncidentAlertCheckResponse {
+  alertsEnabled: Boolean!
+  evaluatedAtIso: String!
+  windowHours: Int!
+  warningRatePercent: Float!
+  criticalRatePercent: Float!
+  minIncidentRuns: Int!
+  status: String!
+  statusReason: String!
+  shouldAlert: Boolean!
+  totalRuns: Int!
+  incidentRuns: Int!
+  failedRuns: Int!
+  partialRuns: Int!
+  incidentRatePercent: Float!
+  lastIncidentAtIso: String
+}
+
+type MailboxInboundSlaAlertCheckResponse {
+  schedulerAlertsEnabled: Boolean!
+  alertsEnabled: Boolean!
+  evaluatedAtIso: String!
+  windowHours: Int!
+  status: String!
+  statusReason: String!
+  shouldAlert: Boolean!
+  cooldownMinutes: Int!
+  totalCount: Int!
+  acceptedCount: Int!
+  deduplicatedCount: Int!
+  rejectedCount: Int!
+  successRatePercent: Float!
+  rejectionRatePercent: Float!
+  slaTargetSuccessPercent: Float!
+  slaWarningRejectedPercent: Float!
+  slaCriticalRejectedPercent: Float!
+  lastProcessedAtIso: String
+}
+
+type MailboxSyncIncidentAlertDeliveryStatsResponse {
+  workspaceId: String
+  windowHours: Int!
+  totalCount: Int!
+  warningCount: Int!
+  criticalCount: Int!
+  lastAlertAtIso: String
+}
+
+type MailboxSyncIncidentAlertResponse {
+  notificationId: String!
+  workspaceId: String
+  status: String!
+  title: String!
+  message: String!
+  incidentRatePercent: Float!
+  incidentRuns: Int!
+  totalRuns: Int!
+  warningRatePercent: Float!
+  criticalRatePercent: Float!
+  createdAt: DateTime!
+}
+
+type MailboxSyncIncidentAlertHistoryDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type MailboxSyncIncidentAlertDeliveryTrendPointResponse {
+  bucketStart: DateTime!
+  totalCount: Int!
+  warningCount: Int!
+  criticalCount: Int!
+}
+
+type MailboxSyncIncidentAlertDeliveryDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type MailboxSyncDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type MailboxSyncRunRetentionPurgeResponse {
+  deletedRuns: Int!
+  retentionDays: Int!
+  executedAtIso: String!
+}
+
+type MailboxProvisioningHealthResponse {
+  provider: String!
+  provisioningRequired: Boolean!
+  adminApiConfigured: Boolean!
+  configuredEndpointCount: Int!
+  configuredEndpoints: [String!]!
+  failoverEnabled: Boolean!
+  requestTimeoutMs: Int!
+  maxRetries: Int!
+  retryBackoffMs: Int!
+  retryJitterMs: Int!
+  mailcowQuotaDefaultMb: Int!
+  evaluatedAtIso: String!
+}
+
+type MailboxSyncRunResponse {
+  polledMailboxes: Int!
+  skippedMailboxes: Int!
+  failedMailboxes: Int!
+  fetchedMessages: Int!
+  acceptedMessages: Int!
+  deduplicatedMessages: Int!
+  rejectedMessages: Int!
+  executedAtIso: String!
+}
+
+type MailboxInboundSlaIncidentStatsResponse {
+  workspaceId: String
+  windowHours: Int!
+  totalCount: Int!
+  warningCount: Int!
+  criticalCount: Int!
+  lastAlertAt: DateTime
+}
+
+type MailboxInboundSlaIncidentTrendPointResponse {
+  bucketStart: DateTime!
+  totalCount: Int!
+  warningCount: Int!
+  criticalCount: Int!
+}
+
+type MailboxInboundSlaIncidentAlertResponse {
+  notificationId: String!
+  workspaceId: String
+  slaStatus: String!
+  title: String!
+  message: String!
+  totalCount: Int!
+  acceptedCount: Int!
+  deduplicatedCount: Int!
+  rejectedCount: Int!
+  successRatePercent: Float!
+  rejectionRatePercent: Float!
+  createdAt: DateTime!
+}
+
+type MailboxInboundSlaIncidentDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type MailboxInboundSlaIncidentAlertConfigResponse {
+  schedulerAlertsEnabled: Boolean!
+  alertsEnabled: Boolean!
+  targetSuccessPercent: Float!
+  warningRejectedPercent: Float!
+  criticalRejectedPercent: Float!
+  cooldownMinutes: Int!
+  incidentWindowHoursDefault: Int!
+  incidentBucketMinutesDefault: Int!
+  schedulerWindowHours: Int!
+  schedulerCooldownMinutes: Int!
+  schedulerMaxUsersPerRun: Int!
+  evaluatedAtIso: String!
+}
+
+type UserNotificationPreference {
+  id: ID!
+  userId: String!
+  inAppEnabled: Boolean!
+  emailEnabled: Boolean!
+  pushEnabled: Boolean!
+  syncFailureEnabled: Boolean!
+  mailboxInboundAcceptedEnabled: Boolean!
+  mailboxInboundDeduplicatedEnabled: Boolean!
+  mailboxInboundRejectedEnabled: Boolean!
+  mailboxInboundSlaTargetSuccessPercent: Float!
+  mailboxInboundSlaWarningRejectedPercent: Float!
+  mailboxInboundSlaCriticalRejectedPercent: Float!
+  mailboxInboundSlaAlertsEnabled: Boolean!
+  notificationDigestEnabled: Boolean!
+  mailboxInboundSlaAlertCooldownMinutes: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type NotificationPushSubscription {
+  id: ID!
+  userId: String!
+  workspaceId: String
+  endpoint: String!
+  p256dh: String!
+  auth: String!
+  userAgent: String
+  isActive: Boolean!
+  failureCount: Int!
+  lastDeliveredAt: DateTime
+  lastFailureAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input UpdateNotificationPreferencesInput {
+  inAppEnabled: Boolean
+  emailEnabled: Boolean
+  pushEnabled: Boolean
+  syncFailureEnabled: Boolean
+  mailboxInboundAcceptedEnabled: Boolean
+  mailboxInboundDeduplicatedEnabled: Boolean
+  mailboxInboundRejectedEnabled: Boolean
+  mailboxInboundSlaTargetSuccessPercent: Float
+  mailboxInboundSlaWarningRejectedPercent: Float
+  mailboxInboundSlaCriticalRejectedPercent: Float
+  mailboxInboundSlaAlertsEnabled: Boolean
+  notificationDigestEnabled: Boolean
+  mailboxInboundSlaAlertCooldownMinutes: Int
+}
+
+input RegisterNotificationPushSubscriptionInput {
+  endpoint: String!
+  p256dh: String!
+  auth: String!
+  workspaceId: String
+  userAgent: String
+}
+
+type Workspace {
+  id: ID!
+  ownerUserId: String!
+  name: String!
+  slug: String!
+  isPersonal: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type WorkspaceMember {
+  id: ID!
+  workspaceId: String!
+  userId: String
+  email: String!
+  role: String!
+  status: String!
+  invitedByUserId: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type WorkspaceDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
 }

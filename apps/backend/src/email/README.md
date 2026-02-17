@@ -6,6 +6,19 @@ The Email Module is a comprehensive solution for managing email operations withi
 
 ## Core Components
 
+## Flow
+
+```mermaid
+flowchart TD
+  Resolver[Email GraphQL resolvers] --> Service[EmailService]
+  Service --> ProviderRepo[(email_providers)]
+  Service --> EmailRepo[(emails)]
+  Service --> AnalyticsRepo[(email_analytics)]
+  Service --> Transport[Provider transport / SMTP OAuth]
+  Service --> Track[Open + click tracking]
+  Track --> AnalyticsRepo
+```
+
 ### Services
 
 1. **EmailService**
@@ -87,6 +100,28 @@ The Email Module is a comprehensive solution for managing email operations withi
 - Track email opens and clicks
 - Support for HTML content
 - Attachment handling
+  - attachment storage cleanup warning event:
+    - `attachment_storage_delete_failed`
+- Structured observability logs in `EmailService`:
+  - send lifecycle:
+    - `email_send_start`
+    - `email_send_record_persisted`
+    - `email_send_analytics_initialized`
+    - `email_send_scheduled`
+    - `email_send_provider_missing`
+    - `email_send_provider_selected`
+    - `email_send_completed`
+    - `email_send_failed`
+  - template lifecycle:
+    - `email_template_send_start`
+    - `email_template_send_completed`
+  - tracking/query lifecycle:
+    - `email_track_open_start`
+    - `email_track_click_start`
+    - `email_list_by_user_start`
+    - `email_list_by_user_completed`
+    - `email_get_by_id_start`
+    - `email_mark_read_start`
 
 ### Email Filtering
 
@@ -115,6 +150,47 @@ The Email Module is a comprehensive solution for managing email operations withi
 - Monitor open rates and adjust strategy
 - Track warmup performance metrics
 - Pause and resume warmup process
+- Structured observability logs in `EmailWarmupService`:
+  - lifecycle:
+    - `email_warmup_start_requested`
+    - `email_warmup_start_config_resolved`
+    - `email_warmup_start_completed`
+    - `email_warmup_start_failed`
+    - `email_warmup_pause_requested`
+    - `email_warmup_pause_processing`
+    - `email_warmup_pause_completed`
+    - `email_warmup_pause_failed`
+  - daily strategy processing:
+    - `email_warmup_daily_processing_start`
+    - `email_warmup_daily_processing_loaded`
+    - `email_warmup_daily_limit_increased`
+    - `email_warmup_daily_limit_maintained`
+    - `email_warmup_daily_processing_item_failed`
+    - `email_warmup_daily_processing_completed`
+    - `email_warmup_daily_processing_failed`
+  - send cycle:
+    - `email_warmup_send_cycle_start`
+    - `email_warmup_send_cycle_loaded`
+    - `email_warmup_send_cycle_missing_activity`
+    - `email_warmup_send_cycle_daily_limit_reached`
+    - `email_warmup_send_cycle_dispatching`
+    - `email_warmup_send_cycle_dispatch_completed`
+    - `email_warmup_send_cycle_dispatch_failed`
+    - `email_warmup_send_cycle_completed`
+    - `email_warmup_send_cycle_failed`
+  - queries/strategy adjustment:
+    - `email_warmup_status_query_start`
+    - `email_warmup_status_query_completed`
+    - `email_warmup_status_query_failed`
+    - `email_warmup_metrics_query_start`
+    - `email_warmup_metrics_query_completed`
+    - `email_warmup_metrics_query_failed`
+    - `email_warmup_strategy_adjust_start`
+    - `email_warmup_strategy_adjust_slow_down`
+    - `email_warmup_strategy_adjust_speed_up`
+    - `email_warmup_strategy_adjust_maintain`
+    - `email_warmup_strategy_adjust_completed`
+    - `email_warmup_strategy_adjust_failed`
 
 ### Attachment Handling
 
@@ -261,6 +337,52 @@ The Email Module requires the following environment variables:
 - `nodemailer`: Email sending library
 - `class-validator`: Input validation
 - `typeorm`: Database ORM
+
+## Observability (structured events)
+
+- `EmailFilterService` emits resilient audit warning event:
+  - `email_filter_audit_log_write_failed`
+- `EmailWarmupService` emits resilient audit warning event:
+  - `email_warmup_audit_log_write_failed`
+- `EmailTemplateService` emits resilient audit warning event:
+  - `email_template_audit_log_write_failed`
+- `AttachmentService` emits resilient audit warning event:
+  - `attachment_audit_log_write_failed`
+- `EmailService` emits resilient audit warning event:
+  - `email_audit_log_write_failed`
+- `MailService` emits resilient audit warning event:
+  - `mail_service_audit_log_write_failed`
+- `EmailSchedulerService` emits resilient audit warning event:
+  - `email_scheduler_audit_log_write_failed`
+
+## Compliance / Audit Trail
+
+- Persisted audit actions:
+  - `email_send_requested`
+  - `email_send_scheduled`
+  - `email_sent`
+  - `email_send_failed`
+  - `email_filter_created`
+  - `email_filter_deleted`
+  - `email_warmup_started`
+  - `email_warmup_resumed`
+  - `email_warmup_paused`
+  - `email_template_created`
+  - `email_template_updated`
+  - `email_template_deleted`
+  - `email_template_sent`
+  - `email_template_send_failed`
+  - `email_schedule_created`
+  - `email_schedule_creation_failed`
+  - `email_schedule_cancelled`
+  - `email_schedule_cancel_failed`
+  - `email_schedule_dispatched`
+  - `email_schedule_dispatch_failed`
+  - `attachment_uploaded`
+  - `attachment_deleted`
+  - `email_marked_read`
+  - `real_email_sent`
+  - `real_email_send_failed`
 
 ## Best Practices
 

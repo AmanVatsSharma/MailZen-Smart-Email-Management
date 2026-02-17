@@ -11,6 +11,51 @@
 import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
 
 @ObjectType()
+export class AgentPlatformEndpointStatResponse {
+  @Field()
+  endpointUrl: string;
+
+  @Field(() => Int)
+  successCount: number;
+
+  @Field(() => Int)
+  failureCount: number;
+
+  @Field({ nullable: true })
+  lastSuccessAtIso?: string;
+
+  @Field({ nullable: true })
+  lastFailureAtIso?: string;
+}
+
+@ObjectType()
+export class AgentPlatformSkillStatResponse {
+  @Field()
+  skill: string;
+
+  @Field(() => Int)
+  totalRequests: number;
+
+  @Field(() => Int)
+  failedRequests: number;
+
+  @Field(() => Int)
+  timeoutFailures: number;
+
+  @Field(() => Float)
+  avgLatencyMs: number;
+
+  @Field(() => Float)
+  lastLatencyMs: number;
+
+  @Field(() => Float)
+  errorRatePercent: number;
+
+  @Field({ nullable: true })
+  lastErrorAtIso?: string;
+}
+
+@ObjectType()
 export class AgentPlatformHealthResponse {
   @Field()
   status: string;
@@ -20,6 +65,18 @@ export class AgentPlatformHealthResponse {
 
   @Field()
   serviceUrl: string;
+
+  @Field(() => [String])
+  configuredServiceUrls: string[];
+
+  @Field(() => [String])
+  probedServiceUrls: string[];
+
+  @Field(() => [AgentPlatformEndpointStatResponse])
+  endpointStats: AgentPlatformEndpointStatResponse[];
+
+  @Field(() => [AgentPlatformSkillStatResponse])
+  skillStats: AgentPlatformSkillStatResponse[];
 
   @Field(() => Float)
   latencyMs: number;

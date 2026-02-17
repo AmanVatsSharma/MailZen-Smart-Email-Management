@@ -6,11 +6,13 @@ import {
   UnauthorizedException,
   BadRequestException,
   UseGuards,
+  Logger,
 } from '@nestjs/common';
 import { AuthResponse } from './dto/auth-response';
 import { CreateUserInput } from '../user/dto/create-user.input';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type { Response } from 'express';
 import { RefreshInput } from './dto/refresh.input';
 import { ForgotPasswordInput } from './dto/forgot-password.input';
 import { ResetPasswordInput } from './dto/reset-password.input';
@@ -23,22 +25,44 @@ import { User } from '../user/entities/user.entity';
 import * as bcrypt from 'bcryptjs';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthMeResponse } from './dto/auth-me.response';
+import {
+  fingerprintIdentifier,
+  serializeStructuredLog,
+} from '../common/logging/structured-log.util';
+import { AuthAbuseProtectionService } from './auth-abuse-protection.service';
 
 interface RequestContext {
-  req: { user?: { id: string } };
-  res?: any;
+  req: {
+    user?: { id: string };
+    headers?: Record<string, string | string[] | undefined>;
+    ip?: string;
+  };
+  res?: Response;
 }
 
 @Resolver()
 export class AuthResolver {
+  private readonly logger = new Logger(AuthResolver.name);
+
   constructor(
     private readonly authService: AuthService,
     private readonly userService: UserService,
     private readonly mailboxService: MailboxService,
     private readonly sessionCookie: SessionCookieService,
+    private readonly authAbuseProtection: AuthAbuseProtectionService,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
   ) {}
+
+  private warnMissingResponseContext(operation: string): void {
+    if ((process.env.NODE_ENV || 'development') === 'production') return;
+    this.logger.warn(
+      serializeStructuredLog({
+        event: 'auth_resolver_missing_response_context',
+        operation,
+      }),
+    );
+  }
 
   private async getAliasSetupState(userId: string): Promise<{
     hasMailzenAlias: boolean;
@@ -77,6 +101,11 @@ export class AuthResolver {
     @Args('loginInput') loginInput: LoginInput,
     @Context() ctx: RequestContext,
   ): Promise<AuthResponse> {
+    this.authAbuseProtection.enforceLimit({
+      operation: 'login',
+      request: ctx?.req,
+      identifier: loginInput.email,
+    });
     const user = await this.userService.validateUser(
       loginInput.email,
       loginInput.password,
@@ -92,10 +121,7 @@ export class AuthResolver {
     // Enterprise-grade session: set HttpOnly cookie so Next middleware + browser requests remain consistent.
     const res = ctx?.res;
     if (res) this.sessionCookie.setTokenCookie(res, accessToken);
-    else if ((process.env.NODE_ENV || 'development') !== 'production')
-      console.warn(
-        '[AuthResolver.login] Missing res in GraphQL context; cannot set cookie',
-      );
+    else this.warnMissingResponseContext('login');
 
     const aliasState = await this.getAliasSetupState(user.id);
 
@@ -112,6 +138,11 @@ export class AuthResolver {
     @Args('registerInput') registerInput: CreateUserInput,
     @Context() ctx: RequestContext,
   ): Promise<AuthResponse> {
+    this.authAbuseProtection.enforceLimit({
+      operation: 'register',
+      request: ctx?.req,
+      identifier: registerInput.email,
+    });
     if (!registerInput.email || !registerInput.password) {
       throw new BadRequestException('Email and password are required');
     }
@@ -123,10 +154,7 @@ export class AuthResolver {
 
     const res = ctx?.res;
     if (res) this.sessionCookie.setTokenCookie(res, accessToken);
-    else if ((process.env.NODE_ENV || 'development') !== 'production')
-      console.warn(
-        '[AuthResolver.register] Missing res in GraphQL context; cannot set cookie',
-      );
+    else this.warnMissingResponseContext('register');
 
     const aliasState = await this.getAliasSetupState(user.id);
     return { token: accessToken, refreshToken, user, ...aliasState };
@@ -134,6 +162,10 @@ export class AuthResolver {
 
   @Mutation(() => AuthResponse)
   async refresh(@Args('input') input: RefreshInput): Promise<AuthResponse> {
+    this.authAbuseProtection.enforceLimit({
+      operation: 'refresh',
+      identifier: input.refreshToken,
+    });
     const result = await this.authService.rotateRefreshToken(
       input.refreshToken,
     );
@@ -154,13 +186,17 @@ export class AuthResolver {
     input: RefreshInput,
     @Context() ctx: RequestContext,
   ): Promise<boolean> {
+    if (input?.refreshToken) {
+      this.authAbuseProtection.enforceLimit({
+        operation: 'logout',
+        request: ctx?.req,
+        identifier: input.refreshToken,
+      });
+    }
     // Always clear cookie so browser session ends.
     const res = ctx?.res;
     if (res) this.sessionCookie.clearTokenCookie(res);
-    else if ((process.env.NODE_ENV || 'development') !== 'production')
-      console.warn(
-        '[AuthResolver.logout] Missing res in GraphQL context; cannot clear cookie',
-      );
+    else this.warnMissingResponseContext('logout');
 
     // Refresh tokens are planned “later”; keep backward compatibility if clients still pass it.
     if (input?.refreshToken) {
@@ -172,12 +208,25 @@ export class AuthResolver {
   @Mutation(() => Boolean)
   async forgotPassword(
     @Args('input') input: ForgotPasswordInput,
+    @Context() ctx: RequestContext,
   ): Promise<boolean> {
+    this.authAbuseProtection.enforceLimit({
+      operation: 'forgot_password',
+      request: ctx?.req,
+      identifier: input.email,
+    });
     const normalized = input.email.trim().toLowerCase();
     // If user not found, do not reveal
     const user = await this.userRepo.findOne({ where: { email: normalized } });
     if (user) {
       await this.authService.createVerificationToken(user.id, 'PASSWORD_RESET');
+      await this.authService.recordSecurityAuditAction({
+        action: 'auth_password_reset_requested',
+        userId: user.id,
+        metadata: {
+          emailFingerprint: fingerprintIdentifier(normalized),
+        },
+      });
     }
     return true;
   }
@@ -185,16 +234,29 @@ export class AuthResolver {
   @Mutation(() => Boolean)
   async resetPassword(
     @Args('input') input: ResetPasswordInput,
+    @Context() ctx: RequestContext,
   ): Promise<boolean> {
+    this.authAbuseProtection.enforceLimit({
+      operation: 'reset_password',
+      request: ctx?.req,
+      identifier: input.token,
+    });
     const userId = await this.authService.consumeVerificationToken(
       input.token,
       'PASSWORD_RESET',
     );
     const hashed = await bcrypt.hash(input.newPassword, 12);
-    await this.userRepo.update({ id: userId }, {
-      password: hashed,
-      passwordUpdatedAt: new Date(),
-    } as any);
+    await this.userRepo.update(
+      { id: userId },
+      {
+        password: hashed,
+        passwordUpdatedAt: new Date(),
+      },
+    );
+    await this.authService.recordSecurityAuditAction({
+      action: 'auth_password_reset_completed',
+      userId,
+    });
     return true;
   }
 
@@ -204,9 +266,16 @@ export class AuthResolver {
       input.token,
       'EMAIL_VERIFY',
     );
-    await this.userRepo.update({ id: userId }, {
-      isEmailVerified: true,
-    } as any);
+    await this.userRepo.update(
+      { id: userId },
+      {
+        isEmailVerified: true,
+      },
+    );
+    await this.authService.recordSecurityAuditAction({
+      action: 'auth_email_verification_completed',
+      userId,
+    });
     return true;
   }
 
@@ -214,7 +283,13 @@ export class AuthResolver {
   @Mutation(() => Boolean)
   async signupSendOtp(
     @Args('input') input: SignupPhoneInput,
+    @Context() ctx: RequestContext,
   ): Promise<boolean> {
+    this.authAbuseProtection.enforceLimit({
+      operation: 'signup_send_otp',
+      request: ctx?.req,
+      identifier: input.phoneNumber,
+    });
     return this.authService.createSignupOtp(input.phoneNumber);
   }
 
@@ -223,6 +298,11 @@ export class AuthResolver {
     @Args('input') input: VerifySignupInput,
     @Context() ctx: RequestContext,
   ): Promise<AuthResponse> {
+    this.authAbuseProtection.enforceLimit({
+      operation: 'signup_verify',
+      request: ctx?.req,
+      identifier: input.phoneNumber,
+    });
     await this.authService.verifySignupOtp(input.phoneNumber, input.code);
     // Create user account
     const user = await this.userService.createUser({
@@ -232,15 +312,19 @@ export class AuthResolver {
     });
     // Create mailbox (auto-suggest if not provided)
     await this.mailboxService.createMailbox(user.id, input.desiredLocalPart);
+    await this.authService.recordSecurityAuditAction({
+      action: 'auth_phone_signup_completed',
+      userId: user.id,
+      metadata: {
+        phoneFingerprint: fingerprintIdentifier(input.phoneNumber),
+      },
+    });
     // Issue tokens
     const { accessToken } = this.authService.login(user);
     const refreshToken = await this.authService.generateRefreshToken(user.id);
     const res = ctx?.res;
     if (res) this.sessionCookie.setTokenCookie(res, accessToken);
-    else if ((process.env.NODE_ENV || 'development') !== 'production')
-      console.warn(
-        '[AuthResolver.signupVerify] Missing res in GraphQL context; cannot set cookie',
-      );
+    else this.warnMissingResponseContext('signupVerify');
     const aliasState = await this.getAliasSetupState(user.id);
     return { token: accessToken, refreshToken, user, ...aliasState };
   }

@@ -1,4 +1,4 @@
-import { InputType, Field, ID } from '@nestjs/graphql';
+import { InputType, Field, ID, Int } from '@nestjs/graphql';
 
 @InputType()
 export class UpdateFeatureInput {
@@ -10,4 +10,13 @@ export class UpdateFeatureInput {
 
   @Field({ nullable: true })
   isActive?: boolean;
+
+  @Field({ nullable: true })
+  targetType?: string;
+
+  @Field({ nullable: true })
+  targetValue?: string;
+
+  @Field(() => Int, { nullable: true })
+  rolloutPercentage?: number;
 }

@@ -1,0 +1,286 @@
+#!/usr/bin/env bash
+
+# -----------------------------------------------------------------------------
+# MailZen EC2 support bundle generator
+# -----------------------------------------------------------------------------
+# Produces a compressed troubleshooting bundle without exposing raw secrets.
+#
+# Included artifacts:
+# - self-check output
+# - docs-check output (or explicit skip marker)
+# - redacted env-audit output
+# - preflight config-only output
+# - dns-check output (best-effort)
+# - ssl-check output (best-effort)
+# - host-readiness output
+# - ports-check output
+# - doctor output (best-effort)
+# - pipeline-check output
+# - docker compose status/log snapshots when daemon is reachable
+#
+# Usage:
+#   ./deploy/ec2/scripts/support-bundle.sh
+#   ./deploy/ec2/scripts/support-bundle.sh --seed-env
+#   ./deploy/ec2/scripts/support-bundle.sh --seed-env --keep-work-dir
+#   ./deploy/ec2/scripts/support-bundle.sh --ports-check-ports 80,443,8100
+#   ./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage
+#   ./deploy/ec2/scripts/support-bundle.sh --skip-docs-check
+# -----------------------------------------------------------------------------
+
+set -Eeuo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEPLOY_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPORT_DIR="${DEPLOY_DIR}/reports"
+TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+RUN_SUFFIX="pid$$-rand${RANDOM}"
+WORK_DIR="${REPORT_DIR}/support-bundle-${TIMESTAMP}-${RUN_SUFFIX}"
+BUNDLE_FILE="${REPORT_DIR}/support-bundle-${TIMESTAMP}-${RUN_SUFFIX}.tar.gz"
+SEED_ENV=false
+KEEP_SEEDED_ENV=false
+SEEDED_ENV_FILE=""
+KEEP_WORK_DIR=false
+BUNDLE_CREATED=false
+PORTS_CHECK_PORTS=""
+PORTS_CHECK_FLAG_SET=false
+PORTS_CHECK_FLAG_VALUE=""
+DOCS_STRICT_COVERAGE=false
+DOCS_INCLUDE_COMMON=false
+SKIP_DOCS_CHECK=false
+declare -A FLAG_SEEN=()
+
+mark_duplicate_flag() {
+  local flag_name="$1"
+  local warning_message="$2"
+  if [[ -n "${FLAG_SEEN[${flag_name}]:-}" ]]; then
+    echo "[mailzen-deploy][SUPPORT-BUNDLE][WARN] ${warning_message}"
+  fi
+  FLAG_SEEN["${flag_name}"]=1
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --seed-env)
+    mark_duplicate_flag "--seed-env" "Duplicate --seed-env flag detected; seeded bundle mode remains enabled."
+    SEED_ENV=true
+    shift
+    ;;
+  --keep-seeded-env)
+    mark_duplicate_flag "--keep-seeded-env" "Duplicate --keep-seeded-env flag detected; seeded env retention remains enabled."
+    KEEP_SEEDED_ENV=true
+    shift
+    ;;
+  --keep-work-dir)
+    mark_duplicate_flag "--keep-work-dir" "Duplicate --keep-work-dir flag detected; temporary work directory retention remains enabled."
+    KEEP_WORK_DIR=true
+    shift
+    ;;
+  --ports-check-ports)
+    ports_check_ports_arg="${2:-}"
+    if [[ -z "${ports_check_ports_arg}" ]]; then
+      echo "[mailzen-deploy][SUPPORT-BUNDLE][ERROR] --ports-check-ports requires a value."
+      exit 1
+    fi
+    if [[ "${PORTS_CHECK_FLAG_SET}" == true ]] && [[ "${ports_check_ports_arg}" != "${PORTS_CHECK_FLAG_VALUE}" ]]; then
+      echo "[mailzen-deploy][SUPPORT-BUNDLE][WARN] Earlier --ports-check-ports '${PORTS_CHECK_FLAG_VALUE}' overridden by --ports-check-ports '${ports_check_ports_arg}'."
+    fi
+    PORTS_CHECK_PORTS="${ports_check_ports_arg}"
+    PORTS_CHECK_FLAG_SET=true
+    PORTS_CHECK_FLAG_VALUE="${ports_check_ports_arg}"
+    shift 2
+    ;;
+  --docs-strict-coverage)
+    mark_duplicate_flag "--docs-strict-coverage" "Duplicate --docs-strict-coverage flag detected; strict docs coverage remains enabled."
+    DOCS_STRICT_COVERAGE=true
+    shift
+    ;;
+  --docs-include-common)
+    mark_duplicate_flag "--docs-include-common" "Duplicate --docs-include-common flag detected; common helper docs coverage remains enabled."
+    DOCS_INCLUDE_COMMON=true
+    shift
+    ;;
+  --skip-docs-check)
+    mark_duplicate_flag "--skip-docs-check" "Duplicate --skip-docs-check flag detected; docs stage remains disabled."
+    SKIP_DOCS_CHECK=true
+    shift
+    ;;
+  *)
+    echo "[mailzen-deploy][SUPPORT-BUNDLE][ERROR] Unknown argument: $1"
+    echo "[mailzen-deploy][SUPPORT-BUNDLE][INFO] Supported flags: --seed-env --keep-seeded-env --keep-work-dir --ports-check-ports <p1,p2,...> --docs-strict-coverage --docs-include-common --skip-docs-check"
+    exit 1
+    ;;
+  esac
+done
+
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  assert_ports_csv_value "--ports-check-ports" "${PORTS_CHECK_PORTS}" || exit 1
+  PORTS_CHECK_PORTS="$(normalize_ports_csv "${PORTS_CHECK_PORTS}")"
+fi
+
+if [[ "${SKIP_DOCS_CHECK}" == true ]] &&
+  { [[ "${DOCS_STRICT_COVERAGE}" == true ]] || [[ "${DOCS_INCLUDE_COMMON}" == true ]]; }; then
+  echo "[mailzen-deploy][SUPPORT-BUNDLE][WARN] Docs-check-specific flags were provided while --skip-docs-check is enabled; docs-check flags will be ignored."
+fi
+if [[ "${DOCS_INCLUDE_COMMON}" == true ]] && [[ "${DOCS_STRICT_COVERAGE}" == false ]]; then
+  echo "[mailzen-deploy][SUPPORT-BUNDLE][WARN] --docs-include-common is most useful with --docs-strict-coverage."
+fi
+if [[ "${SEED_ENV}" == false ]] && [[ "${KEEP_SEEDED_ENV}" == true ]]; then
+  echo "[mailzen-deploy][SUPPORT-BUNDLE][ERROR] --keep-seeded-env requires --seed-env"
+  exit 1
+fi
+
+mkdir -p "${WORK_DIR}"
+
+log_bundle() {
+  echo "[mailzen-deploy][SUPPORT-BUNDLE] $*"
+}
+
+cleanup() {
+  if [[ -n "${SEEDED_ENV_FILE}" ]] && [[ "${KEEP_SEEDED_ENV}" == false ]] && [[ -f "${SEEDED_ENV_FILE}" ]]; then
+    rm -f "${SEEDED_ENV_FILE}"
+    log_bundle "Removed seeded env file: ${SEEDED_ENV_FILE}"
+  fi
+  if [[ "${KEEP_WORK_DIR}" == false ]] && [[ "${BUNDLE_CREATED}" == true ]] && [[ -d "${WORK_DIR}" ]]; then
+    rm -rf "${WORK_DIR}"
+    log_bundle "Removed temporary work directory: ${WORK_DIR}"
+  fi
+}
+trap cleanup EXIT
+
+seed_env_file() {
+  SEEDED_ENV_FILE="$(create_seeded_env_file "support-bundle" "${DEPLOY_DIR}")"
+
+  export MAILZEN_DEPLOY_ENV_FILE="${SEEDED_ENV_FILE}"
+  log_bundle "Seeded env file: ${SEEDED_ENV_FILE}"
+}
+
+run_capture() {
+  local label="$1"
+  shift
+  local output_file="${WORK_DIR}/${label}.log"
+  log_bundle "Running ${label}..."
+  log_bundle "Command (${label}): $(format_command_for_logs "$@")"
+  if "$@" >"${output_file}" 2>&1; then
+    log_bundle "${label}: captured"
+  else
+    log_bundle "${label}: captured with non-zero exit"
+  fi
+}
+
+if [[ "${SEED_ENV}" == true ]]; then
+  seed_env_file
+fi
+
+log_bundle "Using temporary work directory: ${WORK_DIR}"
+active_env_file="$(get_env_file)"
+active_compose_file="$(get_compose_file)"
+log_bundle "Active env file: ${active_env_file}"
+log_bundle "Active compose file: ${active_compose_file}"
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  log_bundle "Custom ports-check targets: ${PORTS_CHECK_PORTS}"
+fi
+
+{
+  echo "generated_at_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "seed_env=${SEED_ENV}"
+  echo "keep_seeded_env=${KEEP_SEEDED_ENV}"
+  echo "keep_work_dir=${KEEP_WORK_DIR}"
+  echo "active_env_file=${active_env_file}"
+  echo "active_compose_file=${active_compose_file}"
+  echo "ports_check_ports=${PORTS_CHECK_PORTS:-default}"
+  echo "docs_strict_coverage=${DOCS_STRICT_COVERAGE}"
+  echo "docs_include_common=${DOCS_INCLUDE_COMMON}"
+  echo "skip_docs_check=${SKIP_DOCS_CHECK}"
+  echo "workspace_deploy_dir=${DEPLOY_DIR}"
+} >"${WORK_DIR}/bundle-manifest.txt"
+if command -v git >/dev/null 2>&1; then
+  if git -C "${DEPLOY_DIR}/.." rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    {
+      echo "git_branch=$(git -C "${DEPLOY_DIR}/.." rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+      echo "git_head=$(git -C "${DEPLOY_DIR}/.." rev-parse HEAD 2>/dev/null || echo unknown)"
+      echo "git_status_short=$(git -C "${DEPLOY_DIR}/.." status --short | wc -l | tr -d ' ')"
+    } >>"${WORK_DIR}/bundle-manifest.txt"
+  fi
+fi
+log_bundle "Captured bundle manifest: ${WORK_DIR}/bundle-manifest.txt"
+
+run_capture "self-check" "${SCRIPT_DIR}/self-check.sh"
+if [[ "${SKIP_DOCS_CHECK}" == true ]]; then
+  {
+    echo "[mailzen-deploy][SUPPORT-BUNDLE] docs-check: SKIPPED (--skip-docs-check)"
+    echo "[mailzen-deploy][SUPPORT-BUNDLE] docs_strict_coverage=${DOCS_STRICT_COVERAGE}"
+    echo "[mailzen-deploy][SUPPORT-BUNDLE] docs_include_common=${DOCS_INCLUDE_COMMON}"
+  } >"${WORK_DIR}/docs-check.log"
+  log_bundle "Captured docs-check skip marker: ${WORK_DIR}/docs-check.log"
+else
+  docs_check_args=()
+  if [[ "${DOCS_STRICT_COVERAGE}" == true ]]; then
+    docs_check_args+=(--strict-coverage)
+  fi
+  if [[ "${DOCS_INCLUDE_COMMON}" == true ]]; then
+    docs_check_args+=(--include-common)
+  fi
+  run_capture "docs-check" "${SCRIPT_DIR}/docs-check.sh" "${docs_check_args[@]}"
+fi
+run_capture "env-audit" "${SCRIPT_DIR}/env-audit.sh"
+run_capture "preflight-config-only" "${SCRIPT_DIR}/preflight.sh" --config-only
+run_capture "dns-check" "${SCRIPT_DIR}/dns-check.sh"
+run_capture "ssl-check" "${SCRIPT_DIR}/ssl-check.sh"
+run_capture "host-readiness" "${SCRIPT_DIR}/host-readiness.sh"
+ports_check_command=("${SCRIPT_DIR}/ports-check.sh")
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  ports_check_command+=(--ports "${PORTS_CHECK_PORTS}")
+fi
+run_capture "ports-check" "${ports_check_command[@]}"
+
+doctor_args=()
+pipeline_args=()
+if [[ "${SEED_ENV}" == true ]]; then
+  doctor_args+=(--seed-env)
+  if [[ "${KEEP_SEEDED_ENV}" == true ]]; then
+    doctor_args+=(--keep-seeded-env)
+  fi
+  pipeline_args+=(--seed-env)
+  if [[ "${KEEP_SEEDED_ENV}" == true ]]; then
+    pipeline_args+=(--keep-seeded-env)
+  fi
+fi
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  doctor_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
+  pipeline_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
+fi
+if [[ "${SKIP_DOCS_CHECK}" == true ]]; then
+  doctor_args+=(--skip-docs-check)
+  pipeline_args+=(--skip-docs-check)
+fi
+if [[ "${SKIP_DOCS_CHECK}" == false ]] && [[ "${DOCS_STRICT_COVERAGE}" == true ]]; then
+  doctor_args+=(--docs-strict-coverage)
+  pipeline_args+=(--docs-strict-coverage)
+fi
+if [[ "${SKIP_DOCS_CHECK}" == false ]] && [[ "${DOCS_INCLUDE_COMMON}" == true ]]; then
+  doctor_args+=(--docs-include-common)
+  pipeline_args+=(--docs-include-common)
+fi
+run_capture "doctor" "${SCRIPT_DIR}/doctor.sh" "${doctor_args[@]}"
+run_capture "pipeline-check" "${SCRIPT_DIR}/pipeline-check.sh" "${pipeline_args[@]}"
+run_capture "status" "${SCRIPT_DIR}/status.sh"
+
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  run_capture "docker-info" docker info
+  run_capture "compose-ps" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" ps
+  run_capture "compose-config" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" config
+  run_capture "logs-caddy" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" logs --tail 200 caddy
+  run_capture "logs-frontend" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" logs --tail 200 frontend
+  run_capture "logs-backend" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" logs --tail 200 backend
+  run_capture "logs-ai-agent-platform" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" logs --tail 200 ai-agent-platform
+  run_capture "logs-postgres" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" logs --tail 200 postgres
+  run_capture "logs-redis" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" logs --tail 200 redis
+else
+  log_bundle "Docker daemon unavailable; skipping compose-specific captures."
+fi
+
+tar -czf "${BUNDLE_FILE}" -C "${REPORT_DIR}" "$(basename "${WORK_DIR}")"
+BUNDLE_CREATED=true
+log_bundle "Support bundle generated:"
+log_bundle "  ${BUNDLE_FILE}"

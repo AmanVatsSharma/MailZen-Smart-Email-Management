@@ -1,18 +1,61 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { Mailbox } from './entities/mailbox.entity';
 import { MailboxService } from './mailbox.service';
 import { MailboxResolver } from './mailbox.resolver';
+import { MailboxInboundService } from './mailbox-inbound.service';
+import { MailboxInboundController } from './mailbox-inbound.controller';
+import { MailboxInboundSlaScheduler } from './mailbox-inbound-sla.scheduler';
+import { MailboxInboundRetentionScheduler } from './mailbox-inbound-retention.scheduler';
+import { MailboxSyncIncidentScheduler } from './mailbox-sync-incident.scheduler';
+import { MailboxSyncScheduler } from './mailbox-sync.scheduler';
+import { MailboxSyncRunRetentionScheduler } from './mailbox-sync-run-retention.scheduler';
+import { MailboxSyncService } from './mailbox-sync.service';
+import { BillingModule } from '../billing/billing.module';
 import { User } from '../user/entities/user.entity';
 import { MailServerModule } from './mail-server.module';
+import { WorkspaceModule } from '../workspace/workspace.module';
+import { Email } from '../email/entities/email.entity';
+import { NotificationModule } from '../notification/notification.module';
+import { UserNotification } from '../notification/entities/user-notification.entity';
+import { MailboxInboundEvent } from './entities/mailbox-inbound-event.entity';
+import { MailboxSyncRun } from './entities/mailbox-sync-run.entity';
+import { UserNotificationPreference } from '../notification/entities/user-notification-preference.entity';
 
 /**
  * MailboxModule - Self-hosted mailbox management
  * Handles mailzen.com mailbox operations
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([Mailbox, User]), MailServerModule],
-  providers: [MailboxService, MailboxResolver],
-  exports: [MailboxService],
+  imports: [
+    TypeOrmModule.forFeature([
+      Mailbox,
+      User,
+      Email,
+      MailboxInboundEvent,
+      MailboxSyncRun,
+      UserNotificationPreference,
+      UserNotification,
+      AuditLog,
+    ]),
+    MailServerModule,
+    BillingModule,
+    WorkspaceModule,
+    NotificationModule,
+  ],
+  controllers: [MailboxInboundController],
+  providers: [
+    MailboxService,
+    MailboxResolver,
+    MailboxInboundService,
+    MailboxSyncService,
+    MailboxInboundSlaScheduler,
+    MailboxInboundRetentionScheduler,
+    MailboxSyncIncidentScheduler,
+    MailboxSyncScheduler,
+    MailboxSyncRunRetentionScheduler,
+  ],
+  exports: [MailboxService, MailboxSyncService],
 })
 export class MailboxModule {}

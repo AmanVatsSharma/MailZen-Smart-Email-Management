@@ -1,83 +1,512 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThan } from 'typeorm';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { SmartReplyInput } from './dto/smart-reply.input';
+import { SmartReplyHistory } from './entities/smart-reply-history.entity';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
 import { UpdateSmartReplySettingsInput } from './dto/update-smart-reply-settings.input';
+import { SmartReplyProviderRouter } from './smart-reply-provider.router';
+import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 @Injectable()
 export class SmartReplyService {
   private readonly logger = new Logger(SmartReplyService.name);
+  private static readonly MIN_HISTORY_LIMIT = 1;
+  private static readonly MAX_HISTORY_LIMIT = 100;
+  private static readonly MIN_EXPORT_HISTORY_LIMIT = 1;
+  private static readonly MAX_EXPORT_HISTORY_LIMIT = 500;
+  private static readonly MIN_RETENTION_DAYS = 1;
+  private static readonly MAX_RETENTION_DAYS = 3650;
+  private readonly safeFallbackReply =
+    'Thank you for your message. I will review this and follow up shortly.';
+  private readonly disabledReply =
+    'Smart replies are disabled in your settings. Please enable them to generate suggestions.';
 
   constructor(
     @InjectRepository(SmartReplySettings)
     private readonly settingsRepo: Repository<SmartReplySettings>,
+    @InjectRepository(SmartReplyHistory)
+    private readonly historyRepo: Repository<SmartReplyHistory>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
+    private readonly providerRouter: SmartReplyProviderRouter,
   ) {}
 
-  async generateReply(input: SmartReplyInput): Promise<string> {
+  private async writeAuditLog(input: {
+    userId: string;
+    action: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
     try {
-      this.logger.log(
-        `Generating smart reply for conversation: ${input.conversation.substring(0, 50)}...`,
-      );
-
-      // Store the conversation in the database for future training
-      await this.storeConversation(input.conversation);
-
-      // Simple response templates based on conversation context
-      // In a real implementation, this would use AI/ML models
-      const templates = [
-        "Thank you for your email. I'll review and get back to you soon.",
-        'I appreciate your message. Let me look into this and respond shortly.',
-        "Thanks for reaching out. I'll handle this right away.",
-        "Got it! I'll process your request and follow up.",
-        "Thank you for the information. I'll take appropriate action.",
-      ];
-
-      // Get a "smart" reply (for demo purposes, just select randomly)
-      const smartReply =
-        templates[Math.floor(Math.random() * templates.length)];
-
-      return smartReply;
+      const auditEntry = this.auditLogRepo.create({
+        userId: input.userId,
+        action: input.action,
+        metadata: input.metadata,
+      });
+      await this.auditLogRepo.save(auditEntry);
     } catch (error) {
-      this.logger.error(
-        `Error generating smart reply: ${error.message}`,
-        error.stack,
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'smart_reply_audit_log_write_failed',
+          userId: input.userId,
+          action: input.action,
+          error: String(error),
+        }),
       );
-      return "I'm sorry, I couldn't generate a reply at this time.";
     }
   }
 
-  private async storeConversation(conversation: string): Promise<void> {
+  async generateReply(input: SmartReplyInput, userId: string): Promise<string> {
     try {
-      // In a real implementation, you would store this in a database
-      // For example, using a DB table + TypeORM repository:
-      /*
-      await this.conversationLogRepo.save(
-        this.conversationLogRepo.create({ text: conversation, timestamp: new Date() }),
-      );
-      */
+      const settings = await this.getSettings(userId);
+      if (!settings.enabled) {
+        this.logger.warn(
+          serializeStructuredLog({
+            event: 'smart_reply_generate_disabled',
+            userId,
+          }),
+        );
+        return this.disabledReply;
+      }
 
-      // For now, just log that we would store it
-      this.logger.debug('Conversation stored for future training');
-    } catch (error) {
-      this.logger.error(`Error storing conversation: ${error.message}`);
+      const normalizedConversation = this.normalizeConversation(
+        input.conversation,
+      );
+      if (this.containsSensitiveContext(normalizedConversation)) {
+        this.logger.warn(
+          serializeStructuredLog({
+            event: 'smart_reply_generate_sensitive_blocked',
+            userId,
+          }),
+        );
+        await this.persistHistoryRecord({
+          userId,
+          settings,
+          conversation: normalizedConversation,
+          suggestions: [this.getSafetyBlockedReply()],
+          source: 'safety',
+          blockedSensitive: true,
+          fallbackUsed: false,
+        });
+        return this.getSafetyBlockedReply();
+      }
+
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'smart_reply_generate_started',
+          userId,
+          tone: settings.defaultTone,
+          length: settings.defaultLength,
+          requestedSuggestions: Math.max(1, settings.maxSuggestions),
+        }),
+      );
+
+      const generated = await this.generateModelSuggestions(
+        normalizedConversation,
+        settings,
+        Math.max(1, settings.maxSuggestions),
+      );
+      const first = generated.suggestions[0];
+      await this.persistHistoryRecord({
+        userId,
+        settings,
+        conversation: normalizedConversation,
+        suggestions: generated.suggestions,
+        source: generated.source,
+        blockedSensitive: false,
+        fallbackUsed: generated.fallbackUsed,
+      });
+      if (!first) {
+        this.logger.warn(
+          serializeStructuredLog({
+            event: 'smart_reply_generate_no_suggestions',
+            userId,
+            source: generated.source,
+          }),
+        );
+        return this.safeFallbackReply;
+      }
+
+      return first;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(
+        serializeStructuredLog({
+          event: 'smart_reply_generate_failed',
+          userId,
+          error: message,
+        }),
+        stack,
+      );
+      return this.safeFallbackReply;
     }
   }
 
   async getSuggestedReplies(
     emailBody: string,
     count: number = 3,
+    userId: string,
   ): Promise<string[]> {
-    // This would integrate with an AI service in a real implementation
-    const suggestions = [
-      'Yes, that works for me.',
-      "I'll check and get back to you.",
-      'Can we discuss this further?',
-      'Thank you for the update.',
-      "Let's schedule a call to discuss.",
-    ];
+    const settings = await this.getSettings(userId);
+    if (!settings.enabled) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'smart_reply_suggestions_disabled',
+          userId,
+        }),
+      );
+      return [];
+    }
 
-    return suggestions.slice(0, count);
+    const normalizedConversation = this.normalizeConversation(emailBody);
+    if (!normalizedConversation) return [];
+
+    if (this.containsSensitiveContext(normalizedConversation)) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'smart_reply_suggestions_sensitive_blocked',
+          userId,
+        }),
+      );
+      return [this.getSafetyBlockedReply()];
+    }
+
+    const maxAllowedSuggestions = Math.max(1, settings.maxSuggestions);
+    const requestedCount = Math.max(1, Math.min(count, maxAllowedSuggestions));
+
+    try {
+      const generated = await this.generateModelSuggestions(
+        normalizedConversation,
+        settings,
+        requestedCount,
+      );
+      await this.persistHistoryRecord({
+        userId,
+        settings,
+        conversation: normalizedConversation,
+        suggestions: generated.suggestions,
+        source: generated.source,
+        blockedSensitive: false,
+        fallbackUsed: generated.fallbackUsed,
+      });
+      if (!generated.suggestions.length) return [this.safeFallbackReply];
+      return generated.suggestions;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        serializeStructuredLog({
+          event: 'smart_reply_suggestions_failed',
+          userId,
+          error: message,
+        }),
+      );
+      return [this.safeFallbackReply];
+    }
+  }
+
+  private normalizeConversation(conversation: string): string {
+    return String(conversation || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private containsSensitiveContext(conversation: string): boolean {
+    return /\b(password|passcode|otp|api key|secret key|credit card|cvv|ssn|social security)\b/i.test(
+      conversation,
+    );
+  }
+
+  private getSafetyBlockedReply(): string {
+    return 'Thanks for your message. For security reasons, please avoid sharing sensitive credentials over email.';
+  }
+
+  private async generateModelSuggestions(
+    conversation: string,
+    settings: SmartReplySettings,
+    count: number,
+  ): Promise<{
+    suggestions: string[];
+    source: 'external' | 'internal' | 'openai' | 'azure_openai' | 'anthropic';
+    fallbackUsed: boolean;
+  }> {
+    return this.providerRouter.generateSuggestions({
+      aiModel: settings.aiModel,
+      request: {
+        conversation,
+        tone: settings.defaultTone,
+        length: settings.defaultLength,
+        count,
+        includeSignature: settings.includeSignature,
+        customInstructions: settings.customInstructions || undefined,
+      },
+    });
+  }
+
+  private resolveHistoryRetentionDays(settings: SmartReplySettings): number {
+    const configured = Number(settings.historyLength || 30);
+    if (!Number.isFinite(configured)) return 30;
+    if (configured < 1) return 1;
+    if (configured > 365) return 365;
+    return Math.trunc(configured);
+  }
+
+  private async persistHistoryRecord(input: {
+    userId: string;
+    settings: SmartReplySettings;
+    conversation: string;
+    suggestions: string[];
+    source: string;
+    blockedSensitive: boolean;
+    fallbackUsed: boolean;
+  }): Promise<void> {
+    if (input.settings.keepHistory === false) return;
+
+    try {
+      const conversationPreview = input.conversation.slice(0, 800);
+      const normalizedSuggestions = (input.suggestions || [])
+        .map((suggestion) => String(suggestion || '').trim())
+        .filter(Boolean)
+        .slice(0, 5)
+        .map((suggestion) => suggestion.slice(0, 500));
+
+      const record = this.historyRepo.create({
+        userId: input.userId,
+        conversationPreview,
+        suggestions: normalizedSuggestions,
+        source: String(input.source || 'internal').slice(0, 64),
+        blockedSensitive: Boolean(input.blockedSensitive),
+        fallbackUsed: Boolean(input.fallbackUsed),
+      });
+      await this.historyRepo.save(record);
+      const retentionDays = this.resolveHistoryRetentionDays(input.settings);
+      const retentionCutoff = new Date(
+        Date.now() - retentionDays * 24 * 60 * 60 * 1000,
+      );
+      await this.historyRepo.delete({
+        userId: input.userId,
+        createdAt: LessThan(retentionCutoff),
+      });
+      this.logger.debug(
+        serializeStructuredLog({
+          event: 'smart_reply_history_persisted',
+          userId: input.userId,
+          source: record.source,
+          suggestions: record.suggestions.length,
+        }),
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'smart_reply_history_persist_failed',
+          userId: input.userId,
+          error: message,
+        }),
+      );
+    }
+  }
+
+  async listHistory(
+    userId: string,
+    limit: number = 20,
+  ): Promise<SmartReplyHistory[]> {
+    const normalizedLimit = Math.max(
+      SmartReplyService.MIN_HISTORY_LIMIT,
+      Math.min(SmartReplyService.MAX_HISTORY_LIMIT, Math.trunc(limit || 20)),
+    );
+    return this.historyRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: normalizedLimit,
+    });
+  }
+
+  async purgeHistory(userId: string): Promise<{ purgedRows: number }> {
+    const result = await this.historyRepo.delete({ userId });
+    const purgedRows = Number(result.affected || 0);
+    await this.writeAuditLog({
+      userId,
+      action: 'smart_reply_history_purged',
+      metadata: {
+        purgedRows,
+      },
+    });
+    return {
+      purgedRows,
+    };
+  }
+
+  private resolveAutoPurgeRetentionDays(overrideDays?: number | null): number {
+    const candidate =
+      typeof overrideDays === 'number' && Number.isFinite(overrideDays)
+        ? Math.trunc(overrideDays)
+        : Number(
+            process.env.MAILZEN_SMART_REPLY_HISTORY_RETENTION_DAYS || '365',
+          );
+    if (!Number.isFinite(candidate)) return 365;
+    if (candidate < SmartReplyService.MIN_RETENTION_DAYS) {
+      return SmartReplyService.MIN_RETENTION_DAYS;
+    }
+    if (candidate > SmartReplyService.MAX_RETENTION_DAYS) {
+      return SmartReplyService.MAX_RETENTION_DAYS;
+    }
+    return candidate;
+  }
+
+  async purgeHistoryByRetentionPolicy(input?: {
+    retentionDays?: number | null;
+  }): Promise<{
+    deletedRows: number;
+    retentionDays: number;
+  }> {
+    const retentionDays = this.resolveAutoPurgeRetentionDays(
+      input?.retentionDays,
+    );
+    const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+    const result = await this.historyRepo.delete({
+      createdAt: LessThan(cutoff),
+    });
+    return {
+      deletedRows: Number(result.affected || 0),
+      retentionDays,
+    };
+  }
+
+  private normalizeExportLimit(limit?: number): number {
+    if (typeof limit !== 'number' || !Number.isFinite(limit)) {
+      return 200;
+    }
+    return Math.max(
+      SmartReplyService.MIN_EXPORT_HISTORY_LIMIT,
+      Math.min(
+        SmartReplyService.MAX_EXPORT_HISTORY_LIMIT,
+        Math.trunc(limit || 200),
+      ),
+    );
+  }
+
+  async exportSmartReplyData(
+    userId: string,
+    limit?: number,
+  ): Promise<{ generatedAtIso: string; dataJson: string }> {
+    const settings = await this.getSettings(userId);
+    const exportHistoryLimit = this.normalizeExportLimit(limit);
+    const historyRows = await this.historyRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: exportHistoryLimit,
+    });
+    const generatedAtIso = new Date().toISOString();
+    const dataJson = JSON.stringify({
+      exportVersion: 'v1',
+      generatedAtIso,
+      settings: {
+        enabled: settings.enabled,
+        defaultTone: settings.defaultTone,
+        defaultLength: settings.defaultLength,
+        aiModel: settings.aiModel,
+        includeSignature: settings.includeSignature,
+        personalization: settings.personalization,
+        creativityLevel: settings.creativityLevel,
+        maxSuggestions: settings.maxSuggestions,
+        customInstructions: settings.customInstructions || null,
+        keepHistory: settings.keepHistory,
+        historyLengthDays: settings.historyLength,
+      },
+      retentionPolicy: {
+        keepHistory: settings.keepHistory,
+        historyLengthDays: this.resolveHistoryRetentionDays(settings),
+      },
+      history: historyRows.map((row) => ({
+        id: row.id,
+        conversationPreview: row.conversationPreview,
+        suggestions: row.suggestions || [],
+        source: row.source,
+        blockedSensitive: row.blockedSensitive,
+        fallbackUsed: row.fallbackUsed,
+        createdAtIso: row.createdAt.toISOString(),
+      })),
+    });
+    await this.writeAuditLog({
+      userId,
+      action: 'smart_reply_data_export_requested',
+      metadata: {
+        limit: exportHistoryLimit,
+        exportedHistoryRows: historyRows.length,
+      },
+    });
+
+    return {
+      generatedAtIso,
+      dataJson,
+    };
+  }
+
+  async exportSmartReplyDataForAdmin(input: {
+    targetUserId: string;
+    actorUserId: string;
+    limit?: number;
+  }): Promise<{ generatedAtIso: string; dataJson: string }> {
+    const targetUserId = String(input.targetUserId || '').trim();
+    const actorUserId = String(input.actorUserId || '').trim();
+    if (!targetUserId) {
+      throw new BadRequestException('Target user id is required');
+    }
+    if (!actorUserId) {
+      throw new BadRequestException('Actor user id is required');
+    }
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'smart_reply_data_export_admin_start',
+        actorUserId,
+        targetUserId,
+      }),
+    );
+    const exportPayload = await this.exportSmartReplyData(
+      targetUserId,
+      input.limit,
+    );
+    await this.writeAuditLog({
+      userId: actorUserId,
+      action: 'smart_reply_data_export_requested_by_admin',
+      metadata: {
+        targetUserId,
+        generatedAtIso: exportPayload.generatedAtIso,
+        selfRequested: actorUserId === targetUserId,
+      },
+    });
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'smart_reply_data_export_admin_completed',
+        actorUserId,
+        targetUserId,
+      }),
+    );
+    return exportPayload;
+  }
+
+  getProviderHealthSummary(): {
+    mode: string;
+    hybridPrimary: string;
+    providers: Array<{
+      providerId: string;
+      enabled: boolean;
+      configured: boolean;
+      priority: number;
+      note?: string;
+    }>;
+    executedAtIso: string;
+  } {
+    const snapshot = this.providerRouter.getProviderHealthSnapshot();
+    return {
+      mode: snapshot.mode,
+      hybridPrimary: snapshot.hybridPrimary,
+      providers: snapshot.providers,
+      executedAtIso: new Date().toISOString(),
+    };
   }
 
   async getSettings(userId: string): Promise<SmartReplySettings> {
@@ -111,6 +540,21 @@ export class SmartReplyService {
       historyLength: input.historyLength ?? existing.historyLength,
     });
 
-    return this.settingsRepo.save(updated);
+    const savedSettings = await this.settingsRepo.save(updated);
+    const changedKeys = Object.entries(input)
+      .filter(([, value]) => value !== undefined)
+      .map(([key]) => key);
+    await this.writeAuditLog({
+      userId,
+      action: 'smart_reply_settings_updated',
+      metadata: {
+        changedKeys,
+        keepHistory: savedSettings.keepHistory,
+        historyLength: savedSettings.historyLength,
+        maxSuggestions: savedSettings.maxSuggestions,
+        aiModel: savedSettings.aiModel,
+      },
+    });
+    return savedSettings;
   }
 }

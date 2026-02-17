@@ -13,6 +13,62 @@
 - Added TypeORM DataSource in `src/database/data-source.ts`
 - Added migration scripts in `package.json`
 - Added baseline migration marker in `src/database/migrations`
+- Added workspace scope + entitlement migration:
+  - `20260215161000-workspace-scoping-and-entitlements.ts`
+- Added mailbox inbound threading migration:
+  - `20260215193000-mailbox-inbound-threading.ts`
+- Added mailbox inbound idempotency event-store migration:
+  - `20260215202000-mailbox-inbound-events.ts`
+- Added mailbox inbound notification preference migration:
+  - `20260216001000-notification-mailbox-inbound-preferences.ts`
+- Added mailbox inbound SLA threshold preference migration:
+  - `20260216003000-notification-mailbox-inbound-sla-thresholds.ts`
+- Added mailbox inbound SLA alert-state preference migration:
+  - `20260216005000-notification-mailbox-inbound-sla-alert-state.ts`
+- Added notification workspace scope migration:
+  - `20260216009000-notification-workspace-scope.ts`
+- Added mailbox inbound SLA per-user cooldown preference migration:
+  - `20260216011000-notification-mailbox-inbound-sla-cooldown.ts`
+- Added notification digest last-sent state migration:
+  - `20260216013000-notification-digest-last-sent.ts`
+- Added notification digest preference toggle migration:
+  - `20260216015000-notification-digest-enabled.ts`
+- Added notification push subscription table migration:
+  - `20260216017000-notification-push-subscriptions.ts`
+- Added feature targeted rollout fields migration:
+  - `20260216019000-feature-targeted-rollout-columns.ts`
+- Added AI agent action audit trail migration:
+  - `20260216021000-agent-action-audits.ts`
+- Added provider sync lease expiry column migration:
+  - `20260216023000-email-provider-sync-lease.ts`
+- Added provider sync error-state columns migration:
+  - `20260216024000-email-provider-sync-error-state.ts`
+- Added AI credit usage tracking migration:
+  - `20260216025000-user-ai-credit-usages.ts`
+- Added billing invoices/webhook events + trial columns migration:
+  - `20260216031000-billing-invoices-webhooks-and-trials.ts`
+- Added Outlook sync cursor persistence migration:
+  - `20260216033000-email-provider-outlook-sync-cursor.ts`
+- Added Gmail push watch state migration:
+  - `20260216035000-email-provider-gmail-watch-state.ts`
+- Added Outlook push subscription state migration:
+  - `20260216041000-email-provider-outlook-push-subscription-state.ts`
+- Added email mailbox-source linkage migration:
+  - `20260216043000-email-mailbox-source-link.ts`
+- Added mailbox inbound sync state migration:
+  - `20260216045000-mailbox-inbound-sync-state.ts`
+- Added mailbox inbound sync lease-state migration:
+  - `20260216052000-mailbox-inbound-sync-lease-state.ts`
+- Added mailbox inbound sync lifecycle-state migration:
+  - `20260216061000-mailbox-inbound-sync-lifecycle-state.ts`
+- Added smart reply history migration:
+  - `20260216073000-smart-reply-history.ts`
+- Added billing mailbox storage entitlement migration:
+  - `20260216081000-billing-mailbox-storage-limit.ts`
+- Added agent-action audit retention index migration:
+  - `20260216083000-agent-action-audit-retention-index.ts`
+- Added billing workspace-member entitlement migration:
+  - `20260216090000-billing-workspace-member-limit.ts`
 - Updated service specs that previously used legacy ORM mocks
 - Removed stale ORM references from backend docs/modules
 
@@ -34,3 +90,8 @@
 - Keep `synchronize` disabled outside local development
 - Generate migration for each schema change before release
 - Run migration checks in CI before deployment
+- Ensure workspace seeding/backfill strategy is executed in production:
+  - create personal workspace rows for existing users
+  - assign `workspaceId` to existing providers/mailboxes
+  - run `npm run backfill:workspace-scopes` (dry run), then `npm run backfill:workspace-scopes:apply`
+  - execute post-backfill verification SQL checks from `TYPEORM_MIGRATION.md`

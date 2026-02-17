@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+
+# -----------------------------------------------------------------------------
+# MailZen EC2 restart script
+# -----------------------------------------------------------------------------
+# Usage:
+#   ./deploy/ec2/scripts/restart.sh            # restart full stack
+#   ./deploy/ec2/scripts/restart.sh backend    # restart one service
+#   ./deploy/ec2/scripts/restart.sh --service backend --dry-run
+# -----------------------------------------------------------------------------
+
+set -Eeuo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+
+SERVICE_NAME="${1:-}"
+DRY_RUN=false
+WAIT_SECONDS=0
+POSITIONAL_SERVICE=""
+POSITIONAL_SERVICE_SET=false
+SERVICE_FLAG_SET=false
+SERVICE_FLAG_VALUE=""
+DRY_RUN_FLAG_SET=false
+WAIT_SECONDS_FLAG_SET=false
+WAIT_SECONDS_FLAG_VALUE=""
+
+if [[ -n "${SERVICE_NAME}" ]] && [[ "${SERVICE_NAME}" =~ ^-- ]]; then
+  SERVICE_NAME=""
+fi
+
+if [[ -n "${SERVICE_NAME}" ]]; then
+  POSITIONAL_SERVICE="${SERVICE_NAME}"
+  POSITIONAL_SERVICE_SET=true
+  shift
+fi
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --service)
+    service_arg="${2:-}"
+    if [[ -z "${service_arg}" ]]; then
+      log_error "--service requires a value."
+      exit 1
+    fi
+    if [[ "${SERVICE_FLAG_SET}" == true ]] && [[ "${service_arg}" != "${SERVICE_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --service '${SERVICE_FLAG_VALUE}' overridden by --service '${service_arg}'."
+    fi
+    if [[ "${POSITIONAL_SERVICE_SET}" == true ]] && [[ "${service_arg}" != "${POSITIONAL_SERVICE}" ]]; then
+      log_warn "Positional service '${POSITIONAL_SERVICE}' overridden by --service '${service_arg}'."
+    fi
+    SERVICE_NAME="${service_arg}"
+    SERVICE_FLAG_SET=true
+    SERVICE_FLAG_VALUE="${service_arg}"
+    shift 2
+    ;;
+  --dry-run)
+    if [[ "${DRY_RUN_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --dry-run flag detected; keeping --dry-run enabled."
+    fi
+    DRY_RUN=true
+    DRY_RUN_FLAG_SET=true
+    shift
+    ;;
+  --wait-seconds)
+    wait_seconds_arg="${2:-}"
+    if [[ -z "${wait_seconds_arg}" ]]; then
+      log_error "--wait-seconds requires a value."
+      exit 1
+    fi
+    if [[ "${WAIT_SECONDS_FLAG_SET}" == true ]] && [[ "${wait_seconds_arg}" != "${WAIT_SECONDS_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --wait-seconds '${WAIT_SECONDS_FLAG_VALUE}' overridden by --wait-seconds '${wait_seconds_arg}'."
+    fi
+    WAIT_SECONDS="${wait_seconds_arg}"
+    WAIT_SECONDS_FLAG_SET=true
+    WAIT_SECONDS_FLAG_VALUE="${wait_seconds_arg}"
+    shift 2
+    ;;
+  *)
+    log_error "Unknown argument: $1"
+    log_error "Supported flags: [service] --service <name> --dry-run --wait-seconds <n>"
+    exit 1
+    ;;
+  esac
+done
+
+assert_non_negative_integer "--wait-seconds" "${WAIT_SECONDS}" || exit 1
+
+if [[ -n "${SERVICE_NAME}" ]]; then
+  assert_known_service_name "${SERVICE_NAME}"
+fi
+if [[ "${DRY_RUN}" == true ]] && [[ "${WAIT_SECONDS}" -gt 0 ]]; then
+  log_warn "--wait-seconds has no effect in --dry-run mode."
+fi
+
+log_info "Restarting MailZen services..."
+require_cmd docker
+ensure_required_files_exist
+log_info "Active env file: $(get_env_file)"
+log_info "Active compose file: $(get_compose_file)"
+
+if [[ "${DRY_RUN}" == false ]]; then
+  if ! docker info >/dev/null 2>&1; then
+    log_docker_daemon_unreachable
+    exit 1
+  fi
+fi
+
+restart_args=()
+if [[ -n "${SERVICE_NAME}" ]]; then
+  restart_args+=("${SERVICE_NAME}")
+fi
+
+log_info "Command preview: $(format_command_for_logs docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" restart "${restart_args[@]}")"
+if [[ "${DRY_RUN}" == true ]]; then
+  log_info "Dry-run enabled; command not executed."
+  exit 0
+fi
+
+compose restart "${restart_args[@]}"
+if [[ -n "${SERVICE_NAME}" ]]; then
+  log_info "Restarted service: ${SERVICE_NAME}"
+else
+  log_info "Restarted all services."
+fi
+
+if [[ "${WAIT_SECONDS}" -gt 0 ]]; then
+  log_info "Waiting ${WAIT_SECONDS}s before status snapshot..."
+  sleep "${WAIT_SECONDS}"
+fi
+
+compose ps

@@ -52,6 +52,14 @@ export class EmailProvider {
   @Column({ default: 'connected' })
   status: string; // connected | syncing | error | disconnected
 
+  @Field({ nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
+  lastSyncErrorAt?: Date | null;
+
+  @Field({ nullable: true })
+  @Column({ type: 'text', nullable: true })
+  lastSyncError?: string | null;
+
   @Column({ nullable: true })
   host?: string;
 
@@ -73,9 +81,35 @@ export class EmailProvider {
   @Column({ nullable: true })
   gmailHistoryId?: string;
 
+  @Column({ type: 'timestamp', nullable: true })
+  gmailWatchExpirationAt?: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  gmailWatchLastRenewedAt?: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  outlookSyncCursor?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  outlookPushSubscriptionId?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  outlookPushSubscriptionExpiresAt?: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  outlookPushSubscriptionLastRenewedAt?: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  syncLeaseExpiresAt?: Date | null;
+
   @Column()
   @Index()
   userId: string;
+
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  @Index()
+  workspaceId?: string | null;
 
   @ManyToOne(() => User, (user) => user.providers)
   @JoinColumn({ name: 'userId' })

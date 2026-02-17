@@ -21,7 +21,30 @@ modern two-level navigation system:
 - `Header.tsx`
   - Top navigation bar (mobile menu toggle, search, notifications, theme, account)
   - Includes inbox switcher modal trigger for multi-address inbox selection
-  - Account links now route only to valid dashboard destinations
+  - Notification bell now reads real backend notification feed (`myNotifications`)
+    and unread count (`myUnreadNotificationCount`), and marks notifications
+    read via `markNotificationRead`
+  - Notification dropdown includes workspace-scoped "mark all as read" action
+    via `markMyNotificationsRead`
+  - Notification feed is scoped to active workspace context when selected
+  - Header also listens to backend SSE stream (`/notifications/stream`) for
+    realtime feed/unread refresh on new or acknowledged notifications
+  - Incoming realtime notification-create events trigger lightweight in-app toast previews
+  - Unread badge count query is also scoped to active workspace context while
+    retaining global notifications
+  - Notification dropdown renders workspace/provider context from notification
+    metadata when available (e.g. sync-failure events), including safe parsing
+    when metadata arrives as a JSON string
+  - Mailbox inbound alerts include mailbox/source metadata context when provided
+  - Mailbox inbound SLA alerts now include SLA status + success/rejection
+    percentage context in the notification dropdown feed
+  - Notification dropdown now includes a 24h mailbox inbound health snapshot
+    (accepted/deduplicated/rejected totals) with SLA status and threshold context
+  - Workspace switcher now reads backend `myWorkspaces` and keeps local active
+    workspace selection, and persists active workspace via
+    `setActiveWorkspace` / `myActiveWorkspace`
+  - Account links route to dashboard destinations including smart-replies,
+    notifications, billing, and workspace settings
 - `InboxSwitcherModal.tsx`
   - Lists all user inbox sources via `myInboxes`
   - Switches active source via `setActiveInbox`
@@ -58,8 +81,20 @@ flowchart TD
 
 ## Changelog
 
+- 2026-02-15: Added realtime toast previews for notification-create SSE events
+  in header.
+- 2026-02-15: Added realtime notification refresh bridge in header using backend
+  SSE stream events (`NOTIFICATION_CREATED`, `NOTIFICATIONS_MARKED_READ`).
+- 2026-02-15: Added workspace-scoped "mark all notifications as read" action to
+  header notification dropdown.
+- 2026-02-15: Added SLA status indicators to mailbox inbound notification
+  health snapshot in the header dropdown, driven by user-configured thresholds.
+- 2026-02-15: Added mailbox inbound health snapshot panel to notification
+  dropdown for fast operational triage.
 - 2026-02-14: Reworked dashboard shell to double-sidebar architecture, added
   route-driven nav config, centralized mail navigation, and introduced shared
   `DashboardPageShell`.
 - 2026-02-14: Added header-level inbox switcher modal (`myInboxes` +
   `setActiveInbox`) to manage multiple addresses/providers in-place.
+- 2026-02-15: Wired header notifications bell to backend notification GraphQL
+  feed and unread count.

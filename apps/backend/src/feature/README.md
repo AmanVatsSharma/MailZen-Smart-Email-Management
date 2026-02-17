@@ -8,6 +8,7 @@ The Feature module provides functionality for managing feature flags within the 
 
 - **Feature Flag Management**: Create, read, update, and delete feature flags
 - **Feature Toggling**: Enable or disable features dynamically
+- **Targeted Rollouts**: Scope features by target type/value and percentage rollout
 - **Admin-Only Access**: Restrict feature management to admin users
 - **GraphQL API**: Expose feature operations through GraphQL
 - **Authentication & Authorization**: Secure feature operations with JWT authentication and role-based access control
@@ -21,6 +22,8 @@ The Feature module follows a clean architecture pattern with the following compo
 - **DTOs**: Data Transfer Objects for input validation
 - **Entity**: GraphQL object type representing a feature
 - **Guards**: Role-based access control for admin-only operations
+- **TypeORM Repository**: Persistent feature storage in Postgres (`features` table)
+- **Context Resolver API**: Resolve effective flag state for current user/workspace
 
 ## API
 
@@ -34,11 +37,25 @@ query {
     id
     name
     isActive
+    targetType
+    targetValue
+    rolloutPercentage
   }
 }
 ```
 
 Returns an array of all features.
+
+#### Resolve Feature Enablement
+
+```graphql
+query {
+  isFeatureEnabled(name: "InboxAIAssist", workspaceId: "workspace-1")
+}
+```
+
+Returns `true` only when the feature is active and matches current
+user/workspace/environment targeting rules.
 
 ### GraphQL Mutations (Admin Only)
 
@@ -48,11 +65,17 @@ Returns an array of all features.
 mutation {
   createFeature(createFeatureInput: {
     name: "EmailTemplates",
-    isActive: true
+    isActive: true,
+    targetType: "WORKSPACE",
+    targetValue: "workspace-1",
+    rolloutPercentage: 100
   }) {
     id
     name
     isActive
+    targetType
+    targetValue
+    rolloutPercentage
   }
 }
 ```
@@ -65,11 +88,13 @@ Creates a new feature flag and returns the created feature.
 mutation {
   updateFeature(updateFeatureInput: {
     id: "feature-id",
-    isActive: false
+    isActive: false,
+    rolloutPercentage: 20
   }) {
     id
     name
     isActive
+    rolloutPercentage
   }
 }
 ```
@@ -104,7 +129,7 @@ import { FeatureModule } from './feature/feature.module';
 export class AppModule {}
 ```
 
-2. Inject the `FeatureService` in your service or controller to check if a feature is enabled:
+2. Inject the `FeatureService` in your service or controller to read feature flags:
 
 ```typescript
 import { Injectable } from '@nestjs/common';
@@ -115,23 +140,40 @@ export class EmailService {
   constructor(private readonly featureService: FeatureService) {}
 
   async sendEmail(emailData: any) {
-    // Check if the email templates feature is enabled
-    const emailTemplatesFeature = this.featureService.getFeatureByName('EmailTemplates');
-    
-    if (emailTemplatesFeature && emailTemplatesFeature.isActive) {
+    const isEnabled = await this.featureService.isFeatureEnabledForContext({
+      name: 'EmailTemplates',
+      userId: user.id,
+      workspaceId: workspace.id,
+    });
+
+    if (isEnabled) {
       // Use email templates functionality
     } else {
       // Use basic email sending
     }
-    
+
     // Send the email
   }
 }
 ```
 
+## Flow
+
+```mermaid
+flowchart TD
+  AdminUI[Admin GraphQL Client] --> Resolver[FeatureResolver]
+  Resolver --> Guard[JwtAuthGuard + AdminGuard]
+  Guard --> Service[FeatureService]
+  Service --> Repo[(Feature TypeORM Repository)]
+  Service --> Evaluator[Target + rollout evaluator]
+  Repo --> Service
+  Evaluator --> Service
+  Service --> Resolver
+  Resolver --> AdminUI
+```
+
 ## Future Enhancements
 
-- **TypeORM Integration**: Store features in the database using TypeORM
 - **User-Specific Features**: Enable features for specific users or user groups
 - **Percentage Rollout**: Gradually roll out features to a percentage of users
 - **Time-Based Activation**: Schedule feature activation and deactivation
@@ -152,6 +194,15 @@ export class Feature {
 
   @Column({ default: false })
   isActive: boolean;
+
+  @Column({ default: 'GLOBAL' })
+  targetType: string;
+
+  @Column({ nullable: true })
+  targetValue?: string | null;
+
+  @Column({ type: 'integer', default: 100 })
+  rolloutPercentage: number;
 }
 ```
 
@@ -161,3 +212,15 @@ export class Feature {
 - GraphQL
 - JWT Authentication
 - Role-based Authorization 
+
+## Observability (structured events)
+
+- `FeatureService` emits resilient audit warning event:
+  - `feature_audit_log_write_failed`
+
+## Compliance / Audit Trail
+
+- Persisted audit actions:
+  - `feature_flag_created`
+  - `feature_flag_updated`
+  - `feature_flag_deleted`

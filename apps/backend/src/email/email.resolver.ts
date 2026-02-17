@@ -67,17 +67,27 @@ export class EmailResolver {
   }
 
   @Mutation(() => Email)
+  @UseGuards(JwtAuthGuard)
   async markEmailRead(
     @Args('markEmailReadInput') markEmailReadInput: MarkEmailReadInput,
+    @Context() context: { req: { user: { id: string } } },
   ) {
-    return this.emailService.markEmailRead(markEmailReadInput.emailId);
+    return this.emailService.markEmailRead(
+      markEmailReadInput.emailId,
+      context.req.user.id,
+    );
   }
 
   @Mutation(() => SendRealEmailResponse)
+  @UseGuards(JwtAuthGuard)
   async sendRealEmail(
     @Args('createEmailInput') createEmailInput: CreateEmailInput,
+    @Context() context: { req: { user: { id: string } } },
   ): Promise<SendRealEmailResponse> {
-    const result = await this.mailService.sendRealEmail(createEmailInput);
+    const result = await this.mailService.sendRealEmail(
+      createEmailInput,
+      context.req.user.id,
+    );
     return {
       messageId: result.messageId,
       accepted: result.accepted,

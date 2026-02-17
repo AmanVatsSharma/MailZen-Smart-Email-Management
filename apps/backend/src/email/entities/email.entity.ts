@@ -13,6 +13,7 @@ import {
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { EmailProvider } from '../../email-integration/entities/email-provider.entity';
+import { Mailbox } from '../../mailbox/entities/mailbox.entity';
 import { EmailFolder } from './email-folder.entity';
 import { EmailLabelAssignment } from './email-label-assignment.entity';
 import { Attachment } from './attachment.entity';
@@ -45,6 +46,14 @@ export class Email {
   @Column('text', { array: true })
   to: string[];
 
+  @Column({ nullable: true })
+  @Index()
+  inboundMessageId?: string | null;
+
+  @Column({ nullable: true })
+  @Index()
+  inboundThreadKey?: string | null;
+
   @Field()
   @Column({ default: 'DRAFT' })
   status: string;
@@ -70,6 +79,14 @@ export class Email {
   })
   @JoinColumn({ name: 'providerId' })
   provider?: EmailProvider;
+
+  @Column({ nullable: true })
+  @Index()
+  mailboxId?: string;
+
+  @ManyToOne(() => Mailbox, { nullable: true })
+  @JoinColumn({ name: 'mailboxId' })
+  mailbox?: Mailbox;
 
   @Column({ nullable: true })
   @Index()

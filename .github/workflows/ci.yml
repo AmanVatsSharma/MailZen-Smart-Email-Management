@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+jobs:
+  backend-frontend-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Backend targeted tests
+        working-directory: apps/backend
+        run: >
+          npm run test --
+          billing/billing.service.spec.ts
+          billing/billing.resolver.spec.ts
+          billing/billing-webhook.controller.spec.ts
+          billing/billing-retention.scheduler.spec.ts
+          notification/notification.service.spec.ts
+          notification/notification.resolver.spec.ts
+          notification/notification-event-bus.service.spec.ts
+          notification/notification-stream.controller.spec.ts
+          notification/notification-digest.scheduler.spec.ts
+          notification/notification-retention.scheduler.spec.ts
+          notification/notification-webhook.service.spec.ts
+          notification/notification-push.service.spec.ts
+          feature/feature.service.spec.ts
+          feature/feature.resolver.spec.ts
+          smart-replies/smart-reply.service.spec.ts
+          smart-replies/smart-reply.resolver.spec.ts
+          smart-replies/smart-reply-provider.router.spec.ts
+          smart-replies/smart-reply-model.provider.spec.ts
+          smart-replies/smart-reply-external-model.adapter.spec.ts
+          smart-replies/smart-reply-openai.adapter.spec.ts
+          smart-replies/smart-reply-azure-openai.adapter.spec.ts
+          smart-replies/smart-reply-anthropic.adapter.spec.ts
+          smart-replies/smart-reply-retention.scheduler.spec.ts
+          ai-agent-gateway/ai-agent-gateway.service.spec.ts
+          ai-agent-gateway/ai-agent-gateway.resolver.spec.ts
+          ai-agent-gateway/ai-agent-action-audit-retention.scheduler.spec.ts
+          ai-agent-gateway/ai-agent-platform-health-alert.scheduler.spec.ts
+          ai-agent-gateway/ai-agent-platform-health-alert-run-retention.scheduler.spec.ts
+          ai-agent-gateway/ai-agent-platform-health-sample-retention.scheduler.spec.ts
+          common/sms/sms-dispatcher.util.spec.ts
+          common/logging/structured-log.util.spec.ts
+          common/provider-secrets.util.spec.ts
+          common/rate-limit/request-rate-limiter.spec.ts
+          common/rate-limit/http-auth-callback-rate-limit.middleware.spec.ts
+          common/rate-limit/http-webhook-rate-limit.middleware.spec.ts
+          common/rate-limit/http-rate-limit.middleware.spec.ts
+          common/security/http-csrf-origin.middleware.spec.ts
+          common/security/http-security-headers.middleware.spec.ts
+          gmail-sync/gmail-sync.scheduler.spec.ts
+          gmail-sync/gmail-sync-webhook.controller.spec.ts
+          outlook-sync/outlook-sync.service.spec.ts
+          outlook-sync/outlook-sync-webhook.controller.spec.ts
+          outlook-sync/outlook-sync.scheduler.spec.ts
+          email-integration/provider-sync-lease.service.spec.ts
+          email-integration/provider-sync-incident.scheduler.spec.ts
+          gmail-sync/gmail-sync.service.spec.ts
+          email-integration/email-provider.service.spec.ts
+          email-integration/provider-oauth.controller.spec.ts
+          email-integration/email-provider.connect.resolver.spec.ts
+          email/email-warmup.service.spec.ts
+          email/email-warmup.resolver.spec.ts
+          mailbox/mailbox.service.spec.ts
+          mailbox/mailbox.resolver.spec.ts
+          mailbox/mail-server.service.spec.ts
+          mailbox/mailbox-sync.service.spec.ts
+          mailbox/mailbox-sync.scheduler.spec.ts
+          mailbox/mailbox-sync-run-retention.scheduler.spec.ts
+          mailbox/mailbox-sync-incident.scheduler.spec.ts
+          mailbox/mailbox-inbound-sla.scheduler.spec.ts
+          mailbox/mailbox-inbound-retention.scheduler.spec.ts
+          mailbox/mailbox-inbound.service.spec.ts
+          mailbox/mailbox-inbound.controller.spec.ts
+          phone/phone.service.spec.ts
+          phone/phone.resolver.spec.ts
+          auth/auth.service.spec.ts
+          auth/auth.resolver.spec.ts
+          auth/oauth-state.util.spec.ts
+          auth/oauth.controller.spec.ts
+          auth/auth-abuse-protection.service.spec.ts
+          auth/guards/jwt-auth.guard.spec.ts
+          auth/session-cookie.service.spec.ts
+          user/user.service.spec.ts
+          user/user.resolver.spec.ts
+          email-analytics/email-analytics.service.spec.ts
+          scheduled-email/scheduled-email.service.spec.ts
+          template/template.service.spec.ts
+          workspace/workspace.service.spec.ts
+          workspace/workspace.resolver.spec.ts
+          inbox/inbox.service.spec.ts
+          inbox/inbox.resolver.spec.ts
+          unified-inbox/unified-inbox.service.spec.ts
+
+      - name: Backend build
+        working-directory: apps/backend
+        run: npm run build
+
+      - name: Backend schema contract check
+        working-directory: apps/backend
+        run: npm run check:schema:contracts
+
+      - name: Backend migration contract check
+        working-directory: apps/backend
+        run: npm run check:migration:contracts
+
+      - name: Backend console usage guard
+        working-directory: apps/backend
+        run: npm run check:no-console-usage
+
+      - name: Backend structured logger guard
+        working-directory: apps/backend
+        run: npm run check:structured-logger-usage
+
+      - name: Backend docs flowchart contract check
+        working-directory: apps/backend
+        run: npm run check:doc:flowcharts
+
+      - name: Frontend lint
+        working-directory: apps/frontend
+        run: npm run lint
+
+      - name: Frontend build
+        working-directory: apps/frontend
+        run: npm run build
