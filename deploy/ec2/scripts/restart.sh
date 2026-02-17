@@ -78,10 +78,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ ! "${WAIT_SECONDS}" =~ ^[0-9]+$ ]]; then
-  log_error "--wait-seconds must be a non-negative integer."
-  exit 1
-fi
+assert_non_negative_integer "--wait-seconds" "${WAIT_SECONDS}" || exit 1
 
 if [[ -n "${SERVICE_NAME}" ]]; then
   assert_known_service_name "${SERVICE_NAME}"
