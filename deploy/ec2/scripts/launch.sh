@@ -119,6 +119,7 @@ run_step() {
   echo "================================================================================"
   echo "[mailzen-deploy][LAUNCH] Step ${step_number}/${total_steps}: ${title}"
   echo "================================================================================"
+  echo "[mailzen-deploy][LAUNCH] Command preview: $(format_command_for_logs "$@")"
   "$@"
 }
 

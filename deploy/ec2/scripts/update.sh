@@ -97,6 +97,14 @@ RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE=""
 BUILD_CHECK_SERVICE_ARGS=()
 BUILD_CHECK_IMAGE_SERVICE_ARGS=()
 
+run_step() {
+  local title="$1"
+  shift
+  log_info "[UPDATE] ${title}"
+  log_info "[UPDATE] Command preview: $(format_command_for_logs "$@")"
+  "$@"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --skip-verify)
@@ -380,7 +388,7 @@ preflight_args=()
 if [[ "${PREFLIGHT_CONFIG_ONLY}" == true ]]; then
   preflight_args+=(--config-only)
 fi
-"${SCRIPT_DIR}/preflight.sh" "${preflight_args[@]}"
+run_step "preflight validation" "${SCRIPT_DIR}/preflight.sh" "${preflight_args[@]}"
 
 if [[ "${RUN_DOCS_CHECK}" == true ]]; then
   docs_check_args=()
@@ -390,7 +398,7 @@ if [[ "${RUN_DOCS_CHECK}" == true ]]; then
   if [[ "${DOCS_INCLUDE_COMMON}" == true ]]; then
     docs_check_args+=(--include-common)
   fi
-  "${SCRIPT_DIR}/docs-check.sh" "${docs_check_args[@]}"
+  run_step "docs consistency check" "${SCRIPT_DIR}/docs-check.sh" "${docs_check_args[@]}"
 fi
 
 if [[ "${RUN_BUILD_CHECK}" == true ]]; then
@@ -416,14 +424,14 @@ if [[ "${RUN_BUILD_CHECK}" == true ]]; then
   if [[ "${#BUILD_CHECK_IMAGE_SERVICE_ARGS[@]}" -gt 0 ]]; then
     build_check_args+=("${BUILD_CHECK_IMAGE_SERVICE_ARGS[@]}")
   fi
-  "${SCRIPT_DIR}/build-check.sh" "${build_check_args[@]}"
+  run_step "build image validation" "${SCRIPT_DIR}/build-check.sh" "${build_check_args[@]}"
 fi
 
 deploy_args=(--pull --force-recreate)
 if [[ "${DEPLOY_DRY_RUN}" == true ]]; then
   deploy_args+=(--dry-run)
 fi
-"${SCRIPT_DIR}/deploy.sh" "${deploy_args[@]}"
+run_step "deploy stack" "${SCRIPT_DIR}/deploy.sh" "${deploy_args[@]}"
 
 if [[ "${RUN_VERIFY}" == true ]]; then
   if [[ "${DEPLOY_DRY_RUN}" == true ]]; then
@@ -445,7 +453,7 @@ if [[ "${RUN_VERIFY}" == true ]]; then
     if [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; then
       verify_args+=(--require-oauth-check)
     fi
-    "${SCRIPT_DIR}/verify.sh" "${verify_args[@]}"
+    run_step "verify deployment" "${SCRIPT_DIR}/verify.sh" "${verify_args[@]}"
   fi
 fi
 
@@ -469,7 +477,7 @@ if [[ "${RUN_RUNTIME_SMOKE}" == true ]]; then
     if [[ "${RUNTIME_SMOKE_DRY_RUN}" == true ]]; then
       runtime_smoke_args+=(--dry-run)
     fi
-    "${SCRIPT_DIR}/runtime-smoke.sh" "${runtime_smoke_args[@]}"
+    run_step "runtime smoke checks" "${SCRIPT_DIR}/runtime-smoke.sh" "${runtime_smoke_args[@]}"
   fi
 fi
 
@@ -496,7 +504,7 @@ if [[ "${RUN_STATUS}" == true ]]; then
   if [[ "${STATUS_STRICT}" == true ]]; then
     status_args+=(--strict)
   fi
-  "${SCRIPT_DIR}/status.sh" "${status_args[@]}"
+  run_step "show status" "${SCRIPT_DIR}/status.sh" "${status_args[@]}"
 else
   log_warn "Status step skipped (--skip-status)."
 fi
