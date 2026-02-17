@@ -404,6 +404,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  assert_ports_csv_value "--ports-check-ports" "${PORTS_CHECK_PORTS}" || exit 1
+fi
+
 if [[ "${DOCS_INCLUDE_COMMON}" == true ]] && [[ "${DOCS_STRICT_COVERAGE}" == false ]]; then
   log_warn "[LAUNCH] --docs-include-common is most useful with --docs-strict-coverage."
 fi

@@ -285,6 +285,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  assert_ports_csv_value "--ports-check-ports" "${PORTS_CHECK_PORTS}" || exit 1
+fi
+
 if [[ "${RUN_DOCS_CHECK}" == false ]] &&
   { [[ "${DOCS_STRICT_COVERAGE}" == true ]] || [[ "${DOCS_INCLUDE_COMMON}" == true ]]; }; then
   log_warn "Docs-check-specific flags were provided while docs stage is disabled; docs-check flags will be ignored."

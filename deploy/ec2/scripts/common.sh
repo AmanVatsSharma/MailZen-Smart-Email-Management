@@ -364,3 +364,35 @@ assert_safe_label() {
   log_error "${label_name} must match [A-Za-z0-9._-] (received: ${label_value})"
   return 1
 }
+
+assert_ports_csv_value() {
+  local flag_name="$1"
+  local ports_raw="$2"
+
+  if [[ -z "${ports_raw}" ]]; then
+    log_error "${flag_name} requires a comma-separated value."
+    return 1
+  fi
+
+  local valid_count=0
+  IFS=',' read -r -a parsed_ports <<<"${ports_raw}"
+  for raw_port in "${parsed_ports[@]}"; do
+    local port
+    port="$(printf '%s' "${raw_port}" | tr -d '[:space:]')"
+    if [[ -z "${port}" ]]; then
+      continue
+    fi
+    if [[ ! "${port}" =~ ^[0-9]+$ ]] || [[ "${port}" -lt 1 ]] || [[ "${port}" -gt 65535 ]]; then
+      log_error "Invalid port in ${flag_name}: ${port} (must be integer 1..65535)."
+      return 1
+    fi
+    valid_count=$((valid_count + 1))
+  done
+
+  if [[ "${valid_count}" -eq 0 ]]; then
+    log_error "No valid ports resolved from ${flag_name} value '${ports_raw}'."
+    return 1
+  fi
+
+  return 0
+}

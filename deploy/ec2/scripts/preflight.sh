@@ -83,6 +83,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  assert_ports_csv_value "--ports-check-ports" "${PORTS_CHECK_PORTS}" || exit 1
+fi
+
 if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${WITH_RUNTIME_CHECKS}" == false ]]; then
   log_warn "--ports-check-ports provided without --with-runtime-checks; value will only apply when runtime checks are enabled."
 fi

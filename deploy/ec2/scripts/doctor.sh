@@ -90,6 +90,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  assert_ports_csv_value "--ports-check-ports" "${PORTS_CHECK_PORTS}" || exit 1
+fi
+
 if [[ "${SKIP_DOCS_CHECK}" == true ]] &&
   { [[ "${DOCS_STRICT_COVERAGE}" == true ]] || [[ "${DOCS_INCLUDE_COMMON}" == true ]]; }; then
   echo "[mailzen-deploy][DOCTOR][WARN] Docs-check-specific flags were provided while --skip-docs-check is enabled; docs-check flags will be ignored."

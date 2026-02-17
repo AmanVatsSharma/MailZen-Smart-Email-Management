@@ -137,6 +137,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+  assert_ports_csv_value "--ports-check-ports" "${PORTS_CHECK_PORTS}" || exit 1
+fi
+
 if [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]] && { [[ ! "${RUNTIME_SMOKE_MAX_RETRIES}" =~ ^[0-9]+$ ]] || [[ "${RUNTIME_SMOKE_MAX_RETRIES}" -lt 1 ]]; }; then
   log_error "--runtime-smoke-max-retries must be a positive integer."
   exit 1
