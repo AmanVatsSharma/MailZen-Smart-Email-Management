@@ -133,9 +133,13 @@ flowchart TD
   - `pipeline-check.sh --ports-check-ports 80,443,8100`
 - Use diagnostics docs-check controls as needed:
   - `doctor.sh --docs-strict-coverage`
+  - `doctor.sh --docs-strict-coverage --docs-include-common`
   - `support-bundle.sh --docs-strict-coverage`
+  - `support-bundle.sh --docs-strict-coverage --docs-include-common`
   - `pipeline-check.sh --docs-strict-coverage`
+  - `pipeline-check.sh --docs-strict-coverage --docs-include-common`
   - `validate.sh --docs-strict-coverage`
+  - `validate.sh --docs-strict-coverage --docs-include-common`
 - Use `rotate-app-secrets.sh --keys <k1,k2> --dry-run` before live secret
   rotations.
 - Use seeded diagnostics for CI/offline validation:
@@ -161,6 +165,7 @@ flowchart TD
   when you want docs coverage enforcement inline with deployment/update flows.
 - Run `docs-check.sh` after doc/script updates to ensure docs reference valid
   script paths and to catch drift (`--strict-coverage` for full coverage
-  enforcement).
+  enforcement, `--strict-coverage --include-common` to include shared helper
+  coverage).
 - Run `help.sh` for quick operator command lookup.
 - Use `self-check.sh` after editing deployment scripts.
