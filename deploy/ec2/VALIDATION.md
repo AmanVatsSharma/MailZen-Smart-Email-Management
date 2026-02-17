@@ -144,6 +144,9 @@ If any check fails:
 # High-level validation profile wrapper (full chain)
 ./deploy/ec2/scripts/validate.sh
 
+# High-level validation profile with strict docs coverage
+./deploy/ec2/scripts/validate.sh --docs-strict-coverage
+
 # High-level validation profile with targeted build-check services
 ./deploy/ec2/scripts/validate.sh --build-check-service backend --build-check-service frontend --build-check-pull
 

@@ -432,6 +432,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: run high-level validation profile in dry-run with seeded env and custom ports
 ./deploy/ec2/scripts/validate.sh --dry-run --seed-env --ports-check-ports 80,443,8100
 
+# Optional: run high-level validation profile with strict docs coverage
+./deploy/ec2/scripts/validate.sh --docs-strict-coverage
+
 # Optional: run high-level validation profile with targeted build-check services
 ./deploy/ec2/scripts/validate.sh --build-check-service backend --build-check-service frontend --build-check-pull
 

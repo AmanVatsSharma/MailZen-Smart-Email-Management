@@ -127,6 +127,7 @@ Diagnostics:
   ./deploy/ec2/scripts/pipeline-check.sh
   ./deploy/ec2/scripts/pipeline-check.sh --seed-env
   ./deploy/ec2/scripts/pipeline-check.sh --ports-check-ports 80,443,8100
+  ./deploy/ec2/scripts/pipeline-check.sh --docs-strict-coverage
   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-dry-run
   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-service backend --build-check-service frontend --build-check-pull
   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-with-image-pull-check --build-check-image-service caddy --build-check-image-service postgres --build-check-dry-run
@@ -140,6 +141,7 @@ Diagnostics:
   ./deploy/ec2/scripts/validate.sh
   ./deploy/ec2/scripts/validate.sh --dry-run
   ./deploy/ec2/scripts/validate.sh --dry-run --seed-env --ports-check-ports 80,443,8100
+  ./deploy/ec2/scripts/validate.sh --docs-strict-coverage
   ./deploy/ec2/scripts/validate.sh --with-verify-in-dry-run --verify-skip-oauth-check --verify-skip-ssl-check
   ./deploy/ec2/scripts/validate.sh --build-check-service backend --build-check-service frontend --build-check-pull
   ./deploy/ec2/scripts/validate.sh --build-check-with-image-pull-check --build-check-image-service caddy --build-check-image-service postgres --dry-run

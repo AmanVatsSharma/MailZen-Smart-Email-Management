@@ -733,6 +733,16 @@ while true; do
     if [[ -n "${pipeline_ports}" ]]; then
       pipeline_check_args+=(--ports-check-ports "${pipeline_ports}")
     fi
+    pipeline_docs_strict=false
+    if prompt_yes_no "Enable strict docs coverage check in pipeline validation" "no"; then
+      pipeline_docs_strict=true
+      pipeline_check_args+=(--docs-strict-coverage)
+    fi
+    if [[ "${pipeline_docs_strict}" == true ]]; then
+      if prompt_yes_no "Include common.sh in strict docs coverage check" "no"; then
+        pipeline_check_args+=(--docs-include-common)
+      fi
+    fi
     if prompt_yes_no "Run build checks during pipeline validation" "no"; then
       pipeline_check_args+=(--with-build-check)
       pipeline_build_services="$(prompt_with_default "Build check services (comma-separated: backend,frontend,ai-agent-platform; blank = all buildable)" "")"
@@ -907,6 +917,16 @@ while true; do
     pipeline_seeded_ports="$(prompt_with_default "Custom ports-check targets for seeded pipeline check (blank = default)" "")"
     if [[ -n "${pipeline_seeded_ports}" ]]; then
       pipeline_seeded_args+=(--ports-check-ports "${pipeline_seeded_ports}")
+    fi
+    pipeline_seeded_docs_strict=false
+    if prompt_yes_no "Enable strict docs coverage check in seeded pipeline validation" "no"; then
+      pipeline_seeded_docs_strict=true
+      pipeline_seeded_args+=(--docs-strict-coverage)
+    fi
+    if [[ "${pipeline_seeded_docs_strict}" == true ]]; then
+      if prompt_yes_no "Include common.sh in strict docs coverage check" "no"; then
+        pipeline_seeded_args+=(--docs-include-common)
+      fi
     fi
     if prompt_yes_no "Run build checks during seeded pipeline validation" "no"; then
       pipeline_seeded_args+=(--with-build-check)
@@ -1143,6 +1163,16 @@ while true; do
     fi
     if prompt_yes_no "Use seeded env for validation profile run" "no"; then
       validate_args+=(--seed-env)
+    fi
+    validate_docs_strict=false
+    if prompt_yes_no "Enable strict docs coverage in validation profile run" "no"; then
+      validate_docs_strict=true
+      validate_args+=(--docs-strict-coverage)
+    fi
+    if [[ "${validate_docs_strict}" == true ]]; then
+      if prompt_yes_no "Include common.sh in strict docs coverage check" "no"; then
+        validate_args+=(--docs-include-common)
+      fi
     fi
     validate_ports="$(prompt_with_default "Custom ports-check targets for validation profile (blank = default)" "")"
     if [[ -n "${validate_ports}" ]]; then

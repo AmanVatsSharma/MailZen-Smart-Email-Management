@@ -17,6 +17,7 @@
 #   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-dry-run
 #   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-service backend --build-check-service frontend --build-check-pull
 #   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-with-image-pull-check --build-check-image-service caddy --build-check-image-service postgres --build-check-dry-run
+#   ./deploy/ec2/scripts/pipeline-check.sh --docs-strict-coverage
 #   ./deploy/ec2/scripts/pipeline-check.sh --with-verify --verify-skip-oauth-check --verify-skip-ssl-check
 #   ./deploy/ec2/scripts/pipeline-check.sh --with-verify --verify-max-retries 10 --verify-retry-sleep 5
 #   ./deploy/ec2/scripts/pipeline-check.sh --with-status --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
@@ -70,6 +71,8 @@ STATUS_SKIP_HOST_READINESS=false
 STATUS_SKIP_DNS_CHECK=false
 STATUS_SKIP_SSL_CHECK=false
 STATUS_SKIP_PORTS_CHECK=false
+DOCS_STRICT_COVERAGE=false
+DOCS_INCLUDE_COMMON=false
 
 cleanup() {
   if [[ -n "${SEEDED_ENV_FILE}" ]] && [[ "${KEEP_SEEDED_ENV}" == false ]] && [[ -f "${SEEDED_ENV_FILE}" ]]; then
@@ -191,6 +194,14 @@ while [[ $# -gt 0 ]]; do
     BUILD_CHECK_IMAGE_SERVICE_FLAGS_SET=true
     shift 2
     ;;
+  --docs-strict-coverage)
+    DOCS_STRICT_COVERAGE=true
+    shift
+    ;;
+  --docs-include-common)
+    DOCS_INCLUDE_COMMON=true
+    shift
+    ;;
   --with-verify)
     RUN_VERIFY=true
     shift
@@ -265,11 +276,15 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] Unknown argument: $1"
-    echo "[mailzen-deploy][PIPELINE-CHECK][INFO] Supported flags: --seed-env --keep-seeded-env --ports-check-ports <p1,p2,...> --with-build-check --build-check-dry-run --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-with-image-pull-check --build-check-service <name> --build-check-image-service <name> --with-runtime-smoke --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --runtime-smoke-dry-run --with-verify --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --with-status --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check"
+    echo "[mailzen-deploy][PIPELINE-CHECK][INFO] Supported flags: --seed-env --keep-seeded-env --ports-check-ports <p1,p2,...> --with-build-check --build-check-dry-run --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-with-image-pull-check --build-check-service <name> --build-check-image-service <name> --docs-strict-coverage --docs-include-common --with-runtime-smoke --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --runtime-smoke-dry-run --with-verify --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --with-status --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check"
     exit 1
     ;;
   esac
 done
+
+if [[ "${DOCS_INCLUDE_COMMON}" == true ]] && [[ "${DOCS_STRICT_COVERAGE}" == false ]]; then
+  echo "[mailzen-deploy][PIPELINE-CHECK][WARN] --docs-include-common is most useful with --docs-strict-coverage."
+fi
 
 if [[ "${SEED_ENV}" == false ]] && [[ "${KEEP_SEEDED_ENV}" == true ]]; then
   echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] --keep-seeded-env requires --seed-env"
@@ -368,7 +383,14 @@ if [[ "${RUN_STATUS}" == true ]]; then
 fi
 
 "${SCRIPT_DIR}/self-check.sh"
-"${SCRIPT_DIR}/docs-check.sh"
+docs_check_args=()
+if [[ "${DOCS_STRICT_COVERAGE}" == true ]]; then
+  docs_check_args+=(--strict-coverage)
+fi
+if [[ "${DOCS_INCLUDE_COMMON}" == true ]]; then
+  docs_check_args+=(--include-common)
+fi
+"${SCRIPT_DIR}/docs-check.sh" "${docs_check_args[@]}"
 "${SCRIPT_DIR}/env-audit.sh"
 "${SCRIPT_DIR}/preflight.sh" --config-only
 "${SCRIPT_DIR}/host-readiness.sh" --min-disk-gb 1 --min-memory-mb 256 --min-cpu-cores 1

@@ -40,6 +40,8 @@ BUILD_CHECK_SKIP_CONFIG_CHECK=false
 BUILD_CHECK_WITH_IMAGE_PULL_CHECK=false
 BUILD_CHECK_SERVICE_ARGS=()
 BUILD_CHECK_IMAGE_SERVICE_ARGS=()
+DOCS_STRICT_COVERAGE=false
+DOCS_INCLUDE_COMMON=false
 VERIFY_MAX_RETRIES=""
 VERIFY_RETRY_SLEEP=""
 VERIFY_SKIP_SSL_CHECK=false
@@ -120,6 +122,14 @@ while [[ $# -gt 0 ]]; do
     fi
     BUILD_CHECK_IMAGE_SERVICE_ARGS+=(--build-check-image-service "${build_check_image_service_arg}")
     shift 2
+    ;;
+  --docs-strict-coverage)
+    DOCS_STRICT_COVERAGE=true
+    shift
+    ;;
+  --docs-include-common)
+    DOCS_INCLUDE_COMMON=true
+    shift
     ;;
   --skip-verify)
     RUN_VERIFY=false
@@ -252,11 +262,15 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --seed-env --dry-run --with-verify-in-dry-run --skip-build-check --skip-verify --skip-runtime-smoke --skip-status --ports-check-ports <p1,p2,...> --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-with-image-pull-check --build-check-service <name> --build-check-image-service <name> --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --status-strict --status-no-runtime-checks --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check"
+    log_error "Supported flags: --seed-env --dry-run --with-verify-in-dry-run --skip-build-check --skip-verify --skip-runtime-smoke --skip-status --ports-check-ports <p1,p2,...> --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-with-image-pull-check --build-check-service <name> --build-check-image-service <name> --docs-strict-coverage --docs-include-common --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --status-strict --status-no-runtime-checks --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check"
     exit 1
     ;;
   esac
 done
+
+if [[ "${DOCS_INCLUDE_COMMON}" == true ]] && [[ "${DOCS_STRICT_COVERAGE}" == false ]]; then
+  log_warn "--docs-include-common is most useful with --docs-strict-coverage."
+fi
 
 if [[ -n "${VERIFY_MAX_RETRIES}" ]] && { [[ ! "${VERIFY_MAX_RETRIES}" =~ ^[0-9]+$ ]] || [[ "${VERIFY_MAX_RETRIES}" -lt 1 ]]; }; then
   log_error "--verify-max-retries must be a positive integer."
@@ -328,6 +342,12 @@ log_info "Active compose file: $(get_compose_file)"
 pipeline_args=()
 if [[ "${SEED_ENV}" == true ]]; then
   pipeline_args+=(--seed-env)
+fi
+if [[ "${DOCS_STRICT_COVERAGE}" == true ]]; then
+  pipeline_args+=(--docs-strict-coverage)
+fi
+if [[ "${DOCS_INCLUDE_COMMON}" == true ]]; then
+  pipeline_args+=(--docs-include-common)
 fi
 if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
   pipeline_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
