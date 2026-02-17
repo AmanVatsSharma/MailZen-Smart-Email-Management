@@ -74,18 +74,19 @@ Maintainer note (shared helper library, sourced internally by scripts):
 ```mermaid
 flowchart TD
   A[Run setup.sh] --> B[Generate/validate .env.ec2]
-  B --> C[Run host-readiness.sh]
-  C --> D[Run dns-check.sh]
-  D --> E[Run ssl-check.sh]
-  E --> F[Run ports-check.sh]
-  F --> G[Run preflight.sh]
-  G --> H[Run build-check.sh optional]
-  H --> I[Run deploy.sh]
-  I --> J[docker compose build + up]
-  J --> K[caddy enables HTTPS for domain]
-  K --> L[Run verify.sh]
-  L --> M[Run runtime-smoke.sh]
-  M --> N[Use status/logs/restart/stop scripts for ops]
+  B --> C[Run docs-check.sh]
+  C --> D[Run host-readiness.sh]
+  D --> E[Run dns-check.sh]
+  E --> F[Run ssl-check.sh]
+  F --> G[Run ports-check.sh]
+  G --> H[Run preflight.sh]
+  H --> I[Run build-check.sh optional]
+  I --> J[Run deploy.sh]
+  J --> K[docker compose build + up]
+  K --> L[caddy enables HTTPS for domain]
+  L --> M[Run verify.sh]
+  M --> N[Run runtime-smoke.sh]
+  N --> O[Use status/logs/restart/stop scripts for ops]
 ```
 
 ## First-time setup
