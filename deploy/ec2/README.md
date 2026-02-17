@@ -40,7 +40,7 @@ Additional deployment flowcharts:
   - `ports-check.sh` (check host port conflicts; defaults to 80/443)
   - `env-audit.sh` (redacted critical env audit)
   - `doctor.sh` (generate diagnostics report for support)
-  - `support-bundle.sh` (collect support-ready diagnostics archive)
+  - `support-bundle.sh` (collect support-ready diagnostics archive, including docs-check logs/markers)
   - `rotate-app-secrets.sh` (rotate JWT/OAuth/platform secrets)
   - `pipeline-check.sh` (CI validation sequence with optional build-check/verify/runtime-smoke/status chaining)
   - `validate.sh` (high-level validation profile wrapper over pipeline-check)
@@ -456,6 +456,7 @@ Example:
 
 # Generate compressed support bundle archive
 ./deploy/ec2/scripts/support-bundle.sh
+# (bundle captures docs-check output or explicit skip marker, plus report manifest + diagnostics logs)
 
 # Generate support bundle with seeded temporary env (CI-friendly)
 ./deploy/ec2/scripts/support-bundle.sh --seed-env
