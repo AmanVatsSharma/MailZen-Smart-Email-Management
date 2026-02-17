@@ -105,9 +105,11 @@ If any check fails:
 ./deploy/ec2/scripts/logs.sh --service ai-agent-platform --tail 500 --no-follow
 ./deploy/ec2/scripts/doctor.sh
 ./deploy/ec2/scripts/doctor.sh --docs-strict-coverage
+./deploy/ec2/scripts/doctor.sh --docs-strict-coverage --docs-include-common
 ./deploy/ec2/scripts/doctor.sh --skip-docs-check
 ./deploy/ec2/scripts/support-bundle.sh
 ./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage
+./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage --docs-include-common
 ./deploy/ec2/scripts/support-bundle.sh --skip-docs-check
 ```
 
@@ -137,6 +139,9 @@ If any check fails:
 
 # Config checks with strict docs coverage enforcement
 ./deploy/ec2/scripts/pipeline-check.sh --docs-strict-coverage
+
+# Config checks with strict docs coverage including common.sh helper coverage
+./deploy/ec2/scripts/pipeline-check.sh --docs-strict-coverage --docs-include-common
 ```
 
 ## 6) One-command wrapper shortcut with chained validation
@@ -159,6 +164,9 @@ If any check fails:
 
 # High-level validation profile with strict docs coverage
 ./deploy/ec2/scripts/validate.sh --docs-strict-coverage
+
+# High-level validation profile with strict docs coverage including common.sh helper coverage
+./deploy/ec2/scripts/validate.sh --docs-strict-coverage --docs-include-common
 
 # High-level validation profile while skipping docs consistency stage
 ./deploy/ec2/scripts/validate.sh --skip-docs-check

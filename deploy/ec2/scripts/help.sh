@@ -125,17 +125,20 @@ Diagnostics:
   ./deploy/ec2/scripts/doctor.sh --seed-env
   ./deploy/ec2/scripts/doctor.sh --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/doctor.sh --docs-strict-coverage
+  ./deploy/ec2/scripts/doctor.sh --docs-strict-coverage --docs-include-common
   ./deploy/ec2/scripts/doctor.sh --skip-docs-check
   ./deploy/ec2/scripts/support-bundle.sh
   ./deploy/ec2/scripts/support-bundle.sh --seed-env
   ./deploy/ec2/scripts/support-bundle.sh --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/support-bundle.sh --seed-env --keep-work-dir
   ./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage
+  ./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage --docs-include-common
   ./deploy/ec2/scripts/support-bundle.sh --skip-docs-check
   ./deploy/ec2/scripts/pipeline-check.sh
   ./deploy/ec2/scripts/pipeline-check.sh --seed-env
   ./deploy/ec2/scripts/pipeline-check.sh --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/pipeline-check.sh --docs-strict-coverage
+  ./deploy/ec2/scripts/pipeline-check.sh --docs-strict-coverage --docs-include-common
   ./deploy/ec2/scripts/pipeline-check.sh --skip-docs-check
   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-dry-run
   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-service backend --build-check-service frontend --build-check-pull
@@ -151,6 +154,7 @@ Diagnostics:
   ./deploy/ec2/scripts/validate.sh --dry-run
   ./deploy/ec2/scripts/validate.sh --dry-run --seed-env --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/validate.sh --docs-strict-coverage
+  ./deploy/ec2/scripts/validate.sh --docs-strict-coverage --docs-include-common
   ./deploy/ec2/scripts/validate.sh --skip-docs-check
   ./deploy/ec2/scripts/validate.sh --with-verify-in-dry-run --verify-skip-oauth-check --verify-skip-ssl-check
   ./deploy/ec2/scripts/validate.sh --build-check-dry-run --runtime-smoke-dry-run
@@ -159,6 +163,7 @@ Diagnostics:
   ./deploy/ec2/scripts/validate.sh --skip-runtime-smoke --skip-status
   ./deploy/ec2/scripts/docs-check.sh
   ./deploy/ec2/scripts/docs-check.sh --strict-coverage
+  ./deploy/ec2/scripts/docs-check.sh --strict-coverage --include-common
   ./deploy/ec2/scripts/reports-prune.sh --keep-count 50 --dry-run
   ./deploy/ec2/scripts/reports-prune.sh 20
   ./deploy/ec2/scripts/self-check.sh

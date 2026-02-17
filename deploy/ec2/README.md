@@ -452,6 +452,9 @@ Example:
 # Run diagnostics with strict docs coverage checks
 ./deploy/ec2/scripts/doctor.sh --docs-strict-coverage
 
+# Run diagnostics with strict docs coverage including common.sh helper coverage
+./deploy/ec2/scripts/doctor.sh --docs-strict-coverage --docs-include-common
+
 # Run diagnostics while skipping docs consistency checks
 ./deploy/ec2/scripts/doctor.sh --skip-docs-check
 
@@ -467,6 +470,9 @@ Example:
 
 # Generate support bundle with strict docs coverage checks
 ./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage
+
+# Generate support bundle with strict docs coverage including common.sh helper coverage
+./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage --docs-include-common
 
 # Generate support bundle while skipping docs consistency checks
 ./deploy/ec2/scripts/support-bundle.sh --skip-docs-check
@@ -543,6 +549,9 @@ Example:
 # Run pipeline checks with strict docs coverage enforcement
 ./deploy/ec2/scripts/pipeline-check.sh --docs-strict-coverage
 
+# Run pipeline checks with strict docs coverage including common.sh helper coverage
+./deploy/ec2/scripts/pipeline-check.sh --docs-strict-coverage --docs-include-common
+
 # Run pipeline checks while skipping docs consistency step
 ./deploy/ec2/scripts/pipeline-check.sh --skip-docs-check
 
@@ -557,6 +566,9 @@ Example:
 
 # Run high-level validation profile with strict docs coverage
 ./deploy/ec2/scripts/validate.sh --docs-strict-coverage
+
+# Run high-level validation profile with strict docs coverage including common.sh helper coverage
+./deploy/ec2/scripts/validate.sh --docs-strict-coverage --docs-include-common
 
 # Run high-level validation profile while skipping docs consistency stage
 ./deploy/ec2/scripts/validate.sh --skip-docs-check
@@ -578,6 +590,9 @@ Example:
 
 # Fail when any deployment script is not referenced in docs
 ./deploy/ec2/scripts/docs-check.sh --strict-coverage
+
+# Fail when any deployment script (including common.sh) is not referenced in docs
+./deploy/ec2/scripts/docs-check.sh --strict-coverage --include-common
 
 # Validate deployment scripts syntax/executable state
 ./deploy/ec2/scripts/self-check.sh

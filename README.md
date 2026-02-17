@@ -370,6 +370,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: diagnostics with strict docs coverage checks
 ./deploy/ec2/scripts/doctor.sh --docs-strict-coverage
 
+# Optional: diagnostics with strict docs coverage including common.sh helper coverage
+./deploy/ec2/scripts/doctor.sh --docs-strict-coverage --docs-include-common
+
 # Optional: diagnostics while skipping docs consistency checks
 ./deploy/ec2/scripts/doctor.sh --skip-docs-check
 
@@ -388,6 +391,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: support bundle with strict docs coverage checks
 ./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage
+
+# Optional: support bundle with strict docs coverage including common.sh helper coverage
+./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage --docs-include-common
 
 # Optional: support bundle while skipping docs consistency checks
 ./deploy/ec2/scripts/support-bundle.sh --skip-docs-check
@@ -448,6 +454,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: run pipeline checks with strict docs coverage enforcement
 ./deploy/ec2/scripts/pipeline-check.sh --docs-strict-coverage
 
+# Optional: run pipeline checks with strict docs coverage including common.sh helper coverage
+./deploy/ec2/scripts/pipeline-check.sh --docs-strict-coverage --docs-include-common
+
 # Optional: run pipeline checks while skipping docs consistency step
 ./deploy/ec2/scripts/pipeline-check.sh --skip-docs-check
 
@@ -462,6 +471,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: run high-level validation profile with strict docs coverage
 ./deploy/ec2/scripts/validate.sh --docs-strict-coverage
+
+# Optional: run high-level validation profile with strict docs coverage including common.sh helper coverage
+./deploy/ec2/scripts/validate.sh --docs-strict-coverage --docs-include-common
 
 # Optional: run high-level validation profile while skipping docs consistency stage
 ./deploy/ec2/scripts/validate.sh --skip-docs-check
@@ -483,6 +495,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: fail when any deployment script is not referenced in docs
 ./deploy/ec2/scripts/docs-check.sh --strict-coverage
+
+# Optional: fail when any deployment script (including common.sh) is not referenced in docs
+./deploy/ec2/scripts/docs-check.sh --strict-coverage --include-common
 
 # 3) Build and run the stack
 ./deploy/ec2/scripts/deploy.sh
