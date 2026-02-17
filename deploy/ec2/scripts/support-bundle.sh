@@ -141,10 +141,10 @@ seed_env_file() {
 
 run_capture() {
   local label="$1"
-  local command="$2"
+  shift
   local output_file="${WORK_DIR}/${label}.log"
   log_bundle "Running ${label}..."
-  if bash -lc "${command}" >"${output_file}" 2>&1; then
+  if "$@" >"${output_file}" 2>&1; then
     log_bundle "${label}: captured"
   else
     log_bundle "${label}: captured with non-zero exit"
@@ -188,7 +188,7 @@ if command -v git >/dev/null 2>&1; then
 fi
 log_bundle "Captured bundle manifest: ${WORK_DIR}/bundle-manifest.txt"
 
-run_capture "self-check" "\"${SCRIPT_DIR}/self-check.sh\""
+run_capture "self-check" "${SCRIPT_DIR}/self-check.sh"
 if [[ "${SKIP_DOCS_CHECK}" == true ]]; then
   {
     echo "[mailzen-deploy][SUPPORT-BUNDLE] docs-check: SKIPPED (--skip-docs-check)"
@@ -204,18 +204,18 @@ else
   if [[ "${DOCS_INCLUDE_COMMON}" == true ]]; then
     docs_check_args+=(--include-common)
   fi
-  run_capture "docs-check" "\"${SCRIPT_DIR}/docs-check.sh\" ${docs_check_args[*]}"
+  run_capture "docs-check" "${SCRIPT_DIR}/docs-check.sh" "${docs_check_args[@]}"
 fi
-run_capture "env-audit" "\"${SCRIPT_DIR}/env-audit.sh\""
-run_capture "preflight-config-only" "\"${SCRIPT_DIR}/preflight.sh\" --config-only"
-run_capture "dns-check" "\"${SCRIPT_DIR}/dns-check.sh\""
-run_capture "ssl-check" "\"${SCRIPT_DIR}/ssl-check.sh\""
-run_capture "host-readiness" "\"${SCRIPT_DIR}/host-readiness.sh\""
-ports_check_command="\"${SCRIPT_DIR}/ports-check.sh\""
+run_capture "env-audit" "${SCRIPT_DIR}/env-audit.sh"
+run_capture "preflight-config-only" "${SCRIPT_DIR}/preflight.sh" --config-only
+run_capture "dns-check" "${SCRIPT_DIR}/dns-check.sh"
+run_capture "ssl-check" "${SCRIPT_DIR}/ssl-check.sh"
+run_capture "host-readiness" "${SCRIPT_DIR}/host-readiness.sh"
+ports_check_command=("${SCRIPT_DIR}/ports-check.sh")
 if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
-  ports_check_command="${ports_check_command} --ports \"${PORTS_CHECK_PORTS}\""
+  ports_check_command+=(--ports "${PORTS_CHECK_PORTS}")
 fi
-run_capture "ports-check" "${ports_check_command}"
+run_capture "ports-check" "${ports_check_command[@]}"
 
 doctor_args=()
 pipeline_args=()
@@ -245,20 +245,20 @@ if [[ "${SKIP_DOCS_CHECK}" == false ]] && [[ "${DOCS_INCLUDE_COMMON}" == true ]]
   doctor_args+=(--docs-include-common)
   pipeline_args+=(--docs-include-common)
 fi
-run_capture "doctor" "\"${SCRIPT_DIR}/doctor.sh\" ${doctor_args[*]}"
-run_capture "pipeline-check" "\"${SCRIPT_DIR}/pipeline-check.sh\" ${pipeline_args[*]}"
-run_capture "status" "\"${SCRIPT_DIR}/status.sh\""
+run_capture "doctor" "${SCRIPT_DIR}/doctor.sh" "${doctor_args[@]}"
+run_capture "pipeline-check" "${SCRIPT_DIR}/pipeline-check.sh" "${pipeline_args[@]}"
+run_capture "status" "${SCRIPT_DIR}/status.sh"
 
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-  run_capture "docker-info" "docker info"
-  run_capture "compose-ps" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" ps"
-  run_capture "compose-config" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" config"
-  run_capture "logs-caddy" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" logs --tail 200 caddy"
-  run_capture "logs-frontend" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" logs --tail 200 frontend"
-  run_capture "logs-backend" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" logs --tail 200 backend"
-  run_capture "logs-ai-agent-platform" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" logs --tail 200 ai-agent-platform"
-  run_capture "logs-postgres" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" logs --tail 200 postgres"
-  run_capture "logs-redis" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" logs --tail 200 redis"
+  run_capture "docker-info" docker info
+  run_capture "compose-ps" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" ps
+  run_capture "compose-config" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" config
+  run_capture "logs-caddy" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" logs --tail 200 caddy
+  run_capture "logs-frontend" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" logs --tail 200 frontend
+  run_capture "logs-backend" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" logs --tail 200 backend
+  run_capture "logs-ai-agent-platform" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" logs --tail 200 ai-agent-platform
+  run_capture "logs-postgres" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" logs --tail 200 postgres
+  run_capture "logs-redis" docker compose --env-file "${active_env_file}" -f "${active_compose_file}" logs --tail 200 redis
 else
   log_bundle "Docker daemon unavailable; skipping compose-specific captures."
 fi
