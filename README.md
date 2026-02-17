@@ -279,6 +279,15 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: runtime checks with custom ports-check targets
 ./deploy/ec2/scripts/preflight.sh --with-runtime-checks --ports-check-ports 80,443,8100
 
+# Optional: validate image builds before deployment
+./deploy/ec2/scripts/build-check.sh
+
+# Optional: validate image builds with pull/no-cache
+./deploy/ec2/scripts/build-check.sh --pull --no-cache
+
+# Optional: validate selected image builds in dry-run mode
+./deploy/ec2/scripts/build-check.sh --service backend --service frontend --dry-run
+
 # Optional: confirm domain DNS resolution before cutover
 ./deploy/ec2/scripts/dns-check.sh
 

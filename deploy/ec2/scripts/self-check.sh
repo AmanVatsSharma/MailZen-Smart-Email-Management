@@ -18,6 +18,7 @@ scripts=(
   "menu.sh"
   "setup.sh"
   "preflight.sh"
+  "build-check.sh"
   "deploy.sh"
   "update.sh"
   "verify.sh"

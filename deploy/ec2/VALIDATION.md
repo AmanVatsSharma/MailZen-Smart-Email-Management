@@ -32,6 +32,12 @@ Run from repository root:
 # Optional: config-only validation when daemon is unavailable
 ./deploy/ec2/scripts/preflight.sh --config-only
 
+# Image build validation for buildable app services
+./deploy/ec2/scripts/build-check.sh
+
+# Optional: build-validation rehearsal
+./deploy/ec2/scripts/build-check.sh --service backend --service frontend --dry-run
+
 # Optional CI chain (seeded env + config checks)
 ./deploy/ec2/scripts/pipeline-check.sh --seed-env
 ```

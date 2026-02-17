@@ -29,6 +29,7 @@ Additional deployment flowcharts:
   - `menu.sh` (interactive operator menu)
   - `setup.sh`
   - `preflight.sh`
+  - `build-check.sh` (image build validation for backend/frontend/ai-agent-platform)
   - `deploy.sh`
   - `update.sh`
   - `verify.sh` (post-deploy smoke checks)
@@ -69,12 +70,13 @@ flowchart TD
   D --> E[Run ssl-check.sh]
   E --> F[Run ports-check.sh]
   F --> G[Run preflight.sh]
-  G --> H[Run deploy.sh]
-  H --> I[docker compose build + up]
-  I --> J[caddy enables HTTPS for domain]
-  J --> K[Run verify.sh]
-  K --> L[Run runtime-smoke.sh]
-  L --> M[Use status/logs/restart/stop scripts for ops]
+  G --> H[Run build-check.sh optional]
+  H --> I[Run deploy.sh]
+  I --> J[docker compose build + up]
+  J --> K[caddy enables HTTPS for domain]
+  K --> L[Run verify.sh]
+  L --> M[Run runtime-smoke.sh]
+  M --> N[Use status/logs/restart/stop scripts for ops]
 ```
 
 ## First-time setup
@@ -163,6 +165,7 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 ./deploy/ec2/scripts/setup.sh
 ./deploy/ec2/scripts/preflight.sh
+./deploy/ec2/scripts/build-check.sh --dry-run
 ./deploy/ec2/scripts/deploy.sh
 ./deploy/ec2/scripts/verify.sh
 ```
@@ -221,6 +224,15 @@ Example:
 
 # Extended runtime checks with custom port targets
 ./deploy/ec2/scripts/preflight.sh --with-runtime-checks --ports-check-ports 80,443,8100
+
+# Build validation for buildable app services
+./deploy/ec2/scripts/build-check.sh
+
+# Build validation with pull/no-cache
+./deploy/ec2/scripts/build-check.sh --pull --no-cache
+
+# Build validation subset dry-run
+./deploy/ec2/scripts/build-check.sh --service backend --service frontend --dry-run
 
 # Extended runtime checks with selective skips
 ./deploy/ec2/scripts/preflight.sh --with-runtime-checks --skip-dns-check --skip-ssl-check

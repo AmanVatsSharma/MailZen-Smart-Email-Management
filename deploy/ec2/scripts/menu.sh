@@ -90,7 +90,8 @@ show_menu() {
 31) Restart services (guided)
 32) Stop stack (guided)
 33) Runtime smoke checks (container-internal, guided)
-34) Exit
+34) Build images check (guided)
+35) Exit
 ===============================================================================
 MENU
 }
@@ -103,7 +104,7 @@ fi
 
 while true; do
   show_menu
-  read -r -p "Select an option [1-34]: " choice
+  read -r -p "Select an option [1-35]: " choice
 
   case "${choice}" in
   1)
@@ -726,11 +727,37 @@ while true; do
     run_step "runtime-smoke.sh" "${runtime_smoke_args[@]}"
     ;;
   34)
+    build_check_args=()
+    build_services_csv="$(prompt_with_default "Build services (comma-separated: backend,frontend,ai-agent-platform; blank = all buildable)" "")"
+    if [[ -n "${build_services_csv}" ]]; then
+      IFS=',' read -r -a build_services_array <<<"${build_services_csv}"
+      for build_service in "${build_services_array[@]}"; do
+        build_service_trimmed="$(echo "${build_service}" | tr -d '[:space:]')"
+        if [[ -n "${build_service_trimmed}" ]]; then
+          build_check_args+=(--service "${build_service_trimmed}")
+        fi
+      done
+    fi
+    if prompt_yes_no "Pull newer base images during build check" "no"; then
+      build_check_args+=(--pull)
+    fi
+    if prompt_yes_no "Disable Docker build cache during build check" "no"; then
+      build_check_args+=(--no-cache)
+    fi
+    if prompt_yes_no "Skip compose config validation before build check" "no"; then
+      build_check_args+=(--skip-config-check)
+    fi
+    if prompt_yes_no "Run build check in dry-run mode" "yes"; then
+      build_check_args+=(--dry-run)
+    fi
+    run_step "build-check.sh" "${build_check_args[@]}"
+    ;;
+  35)
     echo "[mailzen-deploy][INFO] Exiting menu."
     exit 0
     ;;
   *)
-    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-34."
+    echo "[mailzen-deploy][WARN] Invalid option '${choice}'. Please choose 1-35."
     ;;
   esac
 done

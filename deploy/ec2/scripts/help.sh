@@ -38,6 +38,9 @@ Primary flow:
   ./deploy/ec2/scripts/launch.sh --status-runtime-checks --status-skip-host-readiness --status-skip-ports-check
   ./deploy/ec2/scripts/preflight.sh
   ./deploy/ec2/scripts/preflight.sh --with-runtime-checks --ports-check-ports 80,443,8100
+  ./deploy/ec2/scripts/build-check.sh
+  ./deploy/ec2/scripts/build-check.sh --pull --no-cache
+  ./deploy/ec2/scripts/build-check.sh --service backend --service frontend --dry-run
   ./deploy/ec2/scripts/deploy.sh
   ./deploy/ec2/scripts/deploy.sh --no-build --pull --force-recreate
   ./deploy/ec2/scripts/deploy.sh --config-only
