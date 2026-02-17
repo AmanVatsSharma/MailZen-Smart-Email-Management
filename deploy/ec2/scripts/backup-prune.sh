@@ -26,6 +26,7 @@ KEEP_COUNT_FLAG_SET=false
 KEEP_COUNT_FLAG_VALUE=""
 LABEL_FLAG_SET=false
 LABEL_FLAG_VALUE=""
+DRY_RUN_FLAG_SET=false
 
 if [[ $# -gt 0 ]] && [[ ! "$1" =~ ^-- ]]; then
   KEEP_COUNT="$1"
@@ -54,7 +55,11 @@ while [[ $# -gt 0 ]]; do
     shift 2
     ;;
   --dry-run)
+    if [[ "${DRY_RUN_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --dry-run flag detected; prune deletions remain disabled."
+    fi
     DRY_RUN=true
+    DRY_RUN_FLAG_SET=true
     shift
     ;;
   --label)
@@ -112,6 +117,7 @@ if [[ "${#backup_glob[@]}" -eq 0 ]]; then
 fi
 
 mapfile -t backup_files < <(ls -1t "${backup_glob[@]}" 2>/dev/null || true)
+log_info "Command preview: $(format_command_for_logs ls -1t "${backup_glob[@]}")"
 
 total_count="${#backup_files[@]}"
 if [[ "${total_count}" -le "${KEEP_COUNT}" ]]; then

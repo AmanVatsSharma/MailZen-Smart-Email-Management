@@ -20,6 +20,7 @@ BACKUP_DIR="${DEPLOY_DIR}/backups"
 LATEST_ONLY=false
 MAX_COUNT=""
 LABEL_FILTER=""
+LATEST_FLAG_SET=false
 COUNT_FLAG_SET=false
 COUNT_FLAG_VALUE=""
 LABEL_FLAG_SET=false
@@ -28,7 +29,11 @@ LABEL_FLAG_VALUE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --latest)
+    if [[ "${LATEST_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --latest flag detected; newest backup-only mode remains enabled."
+    fi
     LATEST_ONLY=true
+    LATEST_FLAG_SET=true
     shift
     ;;
   --count)
@@ -109,6 +114,7 @@ if [[ "${#backup_files[@]}" -eq 0 ]]; then
 fi
 
 mapfile -t sorted_backups < <(ls -1t "${backup_files[@]}" 2>/dev/null || true)
+log_info "Command preview: $(format_command_for_logs ls -1t "${backup_files[@]}")"
 
 if [[ "${#sorted_backups[@]}" -eq 0 ]]; then
   log_warn "No backup files found in ${BACKUP_DIR}"
@@ -125,4 +131,5 @@ if [[ -n "${LABEL_FILTER}" ]]; then
   echo "[mailzen-deploy][BACKUP-LIST] Label filter: ${LABEL_FILTER}"
 fi
 echo "[mailzen-deploy][BACKUP-LIST] Showing ${display_count} backup(s)."
+log_info "Command preview: $(format_command_for_logs ls -lh "${sorted_backups[@]}")"
 ls -lh "${sorted_backups[@]}"
