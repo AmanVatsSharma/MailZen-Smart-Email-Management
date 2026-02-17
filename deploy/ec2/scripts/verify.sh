@@ -61,11 +61,19 @@ while [[ $# -gt 0 ]]; do
       log_error "--max-retries requires a value."
       exit 1
     fi
-    if [[ "${MAX_RETRIES_FLAG_SET}" == true ]] && [[ "${max_retries_arg}" != "${MAX_RETRIES_FLAG_VALUE}" ]]; then
-      log_warn "Earlier --max-retries '${MAX_RETRIES_FLAG_VALUE}' overridden by --max-retries '${max_retries_arg}'."
+    if [[ "${MAX_RETRIES_FLAG_SET}" == true ]]; then
+      if [[ "${max_retries_arg}" != "${MAX_RETRIES_FLAG_VALUE}" ]]; then
+        log_warn "Earlier --max-retries '${MAX_RETRIES_FLAG_VALUE}' overridden by --max-retries '${max_retries_arg}'."
+      else
+        log_warn "Duplicate --max-retries flag detected; keeping --max-retries '${max_retries_arg}'."
+      fi
     fi
-    if [[ "${POSITIONAL_MAX_RETRIES_SET}" == true ]] && [[ "${max_retries_arg}" != "${POSITIONAL_MAX_RETRIES_VALUE}" ]]; then
-      log_warn "Positional max retries '${POSITIONAL_MAX_RETRIES_VALUE}' overridden by --max-retries '${max_retries_arg}'."
+    if [[ "${POSITIONAL_MAX_RETRIES_SET}" == true ]]; then
+      if [[ "${max_retries_arg}" != "${POSITIONAL_MAX_RETRIES_VALUE}" ]]; then
+        log_warn "Positional max retries '${POSITIONAL_MAX_RETRIES_VALUE}' overridden by --max-retries '${max_retries_arg}'."
+      else
+        log_warn "Positional max retries '${POSITIONAL_MAX_RETRIES_VALUE}' matches --max-retries '${max_retries_arg}'; positional value remains unchanged."
+      fi
     fi
     MAX_RETRIES="${max_retries_arg}"
     MAX_RETRIES_FLAG_SET=true
@@ -78,11 +86,19 @@ while [[ $# -gt 0 ]]; do
       log_error "--retry-sleep requires a value."
       exit 1
     fi
-    if [[ "${RETRY_SLEEP_FLAG_SET}" == true ]] && [[ "${retry_sleep_arg}" != "${RETRY_SLEEP_FLAG_VALUE}" ]]; then
-      log_warn "Earlier --retry-sleep '${RETRY_SLEEP_FLAG_VALUE}' overridden by --retry-sleep '${retry_sleep_arg}'."
+    if [[ "${RETRY_SLEEP_FLAG_SET}" == true ]]; then
+      if [[ "${retry_sleep_arg}" != "${RETRY_SLEEP_FLAG_VALUE}" ]]; then
+        log_warn "Earlier --retry-sleep '${RETRY_SLEEP_FLAG_VALUE}' overridden by --retry-sleep '${retry_sleep_arg}'."
+      else
+        log_warn "Duplicate --retry-sleep flag detected; keeping --retry-sleep '${retry_sleep_arg}'."
+      fi
     fi
-    if [[ "${POSITIONAL_RETRY_SLEEP_SET}" == true ]] && [[ "${retry_sleep_arg}" != "${POSITIONAL_RETRY_SLEEP_VALUE}" ]]; then
-      log_warn "Positional retry sleep '${POSITIONAL_RETRY_SLEEP_VALUE}' overridden by --retry-sleep '${retry_sleep_arg}'."
+    if [[ "${POSITIONAL_RETRY_SLEEP_SET}" == true ]]; then
+      if [[ "${retry_sleep_arg}" != "${POSITIONAL_RETRY_SLEEP_VALUE}" ]]; then
+        log_warn "Positional retry sleep '${POSITIONAL_RETRY_SLEEP_VALUE}' overridden by --retry-sleep '${retry_sleep_arg}'."
+      else
+        log_warn "Positional retry sleep '${POSITIONAL_RETRY_SLEEP_VALUE}' matches --retry-sleep '${retry_sleep_arg}'; positional value remains unchanged."
+      fi
     fi
     RETRY_SLEEP_SECONDS="${retry_sleep_arg}"
     RETRY_SLEEP_FLAG_SET=true
