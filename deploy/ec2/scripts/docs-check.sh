@@ -20,15 +20,25 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 STRICT_COVERAGE=false
 INCLUDE_COMMON=false
+STRICT_COVERAGE_FLAG_SET=false
+INCLUDE_COMMON_FLAG_SET=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --strict-coverage)
+    if [[ "${STRICT_COVERAGE_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --strict-coverage flag detected; strict docs coverage remains enabled."
+    fi
     STRICT_COVERAGE=true
+    STRICT_COVERAGE_FLAG_SET=true
     shift
     ;;
   --include-common)
+    if [[ "${INCLUDE_COMMON_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --include-common flag detected; common helper coverage remains enabled."
+    fi
     INCLUDE_COMMON=true
+    INCLUDE_COMMON_FLAG_SET=true
     shift
     ;;
   *)
