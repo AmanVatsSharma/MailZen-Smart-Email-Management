@@ -78,7 +78,7 @@ show_menu() {
 19) Run diagnostics report (doctor, optional custom ports)
 20) Generate support bundle (optional custom ports)
 21) Rotate app secrets (prompt keys/dry-run)
-22) Run pipeline check (config-only, optional custom ports)
+22) Run pipeline check (optional runtime-smoke + custom ports)
 23) Prune old diagnostics reports (keep latest 20)
 24) Show command help
 25) Run script self-check
@@ -86,7 +86,7 @@ show_menu() {
 27) Verify deployment (skip oauth + ssl checks)
 28) Run diagnostics report (doctor, seeded env, optional custom ports)
 29) Generate support bundle (seeded env, optional custom ports)
-30) Run pipeline check (seeded env, optional custom ports)
+30) Run pipeline check (seeded env, optional runtime-smoke + custom ports)
 31) Restart services (guided)
 32) Stop stack (guided)
 33) Runtime smoke checks (container-internal, guided)
@@ -561,6 +561,34 @@ while true; do
     if [[ -n "${pipeline_ports}" ]]; then
       pipeline_check_args+=(--ports-check-ports "${pipeline_ports}")
     fi
+    if prompt_yes_no "Run runtime smoke checks after pipeline validation" "no"; then
+      pipeline_check_args+=(--with-runtime-smoke)
+      pipeline_runtime_retries="$(prompt_with_default "Runtime smoke max retries (blank = default)" "")"
+      if [[ -n "${pipeline_runtime_retries}" ]]; then
+        if [[ "${pipeline_runtime_retries}" =~ ^[0-9]+$ ]] && [[ "${pipeline_runtime_retries}" -gt 0 ]]; then
+          pipeline_check_args+=(--runtime-smoke-max-retries "${pipeline_runtime_retries}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid runtime smoke max retries value: ${pipeline_runtime_retries}"
+        fi
+      fi
+      pipeline_runtime_retry_sleep="$(prompt_with_default "Runtime smoke retry sleep seconds (blank = default)" "")"
+      if [[ -n "${pipeline_runtime_retry_sleep}" ]]; then
+        if [[ "${pipeline_runtime_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${pipeline_runtime_retry_sleep}" -gt 0 ]]; then
+          pipeline_check_args+=(--runtime-smoke-retry-sleep "${pipeline_runtime_retry_sleep}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid runtime smoke retry sleep value: ${pipeline_runtime_retry_sleep}"
+        fi
+      fi
+      if prompt_yes_no "Skip compose status snapshot in runtime smoke checks" "no"; then
+        pipeline_check_args+=(--runtime-smoke-skip-compose-ps)
+      fi
+      if prompt_yes_no "Skip backend dependency check in runtime smoke checks" "no"; then
+        pipeline_check_args+=(--runtime-smoke-skip-backend-dependency-check)
+      fi
+      if prompt_yes_no "Run runtime smoke checks in dry-run mode" "no"; then
+        pipeline_check_args+=(--runtime-smoke-dry-run)
+      fi
+    fi
     run_step "pipeline-check.sh" "${pipeline_check_args[@]}"
     ;;
   23)
@@ -604,6 +632,34 @@ while true; do
     pipeline_seeded_ports="$(prompt_with_default "Custom ports-check targets for seeded pipeline check (blank = default)" "")"
     if [[ -n "${pipeline_seeded_ports}" ]]; then
       pipeline_seeded_args+=(--ports-check-ports "${pipeline_seeded_ports}")
+    fi
+    if prompt_yes_no "Run runtime smoke checks after seeded pipeline validation" "no"; then
+      pipeline_seeded_args+=(--with-runtime-smoke)
+      pipeline_seeded_runtime_retries="$(prompt_with_default "Runtime smoke max retries (blank = default)" "")"
+      if [[ -n "${pipeline_seeded_runtime_retries}" ]]; then
+        if [[ "${pipeline_seeded_runtime_retries}" =~ ^[0-9]+$ ]] && [[ "${pipeline_seeded_runtime_retries}" -gt 0 ]]; then
+          pipeline_seeded_args+=(--runtime-smoke-max-retries "${pipeline_seeded_runtime_retries}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid runtime smoke max retries value: ${pipeline_seeded_runtime_retries}"
+        fi
+      fi
+      pipeline_seeded_runtime_retry_sleep="$(prompt_with_default "Runtime smoke retry sleep seconds (blank = default)" "")"
+      if [[ -n "${pipeline_seeded_runtime_retry_sleep}" ]]; then
+        if [[ "${pipeline_seeded_runtime_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${pipeline_seeded_runtime_retry_sleep}" -gt 0 ]]; then
+          pipeline_seeded_args+=(--runtime-smoke-retry-sleep "${pipeline_seeded_runtime_retry_sleep}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid runtime smoke retry sleep value: ${pipeline_seeded_runtime_retry_sleep}"
+        fi
+      fi
+      if prompt_yes_no "Skip compose status snapshot in runtime smoke checks" "no"; then
+        pipeline_seeded_args+=(--runtime-smoke-skip-compose-ps)
+      fi
+      if prompt_yes_no "Skip backend dependency check in runtime smoke checks" "no"; then
+        pipeline_seeded_args+=(--runtime-smoke-skip-backend-dependency-check)
+      fi
+      if prompt_yes_no "Run runtime smoke checks in dry-run mode" "no"; then
+        pipeline_seeded_args+=(--runtime-smoke-dry-run)
+      fi
     fi
     run_step "pipeline-check.sh" "${pipeline_seeded_args[@]}"
     ;;

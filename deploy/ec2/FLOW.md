@@ -110,5 +110,8 @@ flowchart TD
   - `pipeline-check.sh --seed-env`
 - Use `rotate-app-secrets.sh` for controlled JWT/OAuth/platform key rotation.
 - Run `pipeline-check.sh` for CI/config-only deployment validation.
+- Use `pipeline-check.sh --with-runtime-smoke` to chain config checks with
+  container-internal runtime validation (optionally `--runtime-smoke-dry-run`
+  when daemon/runtime is unavailable).
 - Run `help.sh` for quick operator command lookup.
 - Use `self-check.sh` after editing deployment scripts.

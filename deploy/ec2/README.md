@@ -40,7 +40,7 @@ Additional deployment flowcharts:
   - `doctor.sh` (generate diagnostics report for support)
   - `support-bundle.sh` (collect support-ready diagnostics archive)
   - `rotate-app-secrets.sh` (rotate JWT/OAuth/platform secrets)
-  - `pipeline-check.sh` (CI/config-only deployment validation sequence)
+  - `pipeline-check.sh` (CI validation sequence with optional runtime-smoke chaining)
   - `reports-prune.sh` (report/support bundle retention cleanup)
   - `help.sh` (command reference quick guide)
   - `self-check.sh` (validate deployment script integrity)
@@ -90,6 +90,7 @@ From repository root:
 # - deploy flags (--no-build/--pull/--force-recreate/--dry-run/--config-only)
 # - verify checks (retries + oauth/ssl toggles)
 # - runtime smoke checks (container-internal retries + dependency toggles)
+# - pipeline checks (with optional runtime-smoke chaining)
 # - logs filters (service/tail/since/follow)
 # - restart/stop operations (service/wait/purge/dry-run/confirmation controls)
 
@@ -365,6 +366,15 @@ Example:
 
 # Run pipeline checks with custom ports-check targets
 ./deploy/ec2/scripts/pipeline-check.sh --ports-check-ports 80,443,8100
+
+# Run pipeline checks plus runtime smoke checks (dry-run)
+./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke --runtime-smoke-dry-run
+
+# Run pipeline checks plus runtime smoke checks with tuned retries
+./deploy/ec2/scripts/pipeline-check.sh \
+  --with-runtime-smoke \
+  --runtime-smoke-max-retries 15 \
+  --runtime-smoke-retry-sleep 4
 
 # Show command quick-reference
 ./deploy/ec2/scripts/help.sh

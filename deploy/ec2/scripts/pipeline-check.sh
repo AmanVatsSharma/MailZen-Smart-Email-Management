@@ -10,6 +10,9 @@
 #   ./deploy/ec2/scripts/pipeline-check.sh
 #   ./deploy/ec2/scripts/pipeline-check.sh --seed-env
 #   ./deploy/ec2/scripts/pipeline-check.sh --ports-check-ports 80,443,8100
+#   ./deploy/ec2/scripts/pipeline-check.sh --seed-env --with-runtime-smoke --runtime-smoke-dry-run
+#   ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke --runtime-smoke-max-retries 15 --runtime-smoke-retry-sleep 4
+#   ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -22,6 +25,16 @@ SEEDED_ENV_FILE=""
 PORTS_CHECK_PORTS=""
 PORTS_CHECK_FLAG_SET=false
 PORTS_CHECK_FLAG_VALUE=""
+RUN_RUNTIME_SMOKE=false
+RUNTIME_SMOKE_MAX_RETRIES=""
+RUNTIME_SMOKE_RETRY_SLEEP=""
+RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK=false
+RUNTIME_SMOKE_SKIP_COMPOSE_PS=false
+RUNTIME_SMOKE_DRY_RUN=false
+RUNTIME_SMOKE_MAX_RETRIES_FLAG_SET=false
+RUNTIME_SMOKE_RETRY_SLEEP_FLAG_SET=false
+RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE=""
+RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE=""
 
 cleanup() {
   if [[ -n "${SEEDED_ENV_FILE}" ]] && [[ "${KEEP_SEEDED_ENV}" == false ]] && [[ -f "${SEEDED_ENV_FILE}" ]]; then
@@ -55,9 +68,53 @@ while [[ $# -gt 0 ]]; do
     PORTS_CHECK_FLAG_VALUE="${ports_check_ports_arg}"
     shift 2
     ;;
+  --with-runtime-smoke)
+    RUN_RUNTIME_SMOKE=true
+    shift
+    ;;
+  --runtime-smoke-max-retries)
+    runtime_smoke_max_retries_arg="${2:-}"
+    if [[ -z "${runtime_smoke_max_retries_arg}" ]]; then
+      echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] --runtime-smoke-max-retries requires a value."
+      exit 1
+    fi
+    if [[ "${RUNTIME_SMOKE_MAX_RETRIES_FLAG_SET}" == true ]] && [[ "${runtime_smoke_max_retries_arg}" != "${RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE}" ]]; then
+      echo "[mailzen-deploy][PIPELINE-CHECK][WARN] Earlier --runtime-smoke-max-retries '${RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE}' overridden by --runtime-smoke-max-retries '${runtime_smoke_max_retries_arg}'."
+    fi
+    RUNTIME_SMOKE_MAX_RETRIES="${runtime_smoke_max_retries_arg}"
+    RUNTIME_SMOKE_MAX_RETRIES_FLAG_SET=true
+    RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE="${runtime_smoke_max_retries_arg}"
+    shift 2
+    ;;
+  --runtime-smoke-retry-sleep)
+    runtime_smoke_retry_sleep_arg="${2:-}"
+    if [[ -z "${runtime_smoke_retry_sleep_arg}" ]]; then
+      echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] --runtime-smoke-retry-sleep requires a value."
+      exit 1
+    fi
+    if [[ "${RUNTIME_SMOKE_RETRY_SLEEP_FLAG_SET}" == true ]] && [[ "${runtime_smoke_retry_sleep_arg}" != "${RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE}" ]]; then
+      echo "[mailzen-deploy][PIPELINE-CHECK][WARN] Earlier --runtime-smoke-retry-sleep '${RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE}' overridden by --runtime-smoke-retry-sleep '${runtime_smoke_retry_sleep_arg}'."
+    fi
+    RUNTIME_SMOKE_RETRY_SLEEP="${runtime_smoke_retry_sleep_arg}"
+    RUNTIME_SMOKE_RETRY_SLEEP_FLAG_SET=true
+    RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE="${runtime_smoke_retry_sleep_arg}"
+    shift 2
+    ;;
+  --runtime-smoke-skip-backend-dependency-check)
+    RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK=true
+    shift
+    ;;
+  --runtime-smoke-skip-compose-ps)
+    RUNTIME_SMOKE_SKIP_COMPOSE_PS=true
+    shift
+    ;;
+  --runtime-smoke-dry-run)
+    RUNTIME_SMOKE_DRY_RUN=true
+    shift
+    ;;
   *)
     echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] Unknown argument: $1"
-    echo "[mailzen-deploy][PIPELINE-CHECK][INFO] Supported flags: --seed-env --keep-seeded-env --ports-check-ports <p1,p2,...>"
+    echo "[mailzen-deploy][PIPELINE-CHECK][INFO] Supported flags: --seed-env --keep-seeded-env --ports-check-ports <p1,p2,...> --with-runtime-smoke --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --runtime-smoke-dry-run"
     exit 1
     ;;
   esac
@@ -66,6 +123,15 @@ done
 if [[ "${SEED_ENV}" == false ]] && [[ "${KEEP_SEEDED_ENV}" == true ]]; then
   echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] --keep-seeded-env requires --seed-env"
   exit 1
+fi
+
+if [[ "${RUN_RUNTIME_SMOKE}" == false ]] &&
+  { [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]] ||
+    [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]] ||
+    [[ "${RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK}" == true ]] ||
+    [[ "${RUNTIME_SMOKE_SKIP_COMPOSE_PS}" == true ]] ||
+    [[ "${RUNTIME_SMOKE_DRY_RUN}" == true ]]; }; then
+  echo "[mailzen-deploy][PIPELINE-CHECK][WARN] Runtime-smoke-specific flags were provided without --with-runtime-smoke; they will be ignored."
 fi
 
 seed_env_file() {
@@ -86,6 +152,9 @@ echo "[mailzen-deploy][PIPELINE-CHECK] Active compose file: $(get_compose_file)"
 if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
   echo "[mailzen-deploy][PIPELINE-CHECK] Custom ports-check targets: ${PORTS_CHECK_PORTS}"
 fi
+if [[ "${RUN_RUNTIME_SMOKE}" == true ]]; then
+  echo "[mailzen-deploy][PIPELINE-CHECK] Runtime smoke checks enabled."
+fi
 
 "${SCRIPT_DIR}/self-check.sh"
 "${SCRIPT_DIR}/env-audit.sh"
@@ -99,5 +168,26 @@ fi
 
 echo "[mailzen-deploy][PIPELINE-CHECK] rendering compose config..."
 compose config >/dev/null
+
+if [[ "${RUN_RUNTIME_SMOKE}" == true ]]; then
+  runtime_smoke_args=()
+  if [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]]; then
+    runtime_smoke_args+=(--max-retries "${RUNTIME_SMOKE_MAX_RETRIES}")
+  fi
+  if [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]]; then
+    runtime_smoke_args+=(--retry-sleep "${RUNTIME_SMOKE_RETRY_SLEEP}")
+  fi
+  if [[ "${RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK}" == true ]]; then
+    runtime_smoke_args+=(--skip-backend-dependency-check)
+  fi
+  if [[ "${RUNTIME_SMOKE_SKIP_COMPOSE_PS}" == true ]]; then
+    runtime_smoke_args+=(--skip-compose-ps)
+  fi
+  if [[ "${RUNTIME_SMOKE_DRY_RUN}" == true ]]; then
+    runtime_smoke_args+=(--dry-run)
+  fi
+  echo "[mailzen-deploy][PIPELINE-CHECK] running runtime smoke checks..."
+  "${SCRIPT_DIR}/runtime-smoke.sh" "${runtime_smoke_args[@]}"
+fi
 
 echo "[mailzen-deploy][PIPELINE-CHECK] PASS"
