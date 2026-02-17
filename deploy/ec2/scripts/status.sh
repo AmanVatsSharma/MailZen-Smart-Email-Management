@@ -44,34 +44,51 @@ RUNTIME_SMOKE_MAX_RETRIES_FLAG_SET=false
 RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE=""
 RUNTIME_SMOKE_RETRY_SLEEP_FLAG_SET=false
 RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE=""
+declare -A FLAG_SEEN=()
+
+mark_duplicate_flag() {
+  local flag_name="$1"
+  local warning_message="$2"
+  if [[ -n "${FLAG_SEEN[${flag_name}]:-}" ]]; then
+    log_warn "${warning_message}"
+  fi
+  FLAG_SEEN["${flag_name}"]=1
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --strict)
+    mark_duplicate_flag "--strict" "Duplicate --strict flag detected; strict mode remains enabled."
     STRICT=true
     shift
     ;;
   --with-runtime-checks)
+    mark_duplicate_flag "--with-runtime-checks" "Duplicate --with-runtime-checks flag detected; runtime checks remain enabled."
     WITH_RUNTIME_CHECKS=true
     shift
     ;;
   --with-runtime-smoke)
+    mark_duplicate_flag "--with-runtime-smoke" "Duplicate --with-runtime-smoke flag detected; runtime-smoke checks remain enabled."
     WITH_RUNTIME_SMOKE=true
     shift
     ;;
   --skip-host-readiness)
+    mark_duplicate_flag "--skip-host-readiness" "Duplicate --skip-host-readiness flag detected; host-readiness checks remain skipped."
     RUN_HOST_READINESS=false
     shift
     ;;
   --skip-dns-check)
+    mark_duplicate_flag "--skip-dns-check" "Duplicate --skip-dns-check flag detected; DNS checks remain skipped."
     RUN_DNS_CHECK=false
     shift
     ;;
   --skip-ssl-check)
+    mark_duplicate_flag "--skip-ssl-check" "Duplicate --skip-ssl-check flag detected; SSL checks remain skipped."
     RUN_SSL_CHECK=false
     shift
     ;;
   --skip-ports-check)
+    mark_duplicate_flag "--skip-ports-check" "Duplicate --skip-ports-check flag detected; ports checks remain skipped."
     RUN_PORTS_CHECK=false
     shift
     ;;
@@ -118,14 +135,17 @@ while [[ $# -gt 0 ]]; do
     shift 2
     ;;
   --runtime-smoke-skip-backend-dependency-check)
+    mark_duplicate_flag "--runtime-smoke-skip-backend-dependency-check" "Duplicate --runtime-smoke-skip-backend-dependency-check flag detected; backend dependency checks remain skipped."
     RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK=true
     shift
     ;;
   --runtime-smoke-skip-compose-ps)
+    mark_duplicate_flag "--runtime-smoke-skip-compose-ps" "Duplicate --runtime-smoke-skip-compose-ps flag detected; runtime-smoke compose snapshot remains skipped."
     RUNTIME_SMOKE_SKIP_COMPOSE_PS=true
     shift
     ;;
   --runtime-smoke-dry-run)
+    mark_duplicate_flag "--runtime-smoke-dry-run" "Duplicate --runtime-smoke-dry-run flag detected; runtime-smoke dry-run mode remains enabled."
     RUNTIME_SMOKE_DRY_RUN=true
     shift
     ;;
