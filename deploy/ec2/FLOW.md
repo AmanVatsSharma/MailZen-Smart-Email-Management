@@ -84,6 +84,9 @@ flowchart TD
 - For one-command wrappers, use optional chaining:
   - `launch.sh --with-build-check --with-runtime-smoke`
   - `update.sh --with-build-check --with-runtime-smoke`
+- For day-2 health snapshots with deeper runtime validation:
+  - `status.sh --with-runtime-smoke --runtime-smoke-dry-run`
+  - `status.sh --with-runtime-smoke --runtime-smoke-max-retries 15 --runtime-smoke-retry-sleep 4`
 - Use `verify.sh --require-oauth-check` when OAuth must be enforced in smoke checks.
 - Use `verify.sh --skip-oauth-check --skip-ssl-check` only for controlled break-glass checks.
 - Take a fresh labeled backup before risky changes:

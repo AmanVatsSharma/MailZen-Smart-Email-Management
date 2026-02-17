@@ -8,11 +8,17 @@
 # Optional flags:
 #   --strict                return non-zero when daemon is unavailable
 #   --with-runtime-checks   run host/dns/ssl/ports checks
+#   --with-runtime-smoke    run runtime-smoke checks after status/runtime checks
 #   --skip-host-readiness
 #   --skip-dns-check
 #   --skip-ssl-check
 #   --skip-ports-check
 #   --ports-check-ports <p1,p2,...>
+#   --runtime-smoke-max-retries <n>
+#   --runtime-smoke-retry-sleep <n>
+#   --runtime-smoke-skip-backend-dependency-check
+#   --runtime-smoke-skip-compose-ps
+#   --runtime-smoke-dry-run
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -21,13 +27,23 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STRICT=false
 WITH_RUNTIME_CHECKS=false
+WITH_RUNTIME_SMOKE=false
 RUN_HOST_READINESS=true
 RUN_DNS_CHECK=true
 RUN_SSL_CHECK=true
 RUN_PORTS_CHECK=true
 PORTS_CHECK_PORTS=""
+RUNTIME_SMOKE_MAX_RETRIES=""
+RUNTIME_SMOKE_RETRY_SLEEP=""
+RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK=false
+RUNTIME_SMOKE_SKIP_COMPOSE_PS=false
+RUNTIME_SMOKE_DRY_RUN=false
 PORTS_CHECK_FLAG_SET=false
 PORTS_CHECK_FLAG_VALUE=""
+RUNTIME_SMOKE_MAX_RETRIES_FLAG_SET=false
+RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE=""
+RUNTIME_SMOKE_RETRY_SLEEP_FLAG_SET=false
+RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -37,6 +53,10 @@ while [[ $# -gt 0 ]]; do
     ;;
   --with-runtime-checks)
     WITH_RUNTIME_CHECKS=true
+    shift
+    ;;
+  --with-runtime-smoke)
+    WITH_RUNTIME_SMOKE=true
     shift
     ;;
   --skip-host-readiness)
@@ -69,19 +89,72 @@ while [[ $# -gt 0 ]]; do
     PORTS_CHECK_FLAG_VALUE="${ports_check_ports_arg}"
     shift 2
     ;;
+  --runtime-smoke-max-retries)
+    runtime_smoke_max_retries_arg="${2:-}"
+    if [[ -z "${runtime_smoke_max_retries_arg}" ]]; then
+      log_error "--runtime-smoke-max-retries requires a value."
+      exit 1
+    fi
+    if [[ "${RUNTIME_SMOKE_MAX_RETRIES_FLAG_SET}" == true ]] && [[ "${runtime_smoke_max_retries_arg}" != "${RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --runtime-smoke-max-retries '${RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE}' overridden by --runtime-smoke-max-retries '${runtime_smoke_max_retries_arg}'."
+    fi
+    RUNTIME_SMOKE_MAX_RETRIES="${runtime_smoke_max_retries_arg}"
+    RUNTIME_SMOKE_MAX_RETRIES_FLAG_SET=true
+    RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE="${runtime_smoke_max_retries_arg}"
+    shift 2
+    ;;
+  --runtime-smoke-retry-sleep)
+    runtime_smoke_retry_sleep_arg="${2:-}"
+    if [[ -z "${runtime_smoke_retry_sleep_arg}" ]]; then
+      log_error "--runtime-smoke-retry-sleep requires a value."
+      exit 1
+    fi
+    if [[ "${RUNTIME_SMOKE_RETRY_SLEEP_FLAG_SET}" == true ]] && [[ "${runtime_smoke_retry_sleep_arg}" != "${RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE}" ]]; then
+      log_warn "Earlier --runtime-smoke-retry-sleep '${RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE}' overridden by --runtime-smoke-retry-sleep '${runtime_smoke_retry_sleep_arg}'."
+    fi
+    RUNTIME_SMOKE_RETRY_SLEEP="${runtime_smoke_retry_sleep_arg}"
+    RUNTIME_SMOKE_RETRY_SLEEP_FLAG_SET=true
+    RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE="${runtime_smoke_retry_sleep_arg}"
+    shift 2
+    ;;
+  --runtime-smoke-skip-backend-dependency-check)
+    RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK=true
+    shift
+    ;;
+  --runtime-smoke-skip-compose-ps)
+    RUNTIME_SMOKE_SKIP_COMPOSE_PS=true
+    shift
+    ;;
+  --runtime-smoke-dry-run)
+    RUNTIME_SMOKE_DRY_RUN=true
+    shift
+    ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --strict --with-runtime-checks --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --ports-check-ports <p1,p2,...>"
+    log_error "Supported flags: --strict --with-runtime-checks --with-runtime-smoke --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --ports-check-ports <p1,p2,...> --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --runtime-smoke-dry-run"
     exit 1
     ;;
   esac
 done
+
+if [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]] && { [[ ! "${RUNTIME_SMOKE_MAX_RETRIES}" =~ ^[0-9]+$ ]] || [[ "${RUNTIME_SMOKE_MAX_RETRIES}" -lt 1 ]]; }; then
+  log_error "--runtime-smoke-max-retries must be a positive integer."
+  exit 1
+fi
+if [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]] && { [[ ! "${RUNTIME_SMOKE_RETRY_SLEEP}" =~ ^[0-9]+$ ]] || [[ "${RUNTIME_SMOKE_RETRY_SLEEP}" -lt 1 ]]; }; then
+  log_error "--runtime-smoke-retry-sleep must be a positive integer."
+  exit 1
+fi
 
 if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${WITH_RUNTIME_CHECKS}" == false ]]; then
   log_warn "--ports-check-ports provided without --with-runtime-checks; value will only apply when runtime checks are enabled."
 fi
 if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${WITH_RUNTIME_CHECKS}" == true ]] && [[ "${RUN_PORTS_CHECK}" == false ]]; then
   log_warn "--ports-check-ports has no effect when --skip-ports-check is enabled."
+fi
+if [[ "${WITH_RUNTIME_SMOKE}" == false ]] &&
+  { [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]] || [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]] || [[ "${RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK}" == true ]] || [[ "${RUNTIME_SMOKE_SKIP_COMPOSE_PS}" == true ]] || [[ "${RUNTIME_SMOKE_DRY_RUN}" == true ]]; }; then
+  log_warn "Runtime-smoke flags were provided without --with-runtime-smoke; runtime-smoke flags will be ignored."
 fi
 
 log_info "Checking MailZen deployment status..."
@@ -142,6 +215,27 @@ if [[ "${WITH_RUNTIME_CHECKS}" == true ]]; then
   else
     log_warn "Skipping ports check (--skip-ports-check)."
   fi
+fi
+
+if [[ "${WITH_RUNTIME_SMOKE}" == true ]]; then
+  log_info "Running runtime smoke checks from status script..."
+  runtime_smoke_args=()
+  if [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]]; then
+    runtime_smoke_args+=(--max-retries "${RUNTIME_SMOKE_MAX_RETRIES}")
+  fi
+  if [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]]; then
+    runtime_smoke_args+=(--retry-sleep "${RUNTIME_SMOKE_RETRY_SLEEP}")
+  fi
+  if [[ "${RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK}" == true ]]; then
+    runtime_smoke_args+=(--skip-backend-dependency-check)
+  fi
+  if [[ "${RUNTIME_SMOKE_SKIP_COMPOSE_PS}" == true ]]; then
+    runtime_smoke_args+=(--skip-compose-ps)
+  fi
+  if [[ "${RUNTIME_SMOKE_DRY_RUN}" == true ]]; then
+    runtime_smoke_args+=(--dry-run)
+  fi
+  "${SCRIPT_DIR}/runtime-smoke.sh" "${runtime_smoke_args[@]}"
 fi
 
 print_service_urls

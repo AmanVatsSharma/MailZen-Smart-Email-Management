@@ -59,6 +59,8 @@ Primary flow:
   ./deploy/ec2/scripts/status.sh
   ./deploy/ec2/scripts/status.sh --with-runtime-checks
   ./deploy/ec2/scripts/status.sh --with-runtime-checks --ports-check-ports 80,443,8100
+  ./deploy/ec2/scripts/status.sh --with-runtime-smoke --runtime-smoke-dry-run
+  ./deploy/ec2/scripts/status.sh --with-runtime-smoke --runtime-smoke-max-retries 15 --runtime-smoke-retry-sleep 4
 
 Setup and env:
   ./deploy/ec2/scripts/setup.sh --non-interactive --skip-daemon

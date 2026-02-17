@@ -434,6 +434,12 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: status runtime checks with custom ports-check targets
 ./deploy/ec2/scripts/status.sh --with-runtime-checks --ports-check-ports 80,443,8100
 
+# Optional: status with runtime-smoke checks (dry-run rehearsal)
+./deploy/ec2/scripts/status.sh --with-runtime-smoke --runtime-smoke-dry-run
+
+# Optional: status with runtime-smoke tuned retries
+./deploy/ec2/scripts/status.sh --with-runtime-smoke --runtime-smoke-max-retries 15 --runtime-smoke-retry-sleep 4
+
 # 6) Future updates (includes verify checks)
 ./deploy/ec2/scripts/update.sh
 

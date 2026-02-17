@@ -52,6 +52,9 @@ After deployment (`deploy.sh` or `update.sh`), run:
 
 # Container-internal smoke checks (independent of public DNS/TLS)
 ./deploy/ec2/scripts/runtime-smoke.sh
+
+# Optional: status snapshot with runtime-smoke rehearsal
+./deploy/ec2/scripts/status.sh --with-runtime-smoke --runtime-smoke-dry-run
 ```
 
 Useful runtime variants:

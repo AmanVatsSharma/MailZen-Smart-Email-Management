@@ -63,7 +63,7 @@ show_menu() {
 4) Preflight checks (prompt runtime + skip options)
 5) Deploy stack (guided flags)
 6) Verify deployment (guided checks)
-7) Show status (prompt runtime/strict/skip options)
+7) Show status (prompt runtime/runtime-smoke/strict/skip options)
 8) Show logs (guided filters)
 9) Update stack (fully guided)
 10) Backup database
@@ -400,6 +400,34 @@ while true; do
       if [[ "${status_skip_ports}" == false ]]; then
         status_ports="$(prompt_with_default "Ports for runtime ports-check (comma-separated)" "80,443")"
         status_args+=(--ports-check-ports "${status_ports}")
+      fi
+    fi
+    if prompt_yes_no "Run runtime-smoke checks from status" "no"; then
+      status_args+=(--with-runtime-smoke)
+      status_runtime_smoke_retries="$(prompt_with_default "Runtime-smoke max retries (blank = default)" "")"
+      if [[ -n "${status_runtime_smoke_retries}" ]]; then
+        if [[ "${status_runtime_smoke_retries}" =~ ^[0-9]+$ ]] && [[ "${status_runtime_smoke_retries}" -gt 0 ]]; then
+          status_args+=(--runtime-smoke-max-retries "${status_runtime_smoke_retries}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid runtime-smoke max retries value: ${status_runtime_smoke_retries}"
+        fi
+      fi
+      status_runtime_smoke_retry_sleep="$(prompt_with_default "Runtime-smoke retry sleep seconds (blank = default)" "")"
+      if [[ -n "${status_runtime_smoke_retry_sleep}" ]]; then
+        if [[ "${status_runtime_smoke_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${status_runtime_smoke_retry_sleep}" -gt 0 ]]; then
+          status_args+=(--runtime-smoke-retry-sleep "${status_runtime_smoke_retry_sleep}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid runtime-smoke retry sleep value: ${status_runtime_smoke_retry_sleep}"
+        fi
+      fi
+      if prompt_yes_no "Skip backend dependency check in runtime-smoke stage" "no"; then
+        status_args+=(--runtime-smoke-skip-backend-dependency-check)
+      fi
+      if prompt_yes_no "Skip compose status snapshot in runtime-smoke stage" "no"; then
+        status_args+=(--runtime-smoke-skip-compose-ps)
+      fi
+      if prompt_yes_no "Run runtime-smoke in dry-run mode" "yes"; then
+        status_args+=(--runtime-smoke-dry-run)
       fi
     fi
     if prompt_yes_no "Enable strict mode (fail when daemon unavailable)" "no"; then

@@ -94,6 +94,7 @@ From repository root:
 # - optional build-check chaining in launch/update
 # - verify checks (retries + oauth/ssl toggles)
 # - runtime smoke checks (container-internal retries + dependency toggles)
+# - status runtime-smoke chaining controls
 # - pipeline checks (with optional build-check/runtime-smoke chaining)
 # - logs filters (service/tail/since/follow)
 # - restart/stop operations (service/wait/purge/dry-run/confirmation controls)
@@ -238,6 +239,12 @@ Example:
 
 # Status runtime checks with custom port targets
 ./deploy/ec2/scripts/status.sh --with-runtime-checks --ports-check-ports 80,443,8100
+
+# Status with runtime-smoke checks (dry-run rehearsal)
+./deploy/ec2/scripts/status.sh --with-runtime-smoke --runtime-smoke-dry-run
+
+# Status with runtime-smoke tuned retries
+./deploy/ec2/scripts/status.sh --with-runtime-smoke --runtime-smoke-max-retries 15 --runtime-smoke-retry-sleep 4
 
 # Strict status mode (fail if daemon unavailable)
 ./deploy/ec2/scripts/status.sh --strict
