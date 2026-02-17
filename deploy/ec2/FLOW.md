@@ -79,6 +79,8 @@ flowchart TD
 - Always run `preflight.sh` before deploy/update.
 - Run `build-check.sh` before deploy when validating image-build readiness
   (especially on new hosts/base-image changes).
+- Include image-only service pull validation when needed:
+  - `build-check.sh --with-image-pull-check --dry-run`
 - Prefer `verify.sh` immediately after deploy/update.
 - Prefer `runtime-smoke.sh` after deploy/update to validate container-internal service/runtime dependency health.
 - For one-command wrappers, use optional chaining:

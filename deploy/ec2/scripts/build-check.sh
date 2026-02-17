@@ -9,6 +9,7 @@
 #   ./deploy/ec2/scripts/build-check.sh
 #   ./deploy/ec2/scripts/build-check.sh --service backend --service frontend
 #   ./deploy/ec2/scripts/build-check.sh --pull --no-cache
+#   ./deploy/ec2/scripts/build-check.sh --with-image-pull-check --image-service caddy --image-service postgres
 #   ./deploy/ec2/scripts/build-check.sh --dry-run
 # -----------------------------------------------------------------------------
 
@@ -17,8 +18,12 @@ set -Eeuo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 BUILDABLE_SERVICES=("backend" "frontend" "ai-agent-platform")
+IMAGE_PULL_SERVICES=("caddy" "postgres" "redis")
 SELECTED_SERVICES=()
 USE_DEFAULT_SERVICES=true
+RUN_IMAGE_PULL_CHECK=false
+SELECTED_IMAGE_SERVICES=()
+IMAGE_SERVICE_FLAGS_SET=false
 PULL_IMAGES=false
 NO_CACHE=false
 DRY_RUN=false
@@ -30,6 +35,17 @@ is_buildable_service() {
   local candidate="$1"
   local service=""
   for service in "${BUILDABLE_SERVICES[@]}"; do
+    if [[ "${service}" == "${candidate}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+is_image_pull_service() {
+  local candidate="$1"
+  local service=""
+  for service in "${IMAGE_PULL_SERVICES[@]}"; do
     if [[ "${service}" == "${candidate}" ]]; then
       return 0
     fi
@@ -73,6 +89,29 @@ while [[ $# -gt 0 ]]; do
     SERVICE_FLAG_SET=false
     shift
     ;;
+  --with-image-pull-check)
+    RUN_IMAGE_PULL_CHECK=true
+    shift
+    ;;
+  --image-service)
+    image_service_arg="${2:-}"
+    if [[ -z "${image_service_arg}" ]]; then
+      log_error "--image-service requires a value."
+      exit 1
+    fi
+    if ! is_image_pull_service "${image_service_arg}"; then
+      log_error "Unsupported image pull service '${image_service_arg}'."
+      log_error "Supported image pull services: ${IMAGE_PULL_SERVICES[*]}"
+      exit 1
+    fi
+    IMAGE_SERVICE_FLAGS_SET=true
+    if [[ " ${SELECTED_IMAGE_SERVICES[*]} " == *" ${image_service_arg} "* ]]; then
+      log_warn "Duplicate --image-service '${image_service_arg}' ignored."
+    else
+      SELECTED_IMAGE_SERVICES+=("${image_service_arg}")
+    fi
+    shift 2
+    ;;
   --pull)
     PULL_IMAGES=true
     shift
@@ -91,11 +130,15 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --service <name> --all-services --pull --no-cache --skip-config-check --dry-run"
+    log_error "Supported flags: --service <name> --all-services --with-image-pull-check --image-service <name> --pull --no-cache --skip-config-check --dry-run"
     exit 1
     ;;
   esac
 done
+
+if [[ "${RUN_IMAGE_PULL_CHECK}" == false ]] && [[ "${IMAGE_SERVICE_FLAGS_SET}" == true ]]; then
+  log_warn "Image pull services were provided without --with-image-pull-check; image-service flags will be ignored."
+fi
 
 target_services=()
 if [[ "${USE_DEFAULT_SERVICES}" == true ]]; then
@@ -108,12 +151,24 @@ else
   target_services=("${SELECTED_SERVICES[@]}")
 fi
 
+target_image_services=()
+if [[ "${RUN_IMAGE_PULL_CHECK}" == true ]]; then
+  if [[ "${#SELECTED_IMAGE_SERVICES[@]}" -eq 0 ]]; then
+    target_image_services=("${IMAGE_PULL_SERVICES[@]}")
+  else
+    target_image_services=("${SELECTED_IMAGE_SERVICES[@]}")
+  fi
+fi
+
 require_cmd docker
 ensure_required_files_exist
 validate_core_env
 log_info "Active env file: $(get_env_file)"
 log_info "Active compose file: $(get_compose_file)"
 log_info "Target build services: ${target_services[*]}"
+if [[ "${RUN_IMAGE_PULL_CHECK}" == true ]]; then
+  log_info "Target image pull-check services: ${target_image_services[*]}"
+fi
 
 if [[ "${SKIP_CONFIG_CHECK}" == false ]]; then
   log_info "Validating compose configuration before build..."
@@ -141,6 +196,13 @@ if [[ "${DRY_RUN}" == true ]]; then
   printf '[mailzen-deploy][INFO] Would run: '
   printf '%q ' "${build_command[@]}"
   printf '\n'
+  if [[ "${RUN_IMAGE_PULL_CHECK}" == true ]]; then
+    image_pull_command=(docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" pull)
+    image_pull_command+=("${target_image_services[@]}")
+    printf '[mailzen-deploy][INFO] Would run: '
+    printf '%q ' "${image_pull_command[@]}"
+    printf '\n'
+  fi
   exit 0
 fi
 
@@ -150,5 +212,9 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 log_info "Running image build validation..."
+if [[ "${RUN_IMAGE_PULL_CHECK}" == true ]]; then
+  log_info "Running image pull validation for image-only services..."
+  compose pull "${target_image_services[@]}"
+fi
 compose build "${build_args[@]}" "${target_services[@]}"
 log_info "Image build validation passed."

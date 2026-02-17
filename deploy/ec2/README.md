@@ -270,6 +270,12 @@ Example:
 # Build validation subset dry-run
 ./deploy/ec2/scripts/build-check.sh --service backend --service frontend --dry-run
 
+# Build validation + image pull-check rehearsal for image-only services
+./deploy/ec2/scripts/build-check.sh --with-image-pull-check --dry-run
+
+# Build validation + selected image pull-check services
+./deploy/ec2/scripts/build-check.sh --with-image-pull-check --image-service caddy --image-service postgres --dry-run
+
 # Extended runtime checks with selective skips
 ./deploy/ec2/scripts/preflight.sh --with-runtime-checks --skip-dns-check --skip-ssl-check
 

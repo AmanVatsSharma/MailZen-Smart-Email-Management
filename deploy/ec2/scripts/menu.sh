@@ -929,6 +929,19 @@ while true; do
     if prompt_yes_no "Pull newer base images during build check" "no"; then
       build_check_args+=(--pull)
     fi
+    if prompt_yes_no "Run image pull-check for image-only services (caddy/postgres/redis)" "no"; then
+      build_check_args+=(--with-image-pull-check)
+      build_image_services_csv="$(prompt_with_default "Image pull-check services (comma-separated: caddy,postgres,redis; blank = all image services)" "")"
+      if [[ -n "${build_image_services_csv}" ]]; then
+        IFS=',' read -r -a build_image_services_array <<<"${build_image_services_csv}"
+        for build_image_service in "${build_image_services_array[@]}"; do
+          build_image_service_trimmed="$(echo "${build_image_service}" | tr -d '[:space:]')"
+          if [[ -n "${build_image_service_trimmed}" ]]; then
+            build_check_args+=(--image-service "${build_image_service_trimmed}")
+          fi
+        done
+      fi
+    fi
     if prompt_yes_no "Disable Docker build cache during build check" "no"; then
       build_check_args+=(--no-cache)
     fi

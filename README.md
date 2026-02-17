@@ -314,6 +314,12 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: validate selected image builds in dry-run mode
 ./deploy/ec2/scripts/build-check.sh --service backend --service frontend --dry-run
 
+# Optional: validate build + image pull checks for image-only services
+./deploy/ec2/scripts/build-check.sh --with-image-pull-check --dry-run
+
+# Optional: validate build + selected image pull-check services
+./deploy/ec2/scripts/build-check.sh --with-image-pull-check --image-service caddy --image-service postgres --dry-run
+
 # Optional: confirm domain DNS resolution before cutover
 ./deploy/ec2/scripts/dns-check.sh
 

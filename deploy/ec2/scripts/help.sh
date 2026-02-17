@@ -45,6 +45,8 @@ Primary flow:
   ./deploy/ec2/scripts/build-check.sh
   ./deploy/ec2/scripts/build-check.sh --pull --no-cache
   ./deploy/ec2/scripts/build-check.sh --service backend --service frontend --dry-run
+  ./deploy/ec2/scripts/build-check.sh --with-image-pull-check --dry-run
+  ./deploy/ec2/scripts/build-check.sh --with-image-pull-check --image-service caddy --image-service postgres --dry-run
   ./deploy/ec2/scripts/deploy.sh
   ./deploy/ec2/scripts/deploy.sh --no-build --pull --force-recreate
   ./deploy/ec2/scripts/deploy.sh --config-only
