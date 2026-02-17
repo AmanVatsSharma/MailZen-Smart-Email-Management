@@ -7,6 +7,7 @@
 #
 # Included artifacts:
 # - self-check output
+# - docs-check output (or explicit skip marker)
 # - redacted env-audit output
 # - preflight config-only output
 # - dns-check output (best-effort)
@@ -187,6 +188,23 @@ fi
 log_bundle "Captured bundle manifest: ${WORK_DIR}/bundle-manifest.txt"
 
 run_capture "self-check" "\"${SCRIPT_DIR}/self-check.sh\""
+if [[ "${SKIP_DOCS_CHECK}" == true ]]; then
+  {
+    echo "[mailzen-deploy][SUPPORT-BUNDLE] docs-check: SKIPPED (--skip-docs-check)"
+    echo "[mailzen-deploy][SUPPORT-BUNDLE] docs_strict_coverage=${DOCS_STRICT_COVERAGE}"
+    echo "[mailzen-deploy][SUPPORT-BUNDLE] docs_include_common=${DOCS_INCLUDE_COMMON}"
+  } >"${WORK_DIR}/docs-check.log"
+  log_bundle "Captured docs-check skip marker: ${WORK_DIR}/docs-check.log"
+else
+  docs_check_args=()
+  if [[ "${DOCS_STRICT_COVERAGE}" == true ]]; then
+    docs_check_args+=(--strict-coverage)
+  fi
+  if [[ "${DOCS_INCLUDE_COMMON}" == true ]]; then
+    docs_check_args+=(--include-common)
+  fi
+  run_capture "docs-check" "\"${SCRIPT_DIR}/docs-check.sh\" ${docs_check_args[*]}"
+fi
 run_capture "env-audit" "\"${SCRIPT_DIR}/env-audit.sh\""
 run_capture "preflight-config-only" "\"${SCRIPT_DIR}/preflight.sh\" --config-only"
 run_capture "dns-check" "\"${SCRIPT_DIR}/dns-check.sh\""
