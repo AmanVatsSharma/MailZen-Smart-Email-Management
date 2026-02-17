@@ -48,18 +48,31 @@ PORTS_CHECK_FLAG_VALUE=""
 DOCS_STRICT_COVERAGE=false
 DOCS_INCLUDE_COMMON=false
 SKIP_DOCS_CHECK=false
+declare -A FLAG_SEEN=()
+
+mark_duplicate_flag() {
+  local flag_name="$1"
+  local warning_message="$2"
+  if [[ -n "${FLAG_SEEN[${flag_name}]:-}" ]]; then
+    echo "[mailzen-deploy][SUPPORT-BUNDLE][WARN] ${warning_message}"
+  fi
+  FLAG_SEEN["${flag_name}"]=1
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --seed-env)
+    mark_duplicate_flag "--seed-env" "Duplicate --seed-env flag detected; seeded bundle mode remains enabled."
     SEED_ENV=true
     shift
     ;;
   --keep-seeded-env)
+    mark_duplicate_flag "--keep-seeded-env" "Duplicate --keep-seeded-env flag detected; seeded env retention remains enabled."
     KEEP_SEEDED_ENV=true
     shift
     ;;
   --keep-work-dir)
+    mark_duplicate_flag "--keep-work-dir" "Duplicate --keep-work-dir flag detected; temporary work directory retention remains enabled."
     KEEP_WORK_DIR=true
     shift
     ;;
@@ -78,14 +91,17 @@ while [[ $# -gt 0 ]]; do
     shift 2
     ;;
   --docs-strict-coverage)
+    mark_duplicate_flag "--docs-strict-coverage" "Duplicate --docs-strict-coverage flag detected; strict docs coverage remains enabled."
     DOCS_STRICT_COVERAGE=true
     shift
     ;;
   --docs-include-common)
+    mark_duplicate_flag "--docs-include-common" "Duplicate --docs-include-common flag detected; common helper docs coverage remains enabled."
     DOCS_INCLUDE_COMMON=true
     shift
     ;;
   --skip-docs-check)
+    mark_duplicate_flag "--skip-docs-check" "Duplicate --skip-docs-check flag detected; docs stage remains disabled."
     SKIP_DOCS_CHECK=true
     shift
     ;;
