@@ -23,15 +23,25 @@ DRY_RUN=false
 LABEL_FILTER=""
 LABEL_FLAG_SET=false
 LABEL_FLAG_VALUE=""
+ASSUME_YES_FLAG_SET=false
+DRY_RUN_FLAG_SET=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --yes)
+    if [[ "${ASSUME_YES_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --yes flag detected; rollback confirmation override remains enabled."
+    fi
     ASSUME_YES=true
+    ASSUME_YES_FLAG_SET=true
     shift
     ;;
   --dry-run)
+    if [[ "${DRY_RUN_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --dry-run flag detected; rollback execution remains disabled."
+    fi
     DRY_RUN=true
+    DRY_RUN_FLAG_SET=true
     shift
     ;;
   --label)
@@ -89,7 +99,8 @@ if [[ "${#backup_candidates[@]}" -eq 0 ]]; then
   exit 1
 fi
 
-latest_backup="$(ls -1t "${backup_candidates[@]}" 2>/dev/null | awk 'NR==1 {print; exit}' || true)"
+mapfile -t sorted_backups < <(ls -1t "${backup_candidates[@]}" 2>/dev/null || true)
+latest_backup="${sorted_backups[0]:-}"
 if [[ -z "${latest_backup}" ]]; then
   if [[ -n "${LABEL_FILTER}" ]]; then
     log_error "No backup files found for label '${LABEL_FILTER}' in ${BACKUP_DIR}"
@@ -111,4 +122,6 @@ if [[ "${DRY_RUN}" == true ]]; then
   restore_args+=(--dry-run)
 fi
 
-"${RESTORE_SCRIPT}" "${restore_args[@]}" "${latest_backup}"
+restore_command=("${RESTORE_SCRIPT}" "${restore_args[@]}" "${latest_backup}")
+log_info "Command preview: $(format_command_for_logs "${restore_command[@]}")"
+"${restore_command[@]}"

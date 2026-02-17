@@ -21,6 +21,7 @@ POSITIONAL_LABEL="manual"
 POSITIONAL_LABEL_SET=false
 LABEL_FLAG_SET=false
 LABEL_FLAG_VALUE=""
+DRY_RUN_FLAG_SET=false
 
 if [[ -n "${LABEL}" ]] && [[ "${LABEL}" =~ ^-- ]]; then
   LABEL="manual"
@@ -51,7 +52,11 @@ while [[ $# -gt 0 ]]; do
     shift 2
     ;;
   --dry-run)
+    if [[ "${DRY_RUN_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --dry-run flag detected; backup execution remains disabled."
+    fi
     DRY_RUN=true
+    DRY_RUN_FLAG_SET=true
     shift
     ;;
   *)
@@ -82,10 +87,12 @@ db_user="$(read_env_value "POSTGRES_USER")"
 
 log_info "Creating PostgreSQL backup..."
 log_info "Backup file: ${BACKUP_FILE}"
+backup_dump_cmd=(docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" exec -T postgres pg_dump -U "${db_user}" "${db_name}")
+backup_pipeline_preview="$(format_command_for_logs "${backup_dump_cmd[@]}") | gzip > $(printf '%q' "${BACKUP_FILE}")"
+log_info "Command preview: ${backup_pipeline_preview}"
 
 if [[ "${DRY_RUN}" == true ]]; then
   log_info "Dry-run enabled; backup command not executed."
-  log_info "Would run: docker compose exec -T postgres pg_dump -U ${db_user} ${db_name} | gzip > ${BACKUP_FILE}"
   exit 0
 fi
 
@@ -94,7 +101,7 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! compose exec -T postgres pg_dump -U "${db_user}" "${db_name}" | gzip >"${BACKUP_FILE}"; then
+if ! "${backup_dump_cmd[@]}" | gzip >"${BACKUP_FILE}"; then
   log_error "Backup failed. Removing partial backup file."
   rm -f "${BACKUP_FILE}"
   exit 1

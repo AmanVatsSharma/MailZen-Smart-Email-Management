@@ -22,15 +22,25 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 BACKUP_FILE=""
 ASSUME_YES=false
 DRY_RUN=false
+ASSUME_YES_FLAG_SET=false
+DRY_RUN_FLAG_SET=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --yes)
+    if [[ "${ASSUME_YES_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --yes flag detected; restore confirmation override remains enabled."
+    fi
     ASSUME_YES=true
+    ASSUME_YES_FLAG_SET=true
     shift
     ;;
   --dry-run)
+    if [[ "${DRY_RUN_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --dry-run flag detected; restore execution remains disabled."
+    fi
     DRY_RUN=true
+    DRY_RUN_FLAG_SET=true
     shift
     ;;
   --*)
@@ -84,11 +94,18 @@ db_name="$(read_env_value "POSTGRES_DB")"
 db_user="$(read_env_value "POSTGRES_USER")"
 
 log_warn "About to DROP and RESTORE database '${db_name}'."
+terminate_connections_cmd=(docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" exec -T postgres psql -U "${db_user}" -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${db_name}' AND pid <> pg_backend_pid();")
+drop_database_cmd=(docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" exec -T postgres psql -U "${db_user}" -d postgres -c "DROP DATABASE IF EXISTS \"${db_name}\";")
+create_database_cmd=(docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" exec -T postgres psql -U "${db_user}" -d postgres -c "CREATE DATABASE \"${db_name}\";")
+restore_stream_cmd=(docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" exec -T postgres psql -U "${db_user}" -d "${db_name}")
+restore_pipeline_preview="gunzip -c $(printf '%q' "${BACKUP_FILE}") | $(format_command_for_logs "${restore_stream_cmd[@]}")"
 
 if [[ "${DRY_RUN}" == true ]]; then
   log_info "Dry-run enabled; restore command not executed."
-  log_info "Would restore backup: ${BACKUP_FILE}"
-  log_info "Would recreate database '${db_name}' as user '${db_user}'."
+  log_info "Command preview: $(format_command_for_logs "${terminate_connections_cmd[@]}")"
+  log_info "Command preview: $(format_command_for_logs "${drop_database_cmd[@]}")"
+  log_info "Command preview: $(format_command_for_logs "${create_database_cmd[@]}")"
+  log_info "Command preview: ${restore_pipeline_preview}"
   exit 0
 fi
 
@@ -112,12 +129,16 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 log_info "Restoring database from backup file: ${BACKUP_FILE}"
+log_info "Command preview: $(format_command_for_logs "${terminate_connections_cmd[@]}")"
+log_info "Command preview: $(format_command_for_logs "${drop_database_cmd[@]}")"
+log_info "Command preview: $(format_command_for_logs "${create_database_cmd[@]}")"
+log_info "Command preview: ${restore_pipeline_preview}"
 
-compose exec -T postgres psql -U "${db_user}" -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${db_name}' AND pid <> pg_backend_pid();" >/dev/null
-compose exec -T postgres psql -U "${db_user}" -d postgres -c "DROP DATABASE IF EXISTS \"${db_name}\";"
-compose exec -T postgres psql -U "${db_user}" -d postgres -c "CREATE DATABASE \"${db_name}\";"
+"${terminate_connections_cmd[@]}" >/dev/null
+"${drop_database_cmd[@]}"
+"${create_database_cmd[@]}"
 
-if ! gunzip -c "${BACKUP_FILE}" | compose exec -T postgres psql -U "${db_user}" -d "${db_name}"; then
+if ! gunzip -c "${BACKUP_FILE}" | "${restore_stream_cmd[@]}"; then
   log_error "Restore failed."
   exit 1
 fi
