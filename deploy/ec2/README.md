@@ -518,6 +518,9 @@ Example:
 # Run high-level validation profile with strict docs coverage
 ./deploy/ec2/scripts/validate.sh --docs-strict-coverage
 
+# Run high-level validation profile with stage-specific dry-run controls
+./deploy/ec2/scripts/validate.sh --build-check-dry-run --runtime-smoke-dry-run
+
 # Run high-level validation profile with targeted build-check services
 ./deploy/ec2/scripts/validate.sh --build-check-service backend --build-check-service frontend --build-check-pull
 

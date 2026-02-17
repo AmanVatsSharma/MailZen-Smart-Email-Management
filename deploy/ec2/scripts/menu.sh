@@ -1214,6 +1214,13 @@ while true; do
       if prompt_yes_no "Skip compose config validation in validation build-check stage" "no"; then
         validate_args+=(--build-check-skip-config-check)
       fi
+      validate_build_dry_run_default="no"
+      if [[ "${validate_dry_run}" == true ]]; then
+        validate_build_dry_run_default="yes"
+      fi
+      if prompt_yes_no "Run validation build-check stage in dry-run mode" "${validate_build_dry_run_default}"; then
+        validate_args+=(--build-check-dry-run)
+      fi
     fi
     verify_default_choice="no"
     if [[ "${validate_dry_run}" == true ]]; then
@@ -1281,6 +1288,13 @@ while true; do
       fi
       if prompt_yes_no "Skip compose status snapshot in validation runtime-smoke stage" "no"; then
         validate_args+=(--runtime-smoke-skip-compose-ps)
+      fi
+      validate_runtime_smoke_dry_run_default="no"
+      if [[ "${validate_dry_run}" == true ]]; then
+        validate_runtime_smoke_dry_run_default="yes"
+      fi
+      if prompt_yes_no "Run validation runtime-smoke stage in dry-run mode" "${validate_runtime_smoke_dry_run_default}"; then
+        validate_args+=(--runtime-smoke-dry-run)
       fi
     fi
     if prompt_yes_no "Skip status stage in validation profile" "no"; then
