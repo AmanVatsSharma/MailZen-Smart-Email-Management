@@ -144,6 +144,7 @@ run_capture() {
   shift
   local output_file="${WORK_DIR}/${label}.log"
   log_bundle "Running ${label}..."
+  log_bundle "Command (${label}): $(format_command_for_logs "$@")"
   if "$@" >"${output_file}" 2>&1; then
     log_bundle "${label}: captured"
   else

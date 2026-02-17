@@ -450,3 +450,12 @@ normalize_ports_csv() {
   done
   echo "${joined}"
 }
+
+format_command_for_logs() {
+  local formatted=""
+  local arg
+  for arg in "$@"; do
+    formatted+=$(printf '%q ' "${arg}")
+  done
+  echo "${formatted% }"
+}

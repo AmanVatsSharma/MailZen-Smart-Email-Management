@@ -133,6 +133,9 @@ run_check() {
   local required="$2"
   shift 2
   append_header "${label}"
+  local formatted_command
+  formatted_command="$(format_command_for_logs "$@")"
+  echo "[mailzen-deploy][DOCTOR] command: ${formatted_command}" >>"${REPORT_FILE}"
   if "$@" >>"${REPORT_FILE}" 2>&1; then
     echo "[mailzen-deploy][DOCTOR] ${label}: PASS" | tee -a "${REPORT_FILE}"
   else
