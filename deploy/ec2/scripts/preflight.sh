@@ -31,6 +31,12 @@ RUN_HOST_READINESS=true
 RUN_DNS_CHECK=true
 RUN_SSL_CHECK=true
 RUN_PORTS_CHECK=true
+CONFIG_ONLY_FLAG_SET=false
+WITH_RUNTIME_CHECKS_FLAG_SET=false
+SKIP_HOST_READINESS_FLAG_SET=false
+SKIP_DNS_CHECK_FLAG_SET=false
+SKIP_SSL_CHECK_FLAG_SET=false
+SKIP_PORTS_CHECK_FLAG_SET=false
 PORTS_CHECK_PORTS=""
 PORTS_CHECK_FLAG_SET=false
 PORTS_CHECK_FLAG_VALUE=""
@@ -38,27 +44,51 @@ PORTS_CHECK_FLAG_VALUE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --config-only|--skip-daemon)
+    if [[ "${CONFIG_ONLY_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --config-only/--skip-daemon flag detected; daemon check remains skipped."
+    fi
     CONFIG_ONLY=true
+    CONFIG_ONLY_FLAG_SET=true
     shift
     ;;
   --with-runtime-checks)
+    if [[ "${WITH_RUNTIME_CHECKS_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --with-runtime-checks flag detected; runtime checks remain enabled."
+    fi
     WITH_RUNTIME_CHECKS=true
+    WITH_RUNTIME_CHECKS_FLAG_SET=true
     shift
     ;;
   --skip-host-readiness)
+    if [[ "${SKIP_HOST_READINESS_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --skip-host-readiness flag detected; host-readiness remains skipped."
+    fi
     RUN_HOST_READINESS=false
+    SKIP_HOST_READINESS_FLAG_SET=true
     shift
     ;;
   --skip-dns-check)
+    if [[ "${SKIP_DNS_CHECK_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --skip-dns-check flag detected; DNS check remains skipped."
+    fi
     RUN_DNS_CHECK=false
+    SKIP_DNS_CHECK_FLAG_SET=true
     shift
     ;;
   --skip-ssl-check)
+    if [[ "${SKIP_SSL_CHECK_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --skip-ssl-check flag detected; SSL check remains skipped."
+    fi
     RUN_SSL_CHECK=false
+    SKIP_SSL_CHECK_FLAG_SET=true
     shift
     ;;
   --skip-ports-check)
+    if [[ "${SKIP_PORTS_CHECK_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --skip-ports-check flag detected; ports check remains skipped."
+    fi
     RUN_PORTS_CHECK=false
+    SKIP_PORTS_CHECK_FLAG_SET=true
     shift
     ;;
   --ports-check-ports)
@@ -88,6 +118,10 @@ if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
   PORTS_CHECK_PORTS="$(normalize_ports_csv "${PORTS_CHECK_PORTS}")"
 fi
 
+if [[ "${WITH_RUNTIME_CHECKS}" == false ]] &&
+  { [[ "${RUN_HOST_READINESS}" == false ]] || [[ "${RUN_DNS_CHECK}" == false ]] || [[ "${RUN_SSL_CHECK}" == false ]] || [[ "${RUN_PORTS_CHECK}" == false ]]; }; then
+  log_warn "Runtime-check skip flags were provided without --with-runtime-checks; they will be ignored."
+fi
 if [[ -n "${PORTS_CHECK_PORTS}" ]] && [[ "${WITH_RUNTIME_CHECKS}" == false ]]; then
   log_warn "--ports-check-ports provided without --with-runtime-checks; value will only apply when runtime checks are enabled."
 fi
@@ -121,18 +155,21 @@ fi
 if [[ "${WITH_RUNTIME_CHECKS}" == true ]]; then
   log_info "Running extended runtime checks (--with-runtime-checks)..."
   if [[ "${RUN_HOST_READINESS}" == true ]]; then
+    log_info "Command preview: $(format_command_for_logs "${SCRIPT_DIR}/host-readiness.sh")"
     "${SCRIPT_DIR}/host-readiness.sh"
   else
     log_warn "Skipping host-readiness check (--skip-host-readiness)."
   fi
 
   if [[ "${RUN_DNS_CHECK}" == true ]]; then
+    log_info "Command preview: $(format_command_for_logs "${SCRIPT_DIR}/dns-check.sh")"
     "${SCRIPT_DIR}/dns-check.sh"
   else
     log_warn "Skipping DNS check (--skip-dns-check)."
   fi
 
   if [[ "${RUN_SSL_CHECK}" == true ]]; then
+    log_info "Command preview: $(format_command_for_logs "${SCRIPT_DIR}/ssl-check.sh")"
     "${SCRIPT_DIR}/ssl-check.sh"
   else
     log_warn "Skipping SSL check (--skip-ssl-check)."
@@ -143,6 +180,7 @@ if [[ "${WITH_RUNTIME_CHECKS}" == true ]]; then
     if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
       ports_check_args+=(--ports "${PORTS_CHECK_PORTS}")
     fi
+    log_info "Command preview: $(format_command_for_logs "${SCRIPT_DIR}/ports-check.sh" "${ports_check_args[@]}")"
     "${SCRIPT_DIR}/ports-check.sh" "${ports_check_args[@]}"
   else
     log_warn "Skipping ports check (--skip-ports-check)."
