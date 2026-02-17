@@ -37,6 +37,9 @@ MAX_RETRIES_FLAG_SET=false
 RETRY_SLEEP_FLAG_SET=false
 MAX_RETRIES_FLAG_VALUE=""
 RETRY_SLEEP_FLAG_VALUE=""
+SKIP_COMPOSE_PS_FLAG_SET=false
+SKIP_BACKEND_DEPENDENCY_FLAG_SET=false
+DRY_RUN_FLAG_SET=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -69,15 +72,27 @@ while [[ $# -gt 0 ]]; do
     shift 2
     ;;
   --skip-compose-ps)
+    if [[ "${SKIP_COMPOSE_PS_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --skip-compose-ps flag detected; compose status snapshot remains skipped."
+    fi
     RUN_COMPOSE_PS=false
+    SKIP_COMPOSE_PS_FLAG_SET=true
     shift
     ;;
   --skip-backend-dependency-check)
+    if [[ "${SKIP_BACKEND_DEPENDENCY_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --skip-backend-dependency-check flag detected; backend dependency check remains skipped."
+    fi
     RUN_BACKEND_DEPENDENCY_CHECK=false
+    SKIP_BACKEND_DEPENDENCY_FLAG_SET=true
     shift
     ;;
   --dry-run)
+    if [[ "${DRY_RUN_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --dry-run flag detected; runtime checks remain disabled."
+    fi
     DRY_RUN=true
+    DRY_RUN_FLAG_SET=true
     shift
     ;;
   *)
@@ -125,6 +140,7 @@ if [[ "${DRY_RUN}" == true ]]; then
   exit 0
 fi
 
+log_info "Command preview: $(format_command_for_logs docker info)"
 if ! docker info >/dev/null 2>&1; then
   log_docker_daemon_unreachable
   exit 1
