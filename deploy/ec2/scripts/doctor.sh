@@ -130,10 +130,10 @@ append_header() {
 
 run_check() {
   local label="$1"
-  local command="$2"
-  local required="${3:-true}"
+  local required="$2"
+  shift 2
   append_header "${label}"
-  if bash -lc "${command}" >>"${REPORT_FILE}" 2>&1; then
+  if "$@" >>"${REPORT_FILE}" 2>&1; then
     echo "[mailzen-deploy][DOCTOR] ${label}: PASS" | tee -a "${REPORT_FILE}"
   else
     if [[ "${required}" == "true" ]]; then
@@ -179,48 +179,48 @@ if command -v git >/dev/null 2>&1; then
   fi
 fi
 
-run_check "script-self-check" "\"${SCRIPT_DIR}/self-check.sh\""
+run_check "script-self-check" true "${SCRIPT_DIR}/self-check.sh"
 if [[ "${SKIP_DOCS_CHECK}" == true ]]; then
   append_header "docs-check"
   echo "[mailzen-deploy][DOCTOR] docs-check: SKIPPED (--skip-docs-check)" | tee -a "${REPORT_FILE}"
 else
-  docs_check_command="\"${SCRIPT_DIR}/docs-check.sh\""
+  docs_check_command=("${SCRIPT_DIR}/docs-check.sh")
   if [[ "${DOCS_STRICT_COVERAGE}" == true ]]; then
-    docs_check_command="${docs_check_command} --strict-coverage"
+    docs_check_command+=(--strict-coverage)
   fi
   if [[ "${DOCS_INCLUDE_COMMON}" == true ]]; then
-    docs_check_command="${docs_check_command} --include-common"
+    docs_check_command+=(--include-common)
   fi
-  run_check "docs-check" "${docs_check_command}"
+  run_check "docs-check" true "${docs_check_command[@]}"
 fi
-run_check "env-audit-redacted" "\"${SCRIPT_DIR}/env-audit.sh\""
-run_check "dns-check" "\"${SCRIPT_DIR}/dns-check.sh\"" false
-run_check "ssl-check" "\"${SCRIPT_DIR}/ssl-check.sh\"" false
-run_check "host-readiness" "\"${SCRIPT_DIR}/host-readiness.sh\""
-ports_check_command="\"${SCRIPT_DIR}/ports-check.sh\""
+run_check "env-audit-redacted" true "${SCRIPT_DIR}/env-audit.sh"
+run_check "dns-check" false "${SCRIPT_DIR}/dns-check.sh"
+run_check "ssl-check" false "${SCRIPT_DIR}/ssl-check.sh"
+run_check "host-readiness" true "${SCRIPT_DIR}/host-readiness.sh"
+ports_check_command=("${SCRIPT_DIR}/ports-check.sh")
 if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
-  ports_check_command="${ports_check_command} --ports \"${PORTS_CHECK_PORTS}\""
+  ports_check_command+=(--ports "${PORTS_CHECK_PORTS}")
 fi
-run_check "ports-check" "${ports_check_command}"
-run_check "preflight-config-only" "\"${SCRIPT_DIR}/preflight.sh\" --config-only"
-pipeline_check_command="\"${SCRIPT_DIR}/pipeline-check.sh\""
+run_check "ports-check" true "${ports_check_command[@]}"
+run_check "preflight-config-only" true "${SCRIPT_DIR}/preflight.sh" --config-only
+pipeline_check_command=("${SCRIPT_DIR}/pipeline-check.sh")
 if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
-  pipeline_check_command="${pipeline_check_command} --ports-check-ports \"${PORTS_CHECK_PORTS}\""
+  pipeline_check_command+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
 fi
 if [[ "${SKIP_DOCS_CHECK}" == true ]]; then
-  pipeline_check_command="${pipeline_check_command} --skip-docs-check"
+  pipeline_check_command+=(--skip-docs-check)
 fi
 if [[ "${SKIP_DOCS_CHECK}" == false ]] && [[ "${DOCS_STRICT_COVERAGE}" == true ]]; then
-  pipeline_check_command="${pipeline_check_command} --docs-strict-coverage"
+  pipeline_check_command+=(--docs-strict-coverage)
 fi
 if [[ "${SKIP_DOCS_CHECK}" == false ]] && [[ "${DOCS_INCLUDE_COMMON}" == true ]]; then
-  pipeline_check_command="${pipeline_check_command} --docs-include-common"
+  pipeline_check_command+=(--docs-include-common)
 fi
-run_check "pipeline-check" "${pipeline_check_command}"
-run_check "docker-client-version" "docker --version"
-run_check "docker-compose-version" "docker compose version"
-run_check "docker-daemon-info" "docker info" false
-run_check "compose-config-render" "docker compose --env-file \"${active_env_file}\" -f \"${active_compose_file}\" config"
+run_check "pipeline-check" true "${pipeline_check_command[@]}"
+run_check "docker-client-version" true docker --version
+run_check "docker-compose-version" true docker compose version
+run_check "docker-daemon-info" false docker info
+run_check "compose-config-render" true docker compose --env-file "${active_env_file}" -f "${active_compose_file}" config
 
 append_header "doctor-summary"
 if [[ "${overall_failure_count}" -eq 0 ]]; then
