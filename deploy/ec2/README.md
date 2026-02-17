@@ -684,6 +684,9 @@ Example:
 
 # Stop dry-run
 ./deploy/ec2/scripts/stop.sh --dry-run
+
+# Rehearse purge flow safely (no confirmation required, no data deleted)
+./deploy/ec2/scripts/stop.sh --purge-data --dry-run
 ```
 
 Supported service names for `logs.sh` / `restart.sh`:
@@ -755,6 +758,8 @@ Google/Outlook provider connection flows.
 - The stack includes AI platform by default.
 - Backend migrations run automatically on backend container startup.
 - Use `stop.sh --purge-data` cautiously; it destroys persistent data volumes.
+- `stop.sh --purge-data --dry-run` is safe for rehearsals and skips destructive
+  confirmation because no data is deleted.
 - `restore-db.sh` is intentionally destructive and requires confirmation
   (or explicit `--yes` for automation).
 - `rollback-latest.sh` delegates to `restore-db.sh` and is also destructive.
