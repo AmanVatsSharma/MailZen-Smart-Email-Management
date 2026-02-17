@@ -115,6 +115,16 @@ If any check fails:
 ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke
 ```
 
+## 6) One-command wrapper shortcut with chained validation
+
+```bash
+# Full launch pipeline with optional build/runtime chained validation
+./deploy/ec2/scripts/launch.sh --with-build-check --with-runtime-smoke
+
+# Update pipeline with optional build/runtime chained validation
+./deploy/ec2/scripts/update.sh --with-build-check --with-runtime-smoke
+```
+
 ## Success criteria
 
 Deployment can be considered validated when:

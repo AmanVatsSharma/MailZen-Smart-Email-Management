@@ -37,11 +37,17 @@ flowchart TD
 ```mermaid
 flowchart TD
   UpdateStart[Operator runs update.sh] --> Preflight[preflight.sh (optional runtime checks + ports-check-ports)]
-  Preflight --> DeployPull[deploy.sh --pull --force-recreate]
+  Preflight --> BuildGate{--with-build-check enabled?}
+  BuildGate -- yes --> BuildCheck[build-check.sh]
+  BuildGate -- no --> DeployPull[deploy.sh --pull --force-recreate]
+  BuildCheck --> DeployPull[deploy.sh --pull --force-recreate]
   DeployPull --> VerifyGate{verify enabled?}
   VerifyGate -- yes --> Verify[verify.sh]
-  Verify --> Status[status.sh (optional --with-runtime-checks --ports-check-ports --skip-dns-check --skip-ssl-check ...)]
-  VerifyGate -- no --> Status[status.sh (optional --with-runtime-checks --ports-check-ports --skip-dns-check --skip-ssl-check ...)]
+  Verify --> RuntimeGate{--with-runtime-smoke enabled?}
+  VerifyGate -- no --> RuntimeGate{--with-runtime-smoke enabled?}
+  RuntimeGate -- yes --> RuntimeSmoke[runtime-smoke.sh]
+  RuntimeGate -- no --> Status[status.sh (optional --with-runtime-checks --ports-check-ports --skip-dns-check --skip-ssl-check ...)]
+  RuntimeSmoke --> Status[status.sh (optional --with-runtime-checks --ports-check-ports --skip-dns-check --skip-ssl-check ...)]
   Status --> UpdateDone[Update complete]
 ```
 
@@ -70,6 +76,9 @@ flowchart TD
   (especially on new hosts/base-image changes).
 - Prefer `verify.sh` immediately after deploy/update.
 - Prefer `runtime-smoke.sh` after deploy/update to validate container-internal service/runtime dependency health.
+- For one-command wrappers, use optional chaining:
+  - `launch.sh --with-build-check --with-runtime-smoke`
+  - `update.sh --with-build-check --with-runtime-smoke`
 - Use `verify.sh --require-oauth-check` when OAuth must be enforced in smoke checks.
 - Use `verify.sh --skip-oauth-check --skip-ssl-check` only for controlled break-glass checks.
 - Take a fresh labeled backup before risky changes:

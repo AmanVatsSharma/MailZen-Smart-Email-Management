@@ -242,6 +242,22 @@ For production-style EC2 deployment, use the deployment module:
 # Optional: launch while requiring OAuth smoke check in verify step
 ./deploy/ec2/scripts/launch.sh --verify-require-oauth-check
 
+# Optional: launch with build-check chaining before deploy
+./deploy/ec2/scripts/launch.sh --with-build-check --build-check-dry-run
+
+# Optional: launch with targeted build-check services and pull
+./deploy/ec2/scripts/launch.sh \
+  --with-build-check \
+  --build-check-service backend \
+  --build-check-service frontend \
+  --build-check-pull
+
+# Optional: launch with runtime-smoke chaining after deploy/verify
+./deploy/ec2/scripts/launch.sh \
+  --with-runtime-smoke \
+  --runtime-smoke-max-retries 15 \
+  --runtime-smoke-retry-sleep 4
+
 # Optional: launch while skipping OAuth/SSL verify checks
 ./deploy/ec2/scripts/launch.sh --verify-skip-oauth-check --verify-skip-ssl-check
 
@@ -422,6 +438,22 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: update while requiring OAuth smoke check
 ./deploy/ec2/scripts/update.sh --verify-require-oauth-check
+
+# Optional: update with build-check chaining before deploy
+./deploy/ec2/scripts/update.sh --with-build-check --build-check-dry-run
+
+# Optional: update with targeted build-check services and pull
+./deploy/ec2/scripts/update.sh \
+  --with-build-check \
+  --build-check-service backend \
+  --build-check-service frontend \
+  --build-check-pull
+
+# Optional: update with runtime-smoke chaining after deploy/verify
+./deploy/ec2/scripts/update.sh \
+  --with-runtime-smoke \
+  --runtime-smoke-max-retries 15 \
+  --runtime-smoke-retry-sleep 4
 
 # Optional: update runtime status checks with custom ports-check targets
 ./deploy/ec2/scripts/update.sh --status-runtime-checks --ports-check-ports 80,443,8100

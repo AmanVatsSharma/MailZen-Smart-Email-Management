@@ -113,6 +113,7 @@ while true; do
     launch_status_runtime_enabled=false
     launch_status_skip_ports=false
     launch_deploy_dry_run=false
+    launch_runtime_smoke_enabled=false
     launch_status_enabled=true
     launch_setup_enabled=true
     if prompt_yes_no "Skip setup step" "no"; then
@@ -138,6 +139,31 @@ while true; do
     if prompt_yes_no "Run deploy in dry-run mode" "no"; then
       launch_args+=(--deploy-dry-run)
       launch_deploy_dry_run=true
+    fi
+    if prompt_yes_no "Run build-check step before deploy" "no"; then
+      launch_args+=(--with-build-check)
+      launch_build_services="$(prompt_with_default "Build-check services (comma-separated: backend,frontend,ai-agent-platform; blank = all buildable)" "")"
+      if [[ -n "${launch_build_services}" ]]; then
+        IFS=',' read -r -a launch_build_services_array <<<"${launch_build_services}"
+        for launch_build_service in "${launch_build_services_array[@]}"; do
+          launch_build_service_trimmed="$(echo "${launch_build_service}" | tr -d '[:space:]')"
+          if [[ -n "${launch_build_service_trimmed}" ]]; then
+            launch_args+=(--build-check-service "${launch_build_service_trimmed}")
+          fi
+        done
+      fi
+      if prompt_yes_no "Pull newer base images during build-check" "no"; then
+        launch_args+=(--build-check-pull)
+      fi
+      if prompt_yes_no "Disable Docker build cache during build-check" "no"; then
+        launch_args+=(--build-check-no-cache)
+      fi
+      if prompt_yes_no "Skip compose config validation in build-check step" "no"; then
+        launch_args+=(--build-check-skip-config-check)
+      fi
+      if prompt_yes_no "Run build-check step in dry-run mode" "yes"; then
+        launch_args+=(--build-check-dry-run)
+      fi
     fi
     if prompt_yes_no "Skip verify step" "no"; then
       launch_args+=(--skip-verify)
@@ -173,6 +199,36 @@ while true; do
         fi
         if prompt_yes_no "Skip SSL check in verify step" "no"; then
           launch_args+=(--verify-skip-ssl-check)
+        fi
+      fi
+    fi
+    if prompt_yes_no "Run runtime-smoke step after deploy/verify" "no"; then
+      launch_runtime_smoke_enabled=true
+      launch_args+=(--with-runtime-smoke)
+      if [[ "${launch_deploy_dry_run}" == true ]]; then
+        echo "[mailzen-deploy][MENU][INFO] Runtime-smoke step will be skipped because deploy dry-run is enabled."
+      else
+        launch_runtime_smoke_retries="$(prompt_with_default "Runtime-smoke max retries (blank = default)" "")"
+        if [[ -n "${launch_runtime_smoke_retries}" ]]; then
+          if [[ "${launch_runtime_smoke_retries}" =~ ^[0-9]+$ ]] && [[ "${launch_runtime_smoke_retries}" -gt 0 ]]; then
+            launch_args+=(--runtime-smoke-max-retries "${launch_runtime_smoke_retries}")
+          else
+            echo "[mailzen-deploy][MENU][WARN] Ignoring invalid runtime-smoke max retries value: ${launch_runtime_smoke_retries}"
+          fi
+        fi
+        launch_runtime_smoke_retry_sleep="$(prompt_with_default "Runtime-smoke retry sleep seconds (blank = default)" "")"
+        if [[ -n "${launch_runtime_smoke_retry_sleep}" ]]; then
+          if [[ "${launch_runtime_smoke_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${launch_runtime_smoke_retry_sleep}" -gt 0 ]]; then
+            launch_args+=(--runtime-smoke-retry-sleep "${launch_runtime_smoke_retry_sleep}")
+          else
+            echo "[mailzen-deploy][MENU][WARN] Ignoring invalid runtime-smoke retry sleep value: ${launch_runtime_smoke_retry_sleep}"
+          fi
+        fi
+        if prompt_yes_no "Skip backend dependency check in runtime-smoke step" "no"; then
+          launch_args+=(--runtime-smoke-skip-backend-dependency-check)
+        fi
+        if prompt_yes_no "Skip compose status snapshot in runtime-smoke step" "no"; then
+          launch_args+=(--runtime-smoke-skip-compose-ps)
         fi
       fi
     fi
@@ -384,6 +440,31 @@ while true; do
       update_args+=(--deploy-dry-run)
       update_deploy_dry_run=true
     fi
+    if prompt_yes_no "Run build-check step before deploy" "no"; then
+      update_args+=(--with-build-check)
+      update_build_services="$(prompt_with_default "Build-check services (comma-separated: backend,frontend,ai-agent-platform; blank = all buildable)" "")"
+      if [[ -n "${update_build_services}" ]]; then
+        IFS=',' read -r -a update_build_services_array <<<"${update_build_services}"
+        for update_build_service in "${update_build_services_array[@]}"; do
+          update_build_service_trimmed="$(echo "${update_build_service}" | tr -d '[:space:]')"
+          if [[ -n "${update_build_service_trimmed}" ]]; then
+            update_args+=(--build-check-service "${update_build_service_trimmed}")
+          fi
+        done
+      fi
+      if prompt_yes_no "Pull newer base images during build-check" "no"; then
+        update_args+=(--build-check-pull)
+      fi
+      if prompt_yes_no "Disable Docker build cache during build-check" "no"; then
+        update_args+=(--build-check-no-cache)
+      fi
+      if prompt_yes_no "Skip compose config validation in build-check step" "no"; then
+        update_args+=(--build-check-skip-config-check)
+      fi
+      if prompt_yes_no "Run build-check step in dry-run mode" "yes"; then
+        update_args+=(--build-check-dry-run)
+      fi
+    fi
 
     if prompt_yes_no "Skip verify step" "no"; then
       update_args+=(--skip-verify)
@@ -419,6 +500,35 @@ while true; do
         fi
         if prompt_yes_no "Skip SSL check in verify step" "no"; then
           update_args+=(--verify-skip-ssl-check)
+        fi
+      fi
+    fi
+    if prompt_yes_no "Run runtime-smoke step after deploy/verify" "no"; then
+      update_args+=(--with-runtime-smoke)
+      if [[ "${update_deploy_dry_run}" == true ]]; then
+        echo "[mailzen-deploy][MENU][INFO] Runtime-smoke step will be skipped because deploy dry-run is enabled."
+      else
+        update_runtime_smoke_retries="$(prompt_with_default "Runtime-smoke max retries (blank = default)" "")"
+        if [[ -n "${update_runtime_smoke_retries}" ]]; then
+          if [[ "${update_runtime_smoke_retries}" =~ ^[0-9]+$ ]] && [[ "${update_runtime_smoke_retries}" -gt 0 ]]; then
+            update_args+=(--runtime-smoke-max-retries "${update_runtime_smoke_retries}")
+          else
+            echo "[mailzen-deploy][MENU][WARN] Ignoring invalid runtime-smoke max retries value: ${update_runtime_smoke_retries}"
+          fi
+        fi
+        update_runtime_smoke_retry_sleep="$(prompt_with_default "Runtime-smoke retry sleep seconds (blank = default)" "")"
+        if [[ -n "${update_runtime_smoke_retry_sleep}" ]]; then
+          if [[ "${update_runtime_smoke_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${update_runtime_smoke_retry_sleep}" -gt 0 ]]; then
+            update_args+=(--runtime-smoke-retry-sleep "${update_runtime_smoke_retry_sleep}")
+          else
+            echo "[mailzen-deploy][MENU][WARN] Ignoring invalid runtime-smoke retry sleep value: ${update_runtime_smoke_retry_sleep}"
+          fi
+        fi
+        if prompt_yes_no "Skip backend dependency check in runtime-smoke step" "no"; then
+          update_args+=(--runtime-smoke-skip-backend-dependency-check)
+        fi
+        if prompt_yes_no "Skip compose status snapshot in runtime-smoke step" "no"; then
+          update_args+=(--runtime-smoke-skip-compose-ps)
         fi
       fi
     fi

@@ -91,6 +91,7 @@ From repository root:
 # - launch/update orchestration
 # - setup overrides (domain/acme/daemon check)
 # - deploy flags (--no-build/--pull/--force-recreate/--dry-run/--config-only)
+# - optional build-check chaining in launch/update
 # - verify checks (retries + oauth/ssl toggles)
 # - runtime smoke checks (container-internal retries + dependency toggles)
 # - pipeline checks (with optional build-check/runtime-smoke chaining)
@@ -141,6 +142,24 @@ From repository root:
 # Launch with custom ports-check target list
 ./deploy/ec2/scripts/launch.sh \
   --ports-check-ports 80,443,8100
+
+# Launch with build-check chaining before deploy
+./deploy/ec2/scripts/launch.sh \
+  --with-build-check \
+  --build-check-dry-run
+
+# Launch with targeted build-check services and pull
+./deploy/ec2/scripts/launch.sh \
+  --with-build-check \
+  --build-check-service backend \
+  --build-check-service frontend \
+  --build-check-pull
+
+# Launch with runtime-smoke chaining after deploy/verify
+./deploy/ec2/scripts/launch.sh \
+  --with-runtime-smoke \
+  --runtime-smoke-max-retries 15 \
+  --runtime-smoke-retry-sleep 4
 
 # Launch with runtime status checks while skipping DNS/SSL in final status step
 ./deploy/ec2/scripts/launch.sh \
@@ -248,6 +267,22 @@ Example:
 
 # Update while requiring OAuth verify check (fails when OAuth keys are missing)
 ./deploy/ec2/scripts/update.sh --verify-require-oauth-check
+
+# Update with build-check chaining before deploy
+./deploy/ec2/scripts/update.sh --with-build-check --build-check-dry-run
+
+# Update with targeted build-check services and pull
+./deploy/ec2/scripts/update.sh \
+  --with-build-check \
+  --build-check-service backend \
+  --build-check-service frontend \
+  --build-check-pull
+
+# Update with runtime-smoke chaining after deploy/verify
+./deploy/ec2/scripts/update.sh \
+  --with-runtime-smoke \
+  --runtime-smoke-max-retries 15 \
+  --runtime-smoke-retry-sleep 4
 
 # Update dry-run + runtime status checks
 ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify --status-runtime-checks

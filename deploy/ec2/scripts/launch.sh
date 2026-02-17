@@ -4,7 +4,7 @@
 # MailZen EC2 one-command launch script (non-technical friendly)
 # -----------------------------------------------------------------------------
 # Runs the full happy-path pipeline:
-#   setup -> host-readiness -> dns-check -> ssl-check -> ports-check -> preflight -> deploy -> verify -> status
+#   setup -> host-readiness -> dns-check -> ssl-check -> ports-check -> preflight -> (optional build-check) -> deploy -> verify -> (optional runtime-smoke) -> status
 #
 # Optional flags:
 #   --skip-setup
@@ -14,6 +14,8 @@
 #   --skip-ports-check
 #   --skip-verify
 #   --skip-status
+#   --with-build-check
+#   --with-runtime-smoke
 #   --setup-skip-daemon
 #   --preflight-config-only
 #   --deploy-dry-run
@@ -22,6 +24,15 @@
 #   --verify-skip-ssl-check
 #   --verify-skip-oauth-check
 #   --verify-require-oauth-check
+#   --runtime-smoke-max-retries <n>
+#   --runtime-smoke-retry-sleep <n>
+#   --runtime-smoke-skip-backend-dependency-check
+#   --runtime-smoke-skip-compose-ps
+#   --build-check-dry-run
+#   --build-check-pull
+#   --build-check-no-cache
+#   --build-check-skip-config-check
+#   --build-check-service <name> (repeatable)
 #   --status-runtime-checks
 #   --status-strict
 #   --status-skip-host-readiness
@@ -44,6 +55,8 @@ RUN_SSL_CHECK=true
 RUN_PORTS_CHECK=true
 RUN_VERIFY=true
 RUN_STATUS=true
+RUN_BUILD_CHECK=false
+RUN_RUNTIME_SMOKE=false
 SETUP_SKIP_DAEMON=false
 PREFLIGHT_CONFIG_ONLY=false
 DEPLOY_DRY_RUN=false
@@ -58,6 +71,14 @@ VERIFY_RETRY_SLEEP=""
 VERIFY_SKIP_SSL_CHECK=false
 VERIFY_SKIP_OAUTH_CHECK=false
 VERIFY_REQUIRE_OAUTH_CHECK=false
+RUNTIME_SMOKE_MAX_RETRIES=""
+RUNTIME_SMOKE_RETRY_SLEEP=""
+RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK=false
+RUNTIME_SMOKE_SKIP_COMPOSE_PS=false
+BUILD_CHECK_DRY_RUN=false
+BUILD_CHECK_PULL=false
+BUILD_CHECK_NO_CACHE=false
+BUILD_CHECK_SKIP_CONFIG_CHECK=false
 DOMAIN_ARG=""
 ACME_EMAIL_ARG=""
 PORTS_CHECK_PORTS=""
@@ -71,6 +92,11 @@ ACME_EMAIL_FLAG_SET=false
 ACME_EMAIL_FLAG_VALUE=""
 PORTS_CHECK_FLAG_SET=false
 PORTS_CHECK_FLAG_VALUE=""
+RUNTIME_SMOKE_MAX_RETRIES_FLAG_SET=false
+RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE=""
+RUNTIME_SMOKE_RETRY_SLEEP_FLAG_SET=false
+RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE=""
+BUILD_CHECK_SERVICE_ARGS=()
 
 run_step() {
   local step_number="$1"
@@ -112,6 +138,14 @@ while [[ $# -gt 0 ]]; do
     ;;
   --skip-status)
     RUN_STATUS=false
+    shift
+    ;;
+  --with-build-check)
+    RUN_BUILD_CHECK=true
+    shift
+    ;;
+  --with-runtime-smoke)
+    RUN_RUNTIME_SMOKE=true
     shift
     ;;
   --setup-skip-daemon)
@@ -165,6 +199,67 @@ while [[ $# -gt 0 ]]; do
   --verify-require-oauth-check)
     VERIFY_REQUIRE_OAUTH_CHECK=true
     shift
+    ;;
+  --runtime-smoke-max-retries)
+    runtime_smoke_max_retries_arg="${2:-}"
+    if [[ -z "${runtime_smoke_max_retries_arg}" ]]; then
+      log_error "--runtime-smoke-max-retries requires a value."
+      exit 1
+    fi
+    if [[ "${RUNTIME_SMOKE_MAX_RETRIES_FLAG_SET}" == true ]] && [[ "${runtime_smoke_max_retries_arg}" != "${RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE}" ]]; then
+      log_warn "[LAUNCH] earlier --runtime-smoke-max-retries '${RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE}' overridden by --runtime-smoke-max-retries '${runtime_smoke_max_retries_arg}'."
+    fi
+    RUNTIME_SMOKE_MAX_RETRIES="${runtime_smoke_max_retries_arg}"
+    RUNTIME_SMOKE_MAX_RETRIES_FLAG_SET=true
+    RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE="${runtime_smoke_max_retries_arg}"
+    shift 2
+    ;;
+  --runtime-smoke-retry-sleep)
+    runtime_smoke_retry_sleep_arg="${2:-}"
+    if [[ -z "${runtime_smoke_retry_sleep_arg}" ]]; then
+      log_error "--runtime-smoke-retry-sleep requires a value."
+      exit 1
+    fi
+    if [[ "${RUNTIME_SMOKE_RETRY_SLEEP_FLAG_SET}" == true ]] && [[ "${runtime_smoke_retry_sleep_arg}" != "${RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE}" ]]; then
+      log_warn "[LAUNCH] earlier --runtime-smoke-retry-sleep '${RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE}' overridden by --runtime-smoke-retry-sleep '${runtime_smoke_retry_sleep_arg}'."
+    fi
+    RUNTIME_SMOKE_RETRY_SLEEP="${runtime_smoke_retry_sleep_arg}"
+    RUNTIME_SMOKE_RETRY_SLEEP_FLAG_SET=true
+    RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE="${runtime_smoke_retry_sleep_arg}"
+    shift 2
+    ;;
+  --runtime-smoke-skip-backend-dependency-check)
+    RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK=true
+    shift
+    ;;
+  --runtime-smoke-skip-compose-ps)
+    RUNTIME_SMOKE_SKIP_COMPOSE_PS=true
+    shift
+    ;;
+  --build-check-dry-run)
+    BUILD_CHECK_DRY_RUN=true
+    shift
+    ;;
+  --build-check-pull)
+    BUILD_CHECK_PULL=true
+    shift
+    ;;
+  --build-check-no-cache)
+    BUILD_CHECK_NO_CACHE=true
+    shift
+    ;;
+  --build-check-skip-config-check)
+    BUILD_CHECK_SKIP_CONFIG_CHECK=true
+    shift
+    ;;
+  --build-check-service)
+    build_check_service_arg="${2:-}"
+    if [[ -z "${build_check_service_arg}" ]]; then
+      log_error "--build-check-service requires a value."
+      exit 1
+    fi
+    BUILD_CHECK_SERVICE_ARGS+=(--service "${build_check_service_arg}")
+    shift 2
     ;;
   --status-runtime-checks)
     STATUS_RUNTIME_CHECKS=true
@@ -262,7 +357,7 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --skip-setup --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --skip-verify --skip-status --setup-skip-daemon --preflight-config-only --deploy-dry-run --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...> --domain <hostname> --acme-email <email>"
+    log_error "Supported flags: --skip-setup --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --skip-verify --skip-status --with-build-check --with-runtime-smoke --setup-skip-daemon --preflight-config-only --deploy-dry-run --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --build-check-dry-run --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-service <name> --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...> --domain <hostname> --acme-email <email>"
     exit 1
     ;;
   esac
@@ -277,6 +372,14 @@ if [[ -n "${VERIFY_RETRY_SLEEP}" ]] && { [[ ! "${VERIFY_RETRY_SLEEP}" =~ ^[0-9]+
   log_error "--verify-retry-sleep must be a positive integer."
   exit 1
 fi
+if [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]] && { [[ ! "${RUNTIME_SMOKE_MAX_RETRIES}" =~ ^[0-9]+$ ]] || [[ "${RUNTIME_SMOKE_MAX_RETRIES}" -lt 1 ]]; }; then
+  log_error "--runtime-smoke-max-retries must be a positive integer."
+  exit 1
+fi
+if [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]] && { [[ ! "${RUNTIME_SMOKE_RETRY_SLEEP}" =~ ^[0-9]+$ ]] || [[ "${RUNTIME_SMOKE_RETRY_SLEEP}" -lt 1 ]]; }; then
+  log_error "--runtime-smoke-retry-sleep must be a positive integer."
+  exit 1
+fi
 if [[ "${VERIFY_SKIP_OAUTH_CHECK}" == true ]] && [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; then
   log_error "--verify-skip-oauth-check cannot be combined with --verify-require-oauth-check."
   exit 1
@@ -289,6 +392,21 @@ fi
 if [[ "${RUN_VERIFY}" == true ]] && [[ "${DEPLOY_DRY_RUN}" == true ]] &&
   { [[ -n "${VERIFY_MAX_RETRIES}" ]] || [[ -n "${VERIFY_RETRY_SLEEP}" ]] || [[ "${VERIFY_SKIP_SSL_CHECK}" == true ]] || [[ "${VERIFY_SKIP_OAUTH_CHECK}" == true ]] || [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; }; then
   log_warn "[LAUNCH] verify-related flags were provided while --deploy-dry-run is enabled; verify step will be skipped."
+fi
+if [[ "${RUN_RUNTIME_SMOKE}" == false ]] &&
+  { [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]] || [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]] || [[ "${RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK}" == true ]] || [[ "${RUNTIME_SMOKE_SKIP_COMPOSE_PS}" == true ]]; }; then
+  log_warn "[LAUNCH] runtime-smoke-related flags were provided without --with-runtime-smoke; runtime-smoke flags will be ignored."
+fi
+if [[ "${RUN_RUNTIME_SMOKE}" == true ]] && [[ "${DEPLOY_DRY_RUN}" == true ]] &&
+  { [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]] || [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]] || [[ "${RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK}" == true ]] || [[ "${RUNTIME_SMOKE_SKIP_COMPOSE_PS}" == true ]]; }; then
+  log_warn "[LAUNCH] runtime-smoke-related flags were provided while --deploy-dry-run is enabled; runtime-smoke step will be skipped."
+fi
+if [[ "${RUN_BUILD_CHECK}" == false ]] &&
+  { [[ "${BUILD_CHECK_DRY_RUN}" == true ]] || [[ "${BUILD_CHECK_PULL}" == true ]] || [[ "${BUILD_CHECK_NO_CACHE}" == true ]] || [[ "${BUILD_CHECK_SKIP_CONFIG_CHECK}" == true ]] || [[ "${#BUILD_CHECK_SERVICE_ARGS[@]}" -gt 0 ]]; }; then
+  log_warn "[LAUNCH] build-check-related flags were provided without --with-build-check; build-check flags will be ignored."
+fi
+if [[ "${RUN_RUNTIME_SMOKE}" == true ]] && [[ "${DEPLOY_DRY_RUN}" == true ]]; then
+  log_warn "[LAUNCH] runtime-smoke step will be skipped because deploy runs with --deploy-dry-run."
 fi
 
 if [[ "${RUN_SETUP}" == true ]] && [[ ! -t 0 ]]; then
@@ -321,6 +439,12 @@ if [[ "${RUN_PORTS_CHECK}" == false ]]; then
 fi
 if [[ "${RUN_VERIFY}" == false ]]; then
   log_info "[LAUNCH] verify step skipped by --skip-verify"
+fi
+if [[ "${RUN_BUILD_CHECK}" == false ]]; then
+  log_info "[LAUNCH] build-check step skipped (enable with --with-build-check)"
+fi
+if [[ "${RUN_RUNTIME_SMOKE}" == false ]]; then
+  log_info "[LAUNCH] runtime-smoke step skipped (enable with --with-runtime-smoke)"
 fi
 if [[ "${RUN_STATUS}" == false ]]; then
   log_info "[LAUNCH] status step skipped by --skip-status"
@@ -369,7 +493,13 @@ fi
 if [[ "${RUN_PORTS_CHECK}" == true ]]; then
   total_steps=$((total_steps + 1))
 fi
+if [[ "${RUN_BUILD_CHECK}" == true ]]; then
+  total_steps=$((total_steps + 1))
+fi
 if [[ "${RUN_VERIFY}" == true ]] && [[ "${DEPLOY_DRY_RUN}" == false ]]; then
+  total_steps=$((total_steps + 1))
+fi
+if [[ "${RUN_RUNTIME_SMOKE}" == true ]] && [[ "${DEPLOY_DRY_RUN}" == false ]]; then
   total_steps=$((total_steps + 1))
 fi
 if [[ "${RUN_STATUS}" == true ]]; then
@@ -423,6 +553,27 @@ fi
 run_step "${step}" "${total_steps}" "preflight validation" "${SCRIPT_DIR}/preflight.sh" "${preflight_args[@]}"
 step=$((step + 1))
 
+if [[ "${RUN_BUILD_CHECK}" == true ]]; then
+  build_check_args=()
+  if [[ "${BUILD_CHECK_DRY_RUN}" == true ]]; then
+    build_check_args+=(--dry-run)
+  fi
+  if [[ "${BUILD_CHECK_PULL}" == true ]]; then
+    build_check_args+=(--pull)
+  fi
+  if [[ "${BUILD_CHECK_NO_CACHE}" == true ]]; then
+    build_check_args+=(--no-cache)
+  fi
+  if [[ "${BUILD_CHECK_SKIP_CONFIG_CHECK}" == true ]]; then
+    build_check_args+=(--skip-config-check)
+  fi
+  if [[ "${#BUILD_CHECK_SERVICE_ARGS[@]}" -gt 0 ]]; then
+    build_check_args+=("${BUILD_CHECK_SERVICE_ARGS[@]}")
+  fi
+  run_step "${step}" "${total_steps}" "build image validation" "${SCRIPT_DIR}/build-check.sh" "${build_check_args[@]}"
+  step=$((step + 1))
+fi
+
 deploy_args=()
 if [[ "${DEPLOY_DRY_RUN}" == true ]]; then
   deploy_args+=(--dry-run)
@@ -451,6 +602,28 @@ if [[ "${RUN_VERIFY}" == true ]]; then
       verify_args+=(--require-oauth-check)
     fi
     run_step "${step}" "${total_steps}" "verify deployment" "${SCRIPT_DIR}/verify.sh" "${verify_args[@]}"
+    step=$((step + 1))
+  fi
+fi
+
+if [[ "${RUN_RUNTIME_SMOKE}" == true ]]; then
+  if [[ "${DEPLOY_DRY_RUN}" == true ]]; then
+    log_warn "[LAUNCH] runtime-smoke step skipped because deploy ran with --deploy-dry-run."
+  else
+    runtime_smoke_args=()
+    if [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]]; then
+      runtime_smoke_args+=(--max-retries "${RUNTIME_SMOKE_MAX_RETRIES}")
+    fi
+    if [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]]; then
+      runtime_smoke_args+=(--retry-sleep "${RUNTIME_SMOKE_RETRY_SLEEP}")
+    fi
+    if [[ "${RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK}" == true ]]; then
+      runtime_smoke_args+=(--skip-backend-dependency-check)
+    fi
+    if [[ "${RUNTIME_SMOKE_SKIP_COMPOSE_PS}" == true ]]; then
+      runtime_smoke_args+=(--skip-compose-ps)
+    fi
+    run_step "${step}" "${total_steps}" "runtime smoke checks" "${SCRIPT_DIR}/runtime-smoke.sh" "${runtime_smoke_args[@]}"
     step=$((step + 1))
   fi
 fi
