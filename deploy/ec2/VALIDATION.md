@@ -144,6 +144,9 @@ If any check fails:
 # High-level validation profile wrapper (full chain)
 ./deploy/ec2/scripts/validate.sh
 
+# High-level validation profile with targeted build-check services
+./deploy/ec2/scripts/validate.sh --build-check-service backend --build-check-service frontend --build-check-pull
+
 # Wrapper rehearsal mode for runtime-smoke stage
 ./deploy/ec2/scripts/launch.sh --with-runtime-smoke --runtime-smoke-dry-run --skip-setup --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --preflight-config-only --with-build-check --build-check-dry-run --deploy-dry-run --skip-verify --skip-status
 ./deploy/ec2/scripts/update.sh --with-runtime-smoke --runtime-smoke-dry-run --preflight-config-only --with-build-check --build-check-dry-run --deploy-dry-run --skip-verify --skip-status

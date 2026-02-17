@@ -15,6 +15,8 @@
 #   ./deploy/ec2/scripts/validate.sh --dry-run
 #   ./deploy/ec2/scripts/validate.sh --dry-run --seed-env
 #   ./deploy/ec2/scripts/validate.sh --dry-run --with-verify-in-dry-run
+#   ./deploy/ec2/scripts/validate.sh --build-check-service backend --build-check-service frontend --build-check-pull
+#   ./deploy/ec2/scripts/validate.sh --build-check-with-image-pull-check --build-check-image-service caddy --build-check-image-service postgres --dry-run
 #   ./deploy/ec2/scripts/validate.sh --skip-runtime-smoke --skip-status
 #   ./deploy/ec2/scripts/validate.sh --ports-check-ports 80,443,8100
 # -----------------------------------------------------------------------------
@@ -32,6 +34,12 @@ RUN_VERIFY=true
 RUN_RUNTIME_SMOKE=true
 RUN_STATUS=true
 PORTS_CHECK_PORTS=""
+BUILD_CHECK_PULL=false
+BUILD_CHECK_NO_CACHE=false
+BUILD_CHECK_SKIP_CONFIG_CHECK=false
+BUILD_CHECK_WITH_IMAGE_PULL_CHECK=false
+BUILD_CHECK_SERVICE_ARGS=()
+BUILD_CHECK_IMAGE_SERVICE_ARGS=()
 VERIFY_MAX_RETRIES=""
 VERIFY_RETRY_SLEEP=""
 VERIFY_SKIP_SSL_CHECK=false
@@ -78,6 +86,40 @@ while [[ $# -gt 0 ]]; do
   --skip-build-check)
     RUN_BUILD_CHECK=false
     shift
+    ;;
+  --build-check-pull)
+    BUILD_CHECK_PULL=true
+    shift
+    ;;
+  --build-check-no-cache)
+    BUILD_CHECK_NO_CACHE=true
+    shift
+    ;;
+  --build-check-skip-config-check)
+    BUILD_CHECK_SKIP_CONFIG_CHECK=true
+    shift
+    ;;
+  --build-check-with-image-pull-check)
+    BUILD_CHECK_WITH_IMAGE_PULL_CHECK=true
+    shift
+    ;;
+  --build-check-service)
+    build_check_service_arg="${2:-}"
+    if [[ -z "${build_check_service_arg}" ]]; then
+      log_error "--build-check-service requires a value."
+      exit 1
+    fi
+    BUILD_CHECK_SERVICE_ARGS+=(--build-check-service "${build_check_service_arg}")
+    shift 2
+    ;;
+  --build-check-image-service)
+    build_check_image_service_arg="${2:-}"
+    if [[ -z "${build_check_image_service_arg}" ]]; then
+      log_error "--build-check-image-service requires a value."
+      exit 1
+    fi
+    BUILD_CHECK_IMAGE_SERVICE_ARGS+=(--build-check-image-service "${build_check_image_service_arg}")
+    shift 2
     ;;
   --skip-verify)
     RUN_VERIFY=false
@@ -210,7 +252,7 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --seed-env --dry-run --with-verify-in-dry-run --skip-build-check --skip-verify --skip-runtime-smoke --skip-status --ports-check-ports <p1,p2,...> --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --status-strict --status-no-runtime-checks --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check"
+    log_error "Supported flags: --seed-env --dry-run --with-verify-in-dry-run --skip-build-check --skip-verify --skip-runtime-smoke --skip-status --ports-check-ports <p1,p2,...> --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-with-image-pull-check --build-check-service <name> --build-check-image-service <name> --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --status-strict --status-no-runtime-checks --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check"
     exit 1
     ;;
   esac
@@ -263,6 +305,11 @@ if [[ "${RUN_VERIFY}" == false ]] &&
   log_warn "Verify-specific flags were provided while verify stage is disabled; verify flags will be ignored."
 fi
 
+if [[ "${RUN_BUILD_CHECK}" == false ]] &&
+  { [[ "${BUILD_CHECK_PULL}" == true ]] || [[ "${BUILD_CHECK_NO_CACHE}" == true ]] || [[ "${BUILD_CHECK_SKIP_CONFIG_CHECK}" == true ]] || [[ "${BUILD_CHECK_WITH_IMAGE_PULL_CHECK}" == true ]] || [[ "${#BUILD_CHECK_SERVICE_ARGS[@]}" -gt 0 ]] || [[ "${#BUILD_CHECK_IMAGE_SERVICE_ARGS[@]}" -gt 0 ]]; }; then
+  log_warn "Build-check-specific flags were provided while build-check stage is disabled; build-check flags will be ignored."
+fi
+
 if [[ "${RUN_RUNTIME_SMOKE}" == false ]] &&
   { [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]] || [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]] || [[ "${RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK}" == true ]] || [[ "${RUNTIME_SMOKE_SKIP_COMPOSE_PS}" == true ]]; }; then
   log_warn "Runtime-smoke-specific flags were provided while runtime-smoke stage is disabled; runtime-smoke flags will be ignored."
@@ -288,6 +335,24 @@ fi
 
 if [[ "${RUN_BUILD_CHECK}" == true ]]; then
   pipeline_args+=(--with-build-check)
+  if [[ "${BUILD_CHECK_PULL}" == true ]]; then
+    pipeline_args+=(--build-check-pull)
+  fi
+  if [[ "${BUILD_CHECK_NO_CACHE}" == true ]]; then
+    pipeline_args+=(--build-check-no-cache)
+  fi
+  if [[ "${BUILD_CHECK_SKIP_CONFIG_CHECK}" == true ]]; then
+    pipeline_args+=(--build-check-skip-config-check)
+  fi
+  if [[ "${BUILD_CHECK_WITH_IMAGE_PULL_CHECK}" == true ]]; then
+    pipeline_args+=(--build-check-with-image-pull-check)
+  fi
+  if [[ "${#BUILD_CHECK_SERVICE_ARGS[@]}" -gt 0 ]]; then
+    pipeline_args+=("${BUILD_CHECK_SERVICE_ARGS[@]}")
+  fi
+  if [[ "${#BUILD_CHECK_IMAGE_SERVICE_ARGS[@]}" -gt 0 ]]; then
+    pipeline_args+=("${BUILD_CHECK_IMAGE_SERVICE_ARGS[@]}")
+  fi
   if [[ "${DRY_RUN}" == true ]]; then
     pipeline_args+=(--build-check-dry-run)
   fi

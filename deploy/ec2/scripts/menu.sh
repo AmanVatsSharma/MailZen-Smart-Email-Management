@@ -1151,6 +1151,39 @@ while true; do
     if prompt_yes_no "Skip build-check stage in validation profile" "no"; then
       validate_skip_build_check=true
       validate_args+=(--skip-build-check)
+    else
+      validate_build_services="$(prompt_with_default "Validation build-check services (comma-separated: backend,frontend,ai-agent-platform; blank = all buildable)" "")"
+      if [[ -n "${validate_build_services}" ]]; then
+        IFS=',' read -r -a validate_build_services_array <<<"${validate_build_services}"
+        for validate_build_service in "${validate_build_services_array[@]}"; do
+          validate_build_service_trimmed="$(echo "${validate_build_service}" | tr -d '[:space:]')"
+          if [[ -n "${validate_build_service_trimmed}" ]]; then
+            validate_args+=(--build-check-service "${validate_build_service_trimmed}")
+          fi
+        done
+      fi
+      if prompt_yes_no "Pull newer base images in validation build-check stage" "no"; then
+        validate_args+=(--build-check-pull)
+      fi
+      if prompt_yes_no "Run image pull-check for image-only services in validation build-check stage" "no"; then
+        validate_args+=(--build-check-with-image-pull-check)
+        validate_build_image_services="$(prompt_with_default "Validation image pull-check services (comma-separated: caddy,postgres,redis; blank = all image services)" "")"
+        if [[ -n "${validate_build_image_services}" ]]; then
+          IFS=',' read -r -a validate_build_image_services_array <<<"${validate_build_image_services}"
+          for validate_build_image_service in "${validate_build_image_services_array[@]}"; do
+            validate_build_image_service_trimmed="$(echo "${validate_build_image_service}" | tr -d '[:space:]')"
+            if [[ -n "${validate_build_image_service_trimmed}" ]]; then
+              validate_args+=(--build-check-image-service "${validate_build_image_service_trimmed}")
+            fi
+          done
+        fi
+      fi
+      if prompt_yes_no "Disable Docker build cache in validation build-check stage" "no"; then
+        validate_args+=(--build-check-no-cache)
+      fi
+      if prompt_yes_no "Skip compose config validation in validation build-check stage" "no"; then
+        validate_args+=(--build-check-skip-config-check)
+      fi
     fi
     verify_default_choice="no"
     if [[ "${validate_dry_run}" == true ]]; then
