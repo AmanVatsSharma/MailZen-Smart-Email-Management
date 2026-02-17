@@ -115,5 +115,8 @@ flowchart TD
 - Use `pipeline-check.sh --with-runtime-smoke` to chain config checks with
   container-internal runtime validation (optionally `--runtime-smoke-dry-run`
   when daemon/runtime is unavailable).
+- Use `pipeline-check.sh --with-build-check` to include image-build readiness
+  validation (optionally `--build-check-dry-run` for rehearsal on daemon-offline
+  or CI-like runs).
 - Run `help.sh` for quick operator command lookup.
 - Use `self-check.sh` after editing deployment scripts.

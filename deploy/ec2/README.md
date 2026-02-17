@@ -42,7 +42,7 @@ Additional deployment flowcharts:
   - `doctor.sh` (generate diagnostics report for support)
   - `support-bundle.sh` (collect support-ready diagnostics archive)
   - `rotate-app-secrets.sh` (rotate JWT/OAuth/platform secrets)
-  - `pipeline-check.sh` (CI validation sequence with optional runtime-smoke chaining)
+  - `pipeline-check.sh` (CI validation sequence with optional build-check/runtime-smoke chaining)
   - `reports-prune.sh` (report/support bundle retention cleanup)
   - `help.sh` (command reference quick guide)
   - `self-check.sh` (validate deployment script integrity)
@@ -93,7 +93,7 @@ From repository root:
 # - deploy flags (--no-build/--pull/--force-recreate/--dry-run/--config-only)
 # - verify checks (retries + oauth/ssl toggles)
 # - runtime smoke checks (container-internal retries + dependency toggles)
-# - pipeline checks (with optional runtime-smoke chaining)
+# - pipeline checks (with optional build-check/runtime-smoke chaining)
 # - logs filters (service/tail/since/follow)
 # - restart/stop operations (service/wait/purge/dry-run/confirmation controls)
 
@@ -381,6 +381,16 @@ Example:
 
 # Run pipeline checks with custom ports-check targets
 ./deploy/ec2/scripts/pipeline-check.sh --ports-check-ports 80,443,8100
+
+# Run pipeline checks plus build-check rehearsal
+./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-dry-run
+
+# Run pipeline checks plus targeted build checks
+./deploy/ec2/scripts/pipeline-check.sh \
+  --with-build-check \
+  --build-check-service backend \
+  --build-check-service frontend \
+  --build-check-pull
 
 # Run pipeline checks plus runtime smoke checks (dry-run)
 ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke --runtime-smoke-dry-run

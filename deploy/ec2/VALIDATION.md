@@ -99,6 +99,18 @@ If any check fails:
 # Config checks + runtime smoke rehearsal
 ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke --runtime-smoke-dry-run
 
+# Config checks + build-check rehearsal
+./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-dry-run
+
+# Config checks + targeted build checks + runtime-smoke rehearsal
+./deploy/ec2/scripts/pipeline-check.sh \
+  --with-build-check \
+  --build-check-service backend \
+  --build-check-service frontend \
+  --build-check-dry-run \
+  --with-runtime-smoke \
+  --runtime-smoke-dry-run
+
 # Config checks + live runtime-smoke checks
 ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke
 ```

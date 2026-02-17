@@ -258,7 +258,7 @@ For production-style EC2 deployment, use the deployment module:
 ./deploy/ec2/scripts/menu.sh
 
 # Menu includes guided prompts for setup/deploy/verify/logs/update/restart/stop operations,
-# runtime smoke checks, and pipeline validation with optional runtime-smoke chaining
+# runtime smoke checks, and pipeline validation with optional build/runtime-smoke chaining
 # (useful for non-technical EC2 operators)
 
 # Optional on fresh Ubuntu EC2: install Docker + Compose
@@ -346,6 +346,16 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: run pipeline checks with custom ports-check targets
 ./deploy/ec2/scripts/pipeline-check.sh --ports-check-ports 80,443,8100
+
+# Optional: run pipeline checks plus build-check rehearsal
+./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-dry-run
+
+# Optional: run pipeline checks plus targeted build checks
+./deploy/ec2/scripts/pipeline-check.sh \
+  --with-build-check \
+  --build-check-service backend \
+  --build-check-service frontend \
+  --build-check-pull
 
 # Optional: run pipeline checks plus runtime smoke checks (dry-run)
 ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke --runtime-smoke-dry-run

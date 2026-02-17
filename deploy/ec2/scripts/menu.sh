@@ -78,7 +78,7 @@ show_menu() {
 19) Run diagnostics report (doctor, optional custom ports)
 20) Generate support bundle (optional custom ports)
 21) Rotate app secrets (prompt keys/dry-run)
-22) Run pipeline check (optional runtime-smoke + custom ports)
+22) Run pipeline check (optional build/runtime-smoke + custom ports)
 23) Prune old diagnostics reports (keep latest 20)
 24) Show command help
 25) Run script self-check
@@ -86,7 +86,7 @@ show_menu() {
 27) Verify deployment (skip oauth + ssl checks)
 28) Run diagnostics report (doctor, seeded env, optional custom ports)
 29) Generate support bundle (seeded env, optional custom ports)
-30) Run pipeline check (seeded env, optional runtime-smoke + custom ports)
+30) Run pipeline check (seeded env, optional build/runtime-smoke + custom ports)
 31) Restart services (guided)
 32) Stop stack (guided)
 33) Runtime smoke checks (container-internal, guided)
@@ -562,6 +562,31 @@ while true; do
     if [[ -n "${pipeline_ports}" ]]; then
       pipeline_check_args+=(--ports-check-ports "${pipeline_ports}")
     fi
+    if prompt_yes_no "Run build checks during pipeline validation" "no"; then
+      pipeline_check_args+=(--with-build-check)
+      pipeline_build_services="$(prompt_with_default "Build check services (comma-separated: backend,frontend,ai-agent-platform; blank = all buildable)" "")"
+      if [[ -n "${pipeline_build_services}" ]]; then
+        IFS=',' read -r -a pipeline_build_services_array <<<"${pipeline_build_services}"
+        for pipeline_build_service in "${pipeline_build_services_array[@]}"; do
+          pipeline_build_service_trimmed="$(echo "${pipeline_build_service}" | tr -d '[:space:]')"
+          if [[ -n "${pipeline_build_service_trimmed}" ]]; then
+            pipeline_check_args+=(--build-check-service "${pipeline_build_service_trimmed}")
+          fi
+        done
+      fi
+      if prompt_yes_no "Pull newer base images during pipeline build checks" "no"; then
+        pipeline_check_args+=(--build-check-pull)
+      fi
+      if prompt_yes_no "Disable Docker build cache during pipeline build checks" "no"; then
+        pipeline_check_args+=(--build-check-no-cache)
+      fi
+      if prompt_yes_no "Skip compose config validation in pipeline build checks" "no"; then
+        pipeline_check_args+=(--build-check-skip-config-check)
+      fi
+      if prompt_yes_no "Run pipeline build checks in dry-run mode" "yes"; then
+        pipeline_check_args+=(--build-check-dry-run)
+      fi
+    fi
     if prompt_yes_no "Run runtime smoke checks after pipeline validation" "no"; then
       pipeline_check_args+=(--with-runtime-smoke)
       pipeline_runtime_retries="$(prompt_with_default "Runtime smoke max retries (blank = default)" "")"
@@ -633,6 +658,31 @@ while true; do
     pipeline_seeded_ports="$(prompt_with_default "Custom ports-check targets for seeded pipeline check (blank = default)" "")"
     if [[ -n "${pipeline_seeded_ports}" ]]; then
       pipeline_seeded_args+=(--ports-check-ports "${pipeline_seeded_ports}")
+    fi
+    if prompt_yes_no "Run build checks during seeded pipeline validation" "no"; then
+      pipeline_seeded_args+=(--with-build-check)
+      pipeline_seeded_build_services="$(prompt_with_default "Build check services (comma-separated: backend,frontend,ai-agent-platform; blank = all buildable)" "")"
+      if [[ -n "${pipeline_seeded_build_services}" ]]; then
+        IFS=',' read -r -a pipeline_seeded_build_services_array <<<"${pipeline_seeded_build_services}"
+        for pipeline_seeded_build_service in "${pipeline_seeded_build_services_array[@]}"; do
+          pipeline_seeded_build_service_trimmed="$(echo "${pipeline_seeded_build_service}" | tr -d '[:space:]')"
+          if [[ -n "${pipeline_seeded_build_service_trimmed}" ]]; then
+            pipeline_seeded_args+=(--build-check-service "${pipeline_seeded_build_service_trimmed}")
+          fi
+        done
+      fi
+      if prompt_yes_no "Pull newer base images during seeded pipeline build checks" "no"; then
+        pipeline_seeded_args+=(--build-check-pull)
+      fi
+      if prompt_yes_no "Disable Docker build cache during seeded pipeline build checks" "no"; then
+        pipeline_seeded_args+=(--build-check-no-cache)
+      fi
+      if prompt_yes_no "Skip compose config validation in seeded pipeline build checks" "no"; then
+        pipeline_seeded_args+=(--build-check-skip-config-check)
+      fi
+      if prompt_yes_no "Run seeded pipeline build checks in dry-run mode" "yes"; then
+        pipeline_seeded_args+=(--build-check-dry-run)
+      fi
     fi
     if prompt_yes_no "Run runtime smoke checks after seeded pipeline validation" "no"; then
       pipeline_seeded_args+=(--with-runtime-smoke)
