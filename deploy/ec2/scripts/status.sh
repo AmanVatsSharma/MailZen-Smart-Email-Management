@@ -170,6 +170,7 @@ daemon_available=true
 if ! docker info >/dev/null 2>&1; then
   daemon_available=false
   log_warn "Docker daemon is unavailable. Showing config-only status."
+  log_info "Command preview: $(format_command_for_logs docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" config)"
   if ! compose config >/dev/null; then
     log_error "Compose config validation failed while daemon unavailable."
     exit 1
@@ -181,8 +182,10 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 if [[ "${daemon_available}" == true ]]; then
+  log_info "Command preview: $(format_command_for_logs docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" ps)"
   compose ps
   log_info "Container resource snapshot (cpu/mem):"
+  log_info "Command preview: $(format_command_for_logs docker stats --no-stream mailzen-caddy mailzen-frontend mailzen-backend mailzen-ai-agent-platform mailzen-postgres mailzen-redis)"
   docker stats --no-stream \
     mailzen-caddy \
     mailzen-frontend \
@@ -214,6 +217,7 @@ if [[ "${WITH_RUNTIME_CHECKS}" == true ]]; then
     if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
       ports_check_args+=(--ports "${PORTS_CHECK_PORTS}")
     fi
+    log_info "Command preview: $(format_command_for_logs "${SCRIPT_DIR}/ports-check.sh" "${ports_check_args[@]}")"
     "${SCRIPT_DIR}/ports-check.sh" "${ports_check_args[@]}"
   else
     log_warn "Skipping ports check (--skip-ports-check)."
@@ -238,6 +242,7 @@ if [[ "${WITH_RUNTIME_SMOKE}" == true ]]; then
   if [[ "${RUNTIME_SMOKE_DRY_RUN}" == true ]]; then
     runtime_smoke_args+=(--dry-run)
   fi
+  log_info "Command preview: $(format_command_for_logs "${SCRIPT_DIR}/runtime-smoke.sh" "${runtime_smoke_args[@]}")"
   "${SCRIPT_DIR}/runtime-smoke.sh" "${runtime_smoke_args[@]}"
 fi
 
