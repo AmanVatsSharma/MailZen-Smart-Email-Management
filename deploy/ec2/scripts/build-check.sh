@@ -172,6 +172,7 @@ fi
 
 if [[ "${SKIP_CONFIG_CHECK}" == false ]]; then
   log_info "Validating compose configuration before build..."
+  log_info "Command preview: $(format_command_for_logs docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" config)"
   compose config >/dev/null
 else
   log_warn "Skipping compose config validation (--skip-config-check)."
@@ -193,15 +194,11 @@ if [[ "${DRY_RUN}" == true ]]; then
   build_command+=("${target_services[@]}")
 
   log_info "Dry-run enabled; build command not executed."
-  printf '[mailzen-deploy][INFO] Would run: '
-  printf '%q ' "${build_command[@]}"
-  printf '\n'
+  log_info "Command preview: $(format_command_for_logs "${build_command[@]}")"
   if [[ "${RUN_IMAGE_PULL_CHECK}" == true ]]; then
     image_pull_command=(docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" pull)
     image_pull_command+=("${target_image_services[@]}")
-    printf '[mailzen-deploy][INFO] Would run: '
-    printf '%q ' "${image_pull_command[@]}"
-    printf '\n'
+    log_info "Command preview: $(format_command_for_logs "${image_pull_command[@]}")"
   fi
   exit 0
 fi
@@ -214,7 +211,9 @@ fi
 log_info "Running image build validation..."
 if [[ "${RUN_IMAGE_PULL_CHECK}" == true ]]; then
   log_info "Running image pull validation for image-only services..."
+  log_info "Command preview: $(format_command_for_logs docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" pull "${target_image_services[@]}")"
   compose pull "${target_image_services[@]}"
 fi
+log_info "Command preview: $(format_command_for_logs docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" build "${build_args[@]}" "${target_services[@]}")"
 compose build "${build_args[@]}" "${target_services[@]}"
 log_info "Image build validation passed."

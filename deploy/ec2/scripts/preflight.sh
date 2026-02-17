@@ -112,6 +112,7 @@ else
   log_warn "Running in config-only mode (daemon check skipped)."
 fi
 
+log_info "Command preview: $(format_command_for_logs docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" config)"
 if ! compose config >/dev/null; then
   log_error "docker compose config failed. Fix env/compose and retry."
   exit 1
