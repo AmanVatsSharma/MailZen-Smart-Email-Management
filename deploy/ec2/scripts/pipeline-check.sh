@@ -378,6 +378,14 @@ seed_env_file() {
   echo "[mailzen-deploy][PIPELINE-CHECK] Seeded env file: ${SEEDED_ENV_FILE}"
 }
 
+run_stage() {
+  local title="$1"
+  shift
+  echo "[mailzen-deploy][PIPELINE-CHECK] ${title}"
+  echo "[mailzen-deploy][PIPELINE-CHECK] Command preview: $(format_command_for_logs "$@")"
+  "$@"
+}
+
 echo "[mailzen-deploy][PIPELINE-CHECK] starting..."
 
 if [[ "${SEED_ENV}" == true ]]; then
@@ -405,7 +413,7 @@ if [[ "${RUN_DOCS_CHECK}" == false ]]; then
   echo "[mailzen-deploy][PIPELINE-CHECK] Docs-check step skipped (--skip-docs-check)."
 fi
 
-"${SCRIPT_DIR}/self-check.sh"
+run_stage "running script self-check..." "${SCRIPT_DIR}/self-check.sh"
 if [[ "${RUN_DOCS_CHECK}" == true ]]; then
   docs_check_args=()
   if [[ "${DOCS_STRICT_COVERAGE}" == true ]]; then
@@ -414,18 +422,19 @@ if [[ "${RUN_DOCS_CHECK}" == true ]]; then
   if [[ "${DOCS_INCLUDE_COMMON}" == true ]]; then
     docs_check_args+=(--include-common)
   fi
-  "${SCRIPT_DIR}/docs-check.sh" "${docs_check_args[@]}"
+  run_stage "running docs consistency checks..." "${SCRIPT_DIR}/docs-check.sh" "${docs_check_args[@]}"
 fi
-"${SCRIPT_DIR}/env-audit.sh"
-"${SCRIPT_DIR}/preflight.sh" --config-only
-"${SCRIPT_DIR}/host-readiness.sh" --min-disk-gb 1 --min-memory-mb 256 --min-cpu-cores 1
+run_stage "running env audit..." "${SCRIPT_DIR}/env-audit.sh"
+run_stage "running preflight config checks..." "${SCRIPT_DIR}/preflight.sh" --config-only
+run_stage "running host readiness checks..." "${SCRIPT_DIR}/host-readiness.sh" --min-disk-gb 1 --min-memory-mb 256 --min-cpu-cores 1
 ports_check_args=()
 if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
   ports_check_args+=(--ports "${PORTS_CHECK_PORTS}")
 fi
-"${SCRIPT_DIR}/ports-check.sh" "${ports_check_args[@]}"
+run_stage "running ports checks..." "${SCRIPT_DIR}/ports-check.sh" "${ports_check_args[@]}"
 
 echo "[mailzen-deploy][PIPELINE-CHECK] rendering compose config..."
+echo "[mailzen-deploy][PIPELINE-CHECK] Command preview: $(format_command_for_logs docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" config)"
 compose config >/dev/null
 
 if [[ "${RUN_BUILD_CHECK}" == true ]]; then
@@ -451,8 +460,7 @@ if [[ "${RUN_BUILD_CHECK}" == true ]]; then
   if [[ "${BUILD_CHECK_IMAGE_SERVICE_FLAGS_SET}" == true ]]; then
     build_check_args+=("${BUILD_CHECK_IMAGE_SERVICE_ARGS[@]}")
   fi
-  echo "[mailzen-deploy][PIPELINE-CHECK] running build checks..."
-  "${SCRIPT_DIR}/build-check.sh" "${build_check_args[@]}"
+  run_stage "running build checks..." "${SCRIPT_DIR}/build-check.sh" "${build_check_args[@]}"
 fi
 
 if [[ "${RUN_VERIFY}" == true ]]; then
@@ -472,8 +480,7 @@ if [[ "${RUN_VERIFY}" == true ]]; then
   if [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; then
     verify_args+=(--require-oauth-check)
   fi
-  echo "[mailzen-deploy][PIPELINE-CHECK] running verify checks..."
-  "${SCRIPT_DIR}/verify.sh" "${verify_args[@]}"
+  run_stage "running verify checks..." "${SCRIPT_DIR}/verify.sh" "${verify_args[@]}"
 fi
 
 if [[ "${RUN_RUNTIME_SMOKE}" == true ]]; then
@@ -493,8 +500,7 @@ if [[ "${RUN_RUNTIME_SMOKE}" == true ]]; then
   if [[ "${RUNTIME_SMOKE_DRY_RUN}" == true ]]; then
     runtime_smoke_args+=(--dry-run)
   fi
-  echo "[mailzen-deploy][PIPELINE-CHECK] running runtime smoke checks..."
-  "${SCRIPT_DIR}/runtime-smoke.sh" "${runtime_smoke_args[@]}"
+  run_stage "running runtime smoke checks..." "${SCRIPT_DIR}/runtime-smoke.sh" "${runtime_smoke_args[@]}"
 fi
 
 if [[ "${RUN_STATUS}" == true ]]; then
@@ -520,8 +526,7 @@ if [[ "${RUN_STATUS}" == true ]]; then
   if [[ "${STATUS_STRICT}" == true ]]; then
     status_args+=(--strict)
   fi
-  echo "[mailzen-deploy][PIPELINE-CHECK] running status checks..."
-  "${SCRIPT_DIR}/status.sh" "${status_args[@]}"
+  run_stage "running status checks..." "${SCRIPT_DIR}/status.sh" "${status_args[@]}"
 fi
 
 echo "[mailzen-deploy][PIPELINE-CHECK] PASS"
