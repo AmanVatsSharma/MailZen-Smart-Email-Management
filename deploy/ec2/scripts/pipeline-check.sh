@@ -327,21 +327,17 @@ if [[ "${RUN_BUILD_CHECK}" == false ]] &&
   echo "[mailzen-deploy][PIPELINE-CHECK][WARN] Build-check-specific flags were provided without --with-build-check; they will be ignored."
 fi
 
-if [[ -n "${VERIFY_MAX_RETRIES}" ]] && ! is_positive_integer "${VERIFY_MAX_RETRIES}"; then
-  echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] --verify-max-retries must be a positive integer."
-  exit 1
+if [[ -n "${VERIFY_MAX_RETRIES}" ]]; then
+  assert_positive_integer "--verify-max-retries" "${VERIFY_MAX_RETRIES}" || exit 1
 fi
-if [[ -n "${VERIFY_RETRY_SLEEP}" ]] && ! is_positive_integer "${VERIFY_RETRY_SLEEP}"; then
-  echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] --verify-retry-sleep must be a positive integer."
-  exit 1
+if [[ -n "${VERIFY_RETRY_SLEEP}" ]]; then
+  assert_positive_integer "--verify-retry-sleep" "${VERIFY_RETRY_SLEEP}" || exit 1
 fi
-if [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]] && ! is_positive_integer "${RUNTIME_SMOKE_MAX_RETRIES}"; then
-  echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] --runtime-smoke-max-retries must be a positive integer."
-  exit 1
+if [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]]; then
+  assert_positive_integer "--runtime-smoke-max-retries" "${RUNTIME_SMOKE_MAX_RETRIES}" || exit 1
 fi
-if [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]] && ! is_positive_integer "${RUNTIME_SMOKE_RETRY_SLEEP}"; then
-  echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] --runtime-smoke-retry-sleep must be a positive integer."
-  exit 1
+if [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]]; then
+  assert_positive_integer "--runtime-smoke-retry-sleep" "${RUNTIME_SMOKE_RETRY_SLEEP}" || exit 1
 fi
 if [[ "${VERIFY_SKIP_OAUTH_CHECK}" == true ]] && [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; then
   echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] --verify-skip-oauth-check cannot be combined with --verify-require-oauth-check."
