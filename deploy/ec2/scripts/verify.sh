@@ -26,6 +26,9 @@ RETRY_SLEEP_SECONDS="3"
 RUN_SSL_CHECK=true
 RUN_OAUTH_CHECK=true
 REQUIRE_OAUTH_CHECK=false
+SKIP_SSL_CHECK_FLAG_SET=false
+SKIP_OAUTH_CHECK_FLAG_SET=false
+REQUIRE_OAUTH_CHECK_FLAG_SET=false
 POSITIONAL_MAX_RETRIES_SET=false
 POSITIONAL_RETRY_SLEEP_SET=false
 POSITIONAL_MAX_RETRIES_VALUE=""
@@ -87,15 +90,27 @@ while [[ $# -gt 0 ]]; do
     shift 2
     ;;
   --skip-ssl-check)
+    if [[ "${SKIP_SSL_CHECK_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --skip-ssl-check flag detected; SSL check remains skipped."
+    fi
     RUN_SSL_CHECK=false
+    SKIP_SSL_CHECK_FLAG_SET=true
     shift
     ;;
   --skip-oauth-check)
+    if [[ "${SKIP_OAUTH_CHECK_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --skip-oauth-check flag detected; OAuth check remains skipped."
+    fi
     RUN_OAUTH_CHECK=false
+    SKIP_OAUTH_CHECK_FLAG_SET=true
     shift
     ;;
   --require-oauth-check)
+    if [[ "${REQUIRE_OAUTH_CHECK_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --require-oauth-check flag detected; OAuth check remains required."
+    fi
     REQUIRE_OAUTH_CHECK=true
+    REQUIRE_OAUTH_CHECK_FLAG_SET=true
     shift
     ;;
   *)
@@ -158,6 +173,9 @@ check_http_status() {
 
   local attempt=1
   local status_code=""
+  local command_preview
+  command_preview="$(format_command_for_logs curl -sS -o /dev/null -w "%{http_code}" "${url}")"
+  log_info "[${label}] command preview: ${command_preview}"
 
   while [[ "${attempt}" -le "${MAX_RETRIES}" ]]; do
     log_info "[${label}] attempt ${attempt}/${MAX_RETRIES} -> ${url}"
@@ -184,6 +202,9 @@ check_graphql_post() {
   local attempt=1
   local status_code=""
   local body='{"query":"query VerifyGraphql { __typename }"}'
+  local command_preview
+  command_preview="$(format_command_for_logs curl -sS -o /dev/null -w "%{http_code}" -H "content-type: application/json" -X POST --data "${body}" "${graphql_url}")"
+  log_info "[graphql-post] command preview: ${command_preview}"
 
   while [[ "${attempt}" -le "${MAX_RETRIES}" ]]; do
     log_info "[graphql-post] attempt ${attempt}/${MAX_RETRIES} -> ${graphql_url}"
@@ -227,6 +248,7 @@ else
   log_warn "OAuth start endpoint check skipped."
 fi
 if [[ "${RUN_SSL_CHECK}" == true ]]; then
+  log_info "Command preview: $(format_command_for_logs "${SCRIPT_DIR}/ssl-check.sh" --domain "${domain}")"
   "${SCRIPT_DIR}/ssl-check.sh" --domain "${domain}" || ssl_ok=false
 else
   log_warn "SSL certificate check skipped (--skip-ssl-check)."
@@ -234,6 +256,7 @@ fi
 
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   log_info "Docker detected. Printing compose status snapshot:"
+  log_info "Command preview: $(format_command_for_logs docker compose --env-file "$(get_env_file)" -f "$(get_compose_file)" ps)"
   compose ps || true
 else
   log_warn "Docker not available locally; skipping compose status snapshot."
