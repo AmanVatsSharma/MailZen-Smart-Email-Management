@@ -207,7 +207,7 @@ For production-style EC2 deployment, use the deployment module:
 
 ```bash
 # Fastest path for non-technical launch
-# (setup + host-readiness + dns + ssl + ports + preflight + deploy + verify + status)
+# (setup + docs-check + host-readiness + dns + ssl + ports + preflight + deploy + verify + status)
 ./deploy/ec2/scripts/launch.sh
 
 # Non-interactive launch when env is already configured

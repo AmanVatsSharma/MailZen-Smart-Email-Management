@@ -11,7 +11,8 @@ flowchart TD
   Setup --> EnvOK{env valid?}
   EnvOK -- no --> FixEnv[Fix env inputs/placeholders]
   FixEnv --> Setup
-  EnvOK -- yes --> HostReady[host-readiness.sh]
+  EnvOK -- yes --> DocsCheck[docs-check.sh]
+  DocsCheck --> HostReady[host-readiness.sh]
   HostReady --> DnsCheck[dns-check.sh]
   DnsCheck --> SslCheck[ssl-check.sh]
   SslCheck --> PortsCheck[ports-check.sh or ports-check.sh --ports 80,443,8100]
@@ -42,7 +43,8 @@ flowchart TD
 ```mermaid
 flowchart TD
   UpdateStart[Operator runs update.sh] --> Preflight[preflight.sh (optional runtime checks + ports-check-ports)]
-  Preflight --> BuildGate{--with-build-check enabled?}
+  Preflight --> DocsCheck[docs-check.sh]
+  DocsCheck --> BuildGate{--with-build-check enabled?}
   BuildGate -- yes --> BuildCheck[build-check.sh]
   BuildGate -- no --> DeployPull[deploy.sh --pull --force-recreate]
   BuildCheck --> DeployPull[deploy.sh --pull --force-recreate]
@@ -129,6 +131,11 @@ flowchart TD
   - `doctor.sh --ports-check-ports 80,443,8100`
   - `support-bundle.sh --ports-check-ports 80,443,8100`
   - `pipeline-check.sh --ports-check-ports 80,443,8100`
+- Use diagnostics docs-check controls as needed:
+  - `doctor.sh --docs-strict-coverage`
+  - `support-bundle.sh --docs-strict-coverage`
+  - `pipeline-check.sh --docs-strict-coverage`
+  - `validate.sh --docs-strict-coverage`
 - Use `rotate-app-secrets.sh --keys <k1,k2> --dry-run` before live secret
   rotations.
 - Use seeded diagnostics for CI/offline validation:

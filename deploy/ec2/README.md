@@ -103,7 +103,7 @@ From repository root:
 # - restart/stop operations (service/wait/purge/dry-run/confirmation controls)
 
 # One-command launch
-# (setup + host-readiness + dns + ssl + ports + preflight + deploy + verify + status)
+# (setup + docs-check + host-readiness + dns + ssl + ports + preflight + deploy + verify + status)
 ./deploy/ec2/scripts/launch.sh
 
 # Non-interactive launch if env already configured
