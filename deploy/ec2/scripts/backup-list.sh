@@ -67,9 +67,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -n "${MAX_COUNT}" ]] && { [[ ! "${MAX_COUNT}" =~ ^[0-9]+$ ]] || [[ "${MAX_COUNT}" -lt 1 ]]; }; then
-  log_error "--count must be a positive integer (received: ${MAX_COUNT})"
-  exit 1
+if [[ -n "${MAX_COUNT}" ]]; then
+  assert_positive_integer "--count" "${MAX_COUNT}" || exit 1
 fi
 
 if [[ "${LATEST_ONLY}" == true ]] && [[ -n "${MAX_COUNT}" ]]; then

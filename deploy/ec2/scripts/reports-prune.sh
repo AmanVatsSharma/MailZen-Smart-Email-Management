@@ -62,10 +62,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ ! "${KEEP_COUNT}" =~ ^[0-9]+$ ]] || [[ "${KEEP_COUNT}" -lt 1 ]]; then
-  log_error "Keep count must be a positive integer (received: ${KEEP_COUNT})"
-  exit 1
-fi
+assert_positive_integer "--keep-count" "${KEEP_COUNT}" || exit 1
 
 log_info "Active env file: $(get_env_file)"
 log_info "Active compose file: $(get_compose_file)"

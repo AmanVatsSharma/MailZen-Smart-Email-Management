@@ -29,15 +29,6 @@ MIN_MEMORY_FLAG_VALUE=""
 MIN_CPU_FLAG_SET=false
 MIN_CPU_FLAG_VALUE=""
 
-assert_positive_integer() {
-  local flag_name="$1"
-  local value="$2"
-  if [[ ! "${value}" =~ ^[0-9]+$ ]] || [[ "${value}" -lt 1 ]]; then
-    log_error "${flag_name} must be a positive integer (received: ${value})"
-    exit 1
-  fi
-}
-
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --min-disk-gb)
@@ -90,9 +81,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-assert_positive_integer "--min-disk-gb" "${MIN_DISK_GB}"
-assert_positive_integer "--min-memory-mb" "${MIN_MEMORY_MB}"
-assert_positive_integer "--min-cpu-cores" "${MIN_CPU_CORES}"
+assert_positive_integer "--min-disk-gb" "${MIN_DISK_GB}" || exit 1
+assert_positive_integer "--min-memory-mb" "${MIN_MEMORY_MB}" || exit 1
+assert_positive_integer "--min-cpu-cores" "${MIN_CPU_CORES}" || exit 1
 
 require_cmd df
 require_cmd free

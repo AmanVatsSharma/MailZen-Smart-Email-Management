@@ -107,10 +107,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ ! "${TAIL_LINES}" =~ ^[0-9]+$ ]] || [[ "${TAIL_LINES}" -lt 1 ]]; then
-  log_error "Tail lines must be a positive integer (received: ${TAIL_LINES})"
-  exit 1
-fi
+assert_positive_integer "--tail" "${TAIL_LINES}" || exit 1
 if [[ -z "${SERVICE_NAME}" ]] && [[ -n "${SINCE_WINDOW}" ]]; then
   log_info "Applying --since ${SINCE_WINDOW} for all services."
 fi
