@@ -27,6 +27,8 @@ DRY_RUN=false
 KEYS_RAW=""
 KEYS_FLAG_SET=false
 KEYS_FLAG_VALUE=""
+AUTO_CONFIRM_FLAG_SET=false
+DRY_RUN_FLAG_SET=false
 SUPPORTED_KEYS=(
   JWT_SECRET
   OAUTH_STATE_SECRET
@@ -37,11 +39,19 @@ TARGET_KEYS=("${SUPPORTED_KEYS[@]}")
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --yes)
+    if [[ "${AUTO_CONFIRM_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --yes flag detected; confirmation override remains enabled."
+    fi
     AUTO_CONFIRM=true
+    AUTO_CONFIRM_FLAG_SET=true
     shift
     ;;
   --dry-run)
+    if [[ "${DRY_RUN_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --dry-run flag detected; secret writes remain disabled."
+    fi
     DRY_RUN=true
+    DRY_RUN_FLAG_SET=true
     shift
     ;;
   --keys)
@@ -95,6 +105,7 @@ deduped_keys=()
 declare -A seen_keys=()
 for key in "${TARGET_KEYS[@]}"; do
   if [[ -n "${seen_keys[${key}]:-}" ]]; then
+    log_warn "Duplicate key '${key}' ignored."
     continue
   fi
   seen_keys["${key}"]=1
