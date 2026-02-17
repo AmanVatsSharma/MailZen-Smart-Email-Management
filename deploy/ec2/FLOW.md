@@ -19,9 +19,14 @@ flowchart TD
   Preflight --> ComposeConfig{compose config ok?}
   ComposeConfig -- no --> FixConfig[Fix env or compose file]
   FixConfig --> Preflight
-  ComposeConfig -- yes --> Deploy[deploy.sh]
+  ComposeConfig -- yes --> BuildGate{--with-build-check enabled?}
+  BuildGate -- yes --> BuildCheck[build-check.sh]
+  BuildGate -- no --> Deploy[deploy.sh]
+  BuildCheck --> Deploy[deploy.sh]
   Deploy --> Verify[verify.sh]
-  Verify --> RuntimeSmoke[runtime-smoke.sh]
+  Verify --> RuntimeGate{--with-runtime-smoke enabled?}
+  RuntimeGate -- yes --> RuntimeSmoke[runtime-smoke.sh]
+  RuntimeGate -- no --> VerifyOK{smoke checks pass?}
   RuntimeSmoke --> VerifyOK{smoke checks pass?}
   VerifyOK -- no --> Logs[logs.sh + status.sh troubleshooting]
   Logs --> FixAndRedeploy[update.sh or deploy.sh --force-recreate]
