@@ -130,6 +130,10 @@ Diagnostics:
   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-dry-run
   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-service backend --build-check-service frontend --build-check-pull
   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-with-image-pull-check --build-check-image-service caddy --build-check-image-service postgres --build-check-dry-run
+  ./deploy/ec2/scripts/pipeline-check.sh --with-verify --verify-skip-oauth-check --verify-skip-ssl-check
+  ./deploy/ec2/scripts/pipeline-check.sh --with-verify --verify-max-retries 10 --verify-retry-sleep 5
+  ./deploy/ec2/scripts/pipeline-check.sh --with-status --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
+  ./deploy/ec2/scripts/pipeline-check.sh --with-status --status-runtime-checks --status-skip-host-readiness --status-skip-ports-check
   ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke --runtime-smoke-dry-run
   ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke --runtime-smoke-max-retries 15 --runtime-smoke-retry-sleep 4
   ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps

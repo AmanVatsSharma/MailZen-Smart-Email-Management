@@ -4,7 +4,8 @@
 # MailZen EC2 deployment pipeline check
 # -----------------------------------------------------------------------------
 # CI-friendly validation pipeline for deployment assets.
-# Does not require docker daemon (config-only checks).
+# Default mode is daemon-agnostic (config-only checks).
+# Optional verify/runtime-smoke/status chains require runtime reachability.
 #
 # Usage:
 #   ./deploy/ec2/scripts/pipeline-check.sh
@@ -16,6 +17,10 @@
 #   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-dry-run
 #   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-service backend --build-check-service frontend --build-check-pull
 #   ./deploy/ec2/scripts/pipeline-check.sh --with-build-check --build-check-with-image-pull-check --build-check-image-service caddy --build-check-image-service postgres --build-check-dry-run
+#   ./deploy/ec2/scripts/pipeline-check.sh --with-verify --verify-skip-oauth-check --verify-skip-ssl-check
+#   ./deploy/ec2/scripts/pipeline-check.sh --with-verify --verify-max-retries 10 --verify-retry-sleep 5
+#   ./deploy/ec2/scripts/pipeline-check.sh --with-status --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
+#   ./deploy/ec2/scripts/pipeline-check.sh --with-status --status-runtime-checks --status-skip-host-readiness --status-skip-ports-check
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -48,6 +53,23 @@ BUILD_CHECK_SERVICE_FLAGS_SET=false
 BUILD_CHECK_IMAGE_SERVICE_FLAGS_SET=false
 BUILD_CHECK_SERVICE_ARGS=()
 BUILD_CHECK_IMAGE_SERVICE_ARGS=()
+RUN_VERIFY=false
+VERIFY_MAX_RETRIES=""
+VERIFY_RETRY_SLEEP=""
+VERIFY_SKIP_SSL_CHECK=false
+VERIFY_SKIP_OAUTH_CHECK=false
+VERIFY_REQUIRE_OAUTH_CHECK=false
+VERIFY_MAX_RETRIES_FLAG_SET=false
+VERIFY_MAX_RETRIES_FLAG_VALUE=""
+VERIFY_RETRY_SLEEP_FLAG_SET=false
+VERIFY_RETRY_SLEEP_FLAG_VALUE=""
+RUN_STATUS=false
+STATUS_RUNTIME_CHECKS=false
+STATUS_STRICT=false
+STATUS_SKIP_HOST_READINESS=false
+STATUS_SKIP_DNS_CHECK=false
+STATUS_SKIP_SSL_CHECK=false
+STATUS_SKIP_PORTS_CHECK=false
 
 cleanup() {
   if [[ -n "${SEEDED_ENV_FILE}" ]] && [[ "${KEEP_SEEDED_ENV}" == false ]] && [[ -f "${SEEDED_ENV_FILE}" ]]; then
@@ -169,9 +191,81 @@ while [[ $# -gt 0 ]]; do
     BUILD_CHECK_IMAGE_SERVICE_FLAGS_SET=true
     shift 2
     ;;
+  --with-verify)
+    RUN_VERIFY=true
+    shift
+    ;;
+  --verify-max-retries)
+    verify_max_retries_arg="${2:-}"
+    if [[ -z "${verify_max_retries_arg}" ]]; then
+      echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] --verify-max-retries requires a value."
+      exit 1
+    fi
+    if [[ "${VERIFY_MAX_RETRIES_FLAG_SET}" == true ]] && [[ "${verify_max_retries_arg}" != "${VERIFY_MAX_RETRIES_FLAG_VALUE}" ]]; then
+      echo "[mailzen-deploy][PIPELINE-CHECK][WARN] Earlier --verify-max-retries '${VERIFY_MAX_RETRIES_FLAG_VALUE}' overridden by --verify-max-retries '${verify_max_retries_arg}'."
+    fi
+    VERIFY_MAX_RETRIES="${verify_max_retries_arg}"
+    VERIFY_MAX_RETRIES_FLAG_SET=true
+    VERIFY_MAX_RETRIES_FLAG_VALUE="${verify_max_retries_arg}"
+    shift 2
+    ;;
+  --verify-retry-sleep)
+    verify_retry_sleep_arg="${2:-}"
+    if [[ -z "${verify_retry_sleep_arg}" ]]; then
+      echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] --verify-retry-sleep requires a value."
+      exit 1
+    fi
+    if [[ "${VERIFY_RETRY_SLEEP_FLAG_SET}" == true ]] && [[ "${verify_retry_sleep_arg}" != "${VERIFY_RETRY_SLEEP_FLAG_VALUE}" ]]; then
+      echo "[mailzen-deploy][PIPELINE-CHECK][WARN] Earlier --verify-retry-sleep '${VERIFY_RETRY_SLEEP_FLAG_VALUE}' overridden by --verify-retry-sleep '${verify_retry_sleep_arg}'."
+    fi
+    VERIFY_RETRY_SLEEP="${verify_retry_sleep_arg}"
+    VERIFY_RETRY_SLEEP_FLAG_SET=true
+    VERIFY_RETRY_SLEEP_FLAG_VALUE="${verify_retry_sleep_arg}"
+    shift 2
+    ;;
+  --verify-skip-ssl-check)
+    VERIFY_SKIP_SSL_CHECK=true
+    shift
+    ;;
+  --verify-skip-oauth-check)
+    VERIFY_SKIP_OAUTH_CHECK=true
+    shift
+    ;;
+  --verify-require-oauth-check)
+    VERIFY_REQUIRE_OAUTH_CHECK=true
+    shift
+    ;;
+  --with-status)
+    RUN_STATUS=true
+    shift
+    ;;
+  --status-runtime-checks)
+    STATUS_RUNTIME_CHECKS=true
+    shift
+    ;;
+  --status-strict)
+    STATUS_STRICT=true
+    shift
+    ;;
+  --status-skip-host-readiness)
+    STATUS_SKIP_HOST_READINESS=true
+    shift
+    ;;
+  --status-skip-dns-check)
+    STATUS_SKIP_DNS_CHECK=true
+    shift
+    ;;
+  --status-skip-ssl-check)
+    STATUS_SKIP_SSL_CHECK=true
+    shift
+    ;;
+  --status-skip-ports-check)
+    STATUS_SKIP_PORTS_CHECK=true
+    shift
+    ;;
   *)
     echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] Unknown argument: $1"
-    echo "[mailzen-deploy][PIPELINE-CHECK][INFO] Supported flags: --seed-env --keep-seeded-env --ports-check-ports <p1,p2,...> --with-build-check --build-check-dry-run --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-with-image-pull-check --build-check-service <name> --build-check-image-service <name> --with-runtime-smoke --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --runtime-smoke-dry-run"
+    echo "[mailzen-deploy][PIPELINE-CHECK][INFO] Supported flags: --seed-env --keep-seeded-env --ports-check-ports <p1,p2,...> --with-build-check --build-check-dry-run --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-with-image-pull-check --build-check-service <name> --build-check-image-service <name> --with-runtime-smoke --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --runtime-smoke-dry-run --with-verify --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --with-status --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check"
     exit 1
     ;;
   esac
@@ -202,6 +296,46 @@ if [[ "${RUN_BUILD_CHECK}" == false ]] &&
   echo "[mailzen-deploy][PIPELINE-CHECK][WARN] Build-check-specific flags were provided without --with-build-check; they will be ignored."
 fi
 
+if [[ -n "${VERIFY_MAX_RETRIES}" ]] && { [[ ! "${VERIFY_MAX_RETRIES}" =~ ^[0-9]+$ ]] || [[ "${VERIFY_MAX_RETRIES}" -lt 1 ]]; }; then
+  echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] --verify-max-retries must be a positive integer."
+  exit 1
+fi
+if [[ -n "${VERIFY_RETRY_SLEEP}" ]] && { [[ ! "${VERIFY_RETRY_SLEEP}" =~ ^[0-9]+$ ]] || [[ "${VERIFY_RETRY_SLEEP}" -lt 1 ]]; }; then
+  echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] --verify-retry-sleep must be a positive integer."
+  exit 1
+fi
+if [[ "${VERIFY_SKIP_OAUTH_CHECK}" == true ]] && [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; then
+  echo "[mailzen-deploy][PIPELINE-CHECK][ERROR] --verify-skip-oauth-check cannot be combined with --verify-require-oauth-check."
+  exit 1
+fi
+
+if [[ "${RUN_VERIFY}" == false ]] &&
+  { [[ -n "${VERIFY_MAX_RETRIES}" ]] ||
+    [[ -n "${VERIFY_RETRY_SLEEP}" ]] ||
+    [[ "${VERIFY_SKIP_SSL_CHECK}" == true ]] ||
+    [[ "${VERIFY_SKIP_OAUTH_CHECK}" == true ]] ||
+    [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; }; then
+  echo "[mailzen-deploy][PIPELINE-CHECK][WARN] Verify-specific flags were provided without --with-verify; they will be ignored."
+fi
+
+if [[ "${RUN_STATUS}" == false ]] &&
+  { [[ "${STATUS_RUNTIME_CHECKS}" == true ]] ||
+    [[ "${STATUS_STRICT}" == true ]] ||
+    [[ "${STATUS_SKIP_HOST_READINESS}" == true ]] ||
+    [[ "${STATUS_SKIP_DNS_CHECK}" == true ]] ||
+    [[ "${STATUS_SKIP_SSL_CHECK}" == true ]] ||
+    [[ "${STATUS_SKIP_PORTS_CHECK}" == true ]]; }; then
+  echo "[mailzen-deploy][PIPELINE-CHECK][WARN] Status-specific flags were provided without --with-status; they will be ignored."
+fi
+
+if [[ "${RUN_STATUS}" == true ]] && [[ "${STATUS_RUNTIME_CHECKS}" == false ]] &&
+  { [[ "${STATUS_SKIP_HOST_READINESS}" == true ]] ||
+    [[ "${STATUS_SKIP_DNS_CHECK}" == true ]] ||
+    [[ "${STATUS_SKIP_SSL_CHECK}" == true ]] ||
+    [[ "${STATUS_SKIP_PORTS_CHECK}" == true ]]; }; then
+  echo "[mailzen-deploy][PIPELINE-CHECK][WARN] Status runtime skip flags were provided without --status-runtime-checks; skip flags will be ignored."
+fi
+
 seed_env_file() {
   SEEDED_ENV_FILE="$(create_seeded_env_file "pipeline-check" "${DEPLOY_DIR}")"
 
@@ -223,8 +357,14 @@ fi
 if [[ "${RUN_BUILD_CHECK}" == true ]]; then
   echo "[mailzen-deploy][PIPELINE-CHECK] Build checks enabled."
 fi
+if [[ "${RUN_VERIFY}" == true ]]; then
+  echo "[mailzen-deploy][PIPELINE-CHECK] Verify checks enabled."
+fi
 if [[ "${RUN_RUNTIME_SMOKE}" == true ]]; then
   echo "[mailzen-deploy][PIPELINE-CHECK] Runtime smoke checks enabled."
+fi
+if [[ "${RUN_STATUS}" == true ]]; then
+  echo "[mailzen-deploy][PIPELINE-CHECK] Status checks enabled."
 fi
 
 "${SCRIPT_DIR}/self-check.sh"
@@ -267,6 +407,27 @@ if [[ "${RUN_BUILD_CHECK}" == true ]]; then
   "${SCRIPT_DIR}/build-check.sh" "${build_check_args[@]}"
 fi
 
+if [[ "${RUN_VERIFY}" == true ]]; then
+  verify_args=()
+  if [[ -n "${VERIFY_MAX_RETRIES}" ]]; then
+    verify_args+=(--max-retries "${VERIFY_MAX_RETRIES}")
+  fi
+  if [[ -n "${VERIFY_RETRY_SLEEP}" ]]; then
+    verify_args+=(--retry-sleep "${VERIFY_RETRY_SLEEP}")
+  fi
+  if [[ "${VERIFY_SKIP_SSL_CHECK}" == true ]]; then
+    verify_args+=(--skip-ssl-check)
+  fi
+  if [[ "${VERIFY_SKIP_OAUTH_CHECK}" == true ]]; then
+    verify_args+=(--skip-oauth-check)
+  fi
+  if [[ "${VERIFY_REQUIRE_OAUTH_CHECK}" == true ]]; then
+    verify_args+=(--require-oauth-check)
+  fi
+  echo "[mailzen-deploy][PIPELINE-CHECK] running verify checks..."
+  "${SCRIPT_DIR}/verify.sh" "${verify_args[@]}"
+fi
+
 if [[ "${RUN_RUNTIME_SMOKE}" == true ]]; then
   runtime_smoke_args=()
   if [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]]; then
@@ -286,6 +447,33 @@ if [[ "${RUN_RUNTIME_SMOKE}" == true ]]; then
   fi
   echo "[mailzen-deploy][PIPELINE-CHECK] running runtime smoke checks..."
   "${SCRIPT_DIR}/runtime-smoke.sh" "${runtime_smoke_args[@]}"
+fi
+
+if [[ "${RUN_STATUS}" == true ]]; then
+  status_args=()
+  if [[ "${STATUS_RUNTIME_CHECKS}" == true ]]; then
+    status_args+=(--with-runtime-checks)
+    if [[ "${STATUS_SKIP_HOST_READINESS}" == true ]]; then
+      status_args+=(--skip-host-readiness)
+    fi
+    if [[ "${STATUS_SKIP_DNS_CHECK}" == true ]]; then
+      status_args+=(--skip-dns-check)
+    fi
+    if [[ "${STATUS_SKIP_SSL_CHECK}" == true ]]; then
+      status_args+=(--skip-ssl-check)
+    fi
+    if [[ "${STATUS_SKIP_PORTS_CHECK}" == true ]]; then
+      status_args+=(--skip-ports-check)
+    fi
+    if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
+      status_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
+    fi
+  fi
+  if [[ "${STATUS_STRICT}" == true ]]; then
+    status_args+=(--strict)
+  fi
+  echo "[mailzen-deploy][PIPELINE-CHECK] running status checks..."
+  "${SCRIPT_DIR}/status.sh" "${status_args[@]}"
 fi
 
 echo "[mailzen-deploy][PIPELINE-CHECK] PASS"

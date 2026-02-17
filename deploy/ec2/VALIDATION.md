@@ -124,6 +124,9 @@ If any check fails:
 
 # Config checks + live runtime-smoke checks
 ./deploy/ec2/scripts/pipeline-check.sh --with-runtime-smoke
+
+# Config checks + verify + status checks
+./deploy/ec2/scripts/pipeline-check.sh --with-verify --verify-skip-oauth-check --verify-skip-ssl-check --with-status --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
 ```
 
 ## 6) One-command wrapper shortcut with chained validation

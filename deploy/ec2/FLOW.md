@@ -143,5 +143,8 @@ flowchart TD
 - Use `pipeline-check.sh --with-build-check` to include image-build readiness
   validation (optionally `--build-check-dry-run` for rehearsal on daemon-offline
   or CI-like runs).
+- Use `pipeline-check.sh --with-verify` and `--with-status` when you want
+  public endpoint smoke checks and/or status snapshots as part of the same
+  pipeline execution.
 - Run `help.sh` for quick operator command lookup.
 - Use `self-check.sh` after editing deployment scripts.

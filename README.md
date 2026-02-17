@@ -417,6 +417,12 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
   --runtime-smoke-max-retries 15 \
   --runtime-smoke-retry-sleep 4
 
+# Optional: run pipeline checks plus verify checks
+./deploy/ec2/scripts/pipeline-check.sh --with-verify --verify-skip-oauth-check --verify-skip-ssl-check
+
+# Optional: run pipeline checks plus status checks
+./deploy/ec2/scripts/pipeline-check.sh --with-status --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
+
 # Optional: print deployment command quick-reference
 ./deploy/ec2/scripts/help.sh
 

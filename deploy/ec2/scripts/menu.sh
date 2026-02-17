@@ -78,7 +78,7 @@ show_menu() {
 19) Run diagnostics report (doctor, optional custom ports)
 20) Generate support bundle (optional custom ports)
 21) Rotate app secrets (prompt keys/dry-run)
-22) Run pipeline check (optional build/runtime-smoke + custom ports)
+22) Run pipeline check (optional build/verify/runtime-smoke/status + custom ports)
 23) Prune old diagnostics reports (keep latest 20)
 24) Show command help
 25) Run script self-check
@@ -86,7 +86,7 @@ show_menu() {
 27) Verify deployment (skip oauth + ssl checks)
 28) Run diagnostics report (doctor, seeded env, optional custom ports)
 29) Generate support bundle (seeded env, optional custom ports)
-30) Run pipeline check (seeded env, optional build/runtime-smoke + custom ports)
+30) Run pipeline check (seeded env, optional build/verify/runtime-smoke/status + custom ports)
 31) Restart services (guided)
 32) Stop stack (guided)
 33) Runtime smoke checks (container-internal, guided)
@@ -798,6 +798,59 @@ while true; do
         pipeline_check_args+=(--runtime-smoke-dry-run)
       fi
     fi
+    if prompt_yes_no "Run verify checks in pipeline validation" "no"; then
+      pipeline_check_args+=(--with-verify)
+      pipeline_verify_retries="$(prompt_with_default "Pipeline verify max retries (blank = default)" "")"
+      if [[ -n "${pipeline_verify_retries}" ]]; then
+        if [[ "${pipeline_verify_retries}" =~ ^[0-9]+$ ]] && [[ "${pipeline_verify_retries}" -gt 0 ]]; then
+          pipeline_check_args+=(--verify-max-retries "${pipeline_verify_retries}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid pipeline verify max retries value: ${pipeline_verify_retries}"
+        fi
+      fi
+      pipeline_verify_retry_sleep="$(prompt_with_default "Pipeline verify retry sleep seconds (blank = default)" "")"
+      if [[ -n "${pipeline_verify_retry_sleep}" ]]; then
+        if [[ "${pipeline_verify_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${pipeline_verify_retry_sleep}" -gt 0 ]]; then
+          pipeline_check_args+=(--verify-retry-sleep "${pipeline_verify_retry_sleep}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid pipeline verify retry sleep value: ${pipeline_verify_retry_sleep}"
+        fi
+      fi
+      pipeline_verify_skip_oauth=false
+      if prompt_yes_no "Skip OAuth check in pipeline verify step" "no"; then
+        pipeline_verify_skip_oauth=true
+        pipeline_check_args+=(--verify-skip-oauth-check)
+      fi
+      if [[ "${pipeline_verify_skip_oauth}" == false ]]; then
+        if prompt_yes_no "Require OAuth check in pipeline verify step" "no"; then
+          pipeline_check_args+=(--verify-require-oauth-check)
+        fi
+      fi
+      if prompt_yes_no "Skip SSL check in pipeline verify step" "no"; then
+        pipeline_check_args+=(--verify-skip-ssl-check)
+      fi
+    fi
+    if prompt_yes_no "Run status checks in pipeline validation" "no"; then
+      pipeline_check_args+=(--with-status)
+      if prompt_yes_no "Enable runtime checks inside pipeline status step" "no"; then
+        pipeline_check_args+=(--status-runtime-checks)
+        if prompt_yes_no "Skip host readiness inside pipeline status runtime checks" "no"; then
+          pipeline_check_args+=(--status-skip-host-readiness)
+        fi
+        if prompt_yes_no "Skip DNS check inside pipeline status runtime checks" "yes"; then
+          pipeline_check_args+=(--status-skip-dns-check)
+        fi
+        if prompt_yes_no "Skip SSL check inside pipeline status runtime checks" "yes"; then
+          pipeline_check_args+=(--status-skip-ssl-check)
+        fi
+        if prompt_yes_no "Skip ports check inside pipeline status runtime checks" "no"; then
+          pipeline_check_args+=(--status-skip-ports-check)
+        fi
+      fi
+      if prompt_yes_no "Enable strict mode in pipeline status step" "no"; then
+        pipeline_check_args+=(--status-strict)
+      fi
+    fi
     run_step "pipeline-check.sh" "${pipeline_check_args[@]}"
     ;;
   23)
@@ -906,6 +959,59 @@ while true; do
       fi
       if prompt_yes_no "Run runtime smoke checks in dry-run mode" "no"; then
         pipeline_seeded_args+=(--runtime-smoke-dry-run)
+      fi
+    fi
+    if prompt_yes_no "Run verify checks in seeded pipeline validation" "no"; then
+      pipeline_seeded_args+=(--with-verify)
+      pipeline_seeded_verify_retries="$(prompt_with_default "Seeded pipeline verify max retries (blank = default)" "")"
+      if [[ -n "${pipeline_seeded_verify_retries}" ]]; then
+        if [[ "${pipeline_seeded_verify_retries}" =~ ^[0-9]+$ ]] && [[ "${pipeline_seeded_verify_retries}" -gt 0 ]]; then
+          pipeline_seeded_args+=(--verify-max-retries "${pipeline_seeded_verify_retries}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid seeded pipeline verify max retries value: ${pipeline_seeded_verify_retries}"
+        fi
+      fi
+      pipeline_seeded_verify_retry_sleep="$(prompt_with_default "Seeded pipeline verify retry sleep seconds (blank = default)" "")"
+      if [[ -n "${pipeline_seeded_verify_retry_sleep}" ]]; then
+        if [[ "${pipeline_seeded_verify_retry_sleep}" =~ ^[0-9]+$ ]] && [[ "${pipeline_seeded_verify_retry_sleep}" -gt 0 ]]; then
+          pipeline_seeded_args+=(--verify-retry-sleep "${pipeline_seeded_verify_retry_sleep}")
+        else
+          echo "[mailzen-deploy][MENU][WARN] Ignoring invalid seeded pipeline verify retry sleep value: ${pipeline_seeded_verify_retry_sleep}"
+        fi
+      fi
+      pipeline_seeded_verify_skip_oauth=false
+      if prompt_yes_no "Skip OAuth check in seeded pipeline verify step" "no"; then
+        pipeline_seeded_verify_skip_oauth=true
+        pipeline_seeded_args+=(--verify-skip-oauth-check)
+      fi
+      if [[ "${pipeline_seeded_verify_skip_oauth}" == false ]]; then
+        if prompt_yes_no "Require OAuth check in seeded pipeline verify step" "no"; then
+          pipeline_seeded_args+=(--verify-require-oauth-check)
+        fi
+      fi
+      if prompt_yes_no "Skip SSL check in seeded pipeline verify step" "no"; then
+        pipeline_seeded_args+=(--verify-skip-ssl-check)
+      fi
+    fi
+    if prompt_yes_no "Run status checks in seeded pipeline validation" "no"; then
+      pipeline_seeded_args+=(--with-status)
+      if prompt_yes_no "Enable runtime checks inside seeded pipeline status step" "no"; then
+        pipeline_seeded_args+=(--status-runtime-checks)
+        if prompt_yes_no "Skip host readiness inside seeded pipeline status runtime checks" "no"; then
+          pipeline_seeded_args+=(--status-skip-host-readiness)
+        fi
+        if prompt_yes_no "Skip DNS check inside seeded pipeline status runtime checks" "yes"; then
+          pipeline_seeded_args+=(--status-skip-dns-check)
+        fi
+        if prompt_yes_no "Skip SSL check inside seeded pipeline status runtime checks" "yes"; then
+          pipeline_seeded_args+=(--status-skip-ssl-check)
+        fi
+        if prompt_yes_no "Skip ports check inside seeded pipeline status runtime checks" "no"; then
+          pipeline_seeded_args+=(--status-skip-ports-check)
+        fi
+      fi
+      if prompt_yes_no "Enable strict mode in seeded pipeline status step" "no"; then
+        pipeline_seeded_args+=(--status-strict)
       fi
     fi
     run_step "pipeline-check.sh" "${pipeline_seeded_args[@]}"
