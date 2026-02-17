@@ -94,6 +94,7 @@ From repository root:
 # - setup overrides (domain/acme/daemon check)
 # - deploy flags (--no-build/--pull/--force-recreate/--dry-run/--config-only)
 # - optional build-check chaining in launch/update
+# - docs consistency checks and strict docs coverage toggles
 # - verify checks (retries + oauth/ssl toggles)
 # - runtime smoke checks (container-internal retries + dependency toggles)
 # - status runtime-smoke chaining controls
@@ -107,6 +108,12 @@ From repository root:
 
 # Non-interactive launch if env already configured
 ./deploy/ec2/scripts/launch.sh --skip-setup
+
+# Launch with strict docs coverage enforcement (fails when scripts drift from docs)
+./deploy/ec2/scripts/launch.sh --docs-strict-coverage
+
+# Launch while skipping docs consistency check
+./deploy/ec2/scripts/launch.sh --skip-docs-check
 
 # Skip selected prechecks during launch
 ./deploy/ec2/scripts/launch.sh --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check
@@ -294,6 +301,12 @@ Example:
 
 # Pull updates, recreate, and run verify checks
 ./deploy/ec2/scripts/update.sh
+
+# Update with strict docs coverage enforcement
+./deploy/ec2/scripts/update.sh --docs-strict-coverage
+
+# Update while skipping docs consistency check
+./deploy/ec2/scripts/update.sh --skip-docs-check
 
 # Update with custom verify retries
 ./deploy/ec2/scripts/update.sh --verify-max-retries 10 --verify-retry-sleep 5

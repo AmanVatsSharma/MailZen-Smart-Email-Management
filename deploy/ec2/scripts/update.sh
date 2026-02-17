@@ -5,6 +5,7 @@
 # -----------------------------------------------------------------------------
 # Convenient wrapper for production updates:
 # - validates env + compose config
+# - validates deployment docs/script consistency (optional strict mode)
 # - optional image build validation chain
 # - pulls latest base layers
 # - rebuilds app images
@@ -13,6 +14,7 @@
 #
 # Optional flags:
 #   --skip-verify
+#   --skip-docs-check
 #   --with-build-check
 #   --with-runtime-smoke
 #   --verify-max-retries <n>
@@ -32,6 +34,8 @@
 #   --build-check-with-image-pull-check
 #   --build-check-image-service <name> (repeatable)
 #   --build-check-service <name> (repeatable)
+#   --docs-strict-coverage
+#   --docs-include-common
 #   --preflight-config-only
 #   --deploy-dry-run
 #   --skip-status
@@ -50,6 +54,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUN_VERIFY=true
+RUN_DOCS_CHECK=true
 RUN_BUILD_CHECK=false
 RUN_RUNTIME_SMOKE=false
 RUN_STATUS=true
@@ -70,6 +75,8 @@ BUILD_CHECK_PULL=false
 BUILD_CHECK_NO_CACHE=false
 BUILD_CHECK_SKIP_CONFIG_CHECK=false
 BUILD_CHECK_WITH_IMAGE_PULL_CHECK=false
+DOCS_STRICT_COVERAGE=false
+DOCS_INCLUDE_COMMON=false
 STATUS_RUNTIME_CHECKS=false
 STATUS_STRICT=false
 STATUS_SKIP_HOST_READINESS=false
@@ -94,6 +101,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
   --skip-verify)
     RUN_VERIFY=false
+    shift
+    ;;
+  --skip-docs-check)
+    RUN_DOCS_CHECK=false
     shift
     ;;
   --with-build-check)
@@ -222,6 +233,14 @@ while [[ $# -gt 0 ]]; do
     BUILD_CHECK_SERVICE_ARGS+=(--service "${build_check_service_arg}")
     shift 2
     ;;
+  --docs-strict-coverage)
+    DOCS_STRICT_COVERAGE=true
+    shift
+    ;;
+  --docs-include-common)
+    DOCS_INCLUDE_COMMON=true
+    shift
+    ;;
   --preflight-config-only)
     PREFLIGHT_CONFIG_ONLY=true
     shift
@@ -274,11 +293,15 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --skip-verify --with-build-check --with-runtime-smoke --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --runtime-smoke-dry-run --build-check-dry-run --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-with-image-pull-check --build-check-image-service <name> --build-check-service <name> --preflight-config-only --deploy-dry-run --skip-status --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...>"
+    log_error "Supported flags: --skip-verify --skip-docs-check --with-build-check --with-runtime-smoke --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --runtime-smoke-dry-run --build-check-dry-run --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-with-image-pull-check --build-check-image-service <name> --build-check-service <name> --docs-strict-coverage --docs-include-common --preflight-config-only --deploy-dry-run --skip-status --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...>"
     exit 1
     ;;
   esac
 done
+
+if [[ "${DOCS_INCLUDE_COMMON}" == true ]] && [[ "${DOCS_STRICT_COVERAGE}" == false ]]; then
+  log_warn "--docs-include-common is most useful with --docs-strict-coverage."
+fi
 
 if [[ -n "${VERIFY_MAX_RETRIES}" ]] && { [[ ! "${VERIFY_MAX_RETRIES}" =~ ^[0-9]+$ ]] || [[ "${VERIFY_MAX_RETRIES}" -lt 1 ]]; }; then
   log_error "--verify-max-retries must be a positive integer."
@@ -321,6 +344,10 @@ if [[ "${RUN_BUILD_CHECK}" == false ]] &&
   { [[ "${BUILD_CHECK_DRY_RUN}" == true ]] || [[ "${BUILD_CHECK_PULL}" == true ]] || [[ "${BUILD_CHECK_NO_CACHE}" == true ]] || [[ "${BUILD_CHECK_SKIP_CONFIG_CHECK}" == true ]] || [[ "${BUILD_CHECK_WITH_IMAGE_PULL_CHECK}" == true ]] || [[ "${#BUILD_CHECK_SERVICE_ARGS[@]}" -gt 0 ]] || [[ "${#BUILD_CHECK_IMAGE_SERVICE_ARGS[@]}" -gt 0 ]]; }; then
   log_warn "Build-check-related flags were provided without --with-build-check; build-check flags will be ignored."
 fi
+if [[ "${RUN_DOCS_CHECK}" == false ]] &&
+  { [[ "${DOCS_STRICT_COVERAGE}" == true ]] || [[ "${DOCS_INCLUDE_COMMON}" == true ]]; }; then
+  log_warn "Docs-check-related flags were provided while --skip-docs-check is enabled; docs-check flags will be ignored."
+fi
 if [[ "${RUN_STATUS}" == false ]] &&
   { [[ "${STATUS_RUNTIME_CHECKS}" == true ]] || [[ "${STATUS_STRICT}" == true ]] || [[ "${STATUS_SKIP_HOST_READINESS}" == true ]] || [[ "${STATUS_SKIP_DNS_CHECK}" == true ]] || [[ "${STATUS_SKIP_SSL_CHECK}" == true ]] || [[ "${STATUS_SKIP_PORTS_CHECK}" == true ]] || [[ -n "${PORTS_CHECK_PORTS}" ]]; }; then
   log_warn "Status-related flags were provided while --skip-status is enabled; status flags will be ignored."
@@ -342,6 +369,9 @@ log_info "Active compose file: $(get_compose_file)"
 if [[ "${RUN_BUILD_CHECK}" == false ]]; then
   log_info "Build-check step skipped (enable with --with-build-check)."
 fi
+if [[ "${RUN_DOCS_CHECK}" == false ]]; then
+  log_info "Docs-check step skipped (--skip-docs-check)."
+fi
 if [[ "${RUN_RUNTIME_SMOKE}" == false ]]; then
   log_info "Runtime-smoke step skipped (enable with --with-runtime-smoke)."
 fi
@@ -351,6 +381,17 @@ if [[ "${PREFLIGHT_CONFIG_ONLY}" == true ]]; then
   preflight_args+=(--config-only)
 fi
 "${SCRIPT_DIR}/preflight.sh" "${preflight_args[@]}"
+
+if [[ "${RUN_DOCS_CHECK}" == true ]]; then
+  docs_check_args=()
+  if [[ "${DOCS_STRICT_COVERAGE}" == true ]]; then
+    docs_check_args+=(--strict-coverage)
+  fi
+  if [[ "${DOCS_INCLUDE_COMMON}" == true ]]; then
+    docs_check_args+=(--include-common)
+  fi
+  "${SCRIPT_DIR}/docs-check.sh" "${docs_check_args[@]}"
+fi
 
 if [[ "${RUN_BUILD_CHECK}" == true ]]; then
   build_check_args=()

@@ -33,6 +33,8 @@ Primary flow:
   ./deploy/ec2/scripts/launch.sh --verify-max-retries 10 --verify-retry-sleep 5
   ./deploy/ec2/scripts/launch.sh --verify-skip-oauth-check --verify-skip-ssl-check
   ./deploy/ec2/scripts/launch.sh --verify-require-oauth-check
+  ./deploy/ec2/scripts/launch.sh --docs-strict-coverage
+  ./deploy/ec2/scripts/launch.sh --skip-docs-check
   ./deploy/ec2/scripts/launch.sh --with-build-check --build-check-dry-run
   ./deploy/ec2/scripts/launch.sh --with-build-check --build-check-service backend --build-check-service frontend --build-check-pull
   ./deploy/ec2/scripts/launch.sh --with-build-check --build-check-with-image-pull-check --build-check-image-service caddy --build-check-image-service postgres --build-check-dry-run
@@ -86,6 +88,8 @@ Operations:
   ./deploy/ec2/scripts/update.sh --verify-skip-oauth-check --status-runtime-checks
   ./deploy/ec2/scripts/update.sh --verify-require-oauth-check
   ./deploy/ec2/scripts/update.sh --verify-max-retries 10 --verify-retry-sleep 5
+  ./deploy/ec2/scripts/update.sh --docs-strict-coverage
+  ./deploy/ec2/scripts/update.sh --skip-docs-check
   ./deploy/ec2/scripts/update.sh --with-build-check --build-check-dry-run
   ./deploy/ec2/scripts/update.sh --with-build-check --build-check-service backend --build-check-service frontend --build-check-pull
   ./deploy/ec2/scripts/update.sh --with-build-check --build-check-with-image-pull-check --build-check-image-service caddy --build-check-image-service postgres --build-check-dry-run

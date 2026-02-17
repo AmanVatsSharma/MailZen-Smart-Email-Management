@@ -121,6 +121,20 @@ while true; do
       launch_args+=(--skip-setup)
       launch_setup_enabled=false
     fi
+    if prompt_yes_no "Skip docs consistency check step" "no"; then
+      launch_args+=(--skip-docs-check)
+    else
+      launch_docs_strict=false
+      if prompt_yes_no "Enable strict docs coverage check for launch flow" "no"; then
+        launch_docs_strict=true
+        launch_args+=(--docs-strict-coverage)
+      fi
+      if [[ "${launch_docs_strict}" == true ]]; then
+        if prompt_yes_no "Include common.sh in strict docs coverage check" "no"; then
+          launch_args+=(--docs-include-common)
+        fi
+      fi
+    fi
     if prompt_yes_no "Skip host readiness check" "no"; then
       launch_args+=(--skip-host-readiness)
     fi
@@ -480,6 +494,20 @@ while true; do
     update_deploy_dry_run=false
     if prompt_yes_no "Run preflight in config-only mode" "no"; then
       update_args+=(--preflight-config-only)
+    fi
+    if prompt_yes_no "Skip docs consistency check step" "no"; then
+      update_args+=(--skip-docs-check)
+    else
+      update_docs_strict=false
+      if prompt_yes_no "Enable strict docs coverage check for update flow" "no"; then
+        update_docs_strict=true
+        update_args+=(--docs-strict-coverage)
+      fi
+      if [[ "${update_docs_strict}" == true ]]; then
+        if prompt_yes_no "Include common.sh in strict docs coverage check" "no"; then
+          update_args+=(--docs-include-common)
+        fi
+      fi
     fi
     if prompt_yes_no "Run deploy in dry-run mode" "no"; then
       update_args+=(--deploy-dry-run)

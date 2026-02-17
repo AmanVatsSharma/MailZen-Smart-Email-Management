@@ -138,8 +138,14 @@ If any check fails:
 # Full launch pipeline with optional build/runtime chained validation
 ./deploy/ec2/scripts/launch.sh --with-build-check --with-runtime-smoke
 
+# Full launch pipeline with strict docs coverage enforcement
+./deploy/ec2/scripts/launch.sh --docs-strict-coverage
+
 # Update pipeline with optional build/runtime chained validation
 ./deploy/ec2/scripts/update.sh --with-build-check --with-runtime-smoke
+
+# Update pipeline with strict docs coverage enforcement
+./deploy/ec2/scripts/update.sh --docs-strict-coverage
 
 # High-level validation profile wrapper (full chain)
 ./deploy/ec2/scripts/validate.sh

@@ -213,6 +213,12 @@ For production-style EC2 deployment, use the deployment module:
 # Non-interactive launch when env is already configured
 ./deploy/ec2/scripts/launch.sh --skip-setup
 
+# Optional: enforce strict docs coverage during launch
+./deploy/ec2/scripts/launch.sh --docs-strict-coverage
+
+# Optional: skip docs consistency check during launch
+./deploy/ec2/scripts/launch.sh --skip-docs-check
+
 # Optional: skip selected prechecks
 ./deploy/ec2/scripts/launch.sh --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check
 
@@ -295,7 +301,7 @@ For production-style EC2 deployment, use the deployment module:
 ./deploy/ec2/scripts/menu.sh
 
 # Menu includes guided prompts for setup/deploy/verify/logs/update/restart/stop operations,
-# runtime smoke checks, and pipeline validation with optional build/verify/runtime-smoke/status chaining
+# docs consistency checks, runtime smoke checks, and pipeline validation with optional build/verify/runtime-smoke/status chaining
 # (useful for non-technical EC2 operators)
 
 # Optional on fresh Ubuntu EC2: install Docker + Compose
@@ -500,6 +506,12 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # 6) Future updates (includes verify checks)
 ./deploy/ec2/scripts/update.sh
+
+# Optional: enforce strict docs coverage during update
+./deploy/ec2/scripts/update.sh --docs-strict-coverage
+
+# Optional: skip docs consistency check during update
+./deploy/ec2/scripts/update.sh --skip-docs-check
 
 # Optional: update dry-run simulation
 ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify

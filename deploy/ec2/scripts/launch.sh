@@ -4,10 +4,11 @@
 # MailZen EC2 one-command launch script (non-technical friendly)
 # -----------------------------------------------------------------------------
 # Runs the full happy-path pipeline:
-#   setup -> host-readiness -> dns-check -> ssl-check -> ports-check -> preflight -> (optional build-check) -> deploy -> verify -> (optional runtime-smoke) -> status
+#   setup -> docs-check -> host-readiness -> dns-check -> ssl-check -> ports-check -> preflight -> (optional build-check) -> deploy -> verify -> (optional runtime-smoke) -> status
 #
 # Optional flags:
 #   --skip-setup
+#   --skip-docs-check
 #   --skip-host-readiness
 #   --skip-dns-check
 #   --skip-ssl-check
@@ -36,6 +37,8 @@
 #   --build-check-with-image-pull-check
 #   --build-check-image-service <name> (repeatable)
 #   --build-check-service <name> (repeatable)
+#   --docs-strict-coverage
+#   --docs-include-common
 #   --status-runtime-checks
 #   --status-strict
 #   --status-skip-host-readiness
@@ -52,6 +55,7 @@ set -Eeuo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUN_SETUP=true
+RUN_DOCS_CHECK=true
 RUN_HOST_READINESS=true
 RUN_DNS_CHECK=true
 RUN_SSL_CHECK=true
@@ -84,6 +88,8 @@ BUILD_CHECK_PULL=false
 BUILD_CHECK_NO_CACHE=false
 BUILD_CHECK_SKIP_CONFIG_CHECK=false
 BUILD_CHECK_WITH_IMAGE_PULL_CHECK=false
+DOCS_STRICT_COVERAGE=false
+DOCS_INCLUDE_COMMON=false
 DOMAIN_ARG=""
 ACME_EMAIL_ARG=""
 PORTS_CHECK_PORTS=""
@@ -120,6 +126,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
   --skip-setup)
     RUN_SETUP=false
+    shift
+    ;;
+  --skip-docs-check)
+    RUN_DOCS_CHECK=false
     shift
     ;;
   --skip-host-readiness)
@@ -284,6 +294,14 @@ while [[ $# -gt 0 ]]; do
     BUILD_CHECK_SERVICE_ARGS+=(--service "${build_check_service_arg}")
     shift 2
     ;;
+  --docs-strict-coverage)
+    DOCS_STRICT_COVERAGE=true
+    shift
+    ;;
+  --docs-include-common)
+    DOCS_INCLUDE_COMMON=true
+    shift
+    ;;
   --status-runtime-checks)
     STATUS_RUNTIME_CHECKS=true
     shift
@@ -380,11 +398,15 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --skip-setup --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --skip-verify --skip-status --with-build-check --with-runtime-smoke --setup-skip-daemon --preflight-config-only --deploy-dry-run --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --runtime-smoke-dry-run --build-check-dry-run --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-with-image-pull-check --build-check-image-service <name> --build-check-service <name> --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...> --domain <hostname> --acme-email <email>"
+    log_error "Supported flags: --skip-setup --skip-docs-check --skip-host-readiness --skip-dns-check --skip-ssl-check --skip-ports-check --skip-verify --skip-status --with-build-check --with-runtime-smoke --setup-skip-daemon --preflight-config-only --deploy-dry-run --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --runtime-smoke-dry-run --build-check-dry-run --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-with-image-pull-check --build-check-image-service <name> --build-check-service <name> --docs-strict-coverage --docs-include-common --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...> --domain <hostname> --acme-email <email>"
     exit 1
     ;;
   esac
 done
+
+if [[ "${DOCS_INCLUDE_COMMON}" == true ]] && [[ "${DOCS_STRICT_COVERAGE}" == false ]]; then
+  log_warn "[LAUNCH] --docs-include-common is most useful with --docs-strict-coverage."
+fi
 
 if [[ -n "${VERIFY_MAX_RETRIES}" ]] && { [[ ! "${VERIFY_MAX_RETRIES}" =~ ^[0-9]+$ ]] || [[ "${VERIFY_MAX_RETRIES}" -lt 1 ]]; }; then
   log_error "--verify-max-retries must be a positive integer."
@@ -466,8 +488,15 @@ fi
 if [[ "${RUN_BUILD_CHECK}" == false ]]; then
   log_info "[LAUNCH] build-check step skipped (enable with --with-build-check)"
 fi
+if [[ "${RUN_DOCS_CHECK}" == false ]]; then
+  log_info "[LAUNCH] docs-check step skipped by --skip-docs-check"
+fi
 if [[ "${RUN_RUNTIME_SMOKE}" == false ]]; then
   log_info "[LAUNCH] runtime-smoke step skipped (enable with --with-runtime-smoke)"
+fi
+if [[ "${RUN_DOCS_CHECK}" == false ]] &&
+  { [[ "${DOCS_STRICT_COVERAGE}" == true ]] || [[ "${DOCS_INCLUDE_COMMON}" == true ]]; }; then
+  log_warn "[LAUNCH] docs-check-related flags were provided while --skip-docs-check is enabled; docs-check flags will be ignored."
 fi
 if [[ "${RUN_STATUS}" == false ]]; then
   log_info "[LAUNCH] status step skipped by --skip-status"
@@ -502,6 +531,9 @@ log_info "[LAUNCH] active compose file: $(get_compose_file)"
 
 total_steps=2 # preflight + deploy
 if [[ "${RUN_SETUP}" == true ]]; then
+  total_steps=$((total_steps + 1))
+fi
+if [[ "${RUN_DOCS_CHECK}" == true ]]; then
   total_steps=$((total_steps + 1))
 fi
 if [[ "${RUN_HOST_READINESS}" == true ]]; then
@@ -542,6 +574,18 @@ if [[ "${RUN_SETUP}" == true ]]; then
     setup_args+=(--skip-daemon)
   fi
   run_step "${step}" "${total_steps}" "setup environment" "${SCRIPT_DIR}/setup.sh" "${setup_args[@]}"
+  step=$((step + 1))
+fi
+
+if [[ "${RUN_DOCS_CHECK}" == true ]]; then
+  docs_check_args=()
+  if [[ "${DOCS_STRICT_COVERAGE}" == true ]]; then
+    docs_check_args+=(--strict-coverage)
+  fi
+  if [[ "${DOCS_INCLUDE_COMMON}" == true ]]; then
+    docs_check_args+=(--include-common)
+  fi
+  run_step "${step}" "${total_steps}" "docs consistency check" "${SCRIPT_DIR}/docs-check.sh" "${docs_check_args[@]}"
   step=$((step + 1))
 fi
 

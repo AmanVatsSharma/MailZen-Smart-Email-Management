@@ -148,6 +148,8 @@ flowchart TD
   pipeline execution.
 - Use `validate.sh` for a high-level one-command profile that orchestrates
   build/verify/runtime-smoke/status chains with sane dry-run defaults.
+- Use `launch.sh --docs-strict-coverage` / `update.sh --docs-strict-coverage`
+  when you want docs coverage enforcement inline with deployment/update flows.
 - Run `docs-check.sh` after doc/script updates to ensure docs reference valid
   script paths and to catch drift (`--strict-coverage` for full coverage
   enforcement).
