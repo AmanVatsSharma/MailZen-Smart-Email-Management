@@ -96,6 +96,16 @@ RUNTIME_SMOKE_RETRY_SLEEP_FLAG_SET=false
 RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE=""
 BUILD_CHECK_SERVICE_ARGS=()
 BUILD_CHECK_IMAGE_SERVICE_ARGS=()
+declare -A FLAG_SEEN=()
+
+mark_duplicate_flag() {
+  local flag_name="$1"
+  local warning_message="$2"
+  if [[ -n "${FLAG_SEEN[${flag_name}]:-}" ]]; then
+    log_warn "${warning_message}"
+  fi
+  FLAG_SEEN["${flag_name}"]=1
+}
 
 run_step() {
   local title="$1"
@@ -108,18 +118,22 @@ run_step() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --skip-verify)
+    mark_duplicate_flag "--skip-verify" "Duplicate --skip-verify flag detected; verify stage remains disabled."
     RUN_VERIFY=false
     shift
     ;;
   --skip-docs-check)
+    mark_duplicate_flag "--skip-docs-check" "Duplicate --skip-docs-check flag detected; docs stage remains disabled."
     RUN_DOCS_CHECK=false
     shift
     ;;
   --with-build-check)
+    mark_duplicate_flag "--with-build-check" "Duplicate --with-build-check flag detected; build-check stage remains enabled."
     RUN_BUILD_CHECK=true
     shift
     ;;
   --with-runtime-smoke)
+    mark_duplicate_flag "--with-runtime-smoke" "Duplicate --with-runtime-smoke flag detected; runtime-smoke stage remains enabled."
     RUN_RUNTIME_SMOKE=true
     shift
     ;;
@@ -152,14 +166,17 @@ while [[ $# -gt 0 ]]; do
     shift 2
     ;;
   --verify-skip-ssl-check)
+    mark_duplicate_flag "--verify-skip-ssl-check" "Duplicate --verify-skip-ssl-check flag detected; SSL verification check remains skipped."
     VERIFY_SKIP_SSL_CHECK=true
     shift
     ;;
   --verify-skip-oauth-check)
+    mark_duplicate_flag "--verify-skip-oauth-check" "Duplicate --verify-skip-oauth-check flag detected; OAuth verification check remains skipped."
     VERIFY_SKIP_OAUTH_CHECK=true
     shift
     ;;
   --verify-require-oauth-check)
+    mark_duplicate_flag "--verify-require-oauth-check" "Duplicate --verify-require-oauth-check flag detected; OAuth verification check remains required."
     VERIFY_REQUIRE_OAUTH_CHECK=true
     shift
     ;;
@@ -192,34 +209,42 @@ while [[ $# -gt 0 ]]; do
     shift 2
     ;;
   --runtime-smoke-skip-backend-dependency-check)
+    mark_duplicate_flag "--runtime-smoke-skip-backend-dependency-check" "Duplicate --runtime-smoke-skip-backend-dependency-check flag detected; backend dependency checks remain skipped."
     RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK=true
     shift
     ;;
   --runtime-smoke-skip-compose-ps)
+    mark_duplicate_flag "--runtime-smoke-skip-compose-ps" "Duplicate --runtime-smoke-skip-compose-ps flag detected; runtime-smoke compose snapshot remains skipped."
     RUNTIME_SMOKE_SKIP_COMPOSE_PS=true
     shift
     ;;
   --runtime-smoke-dry-run)
+    mark_duplicate_flag "--runtime-smoke-dry-run" "Duplicate --runtime-smoke-dry-run flag detected; runtime-smoke dry-run mode remains enabled."
     RUNTIME_SMOKE_DRY_RUN=true
     shift
     ;;
   --build-check-dry-run)
+    mark_duplicate_flag "--build-check-dry-run" "Duplicate --build-check-dry-run flag detected; build-check dry-run mode remains enabled."
     BUILD_CHECK_DRY_RUN=true
     shift
     ;;
   --build-check-pull)
+    mark_duplicate_flag "--build-check-pull" "Duplicate --build-check-pull flag detected; build-check pull mode remains enabled."
     BUILD_CHECK_PULL=true
     shift
     ;;
   --build-check-no-cache)
+    mark_duplicate_flag "--build-check-no-cache" "Duplicate --build-check-no-cache flag detected; build-check no-cache mode remains enabled."
     BUILD_CHECK_NO_CACHE=true
     shift
     ;;
   --build-check-skip-config-check)
+    mark_duplicate_flag "--build-check-skip-config-check" "Duplicate --build-check-skip-config-check flag detected; build-check config precheck remains skipped."
     BUILD_CHECK_SKIP_CONFIG_CHECK=true
     shift
     ;;
   --build-check-with-image-pull-check)
+    mark_duplicate_flag "--build-check-with-image-pull-check" "Duplicate --build-check-with-image-pull-check flag detected; image pull validation remains enabled."
     BUILD_CHECK_WITH_IMAGE_PULL_CHECK=true
     shift
     ;;
@@ -242,46 +267,57 @@ while [[ $# -gt 0 ]]; do
     shift 2
     ;;
   --docs-strict-coverage)
+    mark_duplicate_flag "--docs-strict-coverage" "Duplicate --docs-strict-coverage flag detected; strict docs coverage remains enabled."
     DOCS_STRICT_COVERAGE=true
     shift
     ;;
   --docs-include-common)
+    mark_duplicate_flag "--docs-include-common" "Duplicate --docs-include-common flag detected; common helper docs coverage remains enabled."
     DOCS_INCLUDE_COMMON=true
     shift
     ;;
   --preflight-config-only)
+    mark_duplicate_flag "--preflight-config-only" "Duplicate --preflight-config-only flag detected; preflight config-only mode remains enabled."
     PREFLIGHT_CONFIG_ONLY=true
     shift
     ;;
   --deploy-dry-run)
+    mark_duplicate_flag "--deploy-dry-run" "Duplicate --deploy-dry-run flag detected; deploy dry-run mode remains enabled."
     DEPLOY_DRY_RUN=true
     shift
     ;;
   --skip-status)
+    mark_duplicate_flag "--skip-status" "Duplicate --skip-status flag detected; status stage remains disabled."
     RUN_STATUS=false
     shift
     ;;
   --status-runtime-checks)
+    mark_duplicate_flag "--status-runtime-checks" "Duplicate --status-runtime-checks flag detected; status runtime checks remain enabled."
     STATUS_RUNTIME_CHECKS=true
     shift
     ;;
   --status-strict)
+    mark_duplicate_flag "--status-strict" "Duplicate --status-strict flag detected; strict status mode remains enabled."
     STATUS_STRICT=true
     shift
     ;;
   --status-skip-host-readiness)
+    mark_duplicate_flag "--status-skip-host-readiness" "Duplicate --status-skip-host-readiness flag detected; host-readiness checks remain skipped in status runtime path."
     STATUS_SKIP_HOST_READINESS=true
     shift
     ;;
   --status-skip-dns-check)
+    mark_duplicate_flag "--status-skip-dns-check" "Duplicate --status-skip-dns-check flag detected; DNS checks remain skipped in status runtime path."
     STATUS_SKIP_DNS_CHECK=true
     shift
     ;;
   --status-skip-ssl-check)
+    mark_duplicate_flag "--status-skip-ssl-check" "Duplicate --status-skip-ssl-check flag detected; SSL checks remain skipped in status runtime path."
     STATUS_SKIP_SSL_CHECK=true
     shift
     ;;
   --status-skip-ports-check)
+    mark_duplicate_flag "--status-skip-ports-check" "Duplicate --status-skip-ports-check flag detected; ports checks remain skipped in status runtime path."
     STATUS_SKIP_PORTS_CHECK=true
     shift
     ;;
