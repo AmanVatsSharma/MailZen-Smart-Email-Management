@@ -97,20 +97,28 @@ validate_core_env
 log_info "Active env file: $(get_env_file)"
 log_info "Active compose file: $(get_compose_file)"
 
+frontend_internal_cmd=(compose exec -T frontend node -e "require('http').get('http://127.0.0.1:3000/', (res) => process.exit((res.statusCode >= 200 && res.statusCode < 500) ? 0 : 1)).on('error', () => process.exit(1));")
+frontend_login_cmd=(compose exec -T frontend node -e "require('http').get('http://127.0.0.1:3000/login', (res) => process.exit((res.statusCode >= 200 && res.statusCode < 500) ? 0 : 1)).on('error', () => process.exit(1));")
+backend_graphql_get_cmd=(compose exec -T backend node -e "require('http').get('http://127.0.0.1:4000/graphql', (res) => process.exit((res.statusCode >= 200 && res.statusCode < 500) ? 0 : 1)).on('error', () => process.exit(1));")
+backend_graphql_post_cmd=(compose exec -T backend node -e "const http=require('http'); const body=JSON.stringify({query:'query RuntimeSmoke { __typename }'}); const req=http.request({hostname:'127.0.0.1', port:4000, path:'/graphql', method:'POST', headers:{'content-type':'application/json','content-length':Buffer.byteLength(body)}}, (res) => process.exit(res.statusCode === 200 ? 0 : 1)); req.on('error', () => process.exit(1)); req.write(body); req.end();")
+ai_health_cmd=(compose exec -T ai-agent-platform python -c "import sys, urllib.request; status=urllib.request.urlopen('http://127.0.0.1:8100/health', timeout=3).getcode(); sys.exit(0 if 200 <= status < 400 else 1)")
+backend_dependency_cmd=(compose exec -T backend node -e "const net=require('net'); const check=(host,port,next)=>{const socket=net.connect({host,port},()=>{socket.end(); next();}); socket.setTimeout(3000); socket.on('timeout',()=>{socket.destroy(); process.exit(1);}); socket.on('error',()=>process.exit(1));}; check('postgres',5432,()=>check('redis',6379,()=>process.exit(0)));")
+compose_ps_cmd=(compose ps)
+
 if [[ "${DRY_RUN}" == true ]]; then
   log_info "Dry-run enabled; runtime checks will not execute."
-  log_info "Would validate frontend internal HTTP endpoint."
-  log_info "Would validate frontend login endpoint."
-  log_info "Would validate backend GraphQL GET endpoint."
-  log_info "Would validate backend GraphQL POST endpoint."
-  log_info "Would validate AI health endpoint."
+  log_info "Command preview: $(format_command_for_logs "${frontend_internal_cmd[@]}")"
+  log_info "Command preview: $(format_command_for_logs "${frontend_login_cmd[@]}")"
+  log_info "Command preview: $(format_command_for_logs "${backend_graphql_get_cmd[@]}")"
+  log_info "Command preview: $(format_command_for_logs "${backend_graphql_post_cmd[@]}")"
+  log_info "Command preview: $(format_command_for_logs "${ai_health_cmd[@]}")"
   if [[ "${RUN_BACKEND_DEPENDENCY_CHECK}" == true ]]; then
-    log_info "Would validate backend TCP connectivity to postgres:5432 and redis:6379."
+    log_info "Command preview: $(format_command_for_logs "${backend_dependency_cmd[@]}")"
   else
     log_warn "Backend dependency connectivity check is skipped (--skip-backend-dependency-check)."
   fi
   if [[ "${RUN_COMPOSE_PS}" == true ]]; then
-    log_info "Would print compose status snapshot."
+    log_info "Command preview: $(format_command_for_logs "${compose_ps_cmd[@]}")"
   else
     log_warn "Compose status snapshot is skipped (--skip-compose-ps)."
   fi
@@ -153,34 +161,35 @@ retry_check() {
 }
 
 check_frontend_internal() {
-  compose exec -T frontend node -e "require('http').get('http://127.0.0.1:3000/', (res) => process.exit((res.statusCode >= 200 && res.statusCode < 500) ? 0 : 1)).on('error', () => process.exit(1));"
+  "${frontend_internal_cmd[@]}"
 }
 
 check_frontend_login() {
-  compose exec -T frontend node -e "require('http').get('http://127.0.0.1:3000/login', (res) => process.exit((res.statusCode >= 200 && res.statusCode < 500) ? 0 : 1)).on('error', () => process.exit(1));"
+  "${frontend_login_cmd[@]}"
 }
 
 check_backend_graphql_get() {
-  compose exec -T backend node -e "require('http').get('http://127.0.0.1:4000/graphql', (res) => process.exit((res.statusCode >= 200 && res.statusCode < 500) ? 0 : 1)).on('error', () => process.exit(1));"
+  "${backend_graphql_get_cmd[@]}"
 }
 
 check_backend_graphql_post() {
-  compose exec -T backend node -e "const http=require('http'); const body=JSON.stringify({query:'query RuntimeSmoke { __typename }'}); const req=http.request({hostname:'127.0.0.1', port:4000, path:'/graphql', method:'POST', headers:{'content-type':'application/json','content-length':Buffer.byteLength(body)}}, (res) => process.exit(res.statusCode === 200 ? 0 : 1)); req.on('error', () => process.exit(1)); req.write(body); req.end();"
+  "${backend_graphql_post_cmd[@]}"
 }
 
 check_ai_health() {
-  compose exec -T ai-agent-platform python -c "import sys, urllib.request; status=urllib.request.urlopen('http://127.0.0.1:8100/health', timeout=3).getcode(); sys.exit(0 if 200 <= status < 400 else 1)"
+  "${ai_health_cmd[@]}"
 }
 
 check_backend_dependencies() {
-  compose exec -T backend node -e "const net=require('net'); const check=(host,port,next)=>{const socket=net.connect({host,port},()=>{socket.end(); next();}); socket.setTimeout(3000); socket.on('timeout',()=>{socket.destroy(); process.exit(1);}); socket.on('error',()=>process.exit(1));}; check('postgres',5432,()=>check('redis',6379,()=>process.exit(0)));"
+  "${backend_dependency_cmd[@]}"
 }
 
 log_info "Starting runtime smoke checks (container-internal probes)..."
 
 if [[ "${RUN_COMPOSE_PS}" == true ]]; then
   log_info "Compose status snapshot:"
-  compose ps || true
+  log_info "Command preview: $(format_command_for_logs "${compose_ps_cmd[@]}")"
+  "${compose_ps_cmd[@]}" || true
 fi
 
 frontend_ok=true
