@@ -441,6 +441,12 @@ Example:
 # Run diagnostics with custom ports-check targets
 ./deploy/ec2/scripts/doctor.sh --ports-check-ports 80,443,8100
 
+# Run diagnostics with strict docs coverage checks
+./deploy/ec2/scripts/doctor.sh --docs-strict-coverage
+
+# Run diagnostics while skipping docs consistency checks
+./deploy/ec2/scripts/doctor.sh --skip-docs-check
+
 # Generate compressed support bundle archive
 ./deploy/ec2/scripts/support-bundle.sh
 
@@ -449,6 +455,12 @@ Example:
 
 # Generate support bundle with custom ports-check targets
 ./deploy/ec2/scripts/support-bundle.sh --ports-check-ports 80,443,8100
+
+# Generate support bundle with strict docs coverage checks
+./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage
+
+# Generate support bundle while skipping docs consistency checks
+./deploy/ec2/scripts/support-bundle.sh --skip-docs-check
 
 # Keep support bundle temp work directory for deep debugging
 ./deploy/ec2/scripts/support-bundle.sh --seed-env --keep-work-dir

@@ -10,6 +10,8 @@
 #   ./deploy/ec2/scripts/doctor.sh --strict
 #   ./deploy/ec2/scripts/doctor.sh --seed-env
 #   ./deploy/ec2/scripts/doctor.sh --ports-check-ports 80,443,8100
+#   ./deploy/ec2/scripts/doctor.sh --docs-strict-coverage
+#   ./deploy/ec2/scripts/doctor.sh --skip-docs-check
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -28,6 +30,9 @@ SEEDED_ENV_FILE=""
 PORTS_CHECK_PORTS=""
 PORTS_CHECK_FLAG_SET=false
 PORTS_CHECK_FLAG_VALUE=""
+DOCS_STRICT_COVERAGE=false
+DOCS_INCLUDE_COMMON=false
+SKIP_DOCS_CHECK=false
 
 cleanup() {
   if [[ -n "${SEEDED_ENV_FILE}" ]] && [[ "${KEEP_SEEDED_ENV}" == false ]] && [[ -f "${SEEDED_ENV_FILE}" ]]; then
@@ -65,14 +70,33 @@ while [[ $# -gt 0 ]]; do
     PORTS_CHECK_FLAG_VALUE="${ports_check_ports_arg}"
     shift 2
     ;;
+  --docs-strict-coverage)
+    DOCS_STRICT_COVERAGE=true
+    shift
+    ;;
+  --docs-include-common)
+    DOCS_INCLUDE_COMMON=true
+    shift
+    ;;
+  --skip-docs-check)
+    SKIP_DOCS_CHECK=true
+    shift
+    ;;
   *)
     echo "[mailzen-deploy][DOCTOR][ERROR] Unknown argument: $1"
-    echo "[mailzen-deploy][DOCTOR][INFO] Supported flags: --strict --seed-env --keep-seeded-env --ports-check-ports <p1,p2,...>"
+    echo "[mailzen-deploy][DOCTOR][INFO] Supported flags: --strict --seed-env --keep-seeded-env --ports-check-ports <p1,p2,...> --docs-strict-coverage --docs-include-common --skip-docs-check"
     exit 1
     ;;
   esac
 done
 
+if [[ "${SKIP_DOCS_CHECK}" == true ]] &&
+  { [[ "${DOCS_STRICT_COVERAGE}" == true ]] || [[ "${DOCS_INCLUDE_COMMON}" == true ]]; }; then
+  echo "[mailzen-deploy][DOCTOR][WARN] Docs-check-specific flags were provided while --skip-docs-check is enabled; docs-check flags will be ignored."
+fi
+if [[ "${DOCS_INCLUDE_COMMON}" == true ]] && [[ "${DOCS_STRICT_COVERAGE}" == false ]]; then
+  echo "[mailzen-deploy][DOCTOR][WARN] --docs-include-common is most useful with --docs-strict-coverage."
+fi
 if [[ "${SEED_ENV}" == false ]] && [[ "${KEEP_SEEDED_ENV}" == true ]]; then
   echo "[mailzen-deploy][DOCTOR][ERROR] --keep-seeded-env requires --seed-env"
   exit 1
@@ -125,6 +149,9 @@ run_check() {
   echo "[mailzen-deploy][DOCTOR] strict_mode: ${STRICT_MODE}"
   echo "[mailzen-deploy][DOCTOR] seed_env: ${SEED_ENV}"
   echo "[mailzen-deploy][DOCTOR] ports_check_ports: ${PORTS_CHECK_PORTS:-default}"
+  echo "[mailzen-deploy][DOCTOR] docs_strict_coverage: ${DOCS_STRICT_COVERAGE}"
+  echo "[mailzen-deploy][DOCTOR] docs_include_common: ${DOCS_INCLUDE_COMMON}"
+  echo "[mailzen-deploy][DOCTOR] skip_docs_check: ${SKIP_DOCS_CHECK}"
 } | tee -a "${REPORT_FILE}"
 
 if [[ "${SEED_ENV}" == true ]]; then
@@ -148,6 +175,19 @@ if command -v git >/dev/null 2>&1; then
 fi
 
 run_check "script-self-check" "\"${SCRIPT_DIR}/self-check.sh\""
+if [[ "${SKIP_DOCS_CHECK}" == true ]]; then
+  append_header "docs-check"
+  echo "[mailzen-deploy][DOCTOR] docs-check: SKIPPED (--skip-docs-check)" | tee -a "${REPORT_FILE}"
+else
+  docs_check_command="\"${SCRIPT_DIR}/docs-check.sh\""
+  if [[ "${DOCS_STRICT_COVERAGE}" == true ]]; then
+    docs_check_command="${docs_check_command} --strict-coverage"
+  fi
+  if [[ "${DOCS_INCLUDE_COMMON}" == true ]]; then
+    docs_check_command="${docs_check_command} --include-common"
+  fi
+  run_check "docs-check" "${docs_check_command}"
+fi
 run_check "env-audit-redacted" "\"${SCRIPT_DIR}/env-audit.sh\""
 run_check "dns-check" "\"${SCRIPT_DIR}/dns-check.sh\"" false
 run_check "ssl-check" "\"${SCRIPT_DIR}/ssl-check.sh\"" false
@@ -161,6 +201,15 @@ run_check "preflight-config-only" "\"${SCRIPT_DIR}/preflight.sh\" --config-only"
 pipeline_check_command="\"${SCRIPT_DIR}/pipeline-check.sh\""
 if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
   pipeline_check_command="${pipeline_check_command} --ports-check-ports \"${PORTS_CHECK_PORTS}\""
+fi
+if [[ "${SKIP_DOCS_CHECK}" == true ]]; then
+  pipeline_check_command="${pipeline_check_command} --skip-docs-check"
+fi
+if [[ "${SKIP_DOCS_CHECK}" == false ]] && [[ "${DOCS_STRICT_COVERAGE}" == true ]]; then
+  pipeline_check_command="${pipeline_check_command} --docs-strict-coverage"
+fi
+if [[ "${SKIP_DOCS_CHECK}" == false ]] && [[ "${DOCS_INCLUDE_COMMON}" == true ]]; then
+  pipeline_check_command="${pipeline_check_command} --docs-include-common"
 fi
 run_check "pipeline-check" "${pipeline_check_command}"
 run_check "docker-client-version" "docker --version"

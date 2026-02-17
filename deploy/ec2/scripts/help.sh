@@ -124,10 +124,14 @@ Diagnostics:
   ./deploy/ec2/scripts/doctor.sh
   ./deploy/ec2/scripts/doctor.sh --seed-env
   ./deploy/ec2/scripts/doctor.sh --ports-check-ports 80,443,8100
+  ./deploy/ec2/scripts/doctor.sh --docs-strict-coverage
+  ./deploy/ec2/scripts/doctor.sh --skip-docs-check
   ./deploy/ec2/scripts/support-bundle.sh
   ./deploy/ec2/scripts/support-bundle.sh --seed-env
   ./deploy/ec2/scripts/support-bundle.sh --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/support-bundle.sh --seed-env --keep-work-dir
+  ./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage
+  ./deploy/ec2/scripts/support-bundle.sh --skip-docs-check
   ./deploy/ec2/scripts/pipeline-check.sh
   ./deploy/ec2/scripts/pipeline-check.sh --seed-env
   ./deploy/ec2/scripts/pipeline-check.sh --ports-check-ports 80,443,8100

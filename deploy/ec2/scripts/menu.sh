@@ -721,6 +721,20 @@ while true; do
     ;;
   19)
     doctor_args=()
+    if prompt_yes_no "Skip docs consistency checks in diagnostics report" "no"; then
+      doctor_args+=(--skip-docs-check)
+    else
+      doctor_docs_strict=false
+      if prompt_yes_no "Enable strict docs coverage checks in diagnostics report" "no"; then
+        doctor_docs_strict=true
+        doctor_args+=(--docs-strict-coverage)
+      fi
+      if [[ "${doctor_docs_strict}" == true ]]; then
+        if prompt_yes_no "Include common.sh in strict docs coverage checks" "no"; then
+          doctor_args+=(--docs-include-common)
+        fi
+      fi
+    fi
     doctor_ports="$(prompt_with_default "Custom ports-check targets for diagnostics (blank = default)" "")"
     if [[ -n "${doctor_ports}" ]]; then
       doctor_args+=(--ports-check-ports "${doctor_ports}")
@@ -729,6 +743,20 @@ while true; do
     ;;
   20)
     support_bundle_args=()
+    if prompt_yes_no "Skip docs consistency checks in support bundle diagnostics" "no"; then
+      support_bundle_args+=(--skip-docs-check)
+    else
+      support_docs_strict=false
+      if prompt_yes_no "Enable strict docs coverage checks in support bundle diagnostics" "no"; then
+        support_docs_strict=true
+        support_bundle_args+=(--docs-strict-coverage)
+      fi
+      if [[ "${support_docs_strict}" == true ]]; then
+        if prompt_yes_no "Include common.sh in strict docs coverage checks" "no"; then
+          support_bundle_args+=(--docs-include-common)
+        fi
+      fi
+    fi
     support_ports="$(prompt_with_default "Custom ports-check targets for support bundle (blank = default)" "")"
     if [[ -n "${support_ports}" ]]; then
       support_bundle_args+=(--ports-check-ports "${support_ports}")
@@ -930,6 +958,20 @@ while true; do
     ;;
   28)
     doctor_seeded_args=(--seed-env)
+    if prompt_yes_no "Skip docs consistency checks in seeded diagnostics report" "no"; then
+      doctor_seeded_args+=(--skip-docs-check)
+    else
+      doctor_seeded_docs_strict=false
+      if prompt_yes_no "Enable strict docs coverage checks in seeded diagnostics report" "no"; then
+        doctor_seeded_docs_strict=true
+        doctor_seeded_args+=(--docs-strict-coverage)
+      fi
+      if [[ "${doctor_seeded_docs_strict}" == true ]]; then
+        if prompt_yes_no "Include common.sh in strict docs coverage checks" "no"; then
+          doctor_seeded_args+=(--docs-include-common)
+        fi
+      fi
+    fi
     doctor_seeded_ports="$(prompt_with_default "Custom ports-check targets for seeded diagnostics (blank = default)" "")"
     if [[ -n "${doctor_seeded_ports}" ]]; then
       doctor_seeded_args+=(--ports-check-ports "${doctor_seeded_ports}")
@@ -938,6 +980,20 @@ while true; do
     ;;
   29)
     support_seeded_args=(--seed-env)
+    if prompt_yes_no "Skip docs consistency checks in seeded support bundle diagnostics" "no"; then
+      support_seeded_args+=(--skip-docs-check)
+    else
+      support_seeded_docs_strict=false
+      if prompt_yes_no "Enable strict docs coverage checks in seeded support bundle diagnostics" "no"; then
+        support_seeded_docs_strict=true
+        support_seeded_args+=(--docs-strict-coverage)
+      fi
+      if [[ "${support_seeded_docs_strict}" == true ]]; then
+        if prompt_yes_no "Include common.sh in strict docs coverage checks" "no"; then
+          support_seeded_args+=(--docs-include-common)
+        fi
+      fi
+    fi
     support_seeded_ports="$(prompt_with_default "Custom ports-check targets for seeded support bundle (blank = default)" "")"
     if [[ -n "${support_seeded_ports}" ]]; then
       support_seeded_args+=(--ports-check-ports "${support_seeded_ports}")

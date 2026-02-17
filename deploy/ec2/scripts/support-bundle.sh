@@ -22,6 +22,8 @@
 #   ./deploy/ec2/scripts/support-bundle.sh --seed-env
 #   ./deploy/ec2/scripts/support-bundle.sh --seed-env --keep-work-dir
 #   ./deploy/ec2/scripts/support-bundle.sh --ports-check-ports 80,443,8100
+#   ./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage
+#   ./deploy/ec2/scripts/support-bundle.sh --skip-docs-check
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -31,8 +33,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPORT_DIR="${DEPLOY_DIR}/reports"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-WORK_DIR="${REPORT_DIR}/support-bundle-${TIMESTAMP}"
-BUNDLE_FILE="${REPORT_DIR}/support-bundle-${TIMESTAMP}.tar.gz"
+RUN_SUFFIX="pid$$-rand${RANDOM}"
+WORK_DIR="${REPORT_DIR}/support-bundle-${TIMESTAMP}-${RUN_SUFFIX}"
+BUNDLE_FILE="${REPORT_DIR}/support-bundle-${TIMESTAMP}-${RUN_SUFFIX}.tar.gz"
 SEED_ENV=false
 KEEP_SEEDED_ENV=false
 SEEDED_ENV_FILE=""
@@ -41,6 +44,9 @@ BUNDLE_CREATED=false
 PORTS_CHECK_PORTS=""
 PORTS_CHECK_FLAG_SET=false
 PORTS_CHECK_FLAG_VALUE=""
+DOCS_STRICT_COVERAGE=false
+DOCS_INCLUDE_COMMON=false
+SKIP_DOCS_CHECK=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -70,14 +76,33 @@ while [[ $# -gt 0 ]]; do
     PORTS_CHECK_FLAG_VALUE="${ports_check_ports_arg}"
     shift 2
     ;;
+  --docs-strict-coverage)
+    DOCS_STRICT_COVERAGE=true
+    shift
+    ;;
+  --docs-include-common)
+    DOCS_INCLUDE_COMMON=true
+    shift
+    ;;
+  --skip-docs-check)
+    SKIP_DOCS_CHECK=true
+    shift
+    ;;
   *)
     echo "[mailzen-deploy][SUPPORT-BUNDLE][ERROR] Unknown argument: $1"
-    echo "[mailzen-deploy][SUPPORT-BUNDLE][INFO] Supported flags: --seed-env --keep-seeded-env --keep-work-dir --ports-check-ports <p1,p2,...>"
+    echo "[mailzen-deploy][SUPPORT-BUNDLE][INFO] Supported flags: --seed-env --keep-seeded-env --keep-work-dir --ports-check-ports <p1,p2,...> --docs-strict-coverage --docs-include-common --skip-docs-check"
     exit 1
     ;;
   esac
 done
 
+if [[ "${SKIP_DOCS_CHECK}" == true ]] &&
+  { [[ "${DOCS_STRICT_COVERAGE}" == true ]] || [[ "${DOCS_INCLUDE_COMMON}" == true ]]; }; then
+  echo "[mailzen-deploy][SUPPORT-BUNDLE][WARN] Docs-check-specific flags were provided while --skip-docs-check is enabled; docs-check flags will be ignored."
+fi
+if [[ "${DOCS_INCLUDE_COMMON}" == true ]] && [[ "${DOCS_STRICT_COVERAGE}" == false ]]; then
+  echo "[mailzen-deploy][SUPPORT-BUNDLE][WARN] --docs-include-common is most useful with --docs-strict-coverage."
+fi
 if [[ "${SEED_ENV}" == false ]] && [[ "${KEEP_SEEDED_ENV}" == true ]]; then
   echo "[mailzen-deploy][SUPPORT-BUNDLE][ERROR] --keep-seeded-env requires --seed-env"
   exit 1
@@ -141,6 +166,9 @@ fi
   echo "active_env_file=${active_env_file}"
   echo "active_compose_file=${active_compose_file}"
   echo "ports_check_ports=${PORTS_CHECK_PORTS:-default}"
+  echo "docs_strict_coverage=${DOCS_STRICT_COVERAGE}"
+  echo "docs_include_common=${DOCS_INCLUDE_COMMON}"
+  echo "skip_docs_check=${SKIP_DOCS_CHECK}"
   echo "workspace_deploy_dir=${DEPLOY_DIR}"
 } >"${WORK_DIR}/bundle-manifest.txt"
 if command -v git >/dev/null 2>&1; then
@@ -181,6 +209,18 @@ fi
 if [[ -n "${PORTS_CHECK_PORTS}" ]]; then
   doctor_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
   pipeline_args+=(--ports-check-ports "${PORTS_CHECK_PORTS}")
+fi
+if [[ "${SKIP_DOCS_CHECK}" == true ]]; then
+  doctor_args+=(--skip-docs-check)
+  pipeline_args+=(--skip-docs-check)
+fi
+if [[ "${SKIP_DOCS_CHECK}" == false ]] && [[ "${DOCS_STRICT_COVERAGE}" == true ]]; then
+  doctor_args+=(--docs-strict-coverage)
+  pipeline_args+=(--docs-strict-coverage)
+fi
+if [[ "${SKIP_DOCS_CHECK}" == false ]] && [[ "${DOCS_INCLUDE_COMMON}" == true ]]; then
+  doctor_args+=(--docs-include-common)
+  pipeline_args+=(--docs-include-common)
 fi
 run_capture "doctor" "\"${SCRIPT_DIR}/doctor.sh\" ${doctor_args[*]}"
 run_capture "pipeline-check" "\"${SCRIPT_DIR}/pipeline-check.sh\" ${pipeline_args[*]}"

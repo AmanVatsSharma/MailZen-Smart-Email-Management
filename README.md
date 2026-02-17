@@ -364,6 +364,12 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: diagnostics with custom ports-check targets
 ./deploy/ec2/scripts/doctor.sh --ports-check-ports 80,443,8100
 
+# Optional: diagnostics with strict docs coverage checks
+./deploy/ec2/scripts/doctor.sh --docs-strict-coverage
+
+# Optional: diagnostics while skipping docs consistency checks
+./deploy/ec2/scripts/doctor.sh --skip-docs-check
+
 # Optional: strict diagnostics mode
 ./deploy/ec2/scripts/doctor.sh --strict
 
@@ -375,6 +381,12 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: support bundle with custom ports-check targets
 ./deploy/ec2/scripts/support-bundle.sh --ports-check-ports 80,443,8100
+
+# Optional: support bundle with strict docs coverage checks
+./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage
+
+# Optional: support bundle while skipping docs consistency checks
+./deploy/ec2/scripts/support-bundle.sh --skip-docs-check
 
 # Optional: keep support bundle temp work directory for troubleshooting
 ./deploy/ec2/scripts/support-bundle.sh --seed-env --keep-work-dir
