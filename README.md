@@ -429,6 +429,12 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 # Optional: run pipeline checks plus status checks
 ./deploy/ec2/scripts/pipeline-check.sh --with-status --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
 
+# Optional: run pipeline checks with strict docs coverage enforcement
+./deploy/ec2/scripts/pipeline-check.sh --docs-strict-coverage
+
+# Optional: run pipeline checks while skipping docs consistency step
+./deploy/ec2/scripts/pipeline-check.sh --skip-docs-check
+
 # Optional: run high-level validation profile (full readiness chain)
 ./deploy/ec2/scripts/validate.sh
 
@@ -440,6 +446,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: run high-level validation profile with strict docs coverage
 ./deploy/ec2/scripts/validate.sh --docs-strict-coverage
+
+# Optional: run high-level validation profile while skipping docs consistency stage
+./deploy/ec2/scripts/validate.sh --skip-docs-check
 
 # Optional: run high-level validation profile with stage-specific dry-run controls
 ./deploy/ec2/scripts/validate.sh --build-check-dry-run --runtime-smoke-dry-run

@@ -130,6 +130,9 @@ If any check fails:
 
 # Config checks + verify + status checks
 ./deploy/ec2/scripts/pipeline-check.sh --with-verify --verify-skip-oauth-check --verify-skip-ssl-check --with-status --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
+
+# Config checks with strict docs coverage enforcement
+./deploy/ec2/scripts/pipeline-check.sh --docs-strict-coverage
 ```
 
 ## 6) One-command wrapper shortcut with chained validation
@@ -152,6 +155,9 @@ If any check fails:
 
 # High-level validation profile with strict docs coverage
 ./deploy/ec2/scripts/validate.sh --docs-strict-coverage
+
+# High-level validation profile while skipping docs consistency stage
+./deploy/ec2/scripts/validate.sh --skip-docs-check
 
 # High-level validation profile with stage-specific dry-run controls
 ./deploy/ec2/scripts/validate.sh --build-check-dry-run --runtime-smoke-dry-run
