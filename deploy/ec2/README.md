@@ -125,6 +125,16 @@ From repository root:
   --skip-verify \
   --skip-status
 
+# Config-only + build-check + deploy dry-run launch rehearsal
+./deploy/ec2/scripts/launch.sh \
+  --skip-setup \
+  --preflight-config-only \
+  --with-build-check \
+  --build-check-dry-run \
+  --deploy-dry-run \
+  --skip-verify \
+  --skip-status
+
 # Launch with custom verify retries and runtime status checks
 ./deploy/ec2/scripts/launch.sh \
   --verify-max-retries 10 \
@@ -301,6 +311,15 @@ Example:
 
 # Config-only preflight + deploy dry-run update simulation without final status step
 ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify --skip-status
+
+# Config-only + build-check + deploy dry-run update rehearsal
+./deploy/ec2/scripts/update.sh \
+  --preflight-config-only \
+  --with-build-check \
+  --build-check-dry-run \
+  --deploy-dry-run \
+  --skip-verify \
+  --skip-status
 
 # Deploy command dry-run (prints command only)
 ./deploy/ec2/scripts/deploy.sh --dry-run

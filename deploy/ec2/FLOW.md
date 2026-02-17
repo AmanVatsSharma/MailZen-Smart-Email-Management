@@ -113,7 +113,9 @@ flowchart TD
   - `update.sh --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check`
 - For config-only dry-run rehearsals, skip final status when not needed:
   - `launch.sh --preflight-config-only --deploy-dry-run --skip-verify --skip-status`
+  - `launch.sh --preflight-config-only --with-build-check --build-check-dry-run --deploy-dry-run --skip-verify --skip-status`
   - `update.sh --preflight-config-only --deploy-dry-run --skip-verify --skip-status`
+  - `update.sh --preflight-config-only --with-build-check --build-check-dry-run --deploy-dry-run --skip-verify --skip-status`
 - Use diagnostics custom ports targeting to keep triage aligned with host policy:
   - `doctor.sh --ports-check-ports 80,443,8100`
   - `support-bundle.sh --ports-check-ports 80,443,8100`

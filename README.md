@@ -233,6 +233,16 @@ For production-style EC2 deployment, use the deployment module:
   --skip-verify \
   --skip-status
 
+# Optional: config-only + build-check + deploy dry-run launch rehearsal
+./deploy/ec2/scripts/launch.sh \
+  --skip-setup \
+  --preflight-config-only \
+  --with-build-check \
+  --build-check-dry-run \
+  --deploy-dry-run \
+  --skip-verify \
+  --skip-status
+
 # Optional: launch with explicit setup inputs
 ./deploy/ec2/scripts/launch.sh \
   --domain mail.example.com \
@@ -432,6 +442,15 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
 
 # Optional: update dry-run simulation without final status step
 ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify --skip-status
+
+# Optional: config-only + build-check + deploy dry-run update rehearsal
+./deploy/ec2/scripts/update.sh \
+  --preflight-config-only \
+  --with-build-check \
+  --build-check-dry-run \
+  --deploy-dry-run \
+  --skip-verify \
+  --skip-status
 
 # Optional: update with verify skip flags and runtime status checks
 ./deploy/ec2/scripts/update.sh --verify-skip-ssl-check --verify-skip-oauth-check --status-runtime-checks
