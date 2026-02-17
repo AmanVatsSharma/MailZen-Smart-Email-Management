@@ -89,6 +89,7 @@ flowchart TD
 - For one-command wrappers, use optional chaining:
   - `launch.sh --with-build-check --with-runtime-smoke`
   - `update.sh --with-build-check --with-runtime-smoke`
+  - use `--runtime-smoke-dry-run` for rehearsal mode
 - For day-2 health snapshots with deeper runtime validation:
   - `status.sh --with-runtime-smoke --runtime-smoke-dry-run`
   - `status.sh --with-runtime-smoke --runtime-smoke-max-retries 15 --runtime-smoke-retry-sleep 4`

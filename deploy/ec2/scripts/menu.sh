@@ -243,6 +243,9 @@ while true; do
         if prompt_yes_no "Skip compose status snapshot in runtime-smoke step" "no"; then
           launch_args+=(--runtime-smoke-skip-compose-ps)
         fi
+        if prompt_yes_no "Run runtime-smoke step in dry-run mode" "no"; then
+          launch_args+=(--runtime-smoke-dry-run)
+        fi
       fi
     fi
     if [[ "${launch_setup_enabled}" == true ]]; then
@@ -583,6 +586,9 @@ while true; do
         fi
         if prompt_yes_no "Skip compose status snapshot in runtime-smoke step" "no"; then
           update_args+=(--runtime-smoke-skip-compose-ps)
+        fi
+        if prompt_yes_no "Run runtime-smoke step in dry-run mode" "no"; then
+          update_args+=(--runtime-smoke-dry-run)
         fi
       fi
     fi

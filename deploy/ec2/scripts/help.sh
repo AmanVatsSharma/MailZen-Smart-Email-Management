@@ -38,6 +38,7 @@ Primary flow:
   ./deploy/ec2/scripts/launch.sh --with-build-check --build-check-with-image-pull-check --build-check-image-service caddy --build-check-image-service postgres --build-check-dry-run
   ./deploy/ec2/scripts/launch.sh --with-runtime-smoke --runtime-smoke-max-retries 15 --runtime-smoke-retry-sleep 4
   ./deploy/ec2/scripts/launch.sh --with-runtime-smoke --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps
+  ./deploy/ec2/scripts/launch.sh --with-runtime-smoke --runtime-smoke-dry-run
   ./deploy/ec2/scripts/launch.sh --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/launch.sh --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
   ./deploy/ec2/scripts/launch.sh --status-runtime-checks --status-skip-host-readiness --status-skip-ports-check
@@ -90,6 +91,7 @@ Operations:
   ./deploy/ec2/scripts/update.sh --with-build-check --build-check-with-image-pull-check --build-check-image-service caddy --build-check-image-service postgres --build-check-dry-run
   ./deploy/ec2/scripts/update.sh --with-runtime-smoke --runtime-smoke-max-retries 15 --runtime-smoke-retry-sleep 4
   ./deploy/ec2/scripts/update.sh --with-runtime-smoke --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps
+  ./deploy/ec2/scripts/update.sh --with-runtime-smoke --runtime-smoke-dry-run
   ./deploy/ec2/scripts/update.sh --status-runtime-checks --ports-check-ports 80,443,8100
   ./deploy/ec2/scripts/update.sh --status-runtime-checks --status-skip-dns-check --status-skip-ssl-check
   ./deploy/ec2/scripts/update.sh --status-runtime-checks --status-skip-host-readiness --status-skip-ports-check

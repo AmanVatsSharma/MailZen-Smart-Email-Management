@@ -180,6 +180,9 @@ From repository root:
   --runtime-smoke-max-retries 15 \
   --runtime-smoke-retry-sleep 4
 
+# Launch with runtime-smoke dry-run rehearsal
+./deploy/ec2/scripts/launch.sh --with-runtime-smoke --runtime-smoke-dry-run
+
 # Launch with runtime status checks while skipping DNS/SSL in final status step
 ./deploy/ec2/scripts/launch.sh \
   --status-runtime-checks \
@@ -322,6 +325,9 @@ Example:
   --with-runtime-smoke \
   --runtime-smoke-max-retries 15 \
   --runtime-smoke-retry-sleep 4
+
+# Update with runtime-smoke dry-run rehearsal
+./deploy/ec2/scripts/update.sh --with-runtime-smoke --runtime-smoke-dry-run
 
 # Update dry-run + runtime status checks
 ./deploy/ec2/scripts/update.sh --preflight-config-only --deploy-dry-run --skip-verify --status-runtime-checks

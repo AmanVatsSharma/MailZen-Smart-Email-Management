@@ -24,6 +24,7 @@
 #   --runtime-smoke-retry-sleep <n>
 #   --runtime-smoke-skip-backend-dependency-check
 #   --runtime-smoke-skip-compose-ps
+#   --runtime-smoke-dry-run
 #   --build-check-dry-run
 #   --build-check-pull
 #   --build-check-no-cache
@@ -63,6 +64,7 @@ RUNTIME_SMOKE_MAX_RETRIES=""
 RUNTIME_SMOKE_RETRY_SLEEP=""
 RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK=false
 RUNTIME_SMOKE_SKIP_COMPOSE_PS=false
+RUNTIME_SMOKE_DRY_RUN=false
 BUILD_CHECK_DRY_RUN=false
 BUILD_CHECK_PULL=false
 BUILD_CHECK_NO_CACHE=false
@@ -178,6 +180,10 @@ while [[ $# -gt 0 ]]; do
     RUNTIME_SMOKE_SKIP_COMPOSE_PS=true
     shift
     ;;
+  --runtime-smoke-dry-run)
+    RUNTIME_SMOKE_DRY_RUN=true
+    shift
+    ;;
   --build-check-dry-run)
     BUILD_CHECK_DRY_RUN=true
     shift
@@ -268,7 +274,7 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     log_error "Unknown argument: $1"
-    log_error "Supported flags: --skip-verify --with-build-check --with-runtime-smoke --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --build-check-dry-run --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-with-image-pull-check --build-check-image-service <name> --build-check-service <name> --preflight-config-only --deploy-dry-run --skip-status --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...>"
+    log_error "Supported flags: --skip-verify --with-build-check --with-runtime-smoke --verify-max-retries <n> --verify-retry-sleep <n> --verify-skip-ssl-check --verify-skip-oauth-check --verify-require-oauth-check --runtime-smoke-max-retries <n> --runtime-smoke-retry-sleep <n> --runtime-smoke-skip-backend-dependency-check --runtime-smoke-skip-compose-ps --runtime-smoke-dry-run --build-check-dry-run --build-check-pull --build-check-no-cache --build-check-skip-config-check --build-check-with-image-pull-check --build-check-image-service <name> --build-check-service <name> --preflight-config-only --deploy-dry-run --skip-status --status-runtime-checks --status-strict --status-skip-host-readiness --status-skip-dns-check --status-skip-ssl-check --status-skip-ports-check --ports-check-ports <p1,p2,...>"
     exit 1
     ;;
   esac
@@ -305,7 +311,7 @@ if [[ "${RUN_VERIFY}" == true ]] && [[ "${DEPLOY_DRY_RUN}" == true ]] &&
   log_warn "Verify-related flags were provided while --deploy-dry-run is enabled; verify flags will be ignored."
 fi
 if [[ "${RUN_RUNTIME_SMOKE}" == false ]] &&
-  { [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]] || [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]] || [[ "${RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK}" == true ]] || [[ "${RUNTIME_SMOKE_SKIP_COMPOSE_PS}" == true ]]; }; then
+  { [[ -n "${RUNTIME_SMOKE_MAX_RETRIES}" ]] || [[ -n "${RUNTIME_SMOKE_RETRY_SLEEP}" ]] || [[ "${RUNTIME_SMOKE_SKIP_BACKEND_DEPENDENCY_CHECK}" == true ]] || [[ "${RUNTIME_SMOKE_SKIP_COMPOSE_PS}" == true ]] || [[ "${RUNTIME_SMOKE_DRY_RUN}" == true ]]; }; then
   log_warn "Runtime-smoke-related flags were provided without --with-runtime-smoke; runtime-smoke flags will be ignored."
 fi
 if [[ "${RUN_RUNTIME_SMOKE}" == true ]] && [[ "${DEPLOY_DRY_RUN}" == true ]]; then
@@ -418,6 +424,9 @@ if [[ "${RUN_RUNTIME_SMOKE}" == true ]]; then
     fi
     if [[ "${RUNTIME_SMOKE_SKIP_COMPOSE_PS}" == true ]]; then
       runtime_smoke_args+=(--skip-compose-ps)
+    fi
+    if [[ "${RUNTIME_SMOKE_DRY_RUN}" == true ]]; then
+      runtime_smoke_args+=(--dry-run)
     fi
     "${SCRIPT_DIR}/runtime-smoke.sh" "${runtime_smoke_args[@]}"
   fi

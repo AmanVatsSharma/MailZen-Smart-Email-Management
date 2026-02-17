@@ -276,6 +276,9 @@ For production-style EC2 deployment, use the deployment module:
   --runtime-smoke-max-retries 15 \
   --runtime-smoke-retry-sleep 4
 
+# Optional: launch with runtime-smoke dry-run rehearsal
+./deploy/ec2/scripts/launch.sh --with-runtime-smoke --runtime-smoke-dry-run
+
 # Optional: launch while skipping OAuth/SSL verify checks
 ./deploy/ec2/scripts/launch.sh --verify-skip-oauth-check --verify-skip-ssl-check
 
@@ -509,6 +512,9 @@ sudo ./deploy/ec2/scripts/bootstrap-ubuntu.sh
   --with-runtime-smoke \
   --runtime-smoke-max-retries 15 \
   --runtime-smoke-retry-sleep 4
+
+# Optional: update with runtime-smoke dry-run rehearsal
+./deploy/ec2/scripts/update.sh --with-runtime-smoke --runtime-smoke-dry-run
 
 # Optional: update runtime status checks with custom ports-check targets
 ./deploy/ec2/scripts/update.sh --status-runtime-checks --ports-check-ports 80,443,8100
