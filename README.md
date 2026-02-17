@@ -295,7 +295,7 @@ For production-style EC2 deployment, use the deployment module:
 ./deploy/ec2/scripts/menu.sh
 
 # Menu includes guided prompts for setup/deploy/verify/logs/update/restart/stop operations,
-# runtime smoke checks, and pipeline validation with optional build/runtime-smoke chaining
+# runtime smoke checks, and pipeline validation with optional build/verify/runtime-smoke/status chaining
 # (useful for non-technical EC2 operators)
 
 # Optional on fresh Ubuntu EC2: install Docker + Compose

@@ -42,7 +42,7 @@ Additional deployment flowcharts:
   - `doctor.sh` (generate diagnostics report for support)
   - `support-bundle.sh` (collect support-ready diagnostics archive)
   - `rotate-app-secrets.sh` (rotate JWT/OAuth/platform secrets)
-  - `pipeline-check.sh` (CI validation sequence with optional build-check/runtime-smoke chaining)
+  - `pipeline-check.sh` (CI validation sequence with optional build-check/verify/runtime-smoke/status chaining)
   - `reports-prune.sh` (report/support bundle retention cleanup)
   - `help.sh` (command reference quick guide)
   - `self-check.sh` (validate deployment script integrity)
@@ -95,7 +95,7 @@ From repository root:
 # - verify checks (retries + oauth/ssl toggles)
 # - runtime smoke checks (container-internal retries + dependency toggles)
 # - status runtime-smoke chaining controls
-# - pipeline checks (with optional build-check/runtime-smoke chaining)
+# - pipeline checks (with optional build-check/verify/runtime-smoke/status chaining)
 # - logs filters (service/tail/since/follow)
 # - restart/stop operations (service/wait/purge/dry-run/confirmation controls)
 
