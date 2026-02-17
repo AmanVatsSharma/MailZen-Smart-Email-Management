@@ -25,6 +25,8 @@ DOMAIN_ARG=""
 ACME_EMAIL_ARG=""
 NON_INTERACTIVE=false
 SKIP_DAEMON=false
+NON_INTERACTIVE_FLAG_SET=false
+SKIP_DAEMON_FLAG_SET=false
 DOMAIN_FLAG_SET=false
 DOMAIN_FLAG_VALUE=""
 ACME_EMAIL_FLAG_SET=false
@@ -113,11 +115,19 @@ ensure_password_if_placeholder() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --non-interactive)
+    if [[ "${NON_INTERACTIVE_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --non-interactive flag detected; non-interactive mode remains enabled."
+    fi
     NON_INTERACTIVE=true
+    NON_INTERACTIVE_FLAG_SET=true
     shift
     ;;
   --skip-daemon)
+    if [[ "${SKIP_DAEMON_FLAG_SET}" == true ]]; then
+      log_warn "Duplicate --skip-daemon flag detected; daemon connectivity checks remain skipped."
+    fi
     SKIP_DAEMON=true
+    SKIP_DAEMON_FLAG_SET=true
     shift
     ;;
   --domain)
@@ -187,12 +197,14 @@ done
 log_info "Starting MailZen EC2 setup..."
 require_cmd docker
 
+log_info "Command preview: $(format_command_for_logs docker compose version)"
 if ! docker compose version >/dev/null 2>&1; then
   log_error "Docker Compose plugin is missing. Install Docker Compose v2 first."
   exit 1
 fi
 
 if [[ "${SKIP_DAEMON}" == false ]]; then
+  log_info "Command preview: $(format_command_for_logs docker info)"
   if ! docker info >/dev/null 2>&1; then
     log_docker_daemon_unreachable
     log_error "Tip: use --skip-daemon to continue setup when only env preparation is needed."
