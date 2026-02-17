@@ -56,8 +56,16 @@ for doc_file in "${doc_files[@]}"; do
 done
 
 log_info "Checking docs for script reference consistency..."
+log_info "Scanned docs:"
+for doc_file in "${doc_files[@]}"; do
+  log_info "  - ${doc_file#${REPO_ROOT}/}"
+done
 
-mapfile -t referenced_script_paths < <(rg -o --no-filename "\./deploy/ec2/scripts/[A-Za-z0-9._-]+\.sh" "${doc_files[@]}" | sort -u)
+mapfile -t referenced_script_paths < <(
+  rg -o --no-filename "(?:\./)?deploy/ec2/scripts/[A-Za-z0-9._-]+\.sh" "${doc_files[@]}" |
+    sed -E 's|^deploy/|./deploy/|' |
+    sort -u
+)
 
 if [[ "${#referenced_script_paths[@]}" -eq 0 ]]; then
   log_error "No deploy script references found in docs."
@@ -76,6 +84,7 @@ for relative_script_path in "${referenced_script_paths[@]}"; do
 done
 
 if [[ "${#missing_references[@]}" -gt 0 ]]; then
+  mapfile -t missing_references < <(printf "%s\n" "${missing_references[@]}" | sort -u)
   log_error "Docs reference missing script(s):"
   for missing_reference in "${missing_references[@]}"; do
     log_error "  - ${missing_reference}"
@@ -84,6 +93,7 @@ if [[ "${#missing_references[@]}" -gt 0 ]]; then
 fi
 
 log_info "All script references found in docs point to existing files."
+log_info "Found ${#referenced_script_paths[@]} unique script reference(s) in docs."
 
 all_script_files=("${SCRIPT_DIR}"/*.sh)
 unreferenced_scripts=()
@@ -99,6 +109,7 @@ for script_file in "${all_script_files[@]}"; do
 done
 
 if [[ "${#unreferenced_scripts[@]}" -gt 0 ]]; then
+  mapfile -t unreferenced_scripts < <(printf "%s\n" "${unreferenced_scripts[@]}" | sort -u)
   if [[ "${STRICT_COVERAGE}" == true ]]; then
     log_error "Unreferenced script(s) found with --strict-coverage enabled:"
     for unreferenced_script in "${unreferenced_scripts[@]}"; do
@@ -110,6 +121,14 @@ if [[ "${#unreferenced_scripts[@]}" -gt 0 ]]; then
   for unreferenced_script in "${unreferenced_scripts[@]}"; do
     log_warn "  - ${unreferenced_script}"
   done
+fi
+
+if [[ "${STRICT_COVERAGE}" == true ]]; then
+  if [[ "${INCLUDE_COMMON}" == true ]]; then
+    log_info "Strict docs coverage mode passed (including common.sh)."
+  else
+    log_info "Strict docs coverage mode passed."
+  fi
 fi
 
 log_info "Docs consistency check passed."
