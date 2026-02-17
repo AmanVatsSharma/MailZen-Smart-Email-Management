@@ -187,8 +187,12 @@ while [[ $# -gt 0 ]]; do
       log_error "--ports-check-ports requires a value."
       exit 1
     fi
-    if [[ "${PORTS_CHECK_FLAG_SET}" == true ]] && [[ "${ports_check_ports_arg}" != "${PORTS_CHECK_FLAG_VALUE}" ]]; then
-      log_warn "Earlier --ports-check-ports '${PORTS_CHECK_FLAG_VALUE}' overridden by --ports-check-ports '${ports_check_ports_arg}'."
+    if [[ "${PORTS_CHECK_FLAG_SET}" == true ]]; then
+      if [[ "${ports_check_ports_arg}" != "${PORTS_CHECK_FLAG_VALUE}" ]]; then
+        log_warn "Earlier --ports-check-ports '${PORTS_CHECK_FLAG_VALUE}' overridden by --ports-check-ports '${ports_check_ports_arg}'."
+      else
+        log_warn "Duplicate --ports-check-ports flag detected; keeping --ports-check-ports '${ports_check_ports_arg}'."
+      fi
     fi
     PORTS_CHECK_PORTS="${ports_check_ports_arg}"
     PORTS_CHECK_FLAG_SET=true
@@ -201,8 +205,12 @@ while [[ $# -gt 0 ]]; do
       log_error "--verify-max-retries requires a value."
       exit 1
     fi
-    if [[ "${VERIFY_MAX_RETRIES_FLAG_SET}" == true ]] && [[ "${verify_max_retries_arg}" != "${VERIFY_MAX_RETRIES_FLAG_VALUE}" ]]; then
-      log_warn "Earlier --verify-max-retries '${VERIFY_MAX_RETRIES_FLAG_VALUE}' overridden by --verify-max-retries '${verify_max_retries_arg}'."
+    if [[ "${VERIFY_MAX_RETRIES_FLAG_SET}" == true ]]; then
+      if [[ "${verify_max_retries_arg}" != "${VERIFY_MAX_RETRIES_FLAG_VALUE}" ]]; then
+        log_warn "Earlier --verify-max-retries '${VERIFY_MAX_RETRIES_FLAG_VALUE}' overridden by --verify-max-retries '${verify_max_retries_arg}'."
+      else
+        log_warn "Duplicate --verify-max-retries flag detected; keeping --verify-max-retries '${verify_max_retries_arg}'."
+      fi
     fi
     VERIFY_MAX_RETRIES="${verify_max_retries_arg}"
     VERIFY_MAX_RETRIES_FLAG_SET=true
@@ -215,8 +223,12 @@ while [[ $# -gt 0 ]]; do
       log_error "--verify-retry-sleep requires a value."
       exit 1
     fi
-    if [[ "${VERIFY_RETRY_SLEEP_FLAG_SET}" == true ]] && [[ "${verify_retry_sleep_arg}" != "${VERIFY_RETRY_SLEEP_FLAG_VALUE}" ]]; then
-      log_warn "Earlier --verify-retry-sleep '${VERIFY_RETRY_SLEEP_FLAG_VALUE}' overridden by --verify-retry-sleep '${verify_retry_sleep_arg}'."
+    if [[ "${VERIFY_RETRY_SLEEP_FLAG_SET}" == true ]]; then
+      if [[ "${verify_retry_sleep_arg}" != "${VERIFY_RETRY_SLEEP_FLAG_VALUE}" ]]; then
+        log_warn "Earlier --verify-retry-sleep '${VERIFY_RETRY_SLEEP_FLAG_VALUE}' overridden by --verify-retry-sleep '${verify_retry_sleep_arg}'."
+      else
+        log_warn "Duplicate --verify-retry-sleep flag detected; keeping --verify-retry-sleep '${verify_retry_sleep_arg}'."
+      fi
     fi
     VERIFY_RETRY_SLEEP="${verify_retry_sleep_arg}"
     VERIFY_RETRY_SLEEP_FLAG_SET=true
@@ -244,8 +256,12 @@ while [[ $# -gt 0 ]]; do
       log_error "--runtime-smoke-max-retries requires a value."
       exit 1
     fi
-    if [[ "${RUNTIME_SMOKE_MAX_RETRIES_FLAG_SET}" == true ]] && [[ "${runtime_smoke_max_retries_arg}" != "${RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE}" ]]; then
-      log_warn "Earlier --runtime-smoke-max-retries '${RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE}' overridden by --runtime-smoke-max-retries '${runtime_smoke_max_retries_arg}'."
+    if [[ "${RUNTIME_SMOKE_MAX_RETRIES_FLAG_SET}" == true ]]; then
+      if [[ "${runtime_smoke_max_retries_arg}" != "${RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE}" ]]; then
+        log_warn "Earlier --runtime-smoke-max-retries '${RUNTIME_SMOKE_MAX_RETRIES_FLAG_VALUE}' overridden by --runtime-smoke-max-retries '${runtime_smoke_max_retries_arg}'."
+      else
+        log_warn "Duplicate --runtime-smoke-max-retries flag detected; keeping --runtime-smoke-max-retries '${runtime_smoke_max_retries_arg}'."
+      fi
     fi
     RUNTIME_SMOKE_MAX_RETRIES="${runtime_smoke_max_retries_arg}"
     RUNTIME_SMOKE_MAX_RETRIES_FLAG_SET=true
@@ -258,8 +274,12 @@ while [[ $# -gt 0 ]]; do
       log_error "--runtime-smoke-retry-sleep requires a value."
       exit 1
     fi
-    if [[ "${RUNTIME_SMOKE_RETRY_SLEEP_FLAG_SET}" == true ]] && [[ "${runtime_smoke_retry_sleep_arg}" != "${RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE}" ]]; then
-      log_warn "Earlier --runtime-smoke-retry-sleep '${RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE}' overridden by --runtime-smoke-retry-sleep '${runtime_smoke_retry_sleep_arg}'."
+    if [[ "${RUNTIME_SMOKE_RETRY_SLEEP_FLAG_SET}" == true ]]; then
+      if [[ "${runtime_smoke_retry_sleep_arg}" != "${RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE}" ]]; then
+        log_warn "Earlier --runtime-smoke-retry-sleep '${RUNTIME_SMOKE_RETRY_SLEEP_FLAG_VALUE}' overridden by --runtime-smoke-retry-sleep '${runtime_smoke_retry_sleep_arg}'."
+      else
+        log_warn "Duplicate --runtime-smoke-retry-sleep flag detected; keeping --runtime-smoke-retry-sleep '${runtime_smoke_retry_sleep_arg}'."
+      fi
     fi
     RUNTIME_SMOKE_RETRY_SLEEP="${runtime_smoke_retry_sleep_arg}"
     RUNTIME_SMOKE_RETRY_SLEEP_FLAG_SET=true
