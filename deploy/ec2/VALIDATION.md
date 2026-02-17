@@ -104,7 +104,11 @@ If any check fails:
 ./deploy/ec2/scripts/logs.sh --service frontend --tail 500 --no-follow
 ./deploy/ec2/scripts/logs.sh --service ai-agent-platform --tail 500 --no-follow
 ./deploy/ec2/scripts/doctor.sh
+./deploy/ec2/scripts/doctor.sh --docs-strict-coverage
+./deploy/ec2/scripts/doctor.sh --skip-docs-check
 ./deploy/ec2/scripts/support-bundle.sh
+./deploy/ec2/scripts/support-bundle.sh --docs-strict-coverage
+./deploy/ec2/scripts/support-bundle.sh --skip-docs-check
 ```
 
 ## 5) Pipeline shortcut (config + runtime-smoke chain)
