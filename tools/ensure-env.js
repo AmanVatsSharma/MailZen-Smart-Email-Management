@@ -110,10 +110,26 @@ SMTP_PASS=
 REDIS_HOST=localhost
 REDIS_PORT=6379
 
+# AI Agent Platform — set to false so backend boots even when Python service is starting
+AI_AGENT_PLATFORM_URL=http://localhost:8100
+AI_AGENT_PLATFORM_REQUIRED=false
+
 # Google Cloud Storage (for attachments)
 GOOGLE_CLOUD_STORAGE_BUCKET=
 GOOGLE_CLOUD_PROJECT_ID=
 GOOGLE_CLOUD_KEYFILE=
+`;
+}
+
+function buildAiAgentEnvTemplate() {
+  return `AGENT_PLATFORM_SERVICE_NAME=ai-agent-platform
+AGENT_PLATFORM_API_VERSION=v1
+# Optional: if set, the backend must send a matching x-agent-platform-key header
+AGENT_PLATFORM_INBOUND_API_KEY=
+AGENT_PLATFORM_DEFAULT_LOCALE=en-IN
+AGENT_PLATFORM_MAX_MESSAGE_CHARS=3000
+AGENT_PLATFORM_LATENCY_WARN_MS=1200
+AGENT_PLATFORM_ERROR_RATE_WARN_PERCENT=5.0
 `;
 }
 
@@ -148,6 +164,7 @@ function main() {
   // Nx standard apps layout
   const backendEnvPath = path.join(repoRoot, 'apps', 'backend', '.env');
   const frontendEnvPath = path.join(repoRoot, 'apps', 'frontend', '.env.local');
+  const aiAgentEnvPath = path.join(repoRoot, 'services', 'ai-agent-platform', '.env');
 
   if (project === 'backend' || project === 'all') {
     ensureFile(backendEnvPath, buildBackendEnvTemplate());
@@ -155,6 +172,10 @@ function main() {
 
   if (project === 'frontend' || project === 'all') {
     ensureFile(frontendEnvPath, frontendEnvTemplate);
+  }
+
+  if (project === 'ai-agent-platform' || project === 'all') {
+    ensureFile(aiAgentEnvPath, buildAiAgentEnvTemplate());
   }
 
   if (process.exitCode && process.exitCode !== 0) {

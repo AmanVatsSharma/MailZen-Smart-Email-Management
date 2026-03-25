@@ -8,9 +8,10 @@
     "libs/*"
   ],
   "scripts": {
-    "start": "nx run-many -t serve -p frontend backend --parallel=2",
-    "dev": "nx run-many -t serve -p frontend backend --parallel=2",
-    "dev:all": "nx run-many -t serve -p marketing frontend backend --parallel=3",
+    "start": "nx run-many -t serve -p frontend backend ai-agent-platform --parallel=3",
+    "dev": "nx run-many -t serve -p frontend backend ai-agent-platform --parallel=3",
+    "dev:lite": "nx run-many -t serve -p frontend backend --parallel=2",
+    "dev:all": "nx run-many -t serve -p marketing frontend backend ai-agent-platform --parallel=4",
     "dev:full": "nx run-many -t serve -p marketing frontend backend ai-agent-platform --parallel=4",
     "dev:platform": "nx run-many -t serve -p backend ai-agent-platform --parallel=2",
     "dev:ai-agent": "nx serve ai-agent-platform",

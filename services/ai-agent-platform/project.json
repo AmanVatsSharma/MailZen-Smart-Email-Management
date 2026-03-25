@@ -4,8 +4,15 @@
   "projectType": "application",
   "sourceRoot": "services/ai-agent-platform/app",
   "targets": {
+    "prepare-env": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/ensure-env.js --project ai-agent-platform"
+      }
+    },
     "serve": {
       "executor": "nx:run-commands",
+      "dependsOn": ["prepare-env"],
       "defaultConfiguration": "dev",
       "options": {
         "cwd": "services/ai-agent-platform",
