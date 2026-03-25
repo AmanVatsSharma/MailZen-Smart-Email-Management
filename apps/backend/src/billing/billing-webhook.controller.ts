@@ -6,8 +6,11 @@ import {
   Logger,
   Param,
   Post,
+  RawBodyRequest,
+  Req,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { timingSafeEqual } from 'crypto';
 import { BillingService } from './billing.service';
 import {
@@ -84,6 +87,49 @@ export class BillingWebhookController {
       }),
     );
     throw new UnauthorizedException('Billing webhook secret mismatch');
+  }
+
+  @Post('stripe/events')
+  async ingestStripeWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('stripe-signature') stripeSignature: string,
+    @Headers('x-request-id') requestIdHeader?: string,
+  ): Promise<{ received: boolean; eventType: string }> {
+    const requestId = resolveCorrelationId(requestIdHeader);
+    const rawBody = req.rawBody;
+    if (!rawBody || !rawBody.length) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'billing_stripe_webhook_empty_body',
+          requestId,
+        }),
+      );
+      throw new BadRequestException('Stripe webhook requires raw request body');
+    }
+    if (!stripeSignature) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'billing_stripe_webhook_missing_signature',
+          requestId,
+        }),
+      );
+      throw new UnauthorizedException('Stripe-Signature header is required');
+    }
+
+    const result = await this.billingService.handleStripeWebhookPayload({
+      rawBody,
+      signature: stripeSignature,
+    });
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'billing_stripe_webhook_processed',
+        requestId,
+        eventType: result.eventType,
+      }),
+    );
+
+    return result;
   }
 
   @Post(':provider')

@@ -122,7 +122,7 @@ async function bootstrap() {
 
   await assertAgentPlatformReadiness();
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   const securityHeadersEnabled = parseBooleanEnv(
     process.env.GLOBAL_SECURITY_HEADERS_ENABLED,
@@ -233,7 +233,7 @@ async function bootstrap() {
   );
   const csrfExcludedPaths = parseCsvEnv(
     process.env.GLOBAL_CSRF_EXCLUDED_PATHS,
-    [],
+    ['/billing/webhooks/stripe/events'],
   );
   const sessionCookieName = String(
     process.env.MAILZEN_SESSION_COOKIE_NAME || 'token',

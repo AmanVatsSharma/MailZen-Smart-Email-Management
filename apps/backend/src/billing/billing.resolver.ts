@@ -8,6 +8,7 @@ import { BillingDataExportResponse } from './dto/billing-data-export.response';
 import { EntitlementUsageResponse } from './dto/entitlement-usage.response';
 import { BillingRetentionPurgeResponse } from './dto/billing-retention-purge.response';
 import { BillingUpgradeIntentResponse } from './dto/billing-upgrade-intent.response';
+import { StripeCheckoutSessionResponse } from './dto/stripe-checkout-session.response';
 import { BillingInvoice } from './entities/billing-invoice.entity';
 import { BillingPlan } from './entities/billing-plan.entity';
 import { BillingWebhookEvent } from './entities/billing-webhook-event.entity';
@@ -116,6 +117,24 @@ export class BillingResolver {
       targetPlanCode,
       note,
     );
+  }
+
+  @Mutation(() => StripeCheckoutSessionResponse, {
+    description:
+      'Create a Stripe Checkout session URL for upgrading to a paid plan',
+  })
+  async createStripeCheckoutSession(
+    @Args('planCode') planCode: string,
+    @Args('successUrl') successUrl: string,
+    @Args('cancelUrl') cancelUrl: string,
+    @Context() context: RequestContext,
+  ) {
+    return this.billingService.createStripeCheckoutSession({
+      userId: context.req.user.id,
+      planCode,
+      successUrl,
+      cancelUrl,
+    });
   }
 
   @Mutation(() => UserSubscription, {
