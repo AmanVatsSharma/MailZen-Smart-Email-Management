@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import Stripe from 'stripe';
 import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { Mailbox } from '../mailbox/entities/mailbox.entity';
@@ -19,6 +20,7 @@ import { BillingInvoice } from './entities/billing-invoice.entity';
 import { BillingPlan } from './entities/billing-plan.entity';
 import { BillingWebhookEvent } from './entities/billing-webhook-event.entity';
 import { BillingUpgradeIntentResponse } from './dto/billing-upgrade-intent.response';
+import { StripeCheckoutSessionResponse } from './dto/stripe-checkout-session.response';
 import { UserAiCreditUsage } from './entities/user-ai-credit-usage.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
 import { serializeStructuredLog } from '../common/logging/structured-log.util';
@@ -36,6 +38,28 @@ export type BillingEntitlements = {
 @Injectable()
 export class BillingService {
   private readonly logger = new Logger(BillingService.name);
+  private readonly stripe: Stripe | null = this.buildStripeClient();
+
+  private buildStripeClient(): Stripe | null {
+    const secretKey = String(process.env.STRIPE_SECRET_KEY || '').trim();
+    if (!secretKey) return null;
+    return new Stripe(secretKey, { apiVersion: '2025-02-24.acacia' });
+  }
+
+  private resolveStripeClient(): Stripe {
+    if (!this.stripe) {
+      throw new BadRequestException(
+        'Stripe is not configured. Set STRIPE_SECRET_KEY to enable payment flows.',
+      );
+    }
+    return this.stripe;
+  }
+
+  private resolveStripePriceId(planCode: string): string | null {
+    const normalized = this.normalizePlanCode(planCode);
+    const envKey = `STRIPE_PRICE_ID_${normalized}`;
+    return String(process.env[envKey] || '').trim() || null;
+  }
 
   constructor(
     @InjectRepository(BillingPlan)
@@ -1170,6 +1194,325 @@ export class BillingService {
     }
 
     return this.billingWebhookEventRepo.save(event);
+  }
+
+  async createStripeCheckoutSession(input: {
+    userId: string;
+    planCode: string;
+    successUrl: string;
+    cancelUrl: string;
+  }): Promise<StripeCheckoutSessionResponse> {
+    await this.ensureDefaultPlans();
+    const normalizedPlanCode = this.normalizePlanCode(input.planCode);
+    if (!normalizedPlanCode) {
+      throw new BadRequestException('Plan code is required');
+    }
+
+    const targetPlan = await this.billingPlanRepo.findOne({
+      where: { code: normalizedPlanCode, isActive: true },
+    });
+    if (!targetPlan) {
+      throw new NotFoundException(
+        `Billing plan '${normalizedPlanCode}' does not exist`,
+      );
+    }
+    if (targetPlan.priceMonthlyCents <= 0) {
+      throw new BadRequestException(
+        'Stripe checkout is only required for paid plans',
+      );
+    }
+
+    const stripeClient = this.resolveStripeClient();
+    const priceId = this.resolveStripePriceId(normalizedPlanCode);
+    if (!priceId) {
+      throw new BadRequestException(
+        `No Stripe price ID configured for plan '${normalizedPlanCode}'. Set STRIPE_PRICE_ID_${normalizedPlanCode} in env.`,
+      );
+    }
+
+    const subscription = await this.getMySubscription(input.userId);
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: input.successUrl,
+      cancel_url: input.cancelUrl,
+      metadata: {
+        userId: input.userId,
+        planCode: normalizedPlanCode,
+      },
+      client_reference_id: input.userId,
+    };
+
+    if (subscription.billingProviderCustomerId) {
+      sessionParams.customer = subscription.billingProviderCustomerId;
+    }
+
+    const session = await stripeClient.checkout.sessions.create(sessionParams);
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'billing_stripe_checkout_session_created',
+        userId: input.userId,
+        planCode: normalizedPlanCode,
+        sessionId: session.id,
+      }),
+    );
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'billing_stripe_checkout_session_created',
+      metadata: {
+        planCode: normalizedPlanCode,
+        sessionId: session.id,
+      },
+    });
+
+    return {
+      sessionUrl: session.url ?? '',
+      sessionId: session.id,
+      planCode: normalizedPlanCode,
+    };
+  }
+
+  async handleStripeWebhookPayload(input: {
+    rawBody: Buffer;
+    signature: string;
+  }): Promise<{ received: boolean; eventType: string }> {
+    const webhookSecret = String(
+      process.env.STRIPE_WEBHOOK_SECRET || '',
+    ).trim();
+    if (!webhookSecret) {
+      throw new BadRequestException(
+        'STRIPE_WEBHOOK_SECRET is not configured',
+      );
+    }
+
+    const stripeClient = this.resolveStripeClient();
+    let event: Stripe.Event;
+    try {
+      event = stripeClient.webhooks.constructEvent(
+        input.rawBody,
+        input.signature,
+        webhookSecret,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'billing_stripe_webhook_signature_invalid',
+          error: message,
+        }),
+      );
+      throw new BadRequestException(
+        `Stripe webhook signature verification failed: ${message}`,
+      );
+    }
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'billing_stripe_webhook_received',
+        stripeEventType: event.type,
+        stripeEventId: event.id,
+      }),
+    );
+
+    await this.processStripeEvent(event);
+
+    return { received: true, eventType: event.type };
+  }
+
+  private async processStripeEvent(event: Stripe.Event): Promise<void> {
+    switch (event.type) {
+      case 'checkout.session.completed':
+        await this.onStripeCheckoutCompleted(
+          event.data.object as Stripe.Checkout.Session,
+        );
+        break;
+      case 'invoice.paid':
+        await this.onStripeInvoicePaid(event.data.object as Stripe.Invoice);
+        break;
+      case 'invoice.payment_failed':
+        await this.onStripeInvoicePaymentFailed(
+          event.data.object as Stripe.Invoice,
+        );
+        break;
+      case 'customer.subscription.deleted':
+        await this.onStripeSubscriptionDeleted(
+          event.data.object as Stripe.Subscription,
+        );
+        break;
+      default:
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'billing_stripe_webhook_event_ignored',
+            stripeEventType: event.type,
+          }),
+        );
+    }
+  }
+
+  private async onStripeCheckoutCompleted(
+    session: Stripe.Checkout.Session,
+  ): Promise<void> {
+    const userId = this.toSafeString(session.metadata?.userId);
+    const planCode = this.normalizePlanCode(
+      this.toSafeString(session.metadata?.planCode) || '',
+    );
+    if (!userId || !planCode) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'billing_stripe_checkout_completed_missing_metadata',
+          sessionId: session.id,
+        }),
+      );
+      return;
+    }
+
+    const subscription = await this.getMySubscription(userId);
+    if (session.customer && typeof session.customer === 'string') {
+      subscription.billingProviderCustomerId = session.customer;
+    }
+    subscription.planCode = planCode;
+    subscription.status = 'active';
+    subscription.startedAt = new Date();
+    subscription.cancelAtPeriodEnd = false;
+    subscription.isTrial = false;
+    subscription.trialEndsAt = null;
+    subscription.endsAt = null;
+    await this.userSubscriptionRepo.save(subscription);
+
+    await this.writeAuditLog({
+      userId,
+      action: 'billing_stripe_checkout_completed',
+      metadata: {
+        planCode,
+        sessionId: session.id,
+        customerId: subscription.billingProviderCustomerId || null,
+      },
+    });
+
+    await this.notificationEventBus.publishSafely({
+      userId,
+      type: 'BILLING_PLAN_ACTIVATED',
+      title: 'Subscription activated',
+      message: `Your ${planCode} plan is now active.`,
+      metadata: { planCode, sessionId: session.id },
+    });
+  }
+
+  private async onStripeInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
+    const customerId =
+      typeof invoice.customer === 'string' ? invoice.customer : null;
+    if (!customerId) return;
+
+    const subscription = await this.userSubscriptionRepo.findOne({
+      where: { billingProviderCustomerId: customerId },
+    });
+    if (!subscription) return;
+
+    await this.createInvoice({
+      userId: subscription.userId,
+      subscriptionId: subscription.id,
+      planCode: subscription.planCode,
+      provider: 'STRIPE',
+      providerInvoiceId: invoice.id,
+      status: 'paid',
+      amountCents: invoice.amount_paid,
+      currency: (invoice.currency || 'usd').toUpperCase(),
+      metadata: { stripeInvoiceId: invoice.id, customerId },
+    });
+    await this.writeAuditLog({
+      userId: subscription.userId,
+      action: 'billing_stripe_invoice_paid',
+      metadata: {
+        stripeInvoiceId: invoice.id,
+        amountCents: invoice.amount_paid,
+        planCode: subscription.planCode,
+      },
+    });
+  }
+
+  private async onStripeInvoicePaymentFailed(
+    invoice: Stripe.Invoice,
+  ): Promise<void> {
+    const customerId =
+      typeof invoice.customer === 'string' ? invoice.customer : null;
+    if (!customerId) return;
+
+    const subscription = await this.userSubscriptionRepo.findOne({
+      where: { billingProviderCustomerId: customerId },
+    });
+    if (!subscription) return;
+
+    await this.createInvoice({
+      userId: subscription.userId,
+      subscriptionId: subscription.id,
+      planCode: subscription.planCode,
+      provider: 'STRIPE',
+      providerInvoiceId: invoice.id,
+      status: 'failed',
+      amountCents: invoice.amount_due,
+      currency: (invoice.currency || 'usd').toUpperCase(),
+      metadata: { stripeInvoiceId: invoice.id, customerId },
+    });
+    subscription.cancelAtPeriodEnd = true;
+    subscription.metadata = {
+      ...(subscription.metadata || {}),
+      lastPaymentFailureAtIso: new Date().toISOString(),
+    };
+    await this.userSubscriptionRepo.save(subscription);
+    await this.notificationEventBus.publishSafely({
+      userId: subscription.userId,
+      type: 'BILLING_PAYMENT_FAILED',
+      title: 'Payment failed',
+      message: 'Your last payment could not be processed. Please update your payment method.',
+      metadata: { stripeInvoiceId: invoice.id },
+    });
+    await this.writeAuditLog({
+      userId: subscription.userId,
+      action: 'billing_stripe_invoice_payment_failed',
+      metadata: {
+        stripeInvoiceId: invoice.id,
+        amountCents: invoice.amount_due,
+        planCode: subscription.planCode,
+      },
+    });
+  }
+
+  private async onStripeSubscriptionDeleted(
+    stripeSubscription: Stripe.Subscription,
+  ): Promise<void> {
+    const customerId =
+      typeof stripeSubscription.customer === 'string'
+        ? stripeSubscription.customer
+        : null;
+    if (!customerId) return;
+
+    const subscription = await this.userSubscriptionRepo.findOne({
+      where: { billingProviderCustomerId: customerId },
+    });
+    if (!subscription) return;
+
+    subscription.status = 'canceled';
+    subscription.endsAt = new Date();
+    subscription.cancelAtPeriodEnd = false;
+    await this.userSubscriptionRepo.save(subscription);
+    await this.notificationEventBus.publishSafely({
+      userId: subscription.userId,
+      type: 'BILLING_SUBSCRIPTION_CANCELLED',
+      title: 'Subscription cancelled',
+      message: 'Your subscription has been cancelled and you have been moved to the FREE plan.',
+      metadata: { customerId },
+    });
+    await this.writeAuditLog({
+      userId: subscription.userId,
+      action: 'billing_stripe_subscription_deleted',
+      metadata: {
+        customerId,
+        planCode: subscription.planCode,
+        endsAt: subscription.endsAt.toISOString(),
+      },
+    });
   }
 
   async requestUpgradeIntent(
