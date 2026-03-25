@@ -1,18 +1,51 @@
 {
   "run": {
-    "command": "nx test ai-agent-platform",
-    "startTime": "2026-02-14T16:58:50.011Z",
-    "endTime": "2026-02-14T16:58:53.446Z",
+    "command": "nx run-many -t serve -p frontend backend --parallel=2",
+    "startTime": "2026-03-25T19:50:35.791Z",
+    "endTime": "2026-03-25T20:27:46.773Z",
     "inner": false
   },
   "tasks": [
     {
-      "taskId": "ai-agent-platform:test",
-      "target": "test",
-      "projectName": "ai-agent-platform",
-      "hash": "1524283110969746739",
-      "startTime": "2026-02-14T16:58:50.038Z",
-      "endTime": "2026-02-14T16:58:53.445Z",
+      "taskId": "frontend:prepare-env",
+      "target": "prepare-env",
+      "projectName": "frontend",
+      "hash": "8511125679327160245",
+      "startTime": "2026-03-25T19:50:35.822Z",
+      "endTime": "2026-03-25T19:50:35.959Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    },
+    {
+      "taskId": "backend:prepare-env",
+      "target": "prepare-env",
+      "projectName": "backend",
+      "hash": "5880025376202498392",
+      "startTime": "2026-03-25T19:50:35.822Z",
+      "endTime": "2026-03-25T19:50:35.987Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 0
+    },
+    {
+      "taskId": "backend:serve",
+      "target": "serve",
+      "projectName": "backend",
+      "hash": "15281818250985237702",
+      "startTime": "2026-03-25T19:50:35.995Z",
+      "endTime": "2026-03-25T19:53:58.846Z",
+      "params": "",
+      "cacheStatus": "cache-miss",
+      "status": 1
+    },
+    {
+      "taskId": "frontend:serve",
+      "target": "serve",
+      "projectName": "frontend",
+      "hash": "3290895979774413750",
+      "startTime": "2026-03-25T19:50:35.966Z",
+      "endTime": "2026-03-25T20:27:46.693Z",
       "params": "",
       "cacheStatus": "cache-miss",
       "status": 0

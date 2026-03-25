@@ -20,6 +20,7 @@ import {
   getGoogleOAuthStartUrl,
   REGISTER_MUTATION,
   resolvePostAuthRoute,
+  setRefreshToken,
   setUserData,
 } from '@/modules/auth';
 
@@ -62,6 +63,9 @@ export default function RegisterForm() {
     onCompleted: (data) => {
       setSuccess(true);
       setUserData(data.register.user);
+      if (data.register.refreshToken) {
+        setRefreshToken(data.register.refreshToken);
+      }
       if (process.env.NODE_ENV !== 'production') {
         console.warn('[Register] success (token cookie should be set by backend)');
       }

@@ -30,7 +30,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { EmailThread, EmailFolder, EmailFilter, EmailSortOption } from '@/lib/email/email-types';
-import { mockLabels } from '@/lib/email/mock-data';
 import { EmailThreadItem } from './EmailThreadItem';
 import { EmailSearch } from './EmailSearch';
 import { EmailListSkeleton } from './EmailListSkeleton';
@@ -595,7 +594,7 @@ export function EmailList({
                     }
                   }}
                   onToggleStar={handleToggleStar}
-                  availableLabels={labelsData?.labels || mockLabels}
+                  availableLabels={labelsData?.labels ?? []}
                   className="flex-1"
                 />
               </div>

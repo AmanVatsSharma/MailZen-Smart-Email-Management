@@ -74,6 +74,15 @@ export const LOGOUT_MUTATION = gql`
   }
 `;
 
+export const REFRESH_MUTATION = gql`
+  mutation Refresh($refreshToken: String!) {
+    refresh(input: { refreshToken: $refreshToken }) {
+      token
+      refreshToken
+    }
+  }
+`;
+
 export const AUTH_ME_QUERY = gql`
   query AuthMe {
     authMe {

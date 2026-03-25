@@ -25,6 +25,7 @@ import {
   getGoogleOAuthStartUrl,
   LOGIN_MUTATION,
   resolvePostAuthRoute,
+  setRefreshToken,
   setUserData,
 } from '@/modules/auth';
 
@@ -47,6 +48,9 @@ export default function LoginForm() {
   const [login, { loading }] = useMutation(LOGIN_MUTATION, {
     onCompleted: (data) => {
       setUserData(data.login.user);
+      if (data.login.refreshToken) {
+        setRefreshToken(data.login.refreshToken);
+      }
       router.push(
         resolvePostAuthRoute({
           requiresAliasSetup: data.login.requiresAliasSetup,
