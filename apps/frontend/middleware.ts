@@ -9,18 +9,6 @@ const publicAuthPaths = [
   '/auth/oauth-success',
 ];
 
-const publicMarketingPaths = [
-  '/',
-  '/features',
-  '/pricing',
-  '/integrations',
-  '/security',
-  '/about',
-  '/contact',
-  '/privacy',
-  '/terms',
-];
-
 const legacyRedirects: Record<string, string> = {
   '/login': '/auth/login',
   '/register': '/auth/register',
@@ -31,15 +19,6 @@ const isPublicAuthPath = (path: string): boolean =>
   publicAuthPaths.some((publicPath) => {
     return path === publicPath || path.startsWith(`${publicPath}/`);
   });
-
-const isPublicMarketingPath = (path: string): boolean =>
-  publicMarketingPaths.some((publicPath) => {
-    return path === publicPath || path.startsWith(`${publicPath}/`);
-  });
-
-const isPublicPath = (path: string): boolean => {
-  return isPublicAuthPath(path) || isPublicMarketingPath(path);
-};
 
 const isBypassPath = (path: string): boolean => {
   return (
@@ -57,6 +36,10 @@ const isAllowedAuthedPublicPath = (path: string): boolean => {
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
+  if (process.env.NODE_ENV === 'development') {
+    return NextResponse.next();
+  }
+
   if (isBypassPath(pathname)) {
     return NextResponse.next();
   }
@@ -69,21 +52,13 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('token')?.value;
   const isAuthenticated = Boolean(token);
 
-  if (!isAuthenticated && !isPublicPath(pathname)) {
+  if (!isAuthenticated && !isPublicAuthPath(pathname)) {
     const redirectUrl = new URL('/auth/login', request.url);
     redirectUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (isAuthenticated && pathname === '/') {
-    return NextResponse.redirect(new URL('/inbox', request.url));
-  }
-
-  if (
-    isAuthenticated &&
-    isPublicAuthPath(pathname) &&
-    !isAllowedAuthedPublicPath(pathname)
-  ) {
+  if (isAuthenticated && isPublicAuthPath(pathname) && !isAllowedAuthedPublicPath(pathname)) {
     return NextResponse.redirect(new URL('/inbox', request.url));
   }
 

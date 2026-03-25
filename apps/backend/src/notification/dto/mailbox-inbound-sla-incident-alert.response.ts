@@ -5,7 +5,7 @@ export class MailboxInboundSlaIncidentAlertResponse {
   @Field()
   notificationId: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   workspaceId?: string | null;
 
   @Field()

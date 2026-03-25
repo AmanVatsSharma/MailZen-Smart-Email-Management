@@ -22,9 +22,9 @@ export class WorkspaceMember {
   @Column()
   workspaceId: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Index()
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   userId?: string | null;
 
   @Field()

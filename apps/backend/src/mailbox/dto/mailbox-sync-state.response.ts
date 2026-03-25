@@ -8,24 +8,24 @@ export class MailboxSyncStateResponse {
   @Field()
   mailboxEmail: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   workspaceId?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   inboundSyncCursor?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   inboundSyncStatus?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   inboundSyncLastPolledAt?: Date | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   inboundSyncLastError?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   inboundSyncLastErrorAt?: Date | null;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   inboundSyncLeaseExpiresAt?: Date | null;
 }

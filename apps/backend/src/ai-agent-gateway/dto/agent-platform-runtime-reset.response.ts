@@ -5,7 +5,7 @@ export class AgentPlatformRuntimeResetResponse {
   @Field(() => Int)
   clearedEndpoints: number;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   scopedEndpointUrl: string | null;
 
   @Field()

@@ -22,6 +22,9 @@ import {
   MessageSquare,
   Send,
   MoreHorizontal,
+  TrendingUp,
+  Activity,
+  AlertTriangle,
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { motion, Variants } from 'framer-motion';
@@ -70,61 +73,80 @@ const container: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.3,
-    },
+    transition: { staggerChildren: 0.08, delayChildren: 0.1 },
   },
 };
 
 const item: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  show: { 
-    opacity: 1, 
+  hidden: { opacity: 0, y: 16 },
+  show: {
+    opacity: 1,
     y: 0,
-    transition: {
-      type: "spring",
-      stiffness: 100,
-      damping: 15
-    }
+    transition: { type: 'spring', stiffness: 120, damping: 18 },
   },
 };
 
+const kpiCards = [
+  {
+    key: 'total',
+    title: 'Total Emails',
+    subtitle: 'All emails tracked',
+    icon: Mail,
+    gradient: 'from-violet-500 to-purple-600',
+    glow: 'hsl(262 83% 58% / 0.3)',
+    progressColor: 'bg-gradient-to-r from-violet-500 to-purple-400',
+    progressValue: 75,
+  },
+  {
+    key: 'unread',
+    title: 'Unread',
+    subtitle: 'Awaiting response',
+    icon: MessageSquare,
+    gradient: 'from-amber-400 to-orange-500',
+    glow: 'hsl(38 92% 50% / 0.3)',
+    progressColor: 'bg-gradient-to-r from-amber-400 to-orange-300',
+    progressValue: 35,
+  },
+  {
+    key: 'sent',
+    title: 'Sent Today',
+    subtitle: 'Last 24 hours',
+    icon: Send,
+    gradient: 'from-emerald-400 to-teal-500',
+    glow: 'hsl(160 84% 39% / 0.3)',
+    progressColor: 'bg-gradient-to-r from-emerald-400 to-teal-300',
+    progressValue: 65,
+  },
+  {
+    key: 'scheduled',
+    title: 'Scheduled',
+    subtitle: 'Queued to send',
+    icon: Clock,
+    gradient: 'from-blue-400 to-cyan-500',
+    glow: 'hsl(213 94% 68% / 0.3)',
+    progressColor: 'bg-gradient-to-r from-blue-400 to-cyan-300',
+    progressValue: 25,
+  },
+];
+
 export default function DashboardPage() {
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(
-    null,
-  );
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
 
   useEffect(() => {
     const storedWorkspaceId =
-      typeof window !== 'undefined'
-        ? localStorage.getItem('mailzen.selectedWorkspaceId')
-        : null;
+      typeof window !== 'undefined' ? localStorage.getItem('mailzen.selectedWorkspaceId') : null;
     setActiveWorkspaceId(storedWorkspaceId);
   }, []);
 
-  const { data, loading, error } = useQuery(GET_DASHBOARD_ANALYTICS, {
-    fetchPolicy: 'network-only',
-  });
-  const {
-    data: mailboxInboundData,
-    loading: mailboxInboundLoading,
-    error: mailboxInboundError,
-  } = useQuery(GET_MY_MAILBOX_INBOUND_EVENT_STATS, {
-    variables: {
-      windowHours: 24,
-      workspaceId: activeWorkspaceId || undefined,
-    },
-    fetchPolicy: 'cache-and-network',
-  });
+  const { data, loading, error } = useQuery(GET_DASHBOARD_ANALYTICS, { fetchPolicy: 'network-only' });
+  const { data: mailboxInboundData, loading: mailboxInboundLoading, error: mailboxInboundError } = useQuery(
+    GET_MY_MAILBOX_INBOUND_EVENT_STATS,
+    { variables: { windowHours: 24, workspaceId: activeWorkspaceId || undefined }, fetchPolicy: 'cache-and-network' },
+  );
   const { data: mailboxInboundSeriesData } = useQuery<{
     myMailboxInboundEventSeries: MailboxInboundTrendPoint[];
   }>(GET_MY_MAILBOX_INBOUND_EVENT_SERIES, {
-    variables: {
-      windowHours: 24,
-      bucketMinutes: 60,
-      workspaceId: activeWorkspaceId || undefined,
-    },
+    variables: { windowHours: 24, bucketMinutes: 60, workspaceId: activeWorkspaceId || undefined },
     fetchPolicy: 'cache-and-network',
   });
   const {
@@ -132,42 +154,30 @@ export default function DashboardPage() {
     loading: slaAlertsLoading,
     error: slaAlertsError,
     refetch: refetchSlaIncidentStats,
-  } = useQuery<{
-    myMailboxInboundSlaIncidentStats: MailboxInboundSlaIncidentStats;
-  }>(GET_MAILBOX_INBOUND_SLA_INCIDENT_STATS, {
-    variables: {
-      workspaceId: activeWorkspaceId || undefined,
-      windowHours: 24,
+  } = useQuery<{ myMailboxInboundSlaIncidentStats: MailboxInboundSlaIncidentStats }>(
+    GET_MAILBOX_INBOUND_SLA_INCIDENT_STATS,
+    {
+      variables: { workspaceId: activeWorkspaceId || undefined, windowHours: 24 },
+      fetchPolicy: 'cache-and-network',
+      pollInterval: 30_000,
     },
-    fetchPolicy: 'cache-and-network',
-    pollInterval: 30_000,
-  });
+  );
   const { data: slaIncidentSeriesData } = useQuery<{
     myMailboxInboundSlaIncidentSeries: MailboxInboundSlaIncidentTrendPoint[];
   }>(GET_MAILBOX_INBOUND_SLA_INCIDENT_SERIES, {
-    variables: {
-      workspaceId: activeWorkspaceId || undefined,
-      windowHours: 24,
-      bucketMinutes: 60,
-    },
+    variables: { workspaceId: activeWorkspaceId || undefined, windowHours: 24, bucketMinutes: 60 },
     fetchPolicy: 'cache-and-network',
     pollInterval: 30_000,
   });
-  const [markMyNotificationsRead, { loading: markingSlaAlertsRead }] =
-    useMutation(MARK_MY_NOTIFICATIONS_READ, {
-      onError: (mutationError) => {
-        console.error(
-          '[Dashboard] markMyNotificationsRead failed',
-          mutationError,
-        );
-      },
-    });
+  const [markMyNotificationsRead, { loading: markingSlaAlertsRead }] = useMutation(
+    MARK_MY_NOTIFICATIONS_READ,
+    { onError: (e) => console.error('[Dashboard] markMyNotificationsRead failed', e) },
+  );
 
   const analytics = data?.getAllEmailAnalytics ?? [];
   const scheduledEmails = data?.getAllScheduledEmails ?? [];
   const mailboxInboundStats = mailboxInboundData?.myMailboxInboundEventStats;
-  const mailboxInboundSeries =
-    mailboxInboundSeriesData?.myMailboxInboundEventSeries || [];
+  const mailboxInboundSeries = mailboxInboundSeriesData?.myMailboxInboundEventSeries || [];
 
   const todayStart = useMemo(() => {
     const date = new Date();
@@ -176,66 +186,59 @@ export default function DashboardPage() {
   }, []);
 
   const totalEmails = analytics.length;
-  const unreadCount = analytics.filter((item: { openCount: number }) => item.openCount === 0).length;
-  const sentToday = analytics.filter(
-    (item: { lastUpdatedAt: string }) => new Date(item.lastUpdatedAt) >= todayStart,
-  ).length;
-  const scheduledCount = scheduledEmails.filter(
-    (item: { status: string }) => item.status?.toUpperCase() === 'SCHEDULED',
-  ).length;
-
-  const totalOpens = analytics.reduce(
-    (sum: number, item: { openCount: number }) => sum + item.openCount,
-    0,
-  );
-  const totalClicks = analytics.reduce(
-    (sum: number, item: { clickCount: number }) => sum + item.clickCount,
-    0,
-  );
+  const unreadCount = analytics.filter((i: { openCount: number }) => i.openCount === 0).length;
+  const sentToday = analytics.filter((i: { lastUpdatedAt: string }) => new Date(i.lastUpdatedAt) >= todayStart).length;
+  const scheduledCount = scheduledEmails.filter((i: { status: string }) => i.status?.toUpperCase() === 'SCHEDULED').length;
+  const totalOpens = analytics.reduce((sum: number, i: { openCount: number }) => sum + i.openCount, 0);
+  const totalClicks = analytics.reduce((sum: number, i: { clickCount: number }) => sum + i.clickCount, 0);
   const successRate = totalEmails > 0 ? Math.min(100, Math.round((totalOpens / totalEmails) * 100)) : 0;
   const circleOffset = 251.2 - (251.2 * successRate) / 100;
   const smartRepliesGenerated = totalEmails;
   const smartRepliesUsedWithoutEdit = Math.round(smartRepliesGenerated * 0.7);
   const smartRepliesModified = Math.round(smartRepliesGenerated * 0.15);
-  const smartRepliesDiscarded = Math.max(
-    smartRepliesGenerated - smartRepliesUsedWithoutEdit - smartRepliesModified,
-    0,
-  );
+  const smartRepliesDiscarded = Math.max(smartRepliesGenerated - smartRepliesUsedWithoutEdit - smartRepliesModified, 0);
+
   const inboundTotal = Number(mailboxInboundStats?.totalCount || 0);
   const inboundAccepted = Number(mailboxInboundStats?.acceptedCount || 0);
   const inboundDeduplicated = Number(mailboxInboundStats?.deduplicatedCount || 0);
   const inboundRejected = Number(mailboxInboundStats?.rejectedCount || 0);
   const inboundHealthRate = Number(
     mailboxInboundStats?.successRatePercent ??
-      (inboundTotal > 0
-        ? Math.round(((inboundAccepted + inboundDeduplicated) / inboundTotal) * 100)
-        : 100),
+      (inboundTotal > 0 ? Math.round(((inboundAccepted + inboundDeduplicated) / inboundTotal) * 100) : 100),
   );
   const inboundSlaStatus = mailboxInboundStats?.slaStatus || 'NO_DATA';
   const trendPoints = mailboxInboundSeries.slice(-12);
-  const trendMaxTotal = Math.max(
-    ...trendPoints.map((point) => Number(point.totalCount || 0)),
-    1,
-  );
-  const slaIncidentStats =
-    slaIncidentStatsData?.myMailboxInboundSlaIncidentStats || null;
+  const trendMaxTotal = Math.max(...trendPoints.map((p) => Number(p.totalCount || 0)), 1);
+  const slaIncidentStats = slaIncidentStatsData?.myMailboxInboundSlaIncidentStats || null;
   const totalSlaAlertCount = Number(slaIncidentStats?.totalCount || 0);
   const warningAlertCount = Number(slaIncidentStats?.warningCount || 0);
   const criticalAlertCount = Number(slaIncidentStats?.criticalCount || 0);
   const latestSlaAlertAt = slaIncidentStats?.lastAlertAt || null;
-  const incidentTrendPoints =
-    slaIncidentSeriesData?.myMailboxInboundSlaIncidentSeries?.slice(-12) || [];
-  const incidentTrendMax = Math.max(
-    ...incidentTrendPoints.map((point) => Number(point.totalCount || 0)),
-    1,
-  );
+  const incidentTrendPoints = slaIncidentSeriesData?.myMailboxInboundSlaIncidentSeries?.slice(-12) || [];
+  const incidentTrendMax = Math.max(...incidentTrendPoints.map((p) => Number(p.totalCount || 0)), 1);
+
+  const kpiValues: Record<string, { value: React.ReactNode; meta: React.ReactNode }> = {
+    total: {
+      value: totalEmails,
+      meta: <><span className="text-emerald-500 font-medium">{totalOpens}</span> total opens</>,
+    },
+    unread: {
+      value: unreadCount,
+      meta: <><span className="text-amber-500 font-medium">{loading ? 'syncing...' : 'live'}</span> analytics</>,
+    },
+    sent: {
+      value: sentToday,
+      meta: <><span className="text-emerald-500 font-medium">{totalClicks}</span> total clicks</>,
+    },
+    scheduled: {
+      value: scheduledCount,
+      meta: <><span className="text-blue-500 font-medium">{scheduledEmails.length}</span> records</>,
+    },
+  };
+
   const handleMarkSlaIncidentsRead = async () => {
     await markMyNotificationsRead({
-      variables: {
-        workspaceId: activeWorkspaceId || undefined,
-        sinceHours: 24,
-        types: ['MAILBOX_INBOUND_SLA_ALERT'],
-      },
+      variables: { workspaceId: activeWorkspaceId || undefined, sinceHours: 24, types: ['MAILBOX_INBOUND_SLA_ALERT'] },
     });
     await refetchSlaIncidentStats();
   };
@@ -243,256 +246,193 @@ export default function DashboardPage() {
   return (
     <DashboardPageShell
       title="Dashboard"
-      titleClassName="text-3xl font-bold tracking-tight"
       description="Monitor email performance, storage usage, and response trends."
-      actions={(
+      actions={
         <>
-          <Button variant="outline" size="sm">
-            <Clock className="mr-2 h-4 w-4" />
+          <Button variant="outline" size="sm" className="rounded-xl border-border/60">
+            <Clock className="mr-2 h-3.5 w-3.5" />
             Last 7 days
           </Button>
-          <Button variant="premium" size="sm">
-            <Zap className="mr-2 h-4 w-4" />
+          <Button
+            size="sm"
+            className="rounded-xl gap-1.5 font-semibold shadow-lg shadow-primary/20"
+            style={{ background: 'linear-gradient(135deg, hsl(262 83% 58%), hsl(262 83% 46%))' }}
+          >
+            <Zap className="h-3.5 w-3.5" />
             Upgrade
           </Button>
         </>
-      )}
-      contentClassName="space-y-8"
+      }
+      contentClassName="space-y-6"
     >
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="space-y-4"
+      {/* ── KPI cards ───────────────────────────────────── */}
+      <motion.div
+        className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
+        variants={container}
+        initial="hidden"
+        animate="show"
       >
-        <motion.div 
-          className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
-          variants={container}
-          initial="hidden"
-          animate="show"
-        >
-          <motion.div variants={item}>
-            <TiltCard>
-              <Card className="overflow-hidden h-full border-l-4 border-l-primary/50">
-                <CardHeader className="pb-2">
-                  <CardTitle>Total Emails</CardTitle>
-                  <CardDescription>All emails in your account</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{totalEmails}</div>
-                  <div className="text-xs text-muted-foreground">
-                    <span className="text-emerald-500 font-medium">{totalOpens}</span> total opens tracked
-                  </div>
-                  <div className="mt-4 h-1">
-                    <Progress value={75} className="h-2" />
-                  </div>
-                </CardContent>
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                  <Mail className="h-12 w-12 text-primary" />
-                </div>
-              </Card>
-            </TiltCard>
-          </motion.div>
-
-          <motion.div variants={item}>
-            <TiltCard>
-              <Card className="overflow-hidden h-full border-l-4 border-l-amber-500/50">
-                <CardHeader className="pb-2">
-                  <CardTitle>Unread</CardTitle>
-                  <CardDescription>Emails waiting for response</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{unreadCount}</div>
-                  <div className="text-xs text-muted-foreground">
-                    <span className="text-amber-500 font-medium">{loading ? 'syncing...' : 'live'}</span>{' '}
-                    from analytics resolver
-                  </div>
-                  <div className="mt-4 h-1">
-                    <Progress value={35} className="h-2" indicatorColor="bg-linear-to-r from-amber-500 to-amber-300" />
-                  </div>
-                </CardContent>
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                  <MessageSquare className="h-12 w-12 text-amber-500" />
-                </div>
-              </Card>
-            </TiltCard>
-          </motion.div>
-
-          <motion.div variants={item}>
-            <TiltCard>
-              <Card className="overflow-hidden h-full border-l-4 border-l-emerald-500/50">
-                <CardHeader className="pb-2">
-                  <CardTitle>Sent Today</CardTitle>
-                  <CardDescription>Emails sent in last 24h</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{sentToday}</div>
-                  <div className="text-xs text-muted-foreground">
-                    <span className="text-emerald-500 font-medium">{totalClicks}</span> total clicks tracked
-                  </div>
-                  <div className="mt-4 h-1">
-                    <Progress value={65} className="h-2" indicatorColor="bg-linear-to-r from-emerald-500 to-emerald-300" />
-                  </div>
-                </CardContent>
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                  <Send className="h-12 w-12 text-emerald-500" />
-                </div>
-              </Card>
-            </TiltCard>
-          </motion.div>
-
-          <motion.div variants={item}>
-            <TiltCard>
-              <Card className="overflow-hidden h-full border-l-4 border-l-blue-500/50">
-                <CardHeader className="pb-2">
-                  <CardTitle>Scheduled</CardTitle>
-                  <CardDescription>Emails waiting to be sent</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{scheduledCount}</div>
-                  <div className="text-xs text-muted-foreground">
-                    <span className="text-blue-500 font-medium">{scheduledEmails.length}</span> scheduled records
-                  </div>
-                  <div className="mt-4 h-1">
-                    <Progress value={25} className="h-2" indicatorColor="bg-linear-to-r from-blue-500 to-blue-300" />
-                  </div>
-                </CardContent>
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                  <Clock className="h-12 w-12 text-blue-500" />
-                </div>
-              </Card>
-            </TiltCard>
-          </motion.div>
-        </motion.div>
+        {kpiCards.map((card) => {
+          const Icon = card.icon;
+          const kpi = kpiValues[card.key];
+          return (
+            <motion.div key={card.key} variants={item}>
+              <TiltCard>
+                <Card className="relative overflow-hidden border-border/60 h-full transition-all duration-300 hover:border-border hover:shadow-lg">
+                  {/* Gradient background glow */}
+                  <div
+                    className="pointer-events-none absolute inset-0 opacity-[0.04] rounded-xl"
+                    style={{
+                      background: `radial-gradient(circle at 80% 20%, ${card.glow} 0%, transparent 60%)`,
+                    }}
+                  />
+                  <CardHeader className="pb-3 pt-5 px-5">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardDescription className="text-xs font-medium uppercase tracking-wide">
+                          {card.subtitle}
+                        </CardDescription>
+                        <CardTitle className="mt-0.5 text-base font-semibold">{card.title}</CardTitle>
+                      </div>
+                      <div className={`flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br ${card.gradient} shadow-md`}>
+                        <Icon className="h-4 w-4 text-white" />
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="px-5 pb-5">
+                    <div
+                      className="text-3xl font-bold tracking-tight"
+                      style={{ fontFamily: 'var(--font-sora)' }}
+                    >
+                      {kpi.value}
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">{kpi.meta}</div>
+                    <div className="mt-4">
+                      <Progress value={card.progressValue} className="h-1.5 rounded-full" indicatorColor={card.progressColor} />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TiltCard>
+            </motion.div>
+          );
+        })}
       </motion.div>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
+      {/* ── Status alert ────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4, duration: 0.5 }}
+        transition={{ delay: 0.35, duration: 0.4 }}
+        className="space-y-3"
       >
         {error && (
-          <Alert className="mb-4" variant="destructive">
+          <Alert variant="destructive" className="rounded-xl">
             <AlertTitle>Analytics sync issue</AlertTitle>
             <AlertDescription>{error.message}</AlertDescription>
           </Alert>
         )}
-        <Alert className="bg-linear-to-r from-primary/10 to-primary/5 border-primary/20">
+        <Alert className="rounded-xl border-primary/20 bg-primary/5">
           <Zap className="h-4 w-4 text-primary" />
-          <AlertTitle>Smart Replies Active</AlertTitle>
-          <AlertDescription>
-            Live analytics connected. Current tracked open success rate is {successRate}%.
+          <AlertTitle className="text-primary font-semibold">Smart Replies Active</AlertTitle>
+          <AlertDescription className="text-muted-foreground">
+            Live analytics connected. Current tracked open success rate is{' '}
+            <span className="font-semibold text-foreground">{successRate}%</span>.
           </AlertDescription>
         </Alert>
       </motion.div>
 
+      {/* ── Inbound health card ──────────────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5, duration: 0.5 }}
+        transition={{ delay: 0.45, duration: 0.4 }}
       >
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle>Mailbox inbound health (24h)</CardTitle>
-            <CardDescription>
-              Operational snapshot from mailbox inbound observability telemetry.
-              {activeWorkspaceId
-                ? ' Scoped to your active workspace.'
-                : ' Aggregated across all workspaces.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {mailboxInboundError && (
-              <Alert variant="destructive">
-                <AlertTitle>Inbound telemetry unavailable</AlertTitle>
-                <AlertDescription>{mailboxInboundError.message}</AlertDescription>
-              </Alert>
-            )}
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-              <Badge variant="outline">Total: {inboundTotal}</Badge>
-              <Badge
-                variant="outline"
-                className="border-emerald-200/60 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200"
-              >
-                Accepted: {inboundAccepted}
-              </Badge>
-              <Badge
-                variant="outline"
-                className="border-blue-200/60 bg-blue-50 text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200"
-              >
-                Deduped: {inboundDeduplicated}
-              </Badge>
-              <Badge
-                variant="outline"
-                className="border-destructive/20 bg-destructive/10 text-destructive dark:border-destructive/30 dark:bg-destructive/15"
-              >
-                Rejected: {inboundRejected}
-              </Badge>
+        <Card className="rounded-2xl border-border/60 overflow-hidden">
+          {/* Accent top line */}
+          <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, hsl(262 83% 58% / 0.6), hsl(160 84% 39% / 0.4), transparent)' }} />
+          <CardHeader className="pb-2 pt-5">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-primary" />
+              <CardTitle className="text-base font-semibold">Mailbox Inbound Health</CardTitle>
               <Badge
                 variant="outline"
                 className={
                   inboundSlaStatus === 'CRITICAL'
-                    ? 'border-destructive/20 bg-destructive/10 text-destructive dark:border-destructive/30 dark:bg-destructive/15'
+                    ? 'border-destructive/30 bg-destructive/10 text-destructive'
                     : inboundSlaStatus === 'WARNING'
-                      ? 'border-amber-200/60 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200'
-                      : 'border-emerald-200/60 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200'
+                      ? 'border-amber-300/50 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300'
+                      : 'border-emerald-300/50 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
                 }
               >
-                SLA: {inboundSlaStatus}
+                {inboundSlaStatus}
               </Badge>
+            </div>
+            <CardDescription>
+              24-hour operational snapshot from mailbox inbound observability telemetry.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {mailboxInboundError && (
+              <Alert variant="destructive" className="rounded-xl">
+                <AlertTitle>Inbound telemetry unavailable</AlertTitle>
+                <AlertDescription>{mailboxInboundError.message}</AlertDescription>
+              </Alert>
+            )}
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5 text-center">
+                <p className="text-[11px] text-muted-foreground">Total</p>
+                <p className="text-lg font-bold" style={{ fontFamily: 'var(--font-sora)' }}>{inboundTotal}</p>
+              </div>
+              <div className="rounded-xl border border-emerald-200/50 bg-emerald-50/50 px-3 py-2.5 text-center dark:border-emerald-900/30 dark:bg-emerald-950/20">
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400">Accepted</p>
+                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300" style={{ fontFamily: 'var(--font-sora)' }}>{inboundAccepted}</p>
+              </div>
+              <div className="rounded-xl border border-blue-200/50 bg-blue-50/50 px-3 py-2.5 text-center dark:border-blue-900/30 dark:bg-blue-950/20">
+                <p className="text-[11px] text-blue-600 dark:text-blue-400">Deduped</p>
+                <p className="text-lg font-bold text-blue-700 dark:text-blue-300" style={{ fontFamily: 'var(--font-sora)' }}>{inboundDeduplicated}</p>
+              </div>
+              <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-center">
+                <p className="text-[11px] text-destructive">Rejected</p>
+                <p className="text-lg font-bold text-destructive" style={{ fontFamily: 'var(--font-sora)' }}>{inboundRejected}</p>
+              </div>
             </div>
             <div>
               <Progress
                 value={inboundHealthRate}
-                className="h-2"
-                indicatorColor={
-                  inboundRejected > 0
-                    ? 'bg-linear-to-r from-amber-500 to-red-500'
-                    : 'bg-linear-to-r from-emerald-500 to-emerald-300'
-                }
+                className="h-2 rounded-full"
+                indicatorColor={inboundRejected > 0 ? 'bg-gradient-to-r from-amber-500 to-red-500' : 'bg-gradient-to-r from-emerald-500 to-teal-400'}
               />
               <p className="mt-2 text-xs text-muted-foreground">
                 {mailboxInboundLoading
-                  ? 'Refreshing inbound telemetry...'
+                  ? 'Refreshing...'
                   : mailboxInboundStats?.lastProcessedAt
-                    ? `Last inbound event: ${new Date(mailboxInboundStats.lastProcessedAt).toLocaleString()}`
-                    : 'No inbound mailbox events tracked yet for this window.'}
+                    ? `Last event: ${new Date(mailboxInboundStats.lastProcessedAt).toLocaleString()}`
+                    : 'No inbound events in this window.'}
               </p>
               <p className="text-xs text-muted-foreground">
                 Success {mailboxInboundStats?.successRatePercent ?? inboundHealthRate}% (target{' '}
                 {mailboxInboundStats?.slaTargetSuccessPercent ?? 99}%) · Rejection{' '}
-                {mailboxInboundStats?.rejectionRatePercent ?? 0}% (warn{' '}
-                {mailboxInboundStats?.slaWarningRejectedPercent ?? 1}% / critical{' '}
-                {mailboxInboundStats?.slaCriticalRejectedPercent ?? 5}%)
+                {mailboxInboundStats?.rejectionRatePercent ?? 0}%
               </p>
             </div>
             {trendPoints.length > 0 && (
               <div>
-                <p className="mb-2 text-xs font-medium text-muted-foreground">
-                  Hourly trend (last 12 buckets)
+                <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Hourly trend (last 12h)
                 </p>
                 <div className="grid grid-cols-12 items-end gap-1">
                   {trendPoints.map((point) => {
-                    const totalHeight = Math.max(
-                      4,
-                      Math.round((point.totalCount / trendMaxTotal) * 48),
-                    );
-                    const rejectedHeight = Math.max(
-                      0,
-                      Math.round((point.rejectedCount / trendMaxTotal) * 48),
-                    );
+                    const totalHeight = Math.max(4, Math.round((point.totalCount / trendMaxTotal) * 48));
+                    const rejectedHeight = Math.max(0, Math.round((point.rejectedCount / trendMaxTotal) * 48));
                     return (
                       <div key={point.bucketStart} className="flex flex-col items-center gap-1">
                         <div
-                          className="w-full rounded-sm bg-emerald-500/25"
+                          className="w-full rounded-sm bg-emerald-500/20"
                           style={{ height: `${totalHeight}px` }}
                           title={`${new Date(point.bucketStart).toLocaleString()} • total ${point.totalCount}`}
                         >
                           {rejectedHeight > 0 && (
-                            <div
-                              className="mt-auto w-full rounded-sm bg-destructive/70"
-                              style={{ height: `${rejectedHeight}px` }}
-                            />
+                            <div className="mt-auto w-full rounded-sm bg-destructive/60" style={{ height: `${rejectedHeight}px` }} />
                           )}
                         </div>
                       </div>
@@ -502,93 +442,76 @@ export default function DashboardPage() {
               </div>
             )}
           </CardContent>
-          <CardFooter>
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/email-providers">Open mailbox observability panel</Link>
+          <CardFooter className="pt-0">
+            <Button asChild variant="outline" className="w-full rounded-xl border-border/60">
+              <Link href="/email-providers">
+                Open mailbox observability panel
+                <ArrowUpRight className="ml-2 h-3.5 w-3.5" />
+              </Link>
             </Button>
           </CardFooter>
         </Card>
       </motion.div>
 
+      {/* ── SLA incidents ────────────────────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.55, duration: 0.5 }}
+        transition={{ delay: 0.5, duration: 0.4 }}
       >
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle>Mailbox inbound SLA incidents (24h)</CardTitle>
-            <CardDescription>
-              Scheduler-generated warning/critical incidents for inbound SLA breaches.
-            </CardDescription>
+        <Card className="rounded-2xl border-border/60 overflow-hidden">
+          <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, hsl(38 92% 50% / 0.5), hsl(0 84% 60% / 0.3), transparent)' }} />
+          <CardHeader className="pb-2 pt-5">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <CardTitle className="text-base font-semibold">SLA Incidents (24h)</CardTitle>
+            </div>
+            <CardDescription>Scheduler-generated warning/critical incidents for inbound SLA breaches.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {slaAlertsError && (
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="rounded-xl">
                 <AlertTitle>SLA incidents unavailable</AlertTitle>
                 <AlertDescription>{slaAlertsError.message}</AlertDescription>
               </Alert>
             )}
             <div className="grid grid-cols-3 gap-2">
-              <Badge variant="outline">Total: {totalSlaAlertCount}</Badge>
-              <Badge
-                variant="outline"
-                className="border-amber-200/60 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
-              >
-                Warning: {warningAlertCount}
-              </Badge>
-              <Badge
-                variant="outline"
-                className="border-destructive/20 bg-destructive/10 text-destructive dark:border-destructive/30 dark:bg-destructive/15"
-              >
-                Critical: {criticalAlertCount}
-              </Badge>
+              <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5 text-center">
+                <p className="text-[11px] text-muted-foreground">Total</p>
+                <p className="text-lg font-bold" style={{ fontFamily: 'var(--font-sora)' }}>{totalSlaAlertCount}</p>
+              </div>
+              <div className="rounded-xl border border-amber-200/50 bg-amber-50/50 px-3 py-2.5 text-center dark:border-amber-900/30 dark:bg-amber-950/20">
+                <p className="text-[11px] text-amber-600 dark:text-amber-400">Warning</p>
+                <p className="text-lg font-bold text-amber-700 dark:text-amber-300" style={{ fontFamily: 'var(--font-sora)' }}>{warningAlertCount}</p>
+              </div>
+              <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-center">
+                <p className="text-[11px] text-destructive">Critical</p>
+                <p className="text-lg font-bold text-destructive" style={{ fontFamily: 'var(--font-sora)' }}>{criticalAlertCount}</p>
+              </div>
             </div>
             <p className="text-xs text-muted-foreground">
               {slaAlertsLoading
                 ? 'Refreshing SLA incidents...'
                 : latestSlaAlertAt
                   ? `Latest incident: ${new Date(latestSlaAlertAt).toLocaleString()}`
-                  : 'No SLA incidents detected in the selected period.'}
+                  : 'No SLA incidents in the selected period.'}
             </p>
             {incidentTrendPoints.length > 0 && (
               <div>
-                <p className="mb-2 text-xs font-medium text-muted-foreground">
-                  Hourly incident trend (last 12 buckets)
+                <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Hourly incident trend (last 12h)
                 </p>
                 <div className="grid grid-cols-12 items-end gap-1">
                   {incidentTrendPoints.map((point) => {
-                    const totalHeight = Math.max(
-                      4,
-                      Math.round((point.totalCount / incidentTrendMax) * 40),
-                    );
-                    const criticalHeight = Math.max(
-                      0,
-                      Math.round((point.criticalCount / incidentTrendMax) * 40),
-                    );
-                    const warningHeight = Math.max(
-                      0,
-                      Math.round((point.warningCount / incidentTrendMax) * 40),
-                    );
+                    const totalHeight = Math.max(4, Math.round((point.totalCount / incidentTrendMax) * 40));
+                    const criticalHeight = Math.max(0, Math.round((point.criticalCount / incidentTrendMax) * 40));
+                    const warningHeight = Math.max(0, Math.round((point.warningCount / incidentTrendMax) * 40));
                     return (
                       <div key={point.bucketStart} className="flex flex-col items-center gap-1">
-                        <div
-                          className="relative w-full rounded-sm bg-amber-500/25"
-                          style={{ height: `${totalHeight}px` }}
-                          title={`${new Date(point.bucketStart).toLocaleString()} • total ${point.totalCount}`}
-                        >
-                          {warningHeight > 0 && (
-                            <div
-                              className="absolute bottom-0 w-full rounded-sm bg-amber-500/55"
-                              style={{ height: `${warningHeight}px` }}
-                            />
-                          )}
-                          {criticalHeight > 0 && (
-                            <div
-                              className="absolute bottom-0 w-full rounded-sm bg-destructive/70"
-                              style={{ height: `${criticalHeight}px` }}
-                            />
-                          )}
+                        <div className="relative w-full rounded-sm bg-amber-500/20" style={{ height: `${totalHeight}px` }}
+                          title={`${new Date(point.bucketStart).toLocaleString()} • total ${point.totalCount}`}>
+                          {warningHeight > 0 && <div className="absolute bottom-0 w-full rounded-sm bg-amber-500/50" style={{ height: `${warningHeight}px` }} />}
+                          {criticalHeight > 0 && <div className="absolute bottom-0 w-full rounded-sm bg-destructive/65" style={{ height: `${criticalHeight}px` }} />}
                         </div>
                       </div>
                     );
@@ -601,36 +524,43 @@ export default function DashboardPage() {
             <div className="grid w-full grid-cols-1 gap-2 md:grid-cols-2">
               <Button
                 variant="outline"
-                onClick={() => {
-                  void handleMarkSlaIncidentsRead();
-                }}
+                className="rounded-xl border-border/60"
+                onClick={() => { void handleMarkSlaIncidentsRead(); }}
                 disabled={markingSlaAlertsRead || totalSlaAlertCount === 0}
               >
                 {markingSlaAlertsRead ? 'Acknowledging...' : 'Mark incidents read'}
               </Button>
-              <Button asChild variant="outline">
-                <Link href="/settings/notifications">Manage SLA alerting preferences</Link>
+              <Button asChild variant="outline" className="rounded-xl border-border/60">
+                <Link href="/settings/notifications">Manage alerting preferences</Link>
               </Button>
             </div>
           </CardFooter>
         </Card>
       </motion.div>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
+      {/* ── Analytics tabs ───────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6, duration: 0.5 }}
+        transition={{ delay: 0.55, duration: 0.4 }}
       >
         <Tabs defaultValue="activity" className="space-y-4">
-          <TabsList className="bg-background/50 backdrop-blur-sm">
-            <TabsTrigger value="activity">Activity</TabsTrigger>
-            <TabsTrigger value="storage">Storage</TabsTrigger>
-            <TabsTrigger value="insights">Insights</TabsTrigger>
+          <TabsList className="h-10 rounded-xl border border-border/50 bg-muted/40 p-1 gap-0.5">
+            <TabsTrigger value="activity" className="rounded-lg text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              Activity
+            </TabsTrigger>
+            <TabsTrigger value="storage" className="rounded-lg text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              Storage
+            </TabsTrigger>
+            <TabsTrigger value="insights" className="rounded-lg text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              Insights
+            </TabsTrigger>
           </TabsList>
+
           <TabsContent value="activity" className="space-y-4">
-            <Card>
+            <Card className="rounded-2xl border-border/60">
               <CardHeader>
-                <CardTitle>Email Activity</CardTitle>
+                <CardTitle className="text-base font-semibold">Email Activity</CardTitle>
                 <CardDescription>Your email activity over the last 30 days.</CardDescription>
               </CardHeader>
               <CardContent className="pl-2">
@@ -638,239 +568,211 @@ export default function DashboardPage() {
               </CardContent>
               <CardFooter className="flex justify-between">
                 <div className="flex gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center">
-                    <div className="mr-1 size-3 rounded-full bg-primary"></div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-2.5 w-2.5 rounded-full bg-primary" />
                     Received
                   </div>
-                  <div className="flex items-center">
-                    <div className="mr-1 size-3 rounded-full bg-blue-500"></div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-2.5 w-2.5 rounded-full bg-blue-500" />
                     Sent
                   </div>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="rounded-lg border-border/60">
                   View detailed report
                 </Button>
               </CardFooter>
             </Card>
           </TabsContent>
+
           <TabsContent value="storage" className="space-y-4">
-            <Card>
+            <Card className="rounded-2xl border-border/60">
               <CardHeader>
-                <CardTitle>Storage Usage</CardTitle>
-                <CardDescription>Your account storage usage.</CardDescription>
+                <CardTitle className="text-base font-semibold">Storage Usage</CardTitle>
+                <CardDescription>Your account storage usage breakdown.</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid md:grid-cols-2 gap-8 items-center">
                   <StorageChart />
                   <div className="space-y-4">
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">Used Storage</p>
-                        <p className="text-2xl font-bold">4.2 GB</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Used</p>
+                        <p className="text-2xl font-bold" style={{ fontFamily: 'var(--font-sora)' }}>4.2 GB</p>
                       </div>
-                      <div className="space-y-1 text-right">
-                        <p className="text-sm font-medium">Total Storage</p>
-                        <p className="text-2xl font-bold">15 GB</p>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-muted-foreground">Total</p>
+                        <p className="text-2xl font-bold" style={{ fontFamily: 'var(--font-sora)' }}>15 GB</p>
                       </div>
                     </div>
-                    <Progress value={28} className="h-3" />
-                    <div className="mt-2 grid grid-cols-3 gap-4 text-center text-sm text-muted-foreground">
-                      <div className="space-y-1">
-                        <p className="font-medium">Emails</p>
-                        <p>2.8 GB</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="font-medium">Attachments</p>
-                        <p>1.2 GB</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="font-medium">Other</p>
-                        <p>0.2 GB</p>
-                      </div>
+                    <Progress value={28} className="h-2.5 rounded-full" indicatorColor="bg-gradient-to-r from-primary to-violet-400" />
+                    <div className="grid grid-cols-3 gap-3 text-sm text-center">
+                      {[
+                        { label: 'Emails', value: '2.8 GB' },
+                        { label: 'Attachments', value: '1.2 GB' },
+                        { label: 'Other', value: '0.2 GB' },
+                      ].map((s) => (
+                        <div key={s.label} className="rounded-xl border border-border/50 bg-muted/30 py-2.5 px-2">
+                          <p className="font-semibold text-xs">{s.label}</p>
+                          <p className="text-muted-foreground text-xs mt-0.5">{s.value}</p>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full">
-                  Manage Storage
-                </Button>
+                <Button variant="outline" className="w-full rounded-xl border-border/60">Manage Storage</Button>
               </CardFooter>
             </Card>
           </TabsContent>
+
           <TabsContent value="insights" className="space-y-4">
-            <Card>
+            <Card className="rounded-2xl border-border/60">
               <CardHeader>
-                <CardTitle>Email Insights</CardTitle>
+                <CardTitle className="text-base font-semibold">Email Insights</CardTitle>
                 <CardDescription>Analytics and patterns from your email usage.</CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-6">
+              <CardContent>
                 <div className="grid md:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Response Time Trends</h3>
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold">Response Time Trends</h3>
                     <ResponseTimeChart />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2 rounded-lg border p-4 bg-card/50">
-                      <div className="text-sm font-medium text-muted-foreground">Response Rate</div>
-                      <div className="text-2xl font-bold">{successRate}%</div>
-                      <div className="text-xs text-emerald-500">Derived from tracked opens</div>
-                    </div>
-                    <div className="space-y-2 rounded-lg border p-4 bg-card/50">
-                      <div className="text-sm font-medium text-muted-foreground">Total Clicks</div>
-                      <div className="text-2xl font-bold">{totalClicks}</div>
-                      <div className="text-xs text-emerald-500">Engagement interactions tracked</div>
-                    </div>
-                    <div className="space-y-2 rounded-lg border p-4 bg-card/50">
-                      <div className="text-sm font-medium text-muted-foreground">Peak Activity</div>
-                      <div className="text-2xl font-bold">10-11 AM</div>
-                      <div className="text-xs text-muted-foreground">Monday-Friday</div>
-                    </div>
-                    <div className="space-y-2 rounded-lg border p-4 bg-card/50">
-                      <div className="text-sm font-medium text-muted-foreground">Smart Replies Used</div>
-                      <div className="text-2xl font-bold">42%</div>
-                      <div className="text-xs text-emerald-500">+8% from last month</div>
-                    </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: 'Response Rate', value: `${successRate}%`, sub: 'Tracked opens', color: 'text-emerald-500' },
+                      { label: 'Total Clicks', value: String(totalClicks), sub: 'Interactions tracked', color: 'text-emerald-500' },
+                      { label: 'Peak Activity', value: '10-11 AM', sub: 'Mon-Fri', color: 'text-muted-foreground' },
+                      { label: 'Smart Replies', value: '42%', sub: '+8% from last month', color: 'text-emerald-500' },
+                    ].map((s) => (
+                      <div key={s.label} className="rounded-xl border border-border/50 bg-muted/30 p-3.5">
+                        <p className="text-xs font-medium text-muted-foreground">{s.label}</p>
+                        <p className="mt-1 text-xl font-bold" style={{ fontFamily: 'var(--font-sora)' }}>{s.value}</p>
+                        <p className={`text-xs mt-0.5 ${s.color}`}>{s.sub}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full">
-                  View All Insights
-                </Button>
+                <Button variant="outline" className="w-full rounded-xl border-border/60">View All Insights</Button>
               </CardFooter>
             </Card>
           </TabsContent>
         </Tabs>
       </motion.div>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
+      {/* ── Recent activity + Smart replies ─────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8, duration: 0.5 }}
+        transition={{ delay: 0.65, duration: 0.4 }}
         className="grid gap-4 md:grid-cols-2 lg:grid-cols-7"
       >
-        <Card className="col-span-4">
+        <Card className="col-span-4 rounded-2xl border-border/60">
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Your recent email activity.</CardDescription>
+            <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
+            <CardDescription>Your latest email interactions.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[1, 2, 3, 4].map((i) => (
-                <motion.div 
-                  key={i}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 * i, duration: 0.3 }}
-                  className="flex items-center gap-4 rounded-lg border p-3 hover:bg-accent/50 transition-colors"
+            <div className="space-y-2">
+              {[
+                { id: 1, title: 'New lead from website inquiry', sub: 'John Smith requested information about our services', time: '10 min ago', badge: 'New', badgeColor: 'bg-primary/10 text-primary border-primary/20' },
+                { id: 2, title: 'Meeting scheduled with marketing team', sub: 'Weekly sync scheduled for Thursday at 2pm', time: '1 hour ago', badge: 'Calendar', badgeColor: 'bg-blue-50 text-blue-700 border-blue-200/60 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-900/40' },
+                { id: 3, title: 'Project proposal approved', sub: 'Client approved the project proposal and timeline', time: '3 hours ago', badge: 'Project', badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/60 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/40' },
+                { id: 4, title: 'New comment on shared document', sub: 'Sarah left a comment on the Q3 planning document', time: 'Yesterday', badge: 'Document', badgeColor: 'bg-muted/60 text-muted-foreground border-border/50' },
+              ].map((activity) => (
+                <div
+                  key={activity.id}
+                  className="group flex items-center gap-3 rounded-xl border border-border/40 p-3 transition-all duration-200 hover:border-border/70 hover:bg-muted/30"
                 >
-                  <div className="shrink-0">
-                    <div className="size-10 rounded-full bg-linear-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-                      <Mail className="h-5 w-5 text-primary" />
-                    </div>
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/8">
+                    <Mail className="h-3.5 w-3.5 text-primary" />
                   </div>
-                  <div className="flex-1 space-y-1 overflow-hidden">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <div className="font-medium truncate">
-                        {i === 1 && "New lead from website inquiry"}
-                        {i === 2 && "Meeting scheduled with marketing team"}
-                        {i === 3 && "Project proposal approved"}
-                        {i === 4 && "New comment on shared document"}
-                      </div>
-                      <Badge variant="outline" className="ml-auto shrink-0">
-                        {i === 1 && "New"}
-                        {i === 2 && "Calendar"}
-                        {i === 3 && "Project"}
-                        {i === 4 && "Document"}
+                      <p className="truncate text-sm font-medium">{activity.title}</p>
+                      <Badge variant="outline" className={`ml-auto shrink-0 text-[10px] px-2 py-0 ${activity.badgeColor}`}>
+                        {activity.badge}
                       </Badge>
                     </div>
-                    <div className="text-sm text-muted-foreground truncate">
-                      {i === 1 && "John Smith requested information about our services"}
-                      {i === 2 && "Weekly marketing sync scheduled for Thursday at 2pm"}
-                      {i === 3 && "Client approved the project proposal and timeline"}
-                      {i === 4 && "Sarah left a comment on the Q3 planning document"}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {i === 1 && "10 minutes ago"}
-                      {i === 2 && "1 hour ago"}
-                      {i === 3 && "3 hours ago"}
-                      {i === 4 && "Yesterday at 4:23 PM"}
-                    </div>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{activity.sub}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground/60">{activity.time}</p>
                   </div>
-                  <Button variant="ghost" size="icon" className="shrink-0">
-                    <MoreHorizontal className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                    <MoreHorizontal className="h-3.5 w-3.5" />
                   </Button>
-                </motion.div>
+                </div>
               ))}
             </div>
           </CardContent>
           <CardFooter>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full rounded-xl border-border/60">
               View All Activity
-              <ArrowUpRight className="ml-2 h-4 w-4" />
+              <ArrowUpRight className="ml-2 h-3.5 w-3.5" />
             </Button>
           </CardFooter>
         </Card>
-        <Card className="col-span-3">
+
+        <Card className="col-span-3 rounded-2xl border-border/60">
           <CardHeader>
-            <CardTitle>Smart Reply Performance</CardTitle>
-            <CardDescription>How your AI-powered replies are performing.</CardDescription>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              <CardTitle className="text-base font-semibold">Smart Reply Performance</CardTitle>
+            </div>
+            <CardDescription>AI-powered reply effectiveness.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-6">
-            <div className="flex items-center justify-center py-4">
-              <div className="relative h-40 w-40">
+          <CardContent className="space-y-5">
+            {/* Circular progress */}
+            <div className="flex items-center justify-center py-2">
+              <div className="relative h-36 w-36">
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
-                    <div className="text-3xl font-bold">{successRate}%</div>
-                    <div className="text-sm text-muted-foreground">Success Rate</div>
+                    <div
+                      className="text-3xl font-bold"
+                      style={{ fontFamily: 'var(--font-sora)' }}
+                    >
+                      {successRate}%
+                    </div>
+                    <div className="text-xs text-muted-foreground">Success Rate</div>
                   </div>
                 </div>
-                <svg className="h-full w-full" viewBox="0 0 100 100">
+                <svg className="h-full w-full -rotate-90" viewBox="0 0 100 100">
                   <circle
-                    className="stroke-slate-200 dark:stroke-slate-800"
-                    cx="50"
-                    cy="50"
-                    r="40"
-                    strokeWidth="10"
-                    fill="none"
+                    cx="50" cy="50" r="40"
+                    strokeWidth="8" fill="none"
+                    className="stroke-muted"
                   />
                   <circle
-                    className="stroke-primary"
-                    cx="50"
-                    cy="50"
-                    r="40"
-                    strokeWidth="10"
-                    fill="none"
+                    cx="50" cy="50" r="40"
+                    strokeWidth="8" fill="none"
                     strokeLinecap="round"
                     strokeDasharray="251.2"
                     strokeDashoffset={circleOffset}
-                    transform="rotate(-90 50 50)"
+                    style={{ stroke: 'hsl(262 83% 58%)', filter: 'drop-shadow(0 0 6px hsl(262 83% 58% / 0.4))' }}
                   />
                 </svg>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <div className="text-sm font-medium text-muted-foreground">Total Generated</div>
-                <div className="text-xl font-bold">{smartRepliesGenerated}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-sm font-medium text-muted-foreground">Used Without Edit</div>
-                <div className="text-xl font-bold">{smartRepliesUsedWithoutEdit}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-sm font-medium text-muted-foreground">Modified</div>
-                <div className="text-xl font-bold">{smartRepliesModified}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-sm font-medium text-muted-foreground">Discarded</div>
-                <div className="text-xl font-bold">{smartRepliesDiscarded}</div>
-              </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              {[
+                { label: 'Total Generated', value: smartRepliesGenerated, color: '' },
+                { label: 'Used Without Edit', value: smartRepliesUsedWithoutEdit, color: 'text-emerald-500' },
+                { label: 'Modified', value: smartRepliesModified, color: 'text-amber-500' },
+                { label: 'Discarded', value: smartRepliesDiscarded, color: 'text-destructive' },
+              ].map((s) => (
+                <div key={s.label} className="rounded-xl border border-border/50 bg-muted/30 p-3">
+                  <p className="text-[11px] text-muted-foreground">{s.label}</p>
+                  <p className={`mt-0.5 text-lg font-bold ${s.color}`} style={{ fontFamily: 'var(--font-sora)' }}>
+                    {s.value}
+                  </p>
+                </div>
+              ))}
             </div>
           </CardContent>
           <CardFooter>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full rounded-xl border-border/60">
               Customize Smart Replies
             </Button>
           </CardFooter>

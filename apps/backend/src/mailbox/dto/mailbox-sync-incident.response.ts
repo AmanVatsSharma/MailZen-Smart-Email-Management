@@ -2,10 +2,10 @@ import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
 
 @ObjectType()
 export class MailboxSyncIncidentStatsResponse {
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   mailboxId?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   workspaceId?: string | null;
 
   @Field(() => Int)

@@ -33,22 +33,12 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-const iconRailButtonClass =
-  'h-11 w-11 rounded-xl border border-transparent text-muted-foreground transition-all hover:border-primary/20 hover:bg-primary/10 hover:text-primary';
-
 const folderFromPath = (pathname: string): EmailFolder => {
   const normalized = normalizePathname(pathname);
   const value = normalized.replace('/', '');
-
-  if (
-    value === 'inbox' ||
-    value === 'sent' ||
-    value === 'archive' ||
-    value === 'trash'
-  ) {
+  if (value === 'inbox' || value === 'sent' || value === 'archive' || value === 'trash') {
     return value;
   }
-
   return 'inbox';
 };
 
@@ -68,15 +58,20 @@ const SectionLinkItem = ({
       href={item.href}
       onClick={onSelect}
       className={cn(
-        'block rounded-xl border px-3 py-2.5 transition-colors',
+        'group block rounded-xl border px-3 py-2.5 transition-all duration-200',
         active
-          ? 'border-primary/35 bg-primary/10 text-primary'
-          : 'border-border/70 bg-background/25 text-foreground hover:bg-accent',
+          ? 'border-primary/30 bg-primary/10 text-primary shadow-sm'
+          : 'border-transparent bg-transparent text-foreground/80 hover:border-border/50 hover:bg-muted/50 hover:text-foreground',
       )}
     >
-      <p className="text-sm font-medium">{item.label}</p>
+      <div className="flex items-center gap-2">
+        {active && (
+          <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary shadow-sm" style={{ boxShadow: '0 0 6px hsl(262 83% 58% / 0.6)' }} />
+        )}
+        <p className="text-sm font-medium">{item.label}</p>
+      </div>
       {item.description ? (
-        <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground pl-3.5">{item.description}</p>
       ) : null}
     </Link>
   );
@@ -90,32 +85,54 @@ const PrimaryRail = ({
   onPrimarySelect: (item: PrimaryNavItem) => void;
 }) => {
   return (
-    <div className="flex w-[76px] flex-col items-center border-r border-border/70 bg-background/90 px-3 py-4">
-      <Link href="/" className="mb-6 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-        <span className="text-sm font-bold">M</span>
+    <div className="flex w-[68px] flex-col items-center border-r border-border/50 bg-sidebar px-2.5 py-4">
+      {/* Logo mark */}
+      <Link
+        href="/"
+        className="mb-5 group flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold text-white transition-all duration-200 hover:shadow-lg"
+        style={{
+          background: 'linear-gradient(135deg, hsl(262 83% 58%), hsl(262 83% 44%))',
+          boxShadow: '0 2px 10px hsl(262 83% 58% / 0.3)',
+        }}
+      >
+        <span style={{ fontFamily: 'var(--font-sora)' }}>M</span>
       </Link>
 
-      <div className="flex flex-1 flex-col items-center gap-2">
+      <div className="flex flex-1 flex-col items-center gap-1">
         {primaryNavItems.map((item) => {
           const Icon = item.icon as LucideIcon;
           const active = item.id === activeSection;
 
           return (
-            <Button
+            <button
               key={item.id}
               type="button"
-              variant="ghost"
-              size="icon"
               title={item.label}
               aria-label={item.label}
               onClick={() => onPrimarySelect(item)}
               className={cn(
-                iconRailButtonClass,
-                active && 'border-primary/40 bg-primary/15 text-primary shadow-sm',
+                'relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200',
+                active
+                  ? 'text-primary-foreground shadow-md'
+                  : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground',
               )}
+              style={
+                active
+                  ? {
+                      background: 'linear-gradient(135deg, hsl(262 83% 58%), hsl(262 83% 48%))',
+                      boxShadow: '0 4px 12px hsl(262 83% 58% / 0.35)',
+                    }
+                  : undefined
+              }
             >
-              <Icon className="h-5 w-5" />
-            </Button>
+              <Icon className="h-4.5 w-4.5" />
+              {active && (
+                <span
+                  className="absolute -right-2.5 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full"
+                  style={{ background: 'hsl(262 83% 58%)' }}
+                />
+              )}
+            </button>
           );
         })}
       </div>
@@ -147,7 +164,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     ) {
       return requestedFolder;
     }
-
     return folderFromPath(pathname);
   }, [pathname, searchParams]);
 
@@ -169,7 +185,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       closeMobileDrawer();
       return;
     }
-
     const nextParams = new URLSearchParams();
     nextParams.set('folder', folder);
     router.push(`/inbox?${nextParams.toString()}`);
@@ -189,9 +204,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     if (activeSection === 'mail') {
       return (
         <div className="flex h-full min-h-0 flex-col">
-          <div className="border-b border-border/70 px-4 py-3">
-            <p className="text-sm font-semibold">{activeSecondaryPanel.title}</p>
-            <p className="text-xs text-muted-foreground">{activeSecondaryPanel.description}</p>
+          <div className="px-4 py-3.5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
+              {activeSecondaryPanel.title}
+            </p>
           </div>
           <div className="min-h-0 flex-1">
             <EmailNavigation
@@ -209,12 +225,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
     return (
       <div className="flex h-full min-h-0 flex-col">
-        <div className="border-b border-border/70 px-4 py-3">
-          <p className="text-sm font-semibold">{activeSecondaryPanel.title}</p>
-          <p className="text-xs text-muted-foreground">{activeSecondaryPanel.description}</p>
+        <div className="px-4 py-3.5">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
+            {activeSecondaryPanel.title}
+          </p>
+          {activeSecondaryPanel.description && (
+            <p className="mt-0.5 text-xs text-muted-foreground/50">{activeSecondaryPanel.description}</p>
+          )}
         </div>
+        {/* Accent separator line */}
+        <div className="mx-4 mb-2 h-px" style={{ background: 'linear-gradient(90deg, hsl(262 83% 58% / 0.3), transparent)' }} />
         <ScrollArea className="min-h-0 flex-1">
-          <div className="space-y-2 p-3">
+          <div className="space-y-1 p-3">
             {activeSecondaryPanel.links.map((item) => (
               <SectionLinkItem
                 key={item.href}
@@ -231,9 +253,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   return (
     <>
-      <aside className="hidden h-full border-r border-border/70 bg-background/60 backdrop-blur-xl lg:flex">
+      <aside className="hidden h-full border-r border-border/50 bg-sidebar/80 backdrop-blur-xl lg:flex">
         <PrimaryRail activeSection={activeSection} onPrimarySelect={handlePrimarySelect} />
-        <div className="w-[296px] min-w-[296px] bg-background/40">
+        <div className="w-[280px] min-w-[280px] bg-sidebar/60">
           {renderSecondaryPanel(false)}
         </div>
       </aside>
@@ -241,26 +263,25 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       <Sheet
         open={isOpen}
         onOpenChange={(open) => {
-          if (!open) {
-            closeMobileDrawer();
-          }
+          if (!open) closeMobileDrawer();
         }}
       >
-        <SheetContent side="left" className="w-[92vw] max-w-[420px] p-0 lg:hidden">
+        <SheetContent side="left" className="w-[92vw] max-w-[400px] p-0 lg:hidden">
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation</SheetTitle>
             <SheetDescription>Primary and secondary dashboard navigation</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full min-h-0 bg-background">
+          <div className="flex h-full min-h-0 bg-sidebar">
             <PrimaryRail activeSection={activeSection} onPrimarySelect={handlePrimarySelect} />
             <div className="flex min-w-0 flex-1 flex-col">
-              <div className="flex h-14 items-center justify-end border-b border-border/70 px-3">
+              <div className="flex h-14 items-center justify-end border-b border-border/50 px-3">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
                   onClick={closeMobileDrawer}
                   aria-label="Close navigation"
+                  className="rounded-lg"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </Button>

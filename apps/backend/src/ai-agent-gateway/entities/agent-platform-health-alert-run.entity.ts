@@ -15,7 +15,7 @@ export class AgentPlatformHealthAlertRun {
   @Column({ default: true })
   alertsEnabled: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   severity?: string | null;
 
   @Column({ type: 'jsonb', default: () => "'[]'" })

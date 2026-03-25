@@ -1,4 +1,5 @@
 import { Field, ID, ObjectType } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json';
 import {
   Column,
   CreateDateColumn,
@@ -20,9 +21,9 @@ export class UserNotification {
   @Column()
   userId: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Index()
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   workspaceId?: string | null;
 
   @Field()
@@ -41,7 +42,7 @@ export class UserNotification {
   @Column({ default: false })
   isRead: boolean;
 
-  @Field({ nullable: true })
+  @Field(() => GraphQLJSON, { nullable: true })
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, unknown>;
 

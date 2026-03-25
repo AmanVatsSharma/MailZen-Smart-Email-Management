@@ -2,7 +2,7 @@ import { Field, Int, ObjectType } from '@nestjs/graphql';
 
 @ObjectType()
 export class MailboxInboundSlaIncidentStatsResponse {
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   workspaceId?: string | null;
 
   @Field(() => Int)
@@ -17,7 +17,7 @@ export class MailboxInboundSlaIncidentStatsResponse {
   @Field(() => Int)
   criticalCount: number;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   lastAlertAt?: Date | null;
 }
 

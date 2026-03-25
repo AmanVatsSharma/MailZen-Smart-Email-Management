@@ -14,6 +14,6 @@ export class SmartReplyProviderHealthItemResponse {
   @Field(() => Int)
   priority: number;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   note?: string | null;
 }

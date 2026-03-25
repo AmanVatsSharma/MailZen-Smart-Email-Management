@@ -8,10 +8,10 @@ export class MailboxSyncRunObservabilityResponse {
   @Field()
   mailboxId: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   mailboxEmail?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   workspaceId?: string | null;
 
   @Field()
@@ -35,10 +35,10 @@ export class MailboxSyncRunObservabilityResponse {
   @Field(() => Int)
   rejectedMessages: number;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   nextCursor?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   errorMessage?: string | null;
 
   @Field()
@@ -53,10 +53,10 @@ export class MailboxSyncRunObservabilityResponse {
 
 @ObjectType()
 export class MailboxSyncRunStatsResponse {
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   mailboxId?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   workspaceId?: string | null;
 
   @Field(() => Int)

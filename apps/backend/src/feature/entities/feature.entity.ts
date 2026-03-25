@@ -26,8 +26,8 @@ export class Feature {
   @Column({ default: 'GLOBAL' })
   targetType: string;
 
-  @Field({ nullable: true })
-  @Column({ nullable: true })
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   targetValue?: string | null;
 
   @Field()

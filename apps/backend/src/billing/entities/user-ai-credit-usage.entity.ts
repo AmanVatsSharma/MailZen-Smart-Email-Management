@@ -30,12 +30,12 @@ export class UserAiCreditUsage {
   @Column({ type: 'int', default: 0 })
   usedCredits: number;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamp', nullable: true })
   lastConsumedAt?: Date | null;
 
-  @Field({ nullable: true })
-  @Column({ nullable: true })
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastRequestId?: string | null;
 
   @Field()

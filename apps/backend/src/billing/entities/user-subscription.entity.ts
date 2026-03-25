@@ -1,4 +1,5 @@
 import { Field, ID, ObjectType } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json';
 import {
   Column,
   CreateDateColumn,
@@ -32,7 +33,7 @@ export class UserSubscription {
   @Column({ type: 'timestamp' })
   startedAt: Date;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamp', nullable: true })
   endsAt?: Date | null;
 
@@ -40,7 +41,7 @@ export class UserSubscription {
   @Column({ default: false })
   isTrial: boolean;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamp', nullable: true })
   trialEndsAt?: Date | null;
 
@@ -48,11 +49,11 @@ export class UserSubscription {
   @Column({ default: false })
   cancelAtPeriodEnd: boolean;
 
-  @Field({ nullable: true })
-  @Column({ nullable: true })
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   billingProviderCustomerId?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => GraphQLJSON, { nullable: true })
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, unknown>;
 

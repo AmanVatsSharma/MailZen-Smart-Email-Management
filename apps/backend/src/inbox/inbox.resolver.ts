@@ -39,7 +39,7 @@ export class InboxResolver {
 
   @Mutation(() => InboxSyncRunResponse)
   async syncMyInboxes(
-    @Args('workspaceId', { nullable: true }) workspaceId: string | null,
+    @Args('workspaceId', { nullable: true, type: () => String }) workspaceId: string | null,
     @Context() ctx: RequestContext,
   ) {
     return this.inboxService.syncUserInboxes({
@@ -50,8 +50,8 @@ export class InboxResolver {
 
   @Query(() => InboxSourceHealthStatsResponse)
   async myInboxSourceHealthStats(
-    @Args('workspaceId', { nullable: true }) workspaceId: string | null,
-    @Args('windowHours', { nullable: true }) windowHours: number | null,
+    @Args('workspaceId', { nullable: true, type: () => String }) workspaceId: string | null,
+    @Args('windowHours', { nullable: true, type: () => Number }) windowHours: number | null,
     @Context() ctx: RequestContext,
   ) {
     return this.inboxService.getInboxSourceHealthStats({

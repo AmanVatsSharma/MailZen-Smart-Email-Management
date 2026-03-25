@@ -1,4 +1,5 @@
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json';
 import {
   Column,
   CreateDateColumn,
@@ -26,9 +27,9 @@ export class BillingInvoice {
   @Column()
   userId: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Index()
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   subscriptionId?: string | null;
 
   @Field()
@@ -43,8 +44,8 @@ export class BillingInvoice {
   @Column({ default: 'INTERNAL' })
   provider: string;
 
-  @Field({ nullable: true })
-  @Column({ nullable: true })
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   providerInvoiceId?: string | null;
 
   @Field()
@@ -67,15 +68,15 @@ export class BillingInvoice {
   @Column({ type: 'timestamp' })
   periodEnd: Date;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamp', nullable: true })
   dueAt?: Date | null;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamp', nullable: true })
   paidAt?: Date | null;
 
-  @Field({ nullable: true })
+  @Field(() => GraphQLJSON, { nullable: true })
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, unknown> | null;
 

@@ -5004,6 +5004,15 @@
         "hash": "sha512-T8L6i7wCuyoK8A/ZeLYt1+q0ty3Zb9+qbSSvrIVitzT3YjZqkTZ40IbRsPanlB4h1QB3JVL1SYCdR6ngtFYcuA=="
       }
     },
+    "npm:@types/web-push": {
+      "type": "npm",
+      "name": "npm:@types/web-push",
+      "data": {
+        "version": "3.6.4",
+        "packageName": "@types/web-push",
+        "hash": "sha512-GnJmSr40H3RAnj0s34FNTcJi1hmWFV5KXugE0mYWnYhgTAHLJ/dJKAwDmvPJYMke0RplY2XE9LnM4hqSqKIjhQ=="
+      }
+    },
     "npm:@types/yargs": {
       "type": "npm",
       "name": "npm:@types/yargs",
@@ -6111,6 +6120,15 @@
         "hash": "sha512-BSHWgDSAiKs50o2Re8ppvp3seVHXSRM44cdSsT9FfNEUUZLOGWVCsiWaRPWM1Znn+mqZ1OfVZ3z3DWEzSp7hRA=="
       }
     },
+    "npm:asn1.js": {
+      "type": "npm",
+      "name": "npm:asn1.js",
+      "data": {
+        "version": "5.4.1",
+        "packageName": "asn1.js",
+        "hash": "sha512-+I//4cYPccV8LdmBLiX8CYvf9Sp3vQsrqu2QNXRcrbiWvcx/UdlFiqUJJzxRQxgsZmvhXhn4cSKeSmoFjVdupA=="
+      }
+    },
     "npm:assert-never": {
       "type": "npm",
       "name": "npm:assert-never",
@@ -6379,6 +6397,15 @@
         "version": "4.1.0",
         "packageName": "bl",
         "hash": "sha512-1W07cM9gS6DcLperZfFSj+bWLtaPGSOHWhPiGzXmvVJbRLdG82sH/Kn8EtW1VqWVA54AKf2h5k5BbnIbwF3h6w=="
+      }
+    },
+    "npm:bn.js": {
+      "type": "npm",
+      "name": "npm:bn.js",
+      "data": {
+        "version": "4.12.2",
+        "packageName": "bn.js",
+        "hash": "sha512-n4DSx829VRTRByMRGdjQ9iqsN0Bh4OolPsFnaZBLcbi8iXcB+kJ9s7EnRt4wILZNV3kPLHkRVfOc/HvhC3ovDw=="
       }
     },
     "npm:debug@2.6.9": {
@@ -9117,6 +9144,15 @@
         "hash": "sha512-vKZZra6CSe9qsJzh0BjBGXo8dvzNsq/oGvsjfRdOrrryfeD9UOBEEQdeoqCRmKZchF5h2zOBMQ6YuQ0uRUmdbQ=="
       }
     },
+    "npm:http_ece": {
+      "type": "npm",
+      "name": "npm:http_ece",
+      "data": {
+        "version": "1.2.0",
+        "packageName": "http_ece",
+        "hash": "sha512-JrF8SSLVmcvc5NducxgyOrKXe3EsyHMgBFgSaIUGmArKe+rwr0uphRkRXvwiom3I+fpIfoItveHrfudL8/rxuA=="
+      }
+    },
     "npm:http-cache-semantics": {
       "type": "npm",
       "name": "npm:http-cache-semantics",
@@ -10816,6 +10852,15 @@
         "version": "2.1.0",
         "packageName": "mimic-fn",
         "hash": "sha512-OqbOk5oEQeAZ8WXWydlu9HJjz9WVdEIvamMCcXmuqUYjTknH/sqsWvhQ3vgwKFRR1HpjvNBKQ37nbJgYzGqGcg=="
+      }
+    },
+    "npm:minimalistic-assert": {
+      "type": "npm",
+      "name": "npm:minimalistic-assert",
+      "data": {
+        "version": "1.0.1",
+        "packageName": "minimalistic-assert",
+        "hash": "sha512-UtJcAD4yEaGtjPezWuO9wC4nwUnVH/8/Im3yEHQP4b67cXlD/Qr9hdITCU1xDbSEXg2XKNaP8jsReV7vQd00/A=="
       }
     },
     "npm:minimist": {
@@ -13858,6 +13903,15 @@
         "version": "1.0.1",
         "packageName": "wcwidth",
         "hash": "sha512-XHPEwS0q6TaxcvG85+8EYkbiCux2XtWG2mkc47Ng2A77BQu9+DqIOJldST4HgPkuea7dvKSj5VgX3P1d4rW8Tg=="
+      }
+    },
+    "npm:web-push": {
+      "type": "npm",
+      "name": "npm:web-push",
+      "data": {
+        "version": "3.6.7",
+        "packageName": "web-push",
+        "hash": "sha512-OpiIUe8cuGjrj3mMBFWY+e4MMIkW3SVT+7vEIjvD9kejGUypv8GPDf84JdPWskK8zMRIJ6xYGm+Kxr8YkPyA0A=="
       }
     },
     "npm:web-resource-inliner": {
@@ -21513,6 +21567,11 @@
       "type": "static"
     },
     {
+      "source": "npm:@types/web-push",
+      "target": "npm:@types/node",
+      "type": "static"
+    },
+    {
       "source": "npm:@types/yargs",
       "target": "npm:@types/yargs-parser",
       "type": "static"
@@ -22775,6 +22834,26 @@
     {
       "source": "npm:arraybuffer.prototype.slice",
       "target": "npm:is-array-buffer",
+      "type": "static"
+    },
+    {
+      "source": "npm:asn1.js",
+      "target": "npm:bn.js",
+      "type": "static"
+    },
+    {
+      "source": "npm:asn1.js",
+      "target": "npm:inherits",
+      "type": "static"
+    },
+    {
+      "source": "npm:asn1.js",
+      "target": "npm:minimalistic-assert",
+      "type": "static"
+    },
+    {
+      "source": "npm:asn1.js",
+      "target": "npm:safer-buffer",
       "type": "static"
     },
     {
@@ -32725,6 +32804,31 @@
     {
       "source": "npm:wcwidth",
       "target": "npm:defaults",
+      "type": "static"
+    },
+    {
+      "source": "npm:web-push",
+      "target": "npm:asn1.js",
+      "type": "static"
+    },
+    {
+      "source": "npm:web-push",
+      "target": "npm:http_ece",
+      "type": "static"
+    },
+    {
+      "source": "npm:web-push",
+      "target": "npm:https-proxy-agent",
+      "type": "static"
+    },
+    {
+      "source": "npm:web-push",
+      "target": "npm:jws",
+      "type": "static"
+    },
+    {
+      "source": "npm:web-push",
+      "target": "npm:minimist",
       "type": "static"
     },
     {

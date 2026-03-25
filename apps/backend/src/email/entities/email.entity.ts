@@ -46,11 +46,11 @@ export class Email {
   @Column('text', { array: true })
   to: string[];
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   @Index()
   inboundMessageId?: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   @Index()
   inboundThreadKey?: string | null;
 

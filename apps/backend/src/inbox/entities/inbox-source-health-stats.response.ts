@@ -38,7 +38,7 @@ export class InboxSourceHealthStatsResponse {
   @Field(() => Int)
   windowHours: number;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   workspaceId?: string | null;
 
   @Field()

@@ -20,9 +20,9 @@ export class NotificationPushSubscription {
   @Column()
   userId: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Index()
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   workspaceId?: string | null;
 
   @Field()
@@ -38,8 +38,8 @@ export class NotificationPushSubscription {
   @Column()
   auth: string;
 
-  @Field({ nullable: true })
-  @Column({ nullable: true })
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
   userAgent?: string | null;
 
   @Field()
@@ -50,11 +50,11 @@ export class NotificationPushSubscription {
   @Column({ type: 'integer', default: 0 })
   failureCount: number;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamptz', nullable: true })
   lastDeliveredAt?: Date | null;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamptz', nullable: true })
   lastFailureAt?: Date | null;
 

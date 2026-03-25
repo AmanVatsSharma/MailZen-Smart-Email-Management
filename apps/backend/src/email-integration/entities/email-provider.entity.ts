@@ -52,11 +52,11 @@ export class EmailProvider {
   @Column({ default: 'connected' })
   status: string; // connected | syncing | error | disconnected
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamp', nullable: true })
   lastSyncErrorAt?: Date | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Column({ type: 'text', nullable: true })
   lastSyncError?: string | null;
 
@@ -106,8 +106,8 @@ export class EmailProvider {
   @Index()
   userId: string;
 
-  @Field({ nullable: true })
-  @Column({ nullable: true })
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   @Index()
   workspaceId?: string | null;
 

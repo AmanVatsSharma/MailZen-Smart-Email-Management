@@ -72,7 +72,7 @@ export class UserNotificationPreference {
   @Column({ default: 60 })
   mailboxInboundSlaAlertCooldownMinutes: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   mailboxInboundSlaLastAlertStatus?: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })

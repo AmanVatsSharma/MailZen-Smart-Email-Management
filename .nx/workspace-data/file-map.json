@@ -5,6 +5,2260 @@
   "nxJsonPlugins": [],
   "fileMap": {
     "projectFileMap": {
+      "marketing": [
+        {
+          "file": "apps/marketing/app/about/page.tsx",
+          "hash": "9205483621917275523"
+        },
+        {
+          "file": "apps/marketing/app/contact/page.tsx",
+          "hash": "15625525870614394642"
+        },
+        {
+          "file": "apps/marketing/app/features/page.tsx",
+          "hash": "11509432995275438344"
+        },
+        {
+          "file": "apps/marketing/app/globals.css",
+          "hash": "5518013160342312490"
+        },
+        {
+          "file": "apps/marketing/app/integrations/page.tsx",
+          "hash": "4799788785931397664"
+        },
+        {
+          "file": "apps/marketing/app/layout.tsx",
+          "hash": "12759230739205857938"
+        },
+        {
+          "file": "apps/marketing/app/page.tsx",
+          "hash": "14922709183553890664"
+        },
+        {
+          "file": "apps/marketing/app/pricing/page.tsx",
+          "hash": "3077523760840551817"
+        },
+        {
+          "file": "apps/marketing/app/privacy/page.tsx",
+          "hash": "7969801098061617645"
+        },
+        {
+          "file": "apps/marketing/app/security/page.tsx",
+          "hash": "15484102336830941292"
+        },
+        {
+          "file": "apps/marketing/app/terms/page.tsx",
+          "hash": "2236772080413224472"
+        },
+        {
+          "file": "apps/marketing/components/home/CTABanner.tsx",
+          "hash": "1136842912046045466"
+        },
+        {
+          "file": "apps/marketing/components/home/FAQ.tsx",
+          "hash": "2284583828850304613"
+        },
+        {
+          "file": "apps/marketing/components/home/Features.tsx",
+          "hash": "15355908267985961314"
+        },
+        {
+          "file": "apps/marketing/components/home/Hero.tsx",
+          "hash": "2547137186923296281"
+        },
+        {
+          "file": "apps/marketing/components/home/HowItWorks.tsx",
+          "hash": "6727681147693638507"
+        },
+        {
+          "file": "apps/marketing/components/home/PricingPreview.tsx",
+          "hash": "8474539476421502030"
+        },
+        {
+          "file": "apps/marketing/components/home/SocialProof.tsx",
+          "hash": "17046961238073170194"
+        },
+        {
+          "file": "apps/marketing/components/home/Testimonials.tsx",
+          "hash": "16630935538155043835"
+        },
+        {
+          "file": "apps/marketing/components/layout/Footer.tsx",
+          "hash": "4844274685521817584"
+        },
+        {
+          "file": "apps/marketing/components/layout/Navbar.tsx",
+          "hash": "8244289274077748798"
+        },
+        {
+          "file": "apps/marketing/components/ui/AnimatedSection.tsx",
+          "hash": "6573824457450436383"
+        },
+        {
+          "file": "apps/marketing/eslint.config.mjs",
+          "hash": "10103015836408040782"
+        },
+        {
+          "file": "apps/marketing/lib/utils.ts",
+          "hash": "4398841608861978635"
+        },
+        {
+          "file": "apps/marketing/next.config.ts",
+          "hash": "15949675404144299749"
+        },
+        {
+          "file": "apps/marketing/package.json",
+          "hash": "2936141624638400556",
+          "deps": [
+            "npm:@eslint/eslintrc",
+            "npm:@tailwindcss/postcss",
+            "npm:@types/node",
+            "npm:@types/react",
+            "npm:@types/react-dom",
+            "npm:eslint",
+            "npm:eslint-config-next",
+            "npm:tailwindcss",
+            "npm:typescript",
+            "npm:@radix-ui/react-accordion",
+            "npm:@radix-ui/react-slot",
+            "npm:@radix-ui/react-switch",
+            "npm:class-variance-authority",
+            "npm:clsx",
+            "npm:framer-motion",
+            "npm:lucide-react",
+            "npm:next",
+            "npm:next-themes",
+            "npm:react",
+            "npm:react-dom",
+            "npm:tailwind-merge",
+            "npm:tailwindcss-animate"
+          ]
+        },
+        {
+          "file": "apps/marketing/postcss.config.mjs",
+          "hash": "6534987870150040858"
+        },
+        {
+          "file": "apps/marketing/project.json",
+          "hash": "14109201637576030499"
+        },
+        {
+          "file": "apps/marketing/providers/theme-provider.tsx",
+          "hash": "6647385888785818166"
+        },
+        {
+          "file": "apps/marketing/tsconfig.json",
+          "hash": "16505881292448434709"
+        }
+      ],
+      "backend": [
+        {
+          "file": "apps/backend/.gitignore",
+          "hash": "12634402967133909834"
+        },
+        {
+          "file": "apps/backend/.prettierrc",
+          "hash": "4808572120966128913"
+        },
+        {
+          "file": "apps/backend/Dockerfile",
+          "hash": "6087136862829661744"
+        },
+        {
+          "file": "apps/backend/ENTITY_RELATIONSHIPS.md",
+          "hash": "7670921924999142191"
+        },
+        {
+          "file": "apps/backend/MIGRATION_COMPLETE.md",
+          "hash": "14459733551012744903"
+        },
+        {
+          "file": "apps/backend/MIGRATION_STATUS.md",
+          "hash": "390171339592692493"
+        },
+        {
+          "file": "apps/backend/README.md",
+          "hash": "14236399381236327587"
+        },
+        {
+          "file": "apps/backend/TYPEORM_MIGRATION.md",
+          "hash": "11441222922451311908"
+        },
+        {
+          "file": "apps/backend/env.example",
+          "hash": "17267611349015248825"
+        },
+        {
+          "file": "apps/backend/eslint.config.mjs",
+          "hash": "13183347058815926503"
+        },
+        {
+          "file": "apps/backend/nest-cli.json",
+          "hash": "789240945379598733"
+        },
+        {
+          "file": "apps/backend/package.json",
+          "hash": "878133271735552855",
+          "deps": [
+            "npm:@eslint/eslintrc",
+            "npm:@eslint/js",
+            "npm:@nestjs/cli",
+            "npm:@nestjs/schematics",
+            "npm:@nestjs/testing",
+            "npm:@swc/cli",
+            "npm:@swc/core",
+            "npm:@types/express",
+            "npm:@types/jest",
+            "npm:@types/node",
+            "npm:@types/supertest",
+            "npm:@types/web-push",
+            "npm:eslint",
+            "npm:eslint-config-prettier",
+            "npm:eslint-plugin-prettier",
+            "npm:globals",
+            "npm:jest",
+            "npm:prettier",
+            "npm:source-map-support",
+            "npm:supertest",
+            "npm:ts-jest",
+            "npm:ts-loader",
+            "npm:ts-node",
+            "npm:tsconfig-paths",
+            "npm:typescript",
+            "npm:typescript-eslint",
+            "npm:@as-integrations/express5@1.1.2",
+            "npm:@google-cloud/storage",
+            "npm:@nestjs-modules/mailer",
+            "npm:@nestjs/apollo",
+            "npm:@nestjs/bull",
+            "npm:@nestjs/common",
+            "npm:@nestjs/config",
+            "npm:@nestjs/core",
+            "npm:@nestjs/graphql",
+            "npm:@nestjs/jwt",
+            "npm:@nestjs/platform-express",
+            "npm:@nestjs/schedule",
+            "npm:@nestjs/typeorm@11.0.0",
+            "npm:@types/bull",
+            "npm:@types/nodemailer",
+            "npm:axios",
+            "npm:bcryptjs",
+            "npm:bull",
+            "npm:class-transformer",
+            "npm:class-validator",
+            "npm:date-fns",
+            "npm:ejs",
+            "npm:google-auth-library",
+            "npm:graphql",
+            "npm:node-cache",
+            "npm:nodemailer",
+            "npm:pg",
+            "npm:redis",
+            "npm:reflect-metadata",
+            "npm:rxjs",
+            "npm:typeorm@0.3.28",
+            "npm:web-push"
+          ]
+        },
+        {
+          "file": "apps/backend/project.json",
+          "hash": "17143865047552130136"
+        },
+        {
+          "file": "apps/backend/project_overview.md",
+          "hash": "9049781676251545338"
+        },
+        {
+          "file": "apps/backend/scripts/backfill-workspace-scopes.ts",
+          "hash": "10615878560595724100"
+        },
+        {
+          "file": "apps/backend/scripts/check-doc-flowcharts.js",
+          "hash": "13909339150167079117"
+        },
+        {
+          "file": "apps/backend/scripts/check-migration-contracts.js",
+          "hash": "13433784586234637820"
+        },
+        {
+          "file": "apps/backend/scripts/check-no-console-usage.js",
+          "hash": "9541115425556910852"
+        },
+        {
+          "file": "apps/backend/scripts/check-schema-contracts.js",
+          "hash": "14914147349044908343"
+        },
+        {
+          "file": "apps/backend/scripts/check-structured-logger-usage.js",
+          "hash": "3020302634709038550"
+        },
+        {
+          "file": "apps/backend/scripts/generate-mailbox-inbound-signature.js",
+          "hash": "9892640306190334240"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/README.md",
+          "hash": "2980926145674821125"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/ai-agent-action-audit-retention.scheduler.spec.ts",
+          "hash": "14165548168457806027"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/ai-agent-action-audit-retention.scheduler.ts",
+          "hash": "11738417502418599413"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/ai-agent-gateway.module.ts",
+          "hash": "411533955176647555"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/ai-agent-gateway.resolver.spec.ts",
+          "hash": "17921826840360092435"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/ai-agent-gateway.resolver.ts",
+          "hash": "9946208874045321038"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/ai-agent-gateway.service.spec.ts",
+          "hash": "1821982347639343012"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/ai-agent-gateway.service.ts",
+          "hash": "2396881697140589633"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/ai-agent-platform-health-alert-run-retention.scheduler.spec.ts",
+          "hash": "9814306166801482338"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/ai-agent-platform-health-alert-run-retention.scheduler.ts",
+          "hash": "9131283163725388760"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/ai-agent-platform-health-alert.scheduler.spec.ts",
+          "hash": "13265503652464495720"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/ai-agent-platform-health-alert.scheduler.ts",
+          "hash": "13284052006383157287"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/ai-agent-platform-health-sample-retention.scheduler.spec.ts",
+          "hash": "8150678082538360397"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/ai-agent-platform-health-sample-retention.scheduler.ts",
+          "hash": "10637887606526083824"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-action-audit-retention-purge.response.ts",
+          "hash": "15375125208300337936"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-action-data-export.response.ts",
+          "hash": "1837447565829209086"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-assist.input.ts",
+          "hash": "16013442231809884764"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-assist.response.ts",
+          "hash": "5147220208211820557"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-alert-check.response.ts",
+          "hash": "12751345254894648456"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-alert-config.response.ts",
+          "hash": "9252689371293348046"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-alert-delivery-data-export.response.ts",
+          "hash": "8923975636666110339"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-alert-delivery-stats.response.ts",
+          "hash": "13810233676462974820"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-alert-run-history-data-export.response.ts",
+          "hash": "8438919196623782164"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-alert-run-retention-purge.response.ts",
+          "hash": "10822759232872144160"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-alert-run-trend-data-export.response.ts",
+          "hash": "7025136136855014095"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-alert-run-trend.response.ts",
+          "hash": "3356990271524774765"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-alert-run.response.ts",
+          "hash": "5609662006322302443"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-incident-data-export.response.ts",
+          "hash": "2267654212321793408"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-incident-stats.response.ts",
+          "hash": "6454781991921144159"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-sample-data-export.response.ts",
+          "hash": "8935578731352295139"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-sample-retention-purge.response.ts",
+          "hash": "18160251240820630689"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-sample.response.ts",
+          "hash": "5475626591402942419"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-trend-point.response.ts",
+          "hash": "2997558859025218909"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health-trend-summary.response.ts",
+          "hash": "9406684827435908990"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health.response.ts",
+          "hash": "247804352788216625"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-runtime-reset.response.ts",
+          "hash": "593897001963787930"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-skill-runtime-reset.response.ts",
+          "hash": "17008814091120965927"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/entities/agent-action-audit.entity.ts",
+          "hash": "17160310297948048968"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/entities/agent-platform-endpoint-runtime-stat.entity.ts",
+          "hash": "6665674239730399263"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/entities/agent-platform-health-alert-run.entity.ts",
+          "hash": "12546548814878949093"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/entities/agent-platform-health-sample.entity.ts",
+          "hash": "451760328611983686"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/entities/agent-platform-skill-runtime-stat.entity.ts",
+          "hash": "12016547965868854268"
+        },
+        {
+          "file": "apps/backend/src/app.controller.spec.ts",
+          "hash": "2727664763654384995"
+        },
+        {
+          "file": "apps/backend/src/app.controller.ts",
+          "hash": "4552329938751326480"
+        },
+        {
+          "file": "apps/backend/src/app.module.ts",
+          "hash": "5254530983710925937"
+        },
+        {
+          "file": "apps/backend/src/app.service.ts",
+          "hash": "16892833931858030153"
+        },
+        {
+          "file": "apps/backend/src/auth/README.md",
+          "hash": "15807309167614890143"
+        },
+        {
+          "file": "apps/backend/src/auth/auth-abuse-protection.service.spec.ts",
+          "hash": "727555910115272028"
+        },
+        {
+          "file": "apps/backend/src/auth/auth-abuse-protection.service.ts",
+          "hash": "6766655843058817147"
+        },
+        {
+          "file": "apps/backend/src/auth/auth.module.ts",
+          "hash": "5669427969363633726"
+        },
+        {
+          "file": "apps/backend/src/auth/auth.resolver.spec.ts",
+          "hash": "839391262242287570"
+        },
+        {
+          "file": "apps/backend/src/auth/auth.resolver.ts",
+          "hash": "2110980537628053643"
+        },
+        {
+          "file": "apps/backend/src/auth/auth.service.spec.ts",
+          "hash": "8663280355113896461"
+        },
+        {
+          "file": "apps/backend/src/auth/auth.service.ts",
+          "hash": "3309652037846279445"
+        },
+        {
+          "file": "apps/backend/src/auth/dto/auth-me.response.ts",
+          "hash": "13898036152770751913"
+        },
+        {
+          "file": "apps/backend/src/auth/dto/auth-response.ts",
+          "hash": "15845496552891589526"
+        },
+        {
+          "file": "apps/backend/src/auth/dto/forgot-password.input.ts",
+          "hash": "1831546936928226385"
+        },
+        {
+          "file": "apps/backend/src/auth/dto/login.input.ts",
+          "hash": "17288055592104855921"
+        },
+        {
+          "file": "apps/backend/src/auth/dto/refresh.input.ts",
+          "hash": "3778692374834615071"
+        },
+        {
+          "file": "apps/backend/src/auth/dto/reset-password.input.ts",
+          "hash": "11524550040236814083"
+        },
+        {
+          "file": "apps/backend/src/auth/dto/signup-phone.input.ts",
+          "hash": "2593927212360762785"
+        },
+        {
+          "file": "apps/backend/src/auth/dto/verify-email.input.ts",
+          "hash": "7979086387369376081"
+        },
+        {
+          "file": "apps/backend/src/auth/dto/verify-signup.input.ts",
+          "hash": "13724365928954123671"
+        },
+        {
+          "file": "apps/backend/src/auth/entities/audit-log.entity.ts",
+          "hash": "2404979553198670935"
+        },
+        {
+          "file": "apps/backend/src/auth/entities/user-session.entity.ts",
+          "hash": "18428036411900253787"
+        },
+        {
+          "file": "apps/backend/src/auth/entities/verification-token.entity.ts",
+          "hash": "13885402998412299738"
+        },
+        {
+          "file": "apps/backend/src/auth/guards/admin.guard.spec.ts",
+          "hash": "7026099065513126186"
+        },
+        {
+          "file": "apps/backend/src/auth/guards/admin.guard.ts",
+          "hash": "8388685795351942938"
+        },
+        {
+          "file": "apps/backend/src/auth/guards/jwt-auth.guard.spec.ts",
+          "hash": "2183557601413329755"
+        },
+        {
+          "file": "apps/backend/src/auth/guards/jwt-auth.guard.ts",
+          "hash": "11337093597733459195"
+        },
+        {
+          "file": "apps/backend/src/auth/oauth-state.util.spec.ts",
+          "hash": "16227324004550811147"
+        },
+        {
+          "file": "apps/backend/src/auth/oauth-state.util.ts",
+          "hash": "18399815816049206530"
+        },
+        {
+          "file": "apps/backend/src/auth/oauth.controller.spec.ts",
+          "hash": "6532824372819838945"
+        },
+        {
+          "file": "apps/backend/src/auth/oauth.controller.ts",
+          "hash": "18059169336068505855"
+        },
+        {
+          "file": "apps/backend/src/auth/session-cookie.service.spec.ts",
+          "hash": "6890275040489357254"
+        },
+        {
+          "file": "apps/backend/src/auth/session-cookie.service.ts",
+          "hash": "15630759222304683290"
+        },
+        {
+          "file": "apps/backend/src/billing/README.md",
+          "hash": "11260863473915587217"
+        },
+        {
+          "file": "apps/backend/src/billing/billing-retention.scheduler.spec.ts",
+          "hash": "7576693241470977231"
+        },
+        {
+          "file": "apps/backend/src/billing/billing-retention.scheduler.ts",
+          "hash": "11005885839892477685"
+        },
+        {
+          "file": "apps/backend/src/billing/billing-webhook.controller.spec.ts",
+          "hash": "7364478574953803597"
+        },
+        {
+          "file": "apps/backend/src/billing/billing-webhook.controller.ts",
+          "hash": "10669242517998000261"
+        },
+        {
+          "file": "apps/backend/src/billing/billing.module.ts",
+          "hash": "5124448065266436586"
+        },
+        {
+          "file": "apps/backend/src/billing/billing.resolver.spec.ts",
+          "hash": "4308662306241703924"
+        },
+        {
+          "file": "apps/backend/src/billing/billing.resolver.ts",
+          "hash": "6383804085105965458"
+        },
+        {
+          "file": "apps/backend/src/billing/billing.service.spec.ts",
+          "hash": "11418979347563422991"
+        },
+        {
+          "file": "apps/backend/src/billing/billing.service.ts",
+          "hash": "13693699247245887518"
+        },
+        {
+          "file": "apps/backend/src/billing/dto/ai-credit-balance.response.ts",
+          "hash": "738734421151254510"
+        },
+        {
+          "file": "apps/backend/src/billing/dto/billing-data-export.response.ts",
+          "hash": "3088663923405235890"
+        },
+        {
+          "file": "apps/backend/src/billing/dto/billing-retention-purge.response.ts",
+          "hash": "935873814217470448"
+        },
+        {
+          "file": "apps/backend/src/billing/dto/billing-upgrade-intent.response.ts",
+          "hash": "3232374939292432947"
+        },
+        {
+          "file": "apps/backend/src/billing/dto/entitlement-usage.response.ts",
+          "hash": "4590234720900326828"
+        },
+        {
+          "file": "apps/backend/src/billing/entities/billing-invoice.entity.ts",
+          "hash": "796589126941939943"
+        },
+        {
+          "file": "apps/backend/src/billing/entities/billing-plan.entity.ts",
+          "hash": "475202444727173098"
+        },
+        {
+          "file": "apps/backend/src/billing/entities/billing-webhook-event.entity.ts",
+          "hash": "18397625622142395054"
+        },
+        {
+          "file": "apps/backend/src/billing/entities/user-ai-credit-usage.entity.ts",
+          "hash": "13128583047149015761"
+        },
+        {
+          "file": "apps/backend/src/billing/entities/user-subscription.entity.ts",
+          "hash": "5883102986147991340"
+        },
+        {
+          "file": "apps/backend/src/common/README.md",
+          "hash": "5284151538130237203"
+        },
+        {
+          "file": "apps/backend/src/common/guards/admin.guard.ts",
+          "hash": "3982631281423824521"
+        },
+        {
+          "file": "apps/backend/src/common/guards/jwt-auth.guard.ts",
+          "hash": "8289195113856431782"
+        },
+        {
+          "file": "apps/backend/src/common/logging/structured-log.util.spec.ts",
+          "hash": "4726956891259171796"
+        },
+        {
+          "file": "apps/backend/src/common/logging/structured-log.util.ts",
+          "hash": "11531235592309820324"
+        },
+        {
+          "file": "apps/backend/src/common/provider-secrets.util.spec.ts",
+          "hash": "14432040067079900743"
+        },
+        {
+          "file": "apps/backend/src/common/provider-secrets.util.ts",
+          "hash": "1270582649935219561"
+        },
+        {
+          "file": "apps/backend/src/common/rate-limit/http-auth-callback-rate-limit.middleware.spec.ts",
+          "hash": "11329392782353058333"
+        },
+        {
+          "file": "apps/backend/src/common/rate-limit/http-auth-callback-rate-limit.middleware.ts",
+          "hash": "11592427483177146876"
+        },
+        {
+          "file": "apps/backend/src/common/rate-limit/http-rate-limit.middleware.spec.ts",
+          "hash": "4412318658383625467"
+        },
+        {
+          "file": "apps/backend/src/common/rate-limit/http-rate-limit.middleware.ts",
+          "hash": "7536836518071792494"
+        },
+        {
+          "file": "apps/backend/src/common/rate-limit/http-webhook-rate-limit.middleware.spec.ts",
+          "hash": "164591261453357752"
+        },
+        {
+          "file": "apps/backend/src/common/rate-limit/http-webhook-rate-limit.middleware.ts",
+          "hash": "3824529398012786785"
+        },
+        {
+          "file": "apps/backend/src/common/rate-limit/request-rate-limiter.spec.ts",
+          "hash": "14315185944216853351"
+        },
+        {
+          "file": "apps/backend/src/common/rate-limit/request-rate-limiter.ts",
+          "hash": "17522694417880242619"
+        },
+        {
+          "file": "apps/backend/src/common/security/http-csrf-origin.middleware.spec.ts",
+          "hash": "13510737043168275894"
+        },
+        {
+          "file": "apps/backend/src/common/security/http-csrf-origin.middleware.ts",
+          "hash": "15020063088058590384"
+        },
+        {
+          "file": "apps/backend/src/common/security/http-security-headers.middleware.spec.ts",
+          "hash": "5759042648011697695"
+        },
+        {
+          "file": "apps/backend/src/common/security/http-security-headers.middleware.ts",
+          "hash": "4965467921080026223"
+        },
+        {
+          "file": "apps/backend/src/common/sms/README.md",
+          "hash": "6292557837325782848"
+        },
+        {
+          "file": "apps/backend/src/common/sms/sms-dispatcher.util.spec.ts",
+          "hash": "2278626481032728384"
+        },
+        {
+          "file": "apps/backend/src/common/sms/sms-dispatcher.util.ts",
+          "hash": "11949664480714347715"
+        },
+        {
+          "file": "apps/backend/src/contacts/README.md",
+          "hash": "12501398473477581240"
+        },
+        {
+          "file": "apps/backend/src/contacts/contact.entity.ts",
+          "hash": "6996745940751741920"
+        },
+        {
+          "file": "apps/backend/src/contacts/contact.module.ts",
+          "hash": "719405809194546714"
+        },
+        {
+          "file": "apps/backend/src/contacts/contact.resolver.spec.ts",
+          "hash": "4660228605001711717"
+        },
+        {
+          "file": "apps/backend/src/contacts/contact.resolver.ts",
+          "hash": "10526053588598417761"
+        },
+        {
+          "file": "apps/backend/src/contacts/contact.service.spec.ts",
+          "hash": "12760716783484796533"
+        },
+        {
+          "file": "apps/backend/src/contacts/contact.service.ts",
+          "hash": "7091609742056940943"
+        },
+        {
+          "file": "apps/backend/src/contacts/dto/create-contact.input.ts",
+          "hash": "8410466982833892181"
+        },
+        {
+          "file": "apps/backend/src/contacts/dto/update-contact.input.ts",
+          "hash": "3698029894310400003"
+        },
+        {
+          "file": "apps/backend/src/contacts/entities/contact.entity.ts",
+          "hash": "1337982251000713291"
+        },
+        {
+          "file": "apps/backend/src/database/README.md",
+          "hash": "1564650647258932821"
+        },
+        {
+          "file": "apps/backend/src/database/data-source.ts",
+          "hash": "1781739687010410653"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260214000000-initial-baseline.ts",
+          "hash": "13349207979177956695"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260215161000-workspace-scoping-and-entitlements.ts",
+          "hash": "9511778784430822172"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260215193000-mailbox-inbound-threading.ts",
+          "hash": "1488264807880822105"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260215202000-mailbox-inbound-events.ts",
+          "hash": "18338365721344574617"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216001000-notification-mailbox-inbound-preferences.ts",
+          "hash": "12508731115488652765"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216003000-notification-mailbox-inbound-sla-thresholds.ts",
+          "hash": "2581272655870455350"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216005000-notification-mailbox-inbound-sla-alert-state.ts",
+          "hash": "15200843864706537180"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216009000-notification-workspace-scope.ts",
+          "hash": "5221827691727095568"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216011000-notification-mailbox-inbound-sla-cooldown.ts",
+          "hash": "1276634178264961294"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216013000-notification-digest-last-sent.ts",
+          "hash": "1153320360368289973"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216015000-notification-digest-enabled.ts",
+          "hash": "1533509651359386448"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216017000-notification-push-subscriptions.ts",
+          "hash": "1865231056314720302"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216019000-feature-targeted-rollout-columns.ts",
+          "hash": "5498607337237852073"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216021000-agent-action-audits.ts",
+          "hash": "5750835287077329791"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216023000-email-provider-sync-lease.ts",
+          "hash": "10170002605324076139"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216024000-email-provider-sync-error-state.ts",
+          "hash": "3213674010618872988"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216025000-user-ai-credit-usages.ts",
+          "hash": "11227705595162383331"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216031000-billing-invoices-webhooks-and-trials.ts",
+          "hash": "14220261948057857816"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216033000-email-provider-outlook-sync-cursor.ts",
+          "hash": "5962803018468166511"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216035000-email-provider-gmail-watch-state.ts",
+          "hash": "7384999013081495243"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216041000-email-provider-outlook-push-subscription-state.ts",
+          "hash": "1608349710816420444"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216043000-email-mailbox-source-link.ts",
+          "hash": "11615214651852247310"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216045000-mailbox-inbound-sync-state.ts",
+          "hash": "2910709765320969861"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216052000-mailbox-inbound-sync-lease-state.ts",
+          "hash": "8639167812887436648"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216061000-mailbox-inbound-sync-lifecycle-state.ts",
+          "hash": "16591947606083405956"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216070000-mailbox-sync-runs.ts",
+          "hash": "880020129845259188"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216073000-smart-reply-history.ts",
+          "hash": "12043697085101096470"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216081000-billing-mailbox-storage-limit.ts",
+          "hash": "9168830416270827544"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216083000-agent-action-audit-retention-index.ts",
+          "hash": "7948632914724963983"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260216090000-billing-workspace-member-limit.ts",
+          "hash": "12126006629708701610"
+        },
+        {
+          "file": "apps/backend/src/database/typeorm.config.ts",
+          "hash": "1010695093825183926"
+        },
+        {
+          "file": "apps/backend/src/email-analytics/README.md",
+          "hash": "6500996425015904715"
+        },
+        {
+          "file": "apps/backend/src/email-analytics/dto/create-email-analytics.input.ts",
+          "hash": "12877167656703833715"
+        },
+        {
+          "file": "apps/backend/src/email-analytics/email-analytics.entity.ts",
+          "hash": "17602252221533143586"
+        },
+        {
+          "file": "apps/backend/src/email-analytics/email-analytics.module.ts",
+          "hash": "16955996476068330477"
+        },
+        {
+          "file": "apps/backend/src/email-analytics/email-analytics.resolver.ts",
+          "hash": "7199487099632242009"
+        },
+        {
+          "file": "apps/backend/src/email-analytics/email-analytics.service.spec.ts",
+          "hash": "1852277287574266014"
+        },
+        {
+          "file": "apps/backend/src/email-analytics/email-analytics.service.ts",
+          "hash": "17867390642453851437"
+        },
+        {
+          "file": "apps/backend/src/email-analytics/entities/email-analytics.entity.ts",
+          "hash": "6276707944289560128"
+        },
+        {
+          "file": "apps/backend/src/email-integration/README.md",
+          "hash": "2003103375884433439"
+        },
+        {
+          "file": "apps/backend/src/email-integration/dto/delete-provider.input.ts",
+          "hash": "5773809332846395870"
+        },
+        {
+          "file": "apps/backend/src/email-integration/dto/email-provider.input.ts",
+          "hash": "9708656053138310748"
+        },
+        {
+          "file": "apps/backend/src/email-integration/dto/smtp-settings.input.ts",
+          "hash": "16806757538849215784"
+        },
+        {
+          "file": "apps/backend/src/email-integration/email-provider.connect.resolver.spec.ts",
+          "hash": "16933064128763285778"
+        },
+        {
+          "file": "apps/backend/src/email-integration/email-provider.connect.resolver.ts",
+          "hash": "11559865488930420386"
+        },
+        {
+          "file": "apps/backend/src/email-integration/email-provider.module.ts",
+          "hash": "9264589814462358434"
+        },
+        {
+          "file": "apps/backend/src/email-integration/email-provider.resolver.spec.ts",
+          "hash": "18188395121593258290"
+        },
+        {
+          "file": "apps/backend/src/email-integration/email-provider.resolver.ts",
+          "hash": "930148433321838863"
+        },
+        {
+          "file": "apps/backend/src/email-integration/email-provider.service.spec.ts",
+          "hash": "15147701104284903729"
+        },
+        {
+          "file": "apps/backend/src/email-integration/email-provider.service.ts",
+          "hash": "9118438674949425861"
+        },
+        {
+          "file": "apps/backend/src/email-integration/entities/email-provider.entity.ts",
+          "hash": "3375685082693610388"
+        },
+        {
+          "file": "apps/backend/src/email-integration/entities/external-email-label.entity.ts",
+          "hash": "11103938904888624802"
+        },
+        {
+          "file": "apps/backend/src/email-integration/entities/external-email-message.entity.ts",
+          "hash": "8603545656553928184"
+        },
+        {
+          "file": "apps/backend/src/email-integration/entities/provider-action-result.entity.ts",
+          "hash": "16826261614448130021"
+        },
+        {
+          "file": "apps/backend/src/email-integration/entities/provider-sync-alert-delivery-data-export.response.ts",
+          "hash": "17742932663892877590"
+        },
+        {
+          "file": "apps/backend/src/email-integration/entities/provider-sync-alert-delivery.response.entity.ts",
+          "hash": "1498414292962039218"
+        },
+        {
+          "file": "apps/backend/src/email-integration/entities/provider-sync-data-export.response.ts",
+          "hash": "8911687169584669278"
+        },
+        {
+          "file": "apps/backend/src/email-integration/entities/provider-sync-incident-alert-check.response.ts",
+          "hash": "10137759106796874937"
+        },
+        {
+          "file": "apps/backend/src/email-integration/entities/provider-sync-incident-alert-config.response.ts",
+          "hash": "7393220151061179464"
+        },
+        {
+          "file": "apps/backend/src/email-integration/entities/provider-sync-incident-alert-delivery-data-export.response.ts",
+          "hash": "17766245268557848575"
+        },
+        {
+          "file": "apps/backend/src/email-integration/entities/provider-sync-incident-alert-delivery.response.entity.ts",
+          "hash": "16281526709103224075"
+        },
+        {
+          "file": "apps/backend/src/email-integration/entities/provider-sync-incident-alert-history-data-export.response.ts",
+          "hash": "14310912011229471276"
+        },
+        {
+          "file": "apps/backend/src/email-integration/entities/provider-sync-run-response.entity.ts",
+          "hash": "12113012588299231006"
+        },
+        {
+          "file": "apps/backend/src/email-integration/entities/provider-sync-stats-response.entity.ts",
+          "hash": "4116142923592043255"
+        },
+        {
+          "file": "apps/backend/src/email-integration/entities/provider.entity.ts",
+          "hash": "12680883048553835194"
+        },
+        {
+          "file": "apps/backend/src/email-integration/provider-oauth.controller.spec.ts",
+          "hash": "12467710489167218240"
+        },
+        {
+          "file": "apps/backend/src/email-integration/provider-oauth.controller.ts",
+          "hash": "9935939722252857821"
+        },
+        {
+          "file": "apps/backend/src/email-integration/provider-sync-incident.scheduler.spec.ts",
+          "hash": "13898031601748303158"
+        },
+        {
+          "file": "apps/backend/src/email-integration/provider-sync-incident.scheduler.ts",
+          "hash": "1469995619734768753"
+        },
+        {
+          "file": "apps/backend/src/email-integration/provider-sync-lease.service.spec.ts",
+          "hash": "4917625076660151600"
+        },
+        {
+          "file": "apps/backend/src/email-integration/provider-sync-lease.service.ts",
+          "hash": "10155524986517481685"
+        },
+        {
+          "file": "apps/backend/src/email/README.md",
+          "hash": "4824188709292721801"
+        },
+        {
+          "file": "apps/backend/src/email/dto/attachment.input.ts",
+          "hash": "117160076693743236"
+        },
+        {
+          "file": "apps/backend/src/email/dto/create-email.input.ts",
+          "hash": "16555205020149108580"
+        },
+        {
+          "file": "apps/backend/src/email/dto/email-filter.input.ts",
+          "hash": "15047697139667087489"
+        },
+        {
+          "file": "apps/backend/src/email/dto/email-template.input.ts",
+          "hash": "12159769213050349242"
+        },
+        {
+          "file": "apps/backend/src/email/dto/mark-email-read.input.ts",
+          "hash": "6399477296999441253"
+        },
+        {
+          "file": "apps/backend/src/email/dto/send-email.input.ts",
+          "hash": "15238442076715456401"
+        },
+        {
+          "file": "apps/backend/src/email/dto/send-real-email.response.ts",
+          "hash": "14631101994953726553"
+        },
+        {
+          "file": "apps/backend/src/email/dto/warmup.input.ts",
+          "hash": "3379384384827271471"
+        },
+        {
+          "file": "apps/backend/src/email/email-attachment.service.spec.ts",
+          "hash": "15632137648889583554"
+        },
+        {
+          "file": "apps/backend/src/email/email-filter.resolver.spec.ts",
+          "hash": "7281338833591397446"
+        },
+        {
+          "file": "apps/backend/src/email/email-filter.service.spec.ts",
+          "hash": "3605860449570372043"
+        },
+        {
+          "file": "apps/backend/src/email/email-scheduler.service.spec.ts",
+          "hash": "2275857727260985417"
+        },
+        {
+          "file": "apps/backend/src/email/email-template.service.spec.ts",
+          "hash": "13341107384988413597"
+        },
+        {
+          "file": "apps/backend/src/email/email-warmup.resolver.spec.ts",
+          "hash": "7671632019519641619"
+        },
+        {
+          "file": "apps/backend/src/email/email-warmup.service.spec.ts",
+          "hash": "6954142002441872306"
+        },
+        {
+          "file": "apps/backend/src/email/email.attachment.resolver.ts",
+          "hash": "3866061283413104939"
+        },
+        {
+          "file": "apps/backend/src/email/email.attachment.service.ts",
+          "hash": "7591503227323689191"
+        },
+        {
+          "file": "apps/backend/src/email/email.controller.ts",
+          "hash": "9506156928547050099"
+        },
+        {
+          "file": "apps/backend/src/email/email.email-filter.resolver.ts",
+          "hash": "16058565959320604041"
+        },
+        {
+          "file": "apps/backend/src/email/email.email-filter.service.ts",
+          "hash": "11142970546607714136"
+        },
+        {
+          "file": "apps/backend/src/email/email.email-scheduler.service.ts",
+          "hash": "5450484719160732997"
+        },
+        {
+          "file": "apps/backend/src/email/email.email-template.resolver.ts",
+          "hash": "15299280622986061737"
+        },
+        {
+          "file": "apps/backend/src/email/email.email-template.service.ts",
+          "hash": "3103692491763053130"
+        },
+        {
+          "file": "apps/backend/src/email/email.email-warmup.resolver.ts",
+          "hash": "10568952573403056468"
+        },
+        {
+          "file": "apps/backend/src/email/email.email-warmup.service.ts",
+          "hash": "1230558624006249965"
+        },
+        {
+          "file": "apps/backend/src/email/email.module.ts",
+          "hash": "16846181375443303967"
+        },
+        {
+          "file": "apps/backend/src/email/email.resolver.spec.ts",
+          "hash": "6266482779225081690"
+        },
+        {
+          "file": "apps/backend/src/email/email.resolver.ts",
+          "hash": "1253552525500936039"
+        },
+        {
+          "file": "apps/backend/src/email/email.service.spec.ts",
+          "hash": "3755151755589539807"
+        },
+        {
+          "file": "apps/backend/src/email/email.service.ts",
+          "hash": "8147546367631859951"
+        },
+        {
+          "file": "apps/backend/src/email/entities/attachment.entity.ts",
+          "hash": "3087261089570533597"
+        },
+        {
+          "file": "apps/backend/src/email/entities/email-filter.entity.ts",
+          "hash": "7031026969467941445"
+        },
+        {
+          "file": "apps/backend/src/email/entities/email-folder.entity.ts",
+          "hash": "15931507291240553391"
+        },
+        {
+          "file": "apps/backend/src/email/entities/email-label-assignment.entity.ts",
+          "hash": "15433881943696765842"
+        },
+        {
+          "file": "apps/backend/src/email/entities/email-label.entity.ts",
+          "hash": "10750524890727138394"
+        },
+        {
+          "file": "apps/backend/src/email/entities/email-warmup.entity.ts",
+          "hash": "11571268018082353508"
+        },
+        {
+          "file": "apps/backend/src/email/entities/email.entity.ts",
+          "hash": "10447099748617340468"
+        },
+        {
+          "file": "apps/backend/src/email/entities/warmup-activity.entity.ts",
+          "hash": "10343857942469231847"
+        },
+        {
+          "file": "apps/backend/src/email/mail.service.spec.ts",
+          "hash": "3150227977538282956"
+        },
+        {
+          "file": "apps/backend/src/email/mail.service.ts",
+          "hash": "6099000721445558237"
+        },
+        {
+          "file": "apps/backend/src/email/models/attachment.model.ts",
+          "hash": "11246420337240858687"
+        },
+        {
+          "file": "apps/backend/src/email/models/template.model.ts",
+          "hash": "15848887690299658356"
+        },
+        {
+          "file": "apps/backend/src/email/models/warmup.model.ts",
+          "hash": "7319361156705496454"
+        },
+        {
+          "file": "apps/backend/src/email/templates/reset-password.ejs",
+          "hash": "10196850740394234799"
+        },
+        {
+          "file": "apps/backend/src/email/templates/welcome.ejs",
+          "hash": "9569568225399641190"
+        },
+        {
+          "file": "apps/backend/src/feature/README.md",
+          "hash": "1305649781738671571"
+        },
+        {
+          "file": "apps/backend/src/feature/dto/create-feature.input.ts",
+          "hash": "12974275608470526859"
+        },
+        {
+          "file": "apps/backend/src/feature/dto/update-feature.input.ts",
+          "hash": "14057079233502748627"
+        },
+        {
+          "file": "apps/backend/src/feature/entities/feature.entity.ts",
+          "hash": "16231005239040430445"
+        },
+        {
+          "file": "apps/backend/src/feature/feature.module.ts",
+          "hash": "7947660435745438137"
+        },
+        {
+          "file": "apps/backend/src/feature/feature.resolver.spec.ts",
+          "hash": "4763755058816287345"
+        },
+        {
+          "file": "apps/backend/src/feature/feature.resolver.ts",
+          "hash": "10276437170838791122"
+        },
+        {
+          "file": "apps/backend/src/feature/feature.service.spec.ts",
+          "hash": "8301791761748306185"
+        },
+        {
+          "file": "apps/backend/src/feature/feature.service.ts",
+          "hash": "3918639987684144279"
+        },
+        {
+          "file": "apps/backend/src/gmail-sync/README.md",
+          "hash": "15637670512839502578"
+        },
+        {
+          "file": "apps/backend/src/gmail-sync/entities/inbox-message.entity.ts",
+          "hash": "8420093531597703522"
+        },
+        {
+          "file": "apps/backend/src/gmail-sync/gmail-sync-webhook.controller.spec.ts",
+          "hash": "367897508872001691"
+        },
+        {
+          "file": "apps/backend/src/gmail-sync/gmail-sync-webhook.controller.ts",
+          "hash": "16129239880581109205"
+        },
+        {
+          "file": "apps/backend/src/gmail-sync/gmail-sync.module.ts",
+          "hash": "9662808196895659642"
+        },
+        {
+          "file": "apps/backend/src/gmail-sync/gmail-sync.resolver.spec.ts",
+          "hash": "13950927633518578636"
+        },
+        {
+          "file": "apps/backend/src/gmail-sync/gmail-sync.resolver.ts",
+          "hash": "12594413474400811268"
+        },
+        {
+          "file": "apps/backend/src/gmail-sync/gmail-sync.scheduler.spec.ts",
+          "hash": "16886161967399308457"
+        },
+        {
+          "file": "apps/backend/src/gmail-sync/gmail-sync.scheduler.ts",
+          "hash": "18359727588208242069"
+        },
+        {
+          "file": "apps/backend/src/gmail-sync/gmail-sync.service.spec.ts",
+          "hash": "17787726609896667719"
+        },
+        {
+          "file": "apps/backend/src/gmail-sync/gmail-sync.service.ts",
+          "hash": "11247338233621853711"
+        },
+        {
+          "file": "apps/backend/src/inbox/README.md",
+          "hash": "13923161311693646160"
+        },
+        {
+          "file": "apps/backend/src/inbox/dto/set-active-inbox.input.ts",
+          "hash": "482752275681453830"
+        },
+        {
+          "file": "apps/backend/src/inbox/entities/inbox-source-health-stats.response.ts",
+          "hash": "9751425193422908957"
+        },
+        {
+          "file": "apps/backend/src/inbox/entities/inbox-sync-run-response.entity.ts",
+          "hash": "7513531697416635634"
+        },
+        {
+          "file": "apps/backend/src/inbox/entities/inbox.entity.ts",
+          "hash": "4508929692760371698"
+        },
+        {
+          "file": "apps/backend/src/inbox/inbox.module.ts",
+          "hash": "12267774838502990608"
+        },
+        {
+          "file": "apps/backend/src/inbox/inbox.resolver.spec.ts",
+          "hash": "6283908422416715105"
+        },
+        {
+          "file": "apps/backend/src/inbox/inbox.resolver.ts",
+          "hash": "3322969789698603468"
+        },
+        {
+          "file": "apps/backend/src/inbox/inbox.service.spec.ts",
+          "hash": "15521347864443281663"
+        },
+        {
+          "file": "apps/backend/src/inbox/inbox.service.ts",
+          "hash": "14504559120244698960"
+        },
+        {
+          "file": "apps/backend/src/mailbox/README.md",
+          "hash": "7911057821393858813"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-inbound-data-export.response.ts",
+          "hash": "12744788024648662327"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-inbound-event-observability.response.ts",
+          "hash": "18264258659214654305"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-inbound-retention-purge.response.ts",
+          "hash": "796865831183979504"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-inbound-sla-alert-check.response.ts",
+          "hash": "7059884974708860333"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-inbound-webhook.input.ts",
+          "hash": "425489052644907244"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-provisioning-health.response.ts",
+          "hash": "14972380769747581705"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-sync-data-export.response.ts",
+          "hash": "7053891066064903847"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-sync-incident-alert-check.response.ts",
+          "hash": "7645197142237743670"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-sync-incident-alert-config.response.ts",
+          "hash": "2790619271572033107"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-sync-incident-alert-delivery-data-export.response.ts",
+          "hash": "3268656372432241493"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-sync-incident-alert-delivery.response.ts",
+          "hash": "8332547306229909779"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-sync-incident-alert-history-data-export.response.ts",
+          "hash": "7367953746885801505"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-sync-incident-alert.response.ts",
+          "hash": "17072582488102410053"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-sync-incident-data-export.response.ts",
+          "hash": "4044632377152546913"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-sync-incident.response.ts",
+          "hash": "10262231370535661063"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-sync-observability.response.ts",
+          "hash": "11675796075432701172"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-sync-run-retention-purge.response.ts",
+          "hash": "163706582191151085"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-sync-run.response.ts",
+          "hash": "9372811672261258442"
+        },
+        {
+          "file": "apps/backend/src/mailbox/dto/mailbox-sync-state.response.ts",
+          "hash": "1051837222261013795"
+        },
+        {
+          "file": "apps/backend/src/mailbox/entities/mailbox-inbound-event.entity.ts",
+          "hash": "9954449615980478662"
+        },
+        {
+          "file": "apps/backend/src/mailbox/entities/mailbox-sync-run.entity.ts",
+          "hash": "8453680104229730641"
+        },
+        {
+          "file": "apps/backend/src/mailbox/entities/mailbox.entity.ts",
+          "hash": "8969400269325826034"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mail-server.module.ts",
+          "hash": "2912403941523030168"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mail-server.service.spec.ts",
+          "hash": "15014523132929080386"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mail-server.service.ts",
+          "hash": "15210691344355786066"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-inbound-retention.scheduler.spec.ts",
+          "hash": "12744213226017720437"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-inbound-retention.scheduler.ts",
+          "hash": "15077138906373077375"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-inbound-sla.scheduler.spec.ts",
+          "hash": "10970704741749935091"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-inbound-sla.scheduler.ts",
+          "hash": "9757662050707850396"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-inbound.controller.spec.ts",
+          "hash": "4860006220409367733"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-inbound.controller.ts",
+          "hash": "7683775862402737725"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-inbound.service.spec.ts",
+          "hash": "9410271252990831210"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-inbound.service.ts",
+          "hash": "10800136759882284857"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-sync-incident.scheduler.spec.ts",
+          "hash": "13323499862713430153"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-sync-incident.scheduler.ts",
+          "hash": "12533268901547940007"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-sync-run-retention.scheduler.spec.ts",
+          "hash": "1470269636767992018"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-sync-run-retention.scheduler.ts",
+          "hash": "13572232595914317923"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-sync.scheduler.spec.ts",
+          "hash": "13011599011020189388"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-sync.scheduler.ts",
+          "hash": "9646977854756942444"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-sync.service.spec.ts",
+          "hash": "3145872265431892592"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox-sync.service.ts",
+          "hash": "10109057604330340897"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox.module.ts",
+          "hash": "1781214401496115548"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox.resolver.spec.ts",
+          "hash": "18398428852744639383"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox.resolver.ts",
+          "hash": "4565728656999600611"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox.service.spec.ts",
+          "hash": "2551871829343827141"
+        },
+        {
+          "file": "apps/backend/src/mailbox/mailbox.service.ts",
+          "hash": "833486900328299723"
+        },
+        {
+          "file": "apps/backend/src/main.ts",
+          "hash": "4104796025777141554"
+        },
+        {
+          "file": "apps/backend/src/notification/README.md",
+          "hash": "14586013510882470004"
+        },
+        {
+          "file": "apps/backend/src/notification/dto/mailbox-inbound-sla-incident-alert-config.response.ts",
+          "hash": "5817623716593544095"
+        },
+        {
+          "file": "apps/backend/src/notification/dto/mailbox-inbound-sla-incident-alert.response.ts",
+          "hash": "7399571677013737302"
+        },
+        {
+          "file": "apps/backend/src/notification/dto/mailbox-inbound-sla-incident-data-export.response.ts",
+          "hash": "3096319206828688478"
+        },
+        {
+          "file": "apps/backend/src/notification/dto/mailbox-inbound-sla-incident-stats.response.ts",
+          "hash": "17397324375475550008"
+        },
+        {
+          "file": "apps/backend/src/notification/dto/notification-data-export.response.ts",
+          "hash": "2963303017737755059"
+        },
+        {
+          "file": "apps/backend/src/notification/dto/notification-retention-purge.response.ts",
+          "hash": "2425485829280901686"
+        },
+        {
+          "file": "apps/backend/src/notification/dto/register-notification-push-subscription.input.ts",
+          "hash": "15315872780521572760"
+        },
+        {
+          "file": "apps/backend/src/notification/dto/update-notification-preferences.input.ts",
+          "hash": "8947159009614144488"
+        },
+        {
+          "file": "apps/backend/src/notification/entities/notification-push-subscription.entity.ts",
+          "hash": "18272543103137942544"
+        },
+        {
+          "file": "apps/backend/src/notification/entities/user-notification-preference.entity.ts",
+          "hash": "16015726418452462751"
+        },
+        {
+          "file": "apps/backend/src/notification/entities/user-notification.entity.ts",
+          "hash": "15472489524762308006"
+        },
+        {
+          "file": "apps/backend/src/notification/notification-digest.scheduler.spec.ts",
+          "hash": "7715667106646820239"
+        },
+        {
+          "file": "apps/backend/src/notification/notification-digest.scheduler.ts",
+          "hash": "17503092124515629652"
+        },
+        {
+          "file": "apps/backend/src/notification/notification-event-bus.service.spec.ts",
+          "hash": "16769193949169846983"
+        },
+        {
+          "file": "apps/backend/src/notification/notification-event-bus.service.ts",
+          "hash": "10689911938622826748"
+        },
+        {
+          "file": "apps/backend/src/notification/notification-push.service.spec.ts",
+          "hash": "4428697120088941011"
+        },
+        {
+          "file": "apps/backend/src/notification/notification-push.service.ts",
+          "hash": "13516742959871872717"
+        },
+        {
+          "file": "apps/backend/src/notification/notification-retention.scheduler.spec.ts",
+          "hash": "11287100320095431813"
+        },
+        {
+          "file": "apps/backend/src/notification/notification-retention.scheduler.ts",
+          "hash": "2403223699933677774"
+        },
+        {
+          "file": "apps/backend/src/notification/notification-stream.controller.spec.ts",
+          "hash": "6586867282763118212"
+        },
+        {
+          "file": "apps/backend/src/notification/notification-stream.controller.ts",
+          "hash": "14663319871492972568"
+        },
+        {
+          "file": "apps/backend/src/notification/notification-webhook.service.spec.ts",
+          "hash": "11680629626068162860"
+        },
+        {
+          "file": "apps/backend/src/notification/notification-webhook.service.ts",
+          "hash": "18260938799688911126"
+        },
+        {
+          "file": "apps/backend/src/notification/notification.module.ts",
+          "hash": "2830485822062098335"
+        },
+        {
+          "file": "apps/backend/src/notification/notification.resolver.spec.ts",
+          "hash": "6659875629289323965"
+        },
+        {
+          "file": "apps/backend/src/notification/notification.resolver.ts",
+          "hash": "16265820045323550958"
+        },
+        {
+          "file": "apps/backend/src/notification/notification.service.spec.ts",
+          "hash": "16051405412014304051"
+        },
+        {
+          "file": "apps/backend/src/notification/notification.service.ts",
+          "hash": "9799682549971135834"
+        },
+        {
+          "file": "apps/backend/src/organization/README.md",
+          "hash": "6017431569660473161"
+        },
+        {
+          "file": "apps/backend/src/organization/dto/create-label.input.ts",
+          "hash": "13954044947034739033"
+        },
+        {
+          "file": "apps/backend/src/organization/label.entity.ts",
+          "hash": "10909304861350624379"
+        },
+        {
+          "file": "apps/backend/src/organization/label.module.ts",
+          "hash": "5664108598025892120"
+        },
+        {
+          "file": "apps/backend/src/organization/label.resolver.ts",
+          "hash": "12416490794909060588"
+        },
+        {
+          "file": "apps/backend/src/organization/label.service.spec.ts",
+          "hash": "8983247742992699253"
+        },
+        {
+          "file": "apps/backend/src/organization/label.service.ts",
+          "hash": "2278858019392385418"
+        },
+        {
+          "file": "apps/backend/src/outlook-sync/README.md",
+          "hash": "5002631582380885807"
+        },
+        {
+          "file": "apps/backend/src/outlook-sync/outlook-sync-webhook.controller.spec.ts",
+          "hash": "5152454909740962633"
+        },
+        {
+          "file": "apps/backend/src/outlook-sync/outlook-sync-webhook.controller.ts",
+          "hash": "5512643090867083050"
+        },
+        {
+          "file": "apps/backend/src/outlook-sync/outlook-sync.module.ts",
+          "hash": "13245798743954255713"
+        },
+        {
+          "file": "apps/backend/src/outlook-sync/outlook-sync.scheduler.spec.ts",
+          "hash": "13575556981831047133"
+        },
+        {
+          "file": "apps/backend/src/outlook-sync/outlook-sync.scheduler.ts",
+          "hash": "5368142824591228146"
+        },
+        {
+          "file": "apps/backend/src/outlook-sync/outlook-sync.service.spec.ts",
+          "hash": "2174510034775282607"
+        },
+        {
+          "file": "apps/backend/src/outlook-sync/outlook-sync.service.ts",
+          "hash": "12948171436187454992"
+        },
+        {
+          "file": "apps/backend/src/phone/README.md",
+          "hash": "5084763742449128880"
+        },
+        {
+          "file": "apps/backend/src/phone/entities/phone-verification.entity.ts",
+          "hash": "13988533656113294879"
+        },
+        {
+          "file": "apps/backend/src/phone/entities/signup-verification.entity.ts",
+          "hash": "17638816454889019006"
+        },
+        {
+          "file": "apps/backend/src/phone/phone.module.ts",
+          "hash": "7868426723515358584"
+        },
+        {
+          "file": "apps/backend/src/phone/phone.resolver.spec.ts",
+          "hash": "13045864104328471576"
+        },
+        {
+          "file": "apps/backend/src/phone/phone.resolver.ts",
+          "hash": "11256569047052903568"
+        },
+        {
+          "file": "apps/backend/src/phone/phone.service.spec.ts",
+          "hash": "1605828145729577501"
+        },
+        {
+          "file": "apps/backend/src/phone/phone.service.ts",
+          "hash": "11721781399875485963"
+        },
+        {
+          "file": "apps/backend/src/question/README.md",
+          "hash": "10809088631755687771"
+        },
+        {
+          "file": "apps/backend/src/question/question.module.ts",
+          "hash": "15054082500672242509"
+        },
+        {
+          "file": "apps/backend/src/question/question.resolver.ts",
+          "hash": "9637654968674098887"
+        },
+        {
+          "file": "apps/backend/src/scheduled-email/README.md",
+          "hash": "17957465970430571346"
+        },
+        {
+          "file": "apps/backend/src/scheduled-email/dto/create-scheduled-email.input.ts",
+          "hash": "5364940628776675538"
+        },
+        {
+          "file": "apps/backend/src/scheduled-email/scheduled-email.entity.ts",
+          "hash": "9724170133801722130"
+        },
+        {
+          "file": "apps/backend/src/scheduled-email/scheduled-email.module.ts",
+          "hash": "5595053415563221893"
+        },
+        {
+          "file": "apps/backend/src/scheduled-email/scheduled-email.resolver.ts",
+          "hash": "14936440316320303043"
+        },
+        {
+          "file": "apps/backend/src/scheduled-email/scheduled-email.service.spec.ts",
+          "hash": "14226262331741529929"
+        },
+        {
+          "file": "apps/backend/src/scheduled-email/scheduled-email.service.ts",
+          "hash": "9852417905540748026"
+        },
+        {
+          "file": "apps/backend/src/schema.gql",
+          "hash": "1356127983897973256"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/README.md",
+          "hash": "18276342284984962169"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/dto/smart-reply.input.ts",
+          "hash": "10751663508196532235"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/dto/update-smart-reply-settings.input.ts",
+          "hash": "2328598748375280794"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/entities/smart-reply-data-export.response.ts",
+          "hash": "13694917059504289471"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/entities/smart-reply-history-purge.response.ts",
+          "hash": "2992139165362926863"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/entities/smart-reply-history.entity.ts",
+          "hash": "3525365886928844993"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/entities/smart-reply-provider-health-item.response.ts",
+          "hash": "2570903300885129548"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/entities/smart-reply-provider-health.response.ts",
+          "hash": "4029600555523589876"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/entities/smart-reply-settings.entity.ts",
+          "hash": "14669672079697747243"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply-anthropic.adapter.spec.ts",
+          "hash": "9405444702704879685"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply-anthropic.adapter.ts",
+          "hash": "17113686394874456897"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply-azure-openai.adapter.spec.ts",
+          "hash": "1074336589937414056"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply-azure-openai.adapter.ts",
+          "hash": "7375864415905231065"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply-external-model.adapter.spec.ts",
+          "hash": "5250997260174185778"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply-external-model.adapter.ts",
+          "hash": "10196816260560558180"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply-model.provider.spec.ts",
+          "hash": "3509672210534067407"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply-model.provider.ts",
+          "hash": "6243794083717878707"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply-openai.adapter.spec.ts",
+          "hash": "16271617347885239663"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply-openai.adapter.ts",
+          "hash": "12882599317622724990"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply-provider.interface.ts",
+          "hash": "15422767322426466161"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply-provider.router.spec.ts",
+          "hash": "18347362638285383160"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply-provider.router.ts",
+          "hash": "15416997311333337080"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply-retention.scheduler.spec.ts",
+          "hash": "1672250345688057577"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply-retention.scheduler.ts",
+          "hash": "16076627871681368600"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply.module.ts",
+          "hash": "7967469027213283081"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply.resolver.spec.ts",
+          "hash": "17774788202798868843"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply.resolver.ts",
+          "hash": "14832648328022552101"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply.service.spec.ts",
+          "hash": "2609146511645564796"
+        },
+        {
+          "file": "apps/backend/src/smart-replies/smart-reply.service.ts",
+          "hash": "4763316394157231701"
+        },
+        {
+          "file": "apps/backend/src/template/README.md",
+          "hash": "9184574925350026310"
+        },
+        {
+          "file": "apps/backend/src/template/dto/create-template.input.ts",
+          "hash": "14134001584301678995"
+        },
+        {
+          "file": "apps/backend/src/template/dto/template-data-export.response.ts",
+          "hash": "15678925554569152215"
+        },
+        {
+          "file": "apps/backend/src/template/dto/update-template.input.ts",
+          "hash": "3853718464298210177"
+        },
+        {
+          "file": "apps/backend/src/template/entities/template.entity.ts",
+          "hash": "12834220011138135136"
+        },
+        {
+          "file": "apps/backend/src/template/template.module.ts",
+          "hash": "5190914869105125145"
+        },
+        {
+          "file": "apps/backend/src/template/template.resolver.spec.ts",
+          "hash": "9993411903117954876"
+        },
+        {
+          "file": "apps/backend/src/template/template.resolver.ts",
+          "hash": "16912612512608398929"
+        },
+        {
+          "file": "apps/backend/src/template/template.service.spec.ts",
+          "hash": "2173150287742487490"
+        },
+        {
+          "file": "apps/backend/src/template/template.service.ts",
+          "hash": "16326782337043881809"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/README.md",
+          "hash": "13041896989984056837"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/dto/email-filter.input.ts",
+          "hash": "14721985472747190880"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/dto/email-sort.input.ts",
+          "hash": "12641511324838352411"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/dto/email-update.input.ts",
+          "hash": "3210412722865965031"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/entities/email-attachment.entity.ts",
+          "hash": "17275778246091120164"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/entities/email-folder.entity.ts",
+          "hash": "13067743131906607004"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/entities/email-label.entity.ts",
+          "hash": "18037661907060256221"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/entities/email-message.entity.ts",
+          "hash": "13594597329524284960"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/entities/email-participant.entity.ts",
+          "hash": "6128155994335414506"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/entities/email-thread.entity.ts",
+          "hash": "13263599474552270585"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/unified-inbox.module.ts",
+          "hash": "856437765627818572"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/unified-inbox.resolver.ts",
+          "hash": "3833708593762022112"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/unified-inbox.service.spec.ts",
+          "hash": "4579617366516418126"
+        },
+        {
+          "file": "apps/backend/src/unified-inbox/unified-inbox.service.ts",
+          "hash": "10913132522272729006"
+        },
+        {
+          "file": "apps/backend/src/user/README.md",
+          "hash": "3740795234972957871"
+        },
+        {
+          "file": "apps/backend/src/user/dto/account-data-export.response.ts",
+          "hash": "11596219597533083644"
+        },
+        {
+          "file": "apps/backend/src/user/dto/create-user.input.ts",
+          "hash": "1928299834184716969"
+        },
+        {
+          "file": "apps/backend/src/user/dto/update-user.input.ts",
+          "hash": "1364893753847043397"
+        },
+        {
+          "file": "apps/backend/src/user/entities/user.entity.ts",
+          "hash": "7780313792588630868"
+        },
+        {
+          "file": "apps/backend/src/user/user.module.ts",
+          "hash": "15657177145076655683"
+        },
+        {
+          "file": "apps/backend/src/user/user.resolver.spec.ts",
+          "hash": "18211664080751027189"
+        },
+        {
+          "file": "apps/backend/src/user/user.resolver.ts",
+          "hash": "10092363768595182644"
+        },
+        {
+          "file": "apps/backend/src/user/user.service.spec.ts",
+          "hash": "6262852667121621601"
+        },
+        {
+          "file": "apps/backend/src/user/user.service.ts",
+          "hash": "3323849722398803464"
+        },
+        {
+          "file": "apps/backend/src/workspace/README.md",
+          "hash": "9939527856009608679"
+        },
+        {
+          "file": "apps/backend/src/workspace/entities/workspace-member.entity.ts",
+          "hash": "5801070238223741417"
+        },
+        {
+          "file": "apps/backend/src/workspace/entities/workspace.entity.ts",
+          "hash": "15811972480663655045"
+        },
+        {
+          "file": "apps/backend/src/workspace/workspace-data-export.response.ts",
+          "hash": "2911688407800000207"
+        },
+        {
+          "file": "apps/backend/src/workspace/workspace.module.ts",
+          "hash": "7025909055593855549"
+        },
+        {
+          "file": "apps/backend/src/workspace/workspace.resolver.spec.ts",
+          "hash": "12871775432444824306"
+        },
+        {
+          "file": "apps/backend/src/workspace/workspace.resolver.ts",
+          "hash": "13604895118390618342"
+        },
+        {
+          "file": "apps/backend/src/workspace/workspace.service.spec.ts",
+          "hash": "8367576613433846739"
+        },
+        {
+          "file": "apps/backend/src/workspace/workspace.service.ts",
+          "hash": "16220942688147688833"
+        },
+        {
+          "file": "apps/backend/test/app.e2e-spec.ts",
+          "hash": "7164584812487523395"
+        },
+        {
+          "file": "apps/backend/test/jest-e2e.json",
+          "hash": "7570273541430074424"
+        },
+        {
+          "file": "apps/backend/tsconfig.build.json",
+          "hash": "15143902507302368749"
+        },
+        {
+          "file": "apps/backend/tsconfig.json",
+          "hash": "7585820297323587102"
+        }
+      ],
+      "ai-agent-platform": [
+        {
+          "file": "services/ai-agent-platform/.env.example",
+          "hash": "7447067134109640040"
+        },
+        {
+          "file": "services/ai-agent-platform/Dockerfile",
+          "hash": "4744165984391320807"
+        },
+        {
+          "file": "services/ai-agent-platform/README.md",
+          "hash": "10128197624250218965"
+        },
+        {
+          "file": "services/ai-agent-platform/app/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/config/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/config/settings.py",
+          "hash": "16965658790125935132"
+        },
+        {
+          "file": "services/ai-agent-platform/app/contracts/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/contracts/agent_request.py",
+          "hash": "1633726446415697148"
+        },
+        {
+          "file": "services/ai-agent-platform/app/contracts/agent_response.py",
+          "hash": "8473027293366785451"
+        },
+        {
+          "file": "services/ai-agent-platform/app/core/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/core/agent_runtime.py",
+          "hash": "10455955965154668522"
+        },
+        {
+          "file": "services/ai-agent-platform/app/core/model_provider.py",
+          "hash": "1065523816238524726"
+        },
+        {
+          "file": "services/ai-agent-platform/app/core/skill_registry.py",
+          "hash": "12053793563459194438"
+        },
+        {
+          "file": "services/ai-agent-platform/app/main.py",
+          "hash": "5674836410680371335"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/auth/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/auth/graph.py",
+          "hash": "18283513302749864326"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/auth/skill.py",
+          "hash": "4795102568190187139"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/inbox/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/inbox/graph.py",
+          "hash": "3508694366967034288"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/inbox/skill.py",
+          "hash": "2252820003500519913"
+        },
+        {
+          "file": "services/ai-agent-platform/project.json",
+          "hash": "15669558836693823714"
+        },
+        {
+          "file": "services/ai-agent-platform/requirements.txt",
+          "hash": "783577698660356643"
+        },
+        {
+          "file": "services/ai-agent-platform/tests/test_auth_skill.py",
+          "hash": "8757166846447568909"
+        },
+        {
+          "file": "services/ai-agent-platform/tests/test_health.py",
+          "hash": "13787233434629829397"
+        },
+        {
+          "file": "services/ai-agent-platform/tests/test_inbox_skill.py",
+          "hash": "533447471051359548"
+        }
+      ],
       "frontend": [
         {
           "file": "apps/frontend/.cursor/rules/general.mdc",
@@ -27,16 +2281,16 @@
           "hash": "15602287679623673637"
         },
         {
+          "file": "apps/frontend/Dockerfile",
+          "hash": "17487155658490850623"
+        },
+        {
           "file": "apps/frontend/FrontEnd_Guidelines.md",
           "hash": "7391753807777320460"
         },
         {
           "file": "apps/frontend/README.md",
           "hash": "6712028306680399075"
-        },
-        {
-          "file": "apps/frontend/_middleware.ts",
-          "hash": "15176197805487639368"
         },
         {
           "file": "apps/frontend/app/(auth)/forgot-password/page.tsx",
@@ -56,7 +2310,7 @@
         },
         {
           "file": "apps/frontend/app/(dashboard)/README.md",
-          "hash": "13736866561122671893"
+          "hash": "18085960094384084657"
         },
         {
           "file": "apps/frontend/app/(dashboard)/archive/page.tsx",
@@ -67,12 +2321,16 @@
           "hash": "18140904540264723078"
         },
         {
+          "file": "apps/frontend/app/(dashboard)/dashboard/page.tsx",
+          "hash": "13875245806221453503"
+        },
+        {
           "file": "apps/frontend/app/(dashboard)/design-system/page.tsx",
           "hash": "4366889375809523816"
         },
         {
           "file": "apps/frontend/app/(dashboard)/email-providers/page.tsx",
-          "hash": "6403214702438163191"
+          "hash": "11441408481740742297"
         },
         {
           "file": "apps/frontend/app/(dashboard)/filters/page.tsx",
@@ -91,16 +2349,24 @@
           "hash": "10151201963711483794"
         },
         {
-          "file": "apps/frontend/app/(dashboard)/page.tsx",
-          "hash": "15001848070729193526"
-        },
-        {
           "file": "apps/frontend/app/(dashboard)/sent/page.tsx",
           "hash": "4728114083031214238"
         },
         {
+          "file": "apps/frontend/app/(dashboard)/settings/billing/page.tsx",
+          "hash": "8511720067765297503"
+        },
+        {
+          "file": "apps/frontend/app/(dashboard)/settings/notifications/page.tsx",
+          "hash": "1811060074495995619"
+        },
+        {
           "file": "apps/frontend/app/(dashboard)/settings/smart-replies/page.tsx",
           "hash": "2964857979469244573"
+        },
+        {
+          "file": "apps/frontend/app/(dashboard)/settings/workspaces/page.tsx",
+          "hash": "3587456846549565311"
         },
         {
           "file": "apps/frontend/app/(dashboard)/trash/page.tsx",
@@ -148,15 +2414,15 @@
         },
         {
           "file": "apps/frontend/app/globals.css",
-          "hash": "1209445985055221416"
+          "hash": "2445637043375998714"
         },
         {
           "file": "apps/frontend/app/layout.tsx",
-          "hash": "8645833405669327274"
+          "hash": "1140715348792066231"
         },
         {
           "file": "apps/frontend/app/page.tsx",
-          "hash": "6086670073678728961"
+          "hash": "5907072722540037175"
         },
         {
           "file": "apps/frontend/components.json",
@@ -176,7 +2442,7 @@
         },
         {
           "file": "apps/frontend/components/auth/AuthLayout.tsx",
-          "hash": "6312210346105680694"
+          "hash": "9840913986010851052"
         },
         {
           "file": "apps/frontend/components/auth/ForgotPasswordForm.tsx",
@@ -188,7 +2454,7 @@
         },
         {
           "file": "apps/frontend/components/auth/LoginForm.tsx",
-          "hash": "8354274275791828266"
+          "hash": "2839128986768495142"
         },
         {
           "file": "apps/frontend/components/auth/RegisterForm.tsx",
@@ -256,11 +2522,11 @@
         },
         {
           "file": "apps/frontend/components/layout/DashboardPageShell.tsx",
-          "hash": "1016808197188273252"
+          "hash": "3952449230775007046"
         },
         {
           "file": "apps/frontend/components/layout/Header.tsx",
-          "hash": "8126811571287155435"
+          "hash": "9701692787690186410"
         },
         {
           "file": "apps/frontend/components/layout/InboxSwitcherModal.tsx",
@@ -272,15 +2538,15 @@
         },
         {
           "file": "apps/frontend/components/layout/README.md",
-          "hash": "7409459278791991613"
+          "hash": "15711608409156708635"
         },
         {
           "file": "apps/frontend/components/layout/Sidebar.tsx",
-          "hash": "11196190949335397814"
+          "hash": "3984550333203480841"
         },
         {
           "file": "apps/frontend/components/layout/dashboard-nav.config.ts",
-          "hash": "1269666974937218212"
+          "hash": "11655742880681145867"
         },
         {
           "file": "apps/frontend/components/premium/Showcase.tsx",
@@ -288,11 +2554,15 @@
         },
         {
           "file": "apps/frontend/components/providers/ProviderManagement.tsx",
-          "hash": "2017169880188390633"
+          "hash": "14124703883261817864"
         },
         {
           "file": "apps/frontend/components/providers/ProviderWizard.tsx",
-          "hash": "9992253735307920498"
+          "hash": "7555627267328105422"
+        },
+        {
+          "file": "apps/frontend/components/providers/README.md",
+          "hash": "18020434690886732797"
         },
         {
           "file": "apps/frontend/components/ui/README.md",
@@ -471,6 +2741,10 @@
           "hash": "12516901294165951375"
         },
         {
+          "file": "apps/frontend/lib/apollo/queries/billing.ts",
+          "hash": "7822603044313667060"
+        },
+        {
           "file": "apps/frontend/lib/apollo/queries/contacts.ts",
           "hash": "8422111852102389053"
         },
@@ -491,8 +2765,16 @@
           "hash": "12260892576511671057"
         },
         {
+          "file": "apps/frontend/lib/apollo/queries/mailbox-observability.ts",
+          "hash": "6108526300022884149"
+        },
+        {
+          "file": "apps/frontend/lib/apollo/queries/notifications.ts",
+          "hash": "17164841289863130559"
+        },
+        {
           "file": "apps/frontend/lib/apollo/queries/providers.ts",
-          "hash": "6966920713089870236"
+          "hash": "8999238534884988739"
         },
         {
           "file": "apps/frontend/lib/apollo/queries/smart-replies.ts",
@@ -505,6 +2787,10 @@
         {
           "file": "apps/frontend/lib/apollo/queries/warmup.ts",
           "hash": "6140093394560965012"
+        },
+        {
+          "file": "apps/frontend/lib/apollo/queries/workspaces.ts",
+          "hash": "12593782310585614455"
         },
         {
           "file": "apps/frontend/lib/auth/README.md",
@@ -532,7 +2818,7 @@
         },
         {
           "file": "apps/frontend/lib/providers/provider-utils.ts",
-          "hash": "9781509256958632132"
+          "hash": "6481679496509521840"
         },
         {
           "file": "apps/frontend/lib/utils.ts",
@@ -552,7 +2838,7 @@
         },
         {
           "file": "apps/frontend/middleware.ts",
-          "hash": "17641166878430859845"
+          "hash": "13436222893504207280"
         },
         {
           "file": "apps/frontend/modules/auth/graphql.ts",
@@ -696,1030 +2982,192 @@
           "file": "apps/frontend/tsconfig.json",
           "hash": "16505881292448434709"
         }
-      ],
-      "ai-agent-platform": [
-        {
-          "file": "services/ai-agent-platform/.env.example",
-          "hash": "7447067134109640040"
-        },
-        {
-          "file": "services/ai-agent-platform/README.md",
-          "hash": "10128197624250218965"
-        },
-        {
-          "file": "services/ai-agent-platform/app/__init__.py",
-          "hash": "3244421341483603138"
-        },
-        {
-          "file": "services/ai-agent-platform/app/config/__init__.py",
-          "hash": "3244421341483603138"
-        },
-        {
-          "file": "services/ai-agent-platform/app/config/settings.py",
-          "hash": "16965658790125935132"
-        },
-        {
-          "file": "services/ai-agent-platform/app/contracts/__init__.py",
-          "hash": "3244421341483603138"
-        },
-        {
-          "file": "services/ai-agent-platform/app/contracts/agent_request.py",
-          "hash": "1633726446415697148"
-        },
-        {
-          "file": "services/ai-agent-platform/app/contracts/agent_response.py",
-          "hash": "8473027293366785451"
-        },
-        {
-          "file": "services/ai-agent-platform/app/core/__init__.py",
-          "hash": "3244421341483603138"
-        },
-        {
-          "file": "services/ai-agent-platform/app/core/agent_runtime.py",
-          "hash": "10455955965154668522"
-        },
-        {
-          "file": "services/ai-agent-platform/app/core/model_provider.py",
-          "hash": "1065523816238524726"
-        },
-        {
-          "file": "services/ai-agent-platform/app/core/skill_registry.py",
-          "hash": "12053793563459194438"
-        },
-        {
-          "file": "services/ai-agent-platform/app/main.py",
-          "hash": "5674836410680371335"
-        },
-        {
-          "file": "services/ai-agent-platform/app/skills/__init__.py",
-          "hash": "3244421341483603138"
-        },
-        {
-          "file": "services/ai-agent-platform/app/skills/auth/__init__.py",
-          "hash": "3244421341483603138"
-        },
-        {
-          "file": "services/ai-agent-platform/app/skills/auth/graph.py",
-          "hash": "18283513302749864326"
-        },
-        {
-          "file": "services/ai-agent-platform/app/skills/auth/skill.py",
-          "hash": "4795102568190187139"
-        },
-        {
-          "file": "services/ai-agent-platform/app/skills/inbox/__init__.py",
-          "hash": "3244421341483603138"
-        },
-        {
-          "file": "services/ai-agent-platform/app/skills/inbox/graph.py",
-          "hash": "3508694366967034288"
-        },
-        {
-          "file": "services/ai-agent-platform/app/skills/inbox/skill.py",
-          "hash": "2252820003500519913"
-        },
-        {
-          "file": "services/ai-agent-platform/project.json",
-          "hash": "15669558836693823714"
-        },
-        {
-          "file": "services/ai-agent-platform/requirements.txt",
-          "hash": "783577698660356643"
-        },
-        {
-          "file": "services/ai-agent-platform/tests/test_auth_skill.py",
-          "hash": "8757166846447568909"
-        },
-        {
-          "file": "services/ai-agent-platform/tests/test_health.py",
-          "hash": "13787233434629829397"
-        },
-        {
-          "file": "services/ai-agent-platform/tests/test_inbox_skill.py",
-          "hash": "533447471051359548"
-        }
-      ],
-      "backend": [
-        {
-          "file": "apps/backend/.gitignore",
-          "hash": "12634402967133909834"
-        },
-        {
-          "file": "apps/backend/.prettierrc",
-          "hash": "4808572120966128913"
-        },
-        {
-          "file": "apps/backend/ENTITY_RELATIONSHIPS.md",
-          "hash": "7670921924999142191"
-        },
-        {
-          "file": "apps/backend/MIGRATION_COMPLETE.md",
-          "hash": "14459733551012744903"
-        },
-        {
-          "file": "apps/backend/MIGRATION_STATUS.md",
-          "hash": "10450015395765289740"
-        },
-        {
-          "file": "apps/backend/README.md",
-          "hash": "6244981353467699242"
-        },
-        {
-          "file": "apps/backend/TYPEORM_MIGRATION.md",
-          "hash": "10608689190374413648"
-        },
-        {
-          "file": "apps/backend/env.example",
-          "hash": "11276426598079698150"
-        },
-        {
-          "file": "apps/backend/eslint.config.mjs",
-          "hash": "13183347058815926503"
-        },
-        {
-          "file": "apps/backend/nest-cli.json",
-          "hash": "789240945379598733"
-        },
-        {
-          "file": "apps/backend/package.json",
-          "hash": "3097445187274053353",
-          "deps": [
-            "npm:@eslint/eslintrc",
-            "npm:@eslint/js",
-            "npm:@nestjs/cli",
-            "npm:@nestjs/schematics",
-            "npm:@nestjs/testing",
-            "npm:@swc/cli",
-            "npm:@swc/core",
-            "npm:@types/express",
-            "npm:@types/jest",
-            "npm:@types/node",
-            "npm:@types/supertest",
-            "npm:eslint",
-            "npm:eslint-config-prettier",
-            "npm:eslint-plugin-prettier",
-            "npm:globals",
-            "npm:jest",
-            "npm:prettier",
-            "npm:source-map-support",
-            "npm:supertest",
-            "npm:ts-jest",
-            "npm:ts-loader",
-            "npm:ts-node",
-            "npm:tsconfig-paths",
-            "npm:typescript",
-            "npm:typescript-eslint",
-            "npm:@as-integrations/express5@1.1.2",
-            "npm:@google-cloud/storage",
-            "npm:@nestjs-modules/mailer",
-            "npm:@nestjs/apollo",
-            "npm:@nestjs/bull",
-            "npm:@nestjs/common",
-            "npm:@nestjs/config",
-            "npm:@nestjs/core",
-            "npm:@nestjs/graphql",
-            "npm:@nestjs/jwt",
-            "npm:@nestjs/platform-express",
-            "npm:@nestjs/schedule",
-            "npm:@nestjs/typeorm@11.0.0",
-            "npm:@types/bull",
-            "npm:@types/nodemailer",
-            "npm:axios",
-            "npm:bcryptjs",
-            "npm:bull",
-            "npm:class-transformer",
-            "npm:class-validator",
-            "npm:date-fns",
-            "npm:ejs",
-            "npm:google-auth-library",
-            "npm:graphql",
-            "npm:node-cache",
-            "npm:nodemailer",
-            "npm:pg",
-            "npm:redis",
-            "npm:reflect-metadata",
-            "npm:rxjs",
-            "npm:typeorm@0.3.28"
-          ]
-        },
-        {
-          "file": "apps/backend/project.json",
-          "hash": "17143865047552130136"
-        },
-        {
-          "file": "apps/backend/project_overview.md",
-          "hash": "9049781676251545338"
-        },
-        {
-          "file": "apps/backend/src/ai-agent-gateway/README.md",
-          "hash": "11551363046898443343"
-        },
-        {
-          "file": "apps/backend/src/ai-agent-gateway/ai-agent-gateway.module.ts",
-          "hash": "5052506754949048467"
-        },
-        {
-          "file": "apps/backend/src/ai-agent-gateway/ai-agent-gateway.resolver.ts",
-          "hash": "5541238307539629922"
-        },
-        {
-          "file": "apps/backend/src/ai-agent-gateway/ai-agent-gateway.service.spec.ts",
-          "hash": "16273371663243975137"
-        },
-        {
-          "file": "apps/backend/src/ai-agent-gateway/ai-agent-gateway.service.ts",
-          "hash": "2655690904608827501"
-        },
-        {
-          "file": "apps/backend/src/ai-agent-gateway/dto/agent-assist.input.ts",
-          "hash": "1352338364069555903"
-        },
-        {
-          "file": "apps/backend/src/ai-agent-gateway/dto/agent-assist.response.ts",
-          "hash": "2227818173450168435"
-        },
-        {
-          "file": "apps/backend/src/ai-agent-gateway/dto/agent-platform-health.response.ts",
-          "hash": "11215984104226928147"
-        },
-        {
-          "file": "apps/backend/src/app.controller.spec.ts",
-          "hash": "2727664763654384995"
-        },
-        {
-          "file": "apps/backend/src/app.controller.ts",
-          "hash": "4552329938751326480"
-        },
-        {
-          "file": "apps/backend/src/app.module.ts",
-          "hash": "9843794985809266861"
-        },
-        {
-          "file": "apps/backend/src/app.service.ts",
-          "hash": "16892833931858030153"
-        },
-        {
-          "file": "apps/backend/src/auth/README.md",
-          "hash": "7767150628956140197"
-        },
-        {
-          "file": "apps/backend/src/auth/auth.module.ts",
-          "hash": "2036573213729150135"
-        },
-        {
-          "file": "apps/backend/src/auth/auth.resolver.ts",
-          "hash": "11697616395507181215"
-        },
-        {
-          "file": "apps/backend/src/auth/auth.service.ts",
-          "hash": "13711161532731143806"
-        },
-        {
-          "file": "apps/backend/src/auth/dto/auth-me.response.ts",
-          "hash": "13898036152770751913"
-        },
-        {
-          "file": "apps/backend/src/auth/dto/auth-response.ts",
-          "hash": "15845496552891589526"
-        },
-        {
-          "file": "apps/backend/src/auth/dto/forgot-password.input.ts",
-          "hash": "1831546936928226385"
-        },
-        {
-          "file": "apps/backend/src/auth/dto/login.input.ts",
-          "hash": "17288055592104855921"
-        },
-        {
-          "file": "apps/backend/src/auth/dto/refresh.input.ts",
-          "hash": "3778692374834615071"
-        },
-        {
-          "file": "apps/backend/src/auth/dto/reset-password.input.ts",
-          "hash": "11524550040236814083"
-        },
-        {
-          "file": "apps/backend/src/auth/dto/signup-phone.input.ts",
-          "hash": "2593927212360762785"
-        },
-        {
-          "file": "apps/backend/src/auth/dto/verify-email.input.ts",
-          "hash": "7979086387369376081"
-        },
-        {
-          "file": "apps/backend/src/auth/dto/verify-signup.input.ts",
-          "hash": "13724365928954123671"
-        },
-        {
-          "file": "apps/backend/src/auth/entities/audit-log.entity.ts",
-          "hash": "2404979553198670935"
-        },
-        {
-          "file": "apps/backend/src/auth/entities/user-session.entity.ts",
-          "hash": "18428036411900253787"
-        },
-        {
-          "file": "apps/backend/src/auth/entities/verification-token.entity.ts",
-          "hash": "13885402998412299738"
-        },
-        {
-          "file": "apps/backend/src/auth/guards/admin.guard.spec.ts",
-          "hash": "7026099065513126186"
-        },
-        {
-          "file": "apps/backend/src/auth/guards/admin.guard.ts",
-          "hash": "8388685795351942938"
-        },
-        {
-          "file": "apps/backend/src/auth/guards/jwt-auth.guard.ts",
-          "hash": "710567046830206988"
-        },
-        {
-          "file": "apps/backend/src/auth/oauth-state.util.spec.ts",
-          "hash": "11600536651723435125"
-        },
-        {
-          "file": "apps/backend/src/auth/oauth-state.util.ts",
-          "hash": "18399815816049206530"
-        },
-        {
-          "file": "apps/backend/src/auth/oauth.controller.ts",
-          "hash": "1834167691504799048"
-        },
-        {
-          "file": "apps/backend/src/auth/session-cookie.service.ts",
-          "hash": "12992781424652883318"
-        },
-        {
-          "file": "apps/backend/src/common/guards/admin.guard.ts",
-          "hash": "3982631281423824521"
-        },
-        {
-          "file": "apps/backend/src/common/guards/jwt-auth.guard.ts",
-          "hash": "8289195113856431782"
-        },
-        {
-          "file": "apps/backend/src/contacts/README.md",
-          "hash": "17597839762893037639"
-        },
-        {
-          "file": "apps/backend/src/contacts/contact.entity.ts",
-          "hash": "6996745940751741920"
-        },
-        {
-          "file": "apps/backend/src/contacts/contact.module.ts",
-          "hash": "9421054349697353104"
-        },
-        {
-          "file": "apps/backend/src/contacts/contact.resolver.spec.ts",
-          "hash": "4660228605001711717"
-        },
-        {
-          "file": "apps/backend/src/contacts/contact.resolver.ts",
-          "hash": "10526053588598417761"
-        },
-        {
-          "file": "apps/backend/src/contacts/contact.service.spec.ts",
-          "hash": "3979203914509256512"
-        },
-        {
-          "file": "apps/backend/src/contacts/contact.service.ts",
-          "hash": "8408850047389226839"
-        },
-        {
-          "file": "apps/backend/src/contacts/dto/create-contact.input.ts",
-          "hash": "8410466982833892181"
-        },
-        {
-          "file": "apps/backend/src/contacts/dto/update-contact.input.ts",
-          "hash": "3698029894310400003"
-        },
-        {
-          "file": "apps/backend/src/contacts/entities/contact.entity.ts",
-          "hash": "1337982251000713291"
-        },
-        {
-          "file": "apps/backend/src/database/data-source.ts",
-          "hash": "1781739687010410653"
-        },
-        {
-          "file": "apps/backend/src/database/migrations/20260214000000-initial-baseline.ts",
-          "hash": "13349207979177956695"
-        },
-        {
-          "file": "apps/backend/src/database/typeorm.config.ts",
-          "hash": "1010695093825183926"
-        },
-        {
-          "file": "apps/backend/src/email-analytics/dto/create-email-analytics.input.ts",
-          "hash": "12877167656703833715"
-        },
-        {
-          "file": "apps/backend/src/email-analytics/email-analytics.entity.ts",
-          "hash": "17602252221533143586"
-        },
-        {
-          "file": "apps/backend/src/email-analytics/email-analytics.module.ts",
-          "hash": "13631232100263999106"
-        },
-        {
-          "file": "apps/backend/src/email-analytics/email-analytics.resolver.ts",
-          "hash": "7199487099632242009"
-        },
-        {
-          "file": "apps/backend/src/email-analytics/email-analytics.service.ts",
-          "hash": "3513176574418680746"
-        },
-        {
-          "file": "apps/backend/src/email-analytics/entities/email-analytics.entity.ts",
-          "hash": "6276707944289560128"
-        },
-        {
-          "file": "apps/backend/src/email-integration/README.md",
-          "hash": "10721812011194808153"
-        },
-        {
-          "file": "apps/backend/src/email-integration/dto/delete-provider.input.ts",
-          "hash": "5773809332846395870"
-        },
-        {
-          "file": "apps/backend/src/email-integration/dto/email-provider.input.ts",
-          "hash": "9708656053138310748"
-        },
-        {
-          "file": "apps/backend/src/email-integration/dto/smtp-settings.input.ts",
-          "hash": "16806757538849215784"
-        },
-        {
-          "file": "apps/backend/src/email-integration/email-provider.connect.resolver.ts",
-          "hash": "15876346645889423413"
-        },
-        {
-          "file": "apps/backend/src/email-integration/email-provider.module.ts",
-          "hash": "15745934859043988598"
-        },
-        {
-          "file": "apps/backend/src/email-integration/email-provider.resolver.spec.ts",
-          "hash": "18188395121593258290"
-        },
-        {
-          "file": "apps/backend/src/email-integration/email-provider.resolver.ts",
-          "hash": "930148433321838863"
-        },
-        {
-          "file": "apps/backend/src/email-integration/email-provider.service.spec.ts",
-          "hash": "9507420278402737738"
-        },
-        {
-          "file": "apps/backend/src/email-integration/email-provider.service.ts",
-          "hash": "322221243071326966"
-        },
-        {
-          "file": "apps/backend/src/email-integration/entities/email-provider.entity.ts",
-          "hash": "4282274368702844020"
-        },
-        {
-          "file": "apps/backend/src/email-integration/entities/external-email-label.entity.ts",
-          "hash": "11103938904888624802"
-        },
-        {
-          "file": "apps/backend/src/email-integration/entities/external-email-message.entity.ts",
-          "hash": "8603545656553928184"
-        },
-        {
-          "file": "apps/backend/src/email-integration/entities/provider-action-result.entity.ts",
-          "hash": "16826261614448130021"
-        },
-        {
-          "file": "apps/backend/src/email-integration/entities/provider.entity.ts",
-          "hash": "14709106384266295031"
-        },
-        {
-          "file": "apps/backend/src/email-integration/provider-oauth.controller.ts",
-          "hash": "11529853497451345373"
-        },
-        {
-          "file": "apps/backend/src/email/README.md",
-          "hash": "6254763902126535100"
-        },
-        {
-          "file": "apps/backend/src/email/dto/attachment.input.ts",
-          "hash": "117160076693743236"
-        },
-        {
-          "file": "apps/backend/src/email/dto/create-email.input.ts",
-          "hash": "16555205020149108580"
-        },
-        {
-          "file": "apps/backend/src/email/dto/email-filter.input.ts",
-          "hash": "15047697139667087489"
-        },
-        {
-          "file": "apps/backend/src/email/dto/email-template.input.ts",
-          "hash": "12159769213050349242"
-        },
-        {
-          "file": "apps/backend/src/email/dto/mark-email-read.input.ts",
-          "hash": "6399477296999441253"
-        },
-        {
-          "file": "apps/backend/src/email/dto/send-email.input.ts",
-          "hash": "15238442076715456401"
-        },
-        {
-          "file": "apps/backend/src/email/dto/send-real-email.response.ts",
-          "hash": "14631101994953726553"
-        },
-        {
-          "file": "apps/backend/src/email/dto/warmup.input.ts",
-          "hash": "3379384384827271471"
-        },
-        {
-          "file": "apps/backend/src/email/email-filter.resolver.spec.ts",
-          "hash": "7281338833591397446"
-        },
-        {
-          "file": "apps/backend/src/email/email-filter.service.spec.ts",
-          "hash": "11127309463208449989"
-        },
-        {
-          "file": "apps/backend/src/email/email-warmup.resolver.spec.ts",
-          "hash": "16103788627795246359"
-        },
-        {
-          "file": "apps/backend/src/email/email-warmup.service.spec.ts",
-          "hash": "3713447619358214518"
-        },
-        {
-          "file": "apps/backend/src/email/email.attachment.resolver.ts",
-          "hash": "3866061283413104939"
-        },
-        {
-          "file": "apps/backend/src/email/email.attachment.service.ts",
-          "hash": "8518030555364910334"
-        },
-        {
-          "file": "apps/backend/src/email/email.controller.ts",
-          "hash": "9506156928547050099"
-        },
-        {
-          "file": "apps/backend/src/email/email.email-filter.resolver.ts",
-          "hash": "16058565959320604041"
-        },
-        {
-          "file": "apps/backend/src/email/email.email-filter.service.ts",
-          "hash": "15936823395632941675"
-        },
-        {
-          "file": "apps/backend/src/email/email.email-scheduler.service.ts",
-          "hash": "18222180982227455511"
-        },
-        {
-          "file": "apps/backend/src/email/email.email-template.resolver.ts",
-          "hash": "15299280622986061737"
-        },
-        {
-          "file": "apps/backend/src/email/email.email-template.service.ts",
-          "hash": "2776253821586254082"
-        },
-        {
-          "file": "apps/backend/src/email/email.email-warmup.resolver.ts",
-          "hash": "10568952573403056468"
-        },
-        {
-          "file": "apps/backend/src/email/email.email-warmup.service.ts",
-          "hash": "7853426989800324664"
-        },
-        {
-          "file": "apps/backend/src/email/email.module.ts",
-          "hash": "133917088911977705"
-        },
-        {
-          "file": "apps/backend/src/email/email.resolver.ts",
-          "hash": "4090344545998100522"
-        },
-        {
-          "file": "apps/backend/src/email/email.service.ts",
-          "hash": "11488858111203394574"
-        },
-        {
-          "file": "apps/backend/src/email/entities/attachment.entity.ts",
-          "hash": "3087261089570533597"
-        },
-        {
-          "file": "apps/backend/src/email/entities/email-filter.entity.ts",
-          "hash": "7031026969467941445"
-        },
-        {
-          "file": "apps/backend/src/email/entities/email-folder.entity.ts",
-          "hash": "15931507291240553391"
-        },
-        {
-          "file": "apps/backend/src/email/entities/email-label-assignment.entity.ts",
-          "hash": "15433881943696765842"
-        },
-        {
-          "file": "apps/backend/src/email/entities/email-label.entity.ts",
-          "hash": "10750524890727138394"
-        },
-        {
-          "file": "apps/backend/src/email/entities/email-warmup.entity.ts",
-          "hash": "11571268018082353508"
-        },
-        {
-          "file": "apps/backend/src/email/entities/email.entity.ts",
-          "hash": "2381500115922619661"
-        },
-        {
-          "file": "apps/backend/src/email/entities/warmup-activity.entity.ts",
-          "hash": "10343857942469231847"
-        },
-        {
-          "file": "apps/backend/src/email/mail.service.ts",
-          "hash": "973489958765336613"
-        },
-        {
-          "file": "apps/backend/src/email/models/attachment.model.ts",
-          "hash": "11246420337240858687"
-        },
-        {
-          "file": "apps/backend/src/email/models/template.model.ts",
-          "hash": "15848887690299658356"
-        },
-        {
-          "file": "apps/backend/src/email/models/warmup.model.ts",
-          "hash": "7319361156705496454"
-        },
-        {
-          "file": "apps/backend/src/email/templates/reset-password.ejs",
-          "hash": "10196850740394234799"
-        },
-        {
-          "file": "apps/backend/src/email/templates/welcome.ejs",
-          "hash": "9569568225399641190"
-        },
-        {
-          "file": "apps/backend/src/feature/README.md",
-          "hash": "6730214330458826870"
-        },
-        {
-          "file": "apps/backend/src/feature/dto/create-feature.input.ts",
-          "hash": "16443353840736963684"
-        },
-        {
-          "file": "apps/backend/src/feature/dto/update-feature.input.ts",
-          "hash": "14728150043614730079"
-        },
-        {
-          "file": "apps/backend/src/feature/entities/feature.entity.ts",
-          "hash": "4490498199714547125"
-        },
-        {
-          "file": "apps/backend/src/feature/feature.entity.ts",
-          "hash": "11406711332553328106"
-        },
-        {
-          "file": "apps/backend/src/feature/feature.module.ts",
-          "hash": "13461766925032820610"
-        },
-        {
-          "file": "apps/backend/src/feature/feature.resolver.ts",
-          "hash": "6621764435365915490"
-        },
-        {
-          "file": "apps/backend/src/feature/feature.service.ts",
-          "hash": "15090654162576271432"
-        },
-        {
-          "file": "apps/backend/src/gmail-sync/README.md",
-          "hash": "3436334646024981453"
-        },
-        {
-          "file": "apps/backend/src/gmail-sync/entities/inbox-message.entity.ts",
-          "hash": "8420093531597703522"
-        },
-        {
-          "file": "apps/backend/src/gmail-sync/gmail-sync.module.ts",
-          "hash": "377159888502147692"
-        },
-        {
-          "file": "apps/backend/src/gmail-sync/gmail-sync.resolver.ts",
-          "hash": "10896427327159201020"
-        },
-        {
-          "file": "apps/backend/src/gmail-sync/gmail-sync.scheduler.ts",
-          "hash": "2217370230595602090"
-        },
-        {
-          "file": "apps/backend/src/gmail-sync/gmail-sync.service.spec.ts",
-          "hash": "6103766120248552284"
-        },
-        {
-          "file": "apps/backend/src/gmail-sync/gmail-sync.service.ts",
-          "hash": "15786967708736491634"
-        },
-        {
-          "file": "apps/backend/src/inbox/README.md",
-          "hash": "2779809403339580126"
-        },
-        {
-          "file": "apps/backend/src/inbox/dto/set-active-inbox.input.ts",
-          "hash": "482752275681453830"
-        },
-        {
-          "file": "apps/backend/src/inbox/entities/inbox.entity.ts",
-          "hash": "1331304898264644848"
-        },
-        {
-          "file": "apps/backend/src/inbox/inbox.module.ts",
-          "hash": "3371961825096235782"
-        },
-        {
-          "file": "apps/backend/src/inbox/inbox.resolver.ts",
-          "hash": "17078563383685951006"
-        },
-        {
-          "file": "apps/backend/src/inbox/inbox.service.ts",
-          "hash": "4846710512509928197"
-        },
-        {
-          "file": "apps/backend/src/mailbox/entities/mailbox.entity.ts",
-          "hash": "15644623812589513382"
-        },
-        {
-          "file": "apps/backend/src/mailbox/mail-server.module.ts",
-          "hash": "17866195564727677892"
-        },
-        {
-          "file": "apps/backend/src/mailbox/mail-server.service.ts",
-          "hash": "18108650879435956755"
-        },
-        {
-          "file": "apps/backend/src/mailbox/mailbox.module.ts",
-          "hash": "7103970697316415313"
-        },
-        {
-          "file": "apps/backend/src/mailbox/mailbox.resolver.ts",
-          "hash": "7850191655341113491"
-        },
-        {
-          "file": "apps/backend/src/mailbox/mailbox.service.spec.ts",
-          "hash": "11111986637307148140"
-        },
-        {
-          "file": "apps/backend/src/mailbox/mailbox.service.ts",
-          "hash": "15667902827397621420"
-        },
-        {
-          "file": "apps/backend/src/main.ts",
-          "hash": "5019775862408625348"
-        },
-        {
-          "file": "apps/backend/src/organization/README.md",
-          "hash": "13957177916647335788"
-        },
-        {
-          "file": "apps/backend/src/organization/dto/create-label.input.ts",
-          "hash": "13954044947034739033"
-        },
-        {
-          "file": "apps/backend/src/organization/label.entity.ts",
-          "hash": "10909304861350624379"
-        },
-        {
-          "file": "apps/backend/src/organization/label.module.ts",
-          "hash": "5375791780950676240"
-        },
-        {
-          "file": "apps/backend/src/organization/label.resolver.ts",
-          "hash": "12416490794909060588"
-        },
-        {
-          "file": "apps/backend/src/organization/label.service.ts",
-          "hash": "15947584995829195866"
-        },
-        {
-          "file": "apps/backend/src/phone/entities/phone-verification.entity.ts",
-          "hash": "13988533656113294879"
-        },
-        {
-          "file": "apps/backend/src/phone/entities/signup-verification.entity.ts",
-          "hash": "17638816454889019006"
-        },
-        {
-          "file": "apps/backend/src/phone/phone.module.ts",
-          "hash": "13671347400297640044"
-        },
-        {
-          "file": "apps/backend/src/phone/phone.resolver.ts",
-          "hash": "14629197688049851806"
-        },
-        {
-          "file": "apps/backend/src/phone/phone.service.ts",
-          "hash": "16052023348534954038"
-        },
-        {
-          "file": "apps/backend/src/question/question.module.ts",
-          "hash": "15054082500672242509"
-        },
-        {
-          "file": "apps/backend/src/question/question.resolver.ts",
-          "hash": "9637654968674098887"
-        },
-        {
-          "file": "apps/backend/src/scheduled-email/dto/create-scheduled-email.input.ts",
-          "hash": "5364940628776675538"
-        },
-        {
-          "file": "apps/backend/src/scheduled-email/scheduled-email.entity.ts",
-          "hash": "9724170133801722130"
-        },
-        {
-          "file": "apps/backend/src/scheduled-email/scheduled-email.module.ts",
-          "hash": "3646045517593741705"
-        },
-        {
-          "file": "apps/backend/src/scheduled-email/scheduled-email.resolver.ts",
-          "hash": "14936440316320303043"
-        },
-        {
-          "file": "apps/backend/src/scheduled-email/scheduled-email.service.ts",
-          "hash": "7904317539316583508"
-        },
-        {
-          "file": "apps/backend/src/schema.gql",
-          "hash": "16541725936514506500"
-        },
-        {
-          "file": "apps/backend/src/smart-replies/README.md",
-          "hash": "6904895530523545638"
-        },
-        {
-          "file": "apps/backend/src/smart-replies/dto/smart-reply.input.ts",
-          "hash": "10751663508196532235"
-        },
-        {
-          "file": "apps/backend/src/smart-replies/dto/update-smart-reply-settings.input.ts",
-          "hash": "2328598748375280794"
-        },
-        {
-          "file": "apps/backend/src/smart-replies/entities/smart-reply-settings.entity.ts",
-          "hash": "14669672079697747243"
-        },
-        {
-          "file": "apps/backend/src/smart-replies/smart-reply.module.ts",
-          "hash": "14316802414615344940"
-        },
-        {
-          "file": "apps/backend/src/smart-replies/smart-reply.resolver.spec.ts",
-          "hash": "11083922565319785283"
-        },
-        {
-          "file": "apps/backend/src/smart-replies/smart-reply.resolver.ts",
-          "hash": "14947498849605838739"
-        },
-        {
-          "file": "apps/backend/src/smart-replies/smart-reply.service.spec.ts",
-          "hash": "487165094994723216"
-        },
-        {
-          "file": "apps/backend/src/smart-replies/smart-reply.service.ts",
-          "hash": "18092414845039442112"
-        },
-        {
-          "file": "apps/backend/src/template/dto/create-template.input.ts",
-          "hash": "14134001584301678995"
-        },
-        {
-          "file": "apps/backend/src/template/dto/update-template.input.ts",
-          "hash": "3853718464298210177"
-        },
-        {
-          "file": "apps/backend/src/template/entities/template.entity.ts",
-          "hash": "12834220011138135136"
-        },
-        {
-          "file": "apps/backend/src/template/template.entity.ts",
-          "hash": "6931848074873568365"
-        },
-        {
-          "file": "apps/backend/src/template/template.module.ts",
-          "hash": "394932119776354014"
-        },
-        {
-          "file": "apps/backend/src/template/template.resolver.ts",
-          "hash": "16876740584172551321"
-        },
-        {
-          "file": "apps/backend/src/template/template.service.ts",
-          "hash": "6846562794261428824"
-        },
-        {
-          "file": "apps/backend/src/unified-inbox/README.md",
-          "hash": "4956262222687981716"
-        },
-        {
-          "file": "apps/backend/src/unified-inbox/dto/email-filter.input.ts",
-          "hash": "14721985472747190880"
-        },
-        {
-          "file": "apps/backend/src/unified-inbox/dto/email-sort.input.ts",
-          "hash": "12641511324838352411"
-        },
-        {
-          "file": "apps/backend/src/unified-inbox/dto/email-update.input.ts",
-          "hash": "3210412722865965031"
-        },
-        {
-          "file": "apps/backend/src/unified-inbox/entities/email-attachment.entity.ts",
-          "hash": "17275778246091120164"
-        },
-        {
-          "file": "apps/backend/src/unified-inbox/entities/email-folder.entity.ts",
-          "hash": "13067743131906607004"
-        },
-        {
-          "file": "apps/backend/src/unified-inbox/entities/email-label.entity.ts",
-          "hash": "18037661907060256221"
-        },
-        {
-          "file": "apps/backend/src/unified-inbox/entities/email-message.entity.ts",
-          "hash": "13594597329524284960"
-        },
-        {
-          "file": "apps/backend/src/unified-inbox/entities/email-participant.entity.ts",
-          "hash": "6128155994335414506"
-        },
-        {
-          "file": "apps/backend/src/unified-inbox/entities/email-thread.entity.ts",
-          "hash": "13263599474552270585"
-        },
-        {
-          "file": "apps/backend/src/unified-inbox/unified-inbox.module.ts",
-          "hash": "1284452183441116843"
-        },
-        {
-          "file": "apps/backend/src/unified-inbox/unified-inbox.resolver.ts",
-          "hash": "3833708593762022112"
-        },
-        {
-          "file": "apps/backend/src/unified-inbox/unified-inbox.service.spec.ts",
-          "hash": "16004957812455373595"
-        },
-        {
-          "file": "apps/backend/src/unified-inbox/unified-inbox.service.ts",
-          "hash": "13113895727822239542"
-        },
-        {
-          "file": "apps/backend/src/user/dto/create-user.input.ts",
-          "hash": "1928299834184716969"
-        },
-        {
-          "file": "apps/backend/src/user/dto/update-user.input.ts",
-          "hash": "1364893753847043397"
-        },
-        {
-          "file": "apps/backend/src/user/entities/user.entity.ts",
-          "hash": "15109918444090879282"
-        },
-        {
-          "file": "apps/backend/src/user/user.module.ts",
-          "hash": "9911604097520242343"
-        },
-        {
-          "file": "apps/backend/src/user/user.resolver.ts",
-          "hash": "14518497248900992202"
-        },
-        {
-          "file": "apps/backend/src/user/user.service.ts",
-          "hash": "4930204727817799281"
-        },
-        {
-          "file": "apps/backend/test/app.e2e-spec.ts",
-          "hash": "7164584812487523395"
-        },
-        {
-          "file": "apps/backend/test/jest-e2e.json",
-          "hash": "7570273541430074424"
-        },
-        {
-          "file": "apps/backend/tsconfig.build.json",
-          "hash": "15143902507302368749"
-        },
-        {
-          "file": "apps/backend/tsconfig.json",
-          "hash": "7585820297323587102"
-        }
       ]
     },
     "nonProjectFiles": [
+      {
+        "file": ".dockerignore",
+        "hash": "5910725907312873671"
+      },
+      {
+        "file": ".github/workflows/ci.yml",
+        "hash": "6680591986011760839"
+      },
       {
         "file": ".gitignore",
         "hash": "14795988321034134035"
       },
       {
         "file": "README.md",
-        "hash": "9254462317131616996"
+        "hash": "11827180227601564061"
+      },
+      {
+        "file": "deploy/ec2/.env.ec2.example",
+        "hash": "7941924744785822453"
+      },
+      {
+        "file": "deploy/ec2/Caddyfile",
+        "hash": "17781589610565767347"
+      },
+      {
+        "file": "deploy/ec2/FLOW.md",
+        "hash": "197196724814483593"
+      },
+      {
+        "file": "deploy/ec2/README.md",
+        "hash": "18194459442035356772"
+      },
+      {
+        "file": "deploy/ec2/VALIDATION.md",
+        "hash": "1001714966989041561"
+      },
+      {
+        "file": "deploy/ec2/backups/.gitignore",
+        "hash": "8191922859220357953"
+      },
+      {
+        "file": "deploy/ec2/docker-compose.yml",
+        "hash": "8281900585913795364"
+      },
+      {
+        "file": "deploy/ec2/reports/.gitignore",
+        "hash": "4854053431585404831"
+      },
+      {
+        "file": "deploy/ec2/scripts/backup-db.sh",
+        "hash": "7444407942659355097"
+      },
+      {
+        "file": "deploy/ec2/scripts/backup-list.sh",
+        "hash": "13004233965656393174"
+      },
+      {
+        "file": "deploy/ec2/scripts/backup-prune.sh",
+        "hash": "8405090803756644112"
+      },
+      {
+        "file": "deploy/ec2/scripts/bootstrap-ubuntu.sh",
+        "hash": "6306221702632142776"
+      },
+      {
+        "file": "deploy/ec2/scripts/build-check.sh",
+        "hash": "174179042876143778"
+      },
+      {
+        "file": "deploy/ec2/scripts/common.sh",
+        "hash": "16022590504069202968"
+      },
+      {
+        "file": "deploy/ec2/scripts/deploy.sh",
+        "hash": "12333465455928253676"
+      },
+      {
+        "file": "deploy/ec2/scripts/dns-check.sh",
+        "hash": "2677008726789738252"
+      },
+      {
+        "file": "deploy/ec2/scripts/docs-check.sh",
+        "hash": "6960322528302483124"
+      },
+      {
+        "file": "deploy/ec2/scripts/doctor.sh",
+        "hash": "17351412501801164701"
+      },
+      {
+        "file": "deploy/ec2/scripts/env-audit.sh",
+        "hash": "574531610055515007"
+      },
+      {
+        "file": "deploy/ec2/scripts/help.sh",
+        "hash": "14184861737222920612"
+      },
+      {
+        "file": "deploy/ec2/scripts/host-readiness.sh",
+        "hash": "6537282881871105948"
+      },
+      {
+        "file": "deploy/ec2/scripts/launch.sh",
+        "hash": "3667071601710872357"
+      },
+      {
+        "file": "deploy/ec2/scripts/logs.sh",
+        "hash": "11136840106235913001"
+      },
+      {
+        "file": "deploy/ec2/scripts/menu.sh",
+        "hash": "13226074825270361146"
+      },
+      {
+        "file": "deploy/ec2/scripts/pipeline-check.sh",
+        "hash": "8811641674593572139"
+      },
+      {
+        "file": "deploy/ec2/scripts/ports-check.sh",
+        "hash": "1059874576047461499"
+      },
+      {
+        "file": "deploy/ec2/scripts/preflight.sh",
+        "hash": "18203397811275327282"
+      },
+      {
+        "file": "deploy/ec2/scripts/reports-prune.sh",
+        "hash": "18186479411761496262"
+      },
+      {
+        "file": "deploy/ec2/scripts/restart.sh",
+        "hash": "3303087199054677206"
+      },
+      {
+        "file": "deploy/ec2/scripts/restore-db.sh",
+        "hash": "8585520176930265643"
+      },
+      {
+        "file": "deploy/ec2/scripts/rollback-latest.sh",
+        "hash": "2979958203494185033"
+      },
+      {
+        "file": "deploy/ec2/scripts/rotate-app-secrets.sh",
+        "hash": "702060002821748719"
+      },
+      {
+        "file": "deploy/ec2/scripts/runtime-smoke.sh",
+        "hash": "5866865847802230832"
+      },
+      {
+        "file": "deploy/ec2/scripts/self-check.sh",
+        "hash": "11213733107246290767"
+      },
+      {
+        "file": "deploy/ec2/scripts/setup.sh",
+        "hash": "13078247213950737397"
+      },
+      {
+        "file": "deploy/ec2/scripts/ssl-check.sh",
+        "hash": "4739700210646433808"
+      },
+      {
+        "file": "deploy/ec2/scripts/status.sh",
+        "hash": "17829098222156642903"
+      },
+      {
+        "file": "deploy/ec2/scripts/stop.sh",
+        "hash": "8200334457157941971"
+      },
+      {
+        "file": "deploy/ec2/scripts/support-bundle.sh",
+        "hash": "14146567209109447815"
+      },
+      {
+        "file": "deploy/ec2/scripts/update.sh",
+        "hash": "12295339314336101572"
+      },
+      {
+        "file": "deploy/ec2/scripts/validate.sh",
+        "hash": "1576285170244544453"
+      },
+      {
+        "file": "deploy/ec2/scripts/verify.sh",
+        "hash": "7804227714472198217"
       },
       {
         "file": "docs/ai-agent-platform.md",
@@ -1731,11 +3179,11 @@
       },
       {
         "file": "package-lock.json",
-        "hash": "14729235203746441599"
+        "hash": "14894769086695969487"
       },
       {
         "file": "package.json",
-        "hash": "5466779253697455142"
+        "hash": "13722902111770808961"
       },
       {
         "file": "tools/ensure-env.js",

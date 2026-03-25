@@ -22,27 +22,27 @@ export class MailboxInboundEvent {
   @Index()
   userId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   @Index()
   messageId?: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   @Index()
   emailId?: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   inboundThreadKey?: string | null;
 
   @Column({ default: 'ACCEPTED' })
   status: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   sourceIp?: string | null;
 
   @Column({ default: false })
   signatureValidated: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   errorReason?: string | null;
 
   @CreateDateColumn()

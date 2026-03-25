@@ -26,10 +26,10 @@ export class InboxSyncRunResponse {
   @Field()
   success: boolean;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   mailboxSyncError?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   providerSyncError?: string | null;
 
   @Field()

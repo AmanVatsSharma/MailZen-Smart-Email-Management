@@ -2,7 +2,7 @@ import { Field, Int, ObjectType } from '@nestjs/graphql';
 
 @ObjectType()
 export class MailboxSyncIncidentAlertDeliveryStatsResponse {
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   workspaceId?: string | null;
 
   @Field(() => Int)

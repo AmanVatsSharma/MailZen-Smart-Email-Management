@@ -52,7 +52,7 @@ export class SmartReplySettings {
   @Column({ default: 3 })
   maxSuggestions: number;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Column({ type: 'text', nullable: true })
   customInstructions?: string | null;
 

@@ -20,7 +20,7 @@ export class AgentPlatformHealthAlertCheckResponse {
   @Field(() => Int)
   minSampleCount: number;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   severity?: string | null;
 
   @Field(() => [String])

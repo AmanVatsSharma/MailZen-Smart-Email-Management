@@ -2,7 +2,7 @@ import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
 
 @ObjectType()
 export class ProviderSyncIncidentAlertDeliveryStatsResponse {
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   workspaceId?: string | null;
 
   @Field(() => Int)
@@ -17,7 +17,7 @@ export class ProviderSyncIncidentAlertDeliveryStatsResponse {
   @Field(() => Int)
   criticalAlerts: number;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   lastAlertAtIso?: string | null;
 }
 
@@ -41,7 +41,7 @@ export class ProviderSyncIncidentAlertResponse {
   @Field()
   notificationId: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   workspaceId?: string | null;
 
   @Field()

@@ -5,7 +5,7 @@ export class AgentPlatformHealthAlertRunResponse {
   @Field()
   alertsEnabled: boolean;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   severity?: string | null;
 
   @Field(() => [String])

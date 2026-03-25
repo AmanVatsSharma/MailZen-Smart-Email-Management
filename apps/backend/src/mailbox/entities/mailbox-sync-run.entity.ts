@@ -19,7 +19,7 @@ export class MailboxSyncRun {
   @Index()
   userId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   @Index()
   workspaceId?: string | null;
 
@@ -47,10 +47,10 @@ export class MailboxSyncRun {
   @Column({ type: 'int', default: 0 })
   rejectedMessages: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   nextCursor?: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   errorMessage?: string | null;
 
   @Column({ type: 'timestamp' })

@@ -5,7 +5,7 @@ export class AgentPlatformSkillRuntimeResetResponse {
   @Field(() => Int)
   clearedSkills: number;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   scopedSkill: string | null;
 
   @Field()

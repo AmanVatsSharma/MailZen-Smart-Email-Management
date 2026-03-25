@@ -1,4 +1,5 @@
 import { Field, ID, ObjectType } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json';
 import {
   Column,
   CreateDateColumn,
@@ -15,9 +16,9 @@ export class AgentActionAudit {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Index()
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   userId?: string | null;
 
   @Field()
@@ -41,15 +42,15 @@ export class AgentActionAudit {
   @Column({ default: false })
   approvalRequired: boolean;
 
-  @Field({ nullable: true })
-  @Column({ nullable: true })
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   approvalTokenSuffix?: string | null;
 
   @Field()
   @Column({ type: 'text' })
   message: string;
 
-  @Field({ nullable: true })
+  @Field(() => GraphQLJSON, { nullable: true })
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, unknown> | null;
 

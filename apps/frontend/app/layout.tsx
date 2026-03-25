@@ -1,21 +1,28 @@
-//src/layout.tsx
-
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Plus_Jakarta_Sans, Sora } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/providers/theme-provider';
 import { ApolloProvider } from '@/providers/ApolloProvider';
 import { Toaster } from '@/components/ui/toaster';
 
-const inter = Inter({
+const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
-  variable: '--font-sans',
+  variable: '--font-plus-jakarta-sans',
+  display: 'swap',
+  weight: ['300', '400', '500', '600', '700', '800'],
+});
+
+const sora = Sora({
+  subsets: ['latin'],
+  variable: '--font-sora',
+  display: 'swap',
+  weight: ['300', '400', '500', '600', '700', '800'],
 });
 
 export const metadata: Metadata = {
-  title: 'MailZen - Advanced Email Management',
+  title: 'MailZen — AI-Powered Business Inbox',
   description:
-    'MailZen is an advanced email management platform that integrates with Gmail, Outlook, and custom SMTP providers.',
+    'MailZen is an AI-powered business inbox that unifies accounts, accelerates replies, and gives teams operational control.',
 };
 
 export default function RootLayout({
@@ -25,7 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${plusJakartaSans.variable} ${sora.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

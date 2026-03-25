@@ -17,6 +17,6 @@ export class AiCreditBalanceResponse {
   @Field()
   periodStart: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   lastConsumedAtIso?: string | null;
 }

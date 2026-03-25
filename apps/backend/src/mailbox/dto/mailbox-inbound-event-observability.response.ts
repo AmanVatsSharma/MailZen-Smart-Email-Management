@@ -8,28 +8,28 @@ export class MailboxInboundEventObservabilityResponse {
   @Field()
   mailboxId: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   mailboxEmail?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   messageId?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   emailId?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   inboundThreadKey?: string | null;
 
   @Field()
   status: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   sourceIp?: string | null;
 
   @Field()
   signatureValidated: boolean;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   errorReason?: string | null;
 
   @Field()
@@ -38,10 +38,10 @@ export class MailboxInboundEventObservabilityResponse {
 
 @ObjectType()
 export class MailboxInboundEventStatsResponse {
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   mailboxId?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   mailboxEmail?: string | null;
 
   @Field(() => Int)
@@ -80,7 +80,7 @@ export class MailboxInboundEventStatsResponse {
   @Field()
   meetsSla: boolean;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   lastProcessedAt?: Date | null;
 }
 

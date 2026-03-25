@@ -28,8 +28,8 @@ export class Mailbox {
   @Index()
   userId: string;
 
-  @Field({ nullable: true })
-  @Column({ nullable: true })
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   @Index()
   workspaceId?: string | null;
 

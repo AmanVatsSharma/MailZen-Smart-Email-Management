@@ -1,4 +1,5 @@
 import { Field, ID, ObjectType } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json';
 import {
   Column,
   CreateDateColumn,
@@ -38,15 +39,15 @@ export class BillingWebhookEvent {
   @Column({ default: 'received' })
   status: string;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamp', nullable: true })
   processedAt?: Date | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Column({ type: 'text', nullable: true })
   errorMessage?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => GraphQLJSON, { nullable: true })
   @Column({ type: 'jsonb', nullable: true })
   payload?: Record<string, unknown> | null;
 

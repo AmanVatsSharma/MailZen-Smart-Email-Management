@@ -14,7 +14,7 @@ export class ProviderSyncRunItem {
   @Field()
   success: boolean;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   error?: string | null;
 }
 

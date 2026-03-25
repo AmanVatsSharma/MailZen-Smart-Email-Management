@@ -41,7 +41,7 @@ export class EntitlementUsageResponse {
   @Field(() => Int)
   workspaceMemberRemaining: number;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   workspaceMemberWorkspaceId?: string | null;
 
   @Field(() => Int)
