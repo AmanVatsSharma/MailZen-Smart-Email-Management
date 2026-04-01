@@ -31,9 +31,12 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "seed:demo": "ts-node -r tsconfig-paths/register scripts/seed-demo.ts",
+    "seed:demo:fresh": "ts-node -r tsconfig-paths/register scripts/seed-demo.ts --fresh"
   },
   "dependencies": {
+    "@mailzen/shared-types": "*",
     "@as-integrations/express5": "^1.1.2",
     "@google-cloud/storage": "^7.15.2",
     "@nestjs-modules/mailer": "^2.0.2",
@@ -47,6 +50,8 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/schedule": "^5.0.1",
     "@nestjs/typeorm": "^11.0.0",
+    "@sentry/nestjs": "^10.46.0",
+    "@sentry/profiling-node": "^10.46.0",
     "@types/bull": "^3.15.9",
     "@types/nodemailer": "^6.4.17",
     "axios": "^1.8.1",
@@ -62,6 +67,7 @@
     "node-cache": "^5.1.2",
     "nodemailer": "^6.10.0",
     "pg": "^8.18.0",
+    "razorpay": "^2.9.6",
     "redis": "^4.7.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
