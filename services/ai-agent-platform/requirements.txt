@@ -4,5 +4,7 @@ pydantic
 pydantic-settings
 langgraph
 langchain-core
+anthropic>=0.40.0
+openai>=1.50.0
 pytest
 httpx

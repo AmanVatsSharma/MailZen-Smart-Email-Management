@@ -105,6 +105,25 @@ export class Email {
   @Column({ type: 'timestamp', nullable: true })
   scheduledAt?: Date;
 
+  @Field({ nullable: true })
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  aiPriority?: string | null;
+
+  @Field({ nullable: true })
+  @Column({ type: 'varchar', length: 24, nullable: true })
+  aiCategory?: string | null;
+
+  @Field({ nullable: true })
+  @Column({ type: 'text', nullable: true })
+  aiSummary?: string | null;
+
+  @Field({ nullable: true })
+  @Column({ type: 'boolean', nullable: true })
+  aiRequiresReply?: boolean | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  aiScoredAt?: Date | null;
+
   @Field()
   @CreateDateColumn()
   createdAt: Date;

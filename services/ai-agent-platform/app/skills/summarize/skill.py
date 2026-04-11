@@ -1,34 +1,39 @@
-"""Auth skill plugin for the platform skill registry."""
+"""Summarize skill plugin — intelligent thread summarization with action item extraction."""
 
 from app.contracts.agent_request import AgentRequest
 from app.contracts.agent_response import AgentResponse
 from app.core.model_provider import BaseModelProvider, RuleBasedModelProvider
-from app.skills.auth.graph import build_auth_skill_graph
+from app.skills.summarize.graph import build_summarize_skill_graph
 
 
-class AuthSkill:
-    """Handles auth-oriented assistant guidance and action hints."""
+class SummarizeSkill:
+    """Summarizes email threads and extracts action items, people, and deadlines."""
 
     def __init__(self, model_provider: BaseModelProvider | None = None) -> None:
-        self._graph = build_auth_skill_graph(model_provider or RuleBasedModelProvider())
+        self._graph = build_summarize_skill_graph(model_provider or RuleBasedModelProvider())
 
     def run(self, request: AgentRequest) -> AgentResponse:
-        """Execute the auth graph and map output to standard response."""
-
+        """Execute summarize graph and return structured summary response."""
         state = self._graph.invoke(
             {
                 "request": request,
-                "intent": "general_auth_help",
-                "confidence": 0.5,
+                "thread_context": "",
+                "summary": "",
+                "action_items": [],
+                "key_people": [],
+                "deadlines": [],
+                "topics": [],
                 "assistant_text": "",
                 "suggested_actions": [],
                 "safety_flags": [],
+                "intent": "summarize_thread",
+                "confidence": 0.5,
             }
         )
 
         return AgentResponse(
             version="v1",
-            skill="auth",
+            skill="summarize",
             assistantText=state["assistant_text"],
             intent=state["intent"],
             confidence=float(state["confidence"]),
