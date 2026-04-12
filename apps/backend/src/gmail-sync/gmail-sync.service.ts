@@ -99,11 +99,8 @@ export class GmailSyncService {
     @InjectRepository(AuditLog)
     private readonly auditLogRepo: Repository<AuditLog>,
     private readonly providerSyncLease: ProviderSyncLeaseService,
-<<<<<<< Updated upstream
     private readonly senderIntelligence: SenderIntelligenceService,
-=======
     private readonly emailAiProcessor: EmailAiProcessorService,
->>>>>>> Stashed changes
   ) {
     this.providerSecretsKeyring = resolveProviderSecretsKeyring();
     // Dedicated client for Gmail API access token refresh.
@@ -779,12 +776,11 @@ export class GmailSyncService {
             ['providerId', 'externalMessageId'],
           );
 
-<<<<<<< Updated upstream
           // Phase 6 — Sender Intelligence: update sender profile (best-effort)
           if (from) {
             const emailMatch = from.match(/<([^>]+)>/) || from.match(/(\S+@\S+)/);
             const senderEmail = emailMatch ? emailMatch[1] : from;
-            const displayNameMatch = from.match(/^([^<]+)</) ;
+            const displayNameMatch = from.match(/^([^<]+)</);
             const displayName = displayNameMatch
               ? displayNameMatch[1].trim()
               : undefined;
@@ -806,7 +802,8 @@ export class GmailSyncService {
                 );
               });
           }
-=======
+
+          // AI processor: embeddings + triage (best-effort, fire-and-forget)
           this.emailAiProcessor.processNewEmail({
             providerId,
             externalMessageId: details.data.id,
@@ -817,7 +814,6 @@ export class GmailSyncService {
             internalDate: internalDate || undefined,
             labels,
           });
->>>>>>> Stashed changes
 
           imported += 1;
         } catch (e: any) {

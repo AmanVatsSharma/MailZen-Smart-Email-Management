@@ -84,11 +84,8 @@ export class OutlookSyncService {
     @InjectRepository(AuditLog)
     private readonly auditLogRepo: Repository<AuditLog>,
     private readonly providerSyncLease: ProviderSyncLeaseService,
-<<<<<<< Updated upstream
     private readonly senderIntelligence: SenderIntelligenceService,
-=======
     private readonly emailAiProcessor: EmailAiProcessorService,
->>>>>>> Stashed changes
   ) {
     this.providerSecretsKeyring = resolveProviderSecretsKeyring();
   }
@@ -454,7 +451,6 @@ export class OutlookSyncService {
       ['providerId', 'externalMessageId'],
     );
 
-<<<<<<< Updated upstream
     // Phase 6 — Sender Intelligence: update sender profile (best-effort)
     if (input.message.from?.emailAddress?.address) {
       const senderEmail = input.message.from.emailAddress.address.trim();
@@ -480,7 +476,8 @@ export class OutlookSyncService {
           );
         });
     }
-=======
+
+    // AI processor: embeddings + triage (best-effort, fire-and-forget)
     this.emailAiProcessor.processNewEmail({
       providerId: input.providerId,
       externalMessageId: messageId,
@@ -491,7 +488,6 @@ export class OutlookSyncService {
       internalDate,
       labels,
     });
->>>>>>> Stashed changes
 
     return { imported: true, categories };
   }
