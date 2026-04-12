@@ -42,6 +42,7 @@ import {
   AgentSuggestedActionResponse,
 } from './dto/agent-assist.response';
 import { serializeStructuredLog } from '../common/logging/structured-log.util';
+import { AiFeedbackService } from './services/ai-feedback.service';
 
 interface AgentPlatformPayload {
   version: 'v1';
@@ -226,6 +227,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         'inbox.compose_reply_draft',
         'inbox.schedule_followup',
         'inbox.open_thread',
+        'inbox.apply_label',
       ]),
       serverExecutableActions: new Set([
         'inbox.summarize_thread',
@@ -235,10 +237,96 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         'inbox.compose_reply_draft',
         'inbox.schedule_followup',
         'inbox.open_thread',
+        'inbox.apply_label',
       ]),
       humanApprovalActions: new Set([
         'inbox.compose_reply_draft',
         'inbox.schedule_followup',
+      ]),
+    },
+    triage: {
+      access: 'authenticated',
+      allowedActions: new Set([
+        'triage.classify',
+        'triage.apply_labels',
+        'triage.mark_urgent',
+      ]),
+      serverExecutableActions: new Set([
+        'triage.classify',
+        'triage.apply_labels',
+      ]),
+      humanApprovalActions: new Set(['triage.mark_urgent']),
+    },
+    summarize: {
+      access: 'authenticated',
+      allowedActions: new Set([
+        'summarize.thread',
+        'summarize.batch',
+        'summarize.view_summary',
+        'summarize.create_tasks',
+        'summarize.set_reminder',
+      ]),
+      serverExecutableActions: new Set([
+        'summarize.thread',
+        'summarize.batch',
+        'summarize.view_summary',
+      ]),
+      humanApprovalActions: new Set([
+        'summarize.create_tasks',
+        'summarize.set_reminder',
+      ]),
+    },
+    followup: {
+      access: 'authenticated',
+      allowedActions: new Set([
+        'followup.detect',
+        'followup.schedule_send',
+        'followup.snooze',
+      ]),
+      serverExecutableActions: new Set(['followup.detect']),
+      humanApprovalActions: new Set([
+        'followup.schedule_send',
+        'followup.snooze',
+      ]),
+    },
+    unsubscribe: {
+      access: 'authenticated',
+      allowedActions: new Set([
+        'unsubscribe.detect',
+        'unsubscribe.execute',
+        'unsubscribe.block_sender',
+        'inbox.apply_label',
+      ]),
+      serverExecutableActions: new Set(['unsubscribe.detect']),
+      humanApprovalActions: new Set([
+        'unsubscribe.execute',
+        'unsubscribe.block_sender',
+      ]),
+    },
+    coordinator: {
+      access: 'authenticated',
+      allowedActions: new Set([
+        'triage.classify',
+        'triage.apply_labels',
+        'summarize.thread',
+        'summarize.view_summary',
+        'followup.detect',
+        'followup.schedule_send',
+        'unsubscribe.detect',
+        'inbox.compose_reply_draft',
+        'inbox.open_thread',
+      ]),
+      serverExecutableActions: new Set([
+        'triage.classify',
+        'triage.apply_labels',
+        'summarize.thread',
+        'summarize.view_summary',
+        'followup.detect',
+        'unsubscribe.detect',
+      ]),
+      humanApprovalActions: new Set([
+        'followup.schedule_send',
+        'inbox.compose_reply_draft',
       ]),
     },
   };
@@ -263,6 +351,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     @InjectRepository(AuditLog)
     private readonly auditLogRepo: Repository<AuditLog>,
     private readonly notificationEventBus: NotificationEventBusService,
+    private readonly aiFeedbackService: AiFeedbackService,
   ) {}
 
   private async writeAuditLog(input: {
@@ -1986,6 +2075,21 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       });
       if (workspacePolicySummary) {
         metadata.workspacePolicy = workspacePolicySummary;
+      }
+
+      // Inject user AI preference summary so the agent can adapt tone/style
+      try {
+        const prefs = await this.aiFeedbackService.getUserPreferenceSummary(input.userId);
+        if (prefs.totalSignals >= 5) {
+          metadata.userAiAcceptRate = String(prefs.acceptRate.toFixed(2));
+          metadata.userAiTotalSignals = String(prefs.totalSignals);
+          const skillPref = prefs.skillPreferences[input.input.skill];
+          if (skillPref && skillPref.count >= 3) {
+            metadata.userSkillAcceptRate = String(skillPref.acceptRate.toFixed(2));
+          }
+        }
+      } catch {
+        // non-critical — preference enrichment failure must not block the request
       }
     } catch (error: unknown) {
       const errorMessage =

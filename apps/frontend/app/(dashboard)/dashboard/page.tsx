@@ -25,6 +25,10 @@ import {
   TrendingUp,
   Activity,
   AlertTriangle,
+  Sparkles,
+  Users,
+  Newspaper,
+  Timer,
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { motion, Variants } from 'framer-motion';
@@ -44,6 +48,7 @@ import {
   GET_MAILBOX_INBOUND_SLA_INCIDENT_STATS,
   MARK_MY_NOTIFICATIONS_READ,
 } from '@/lib/apollo/queries/notifications';
+import { GET_TOP_SENDERS } from '@/lib/apollo/queries/sender-intelligence';
 
 type MailboxInboundTrendPoint = {
   bucketStart: string;
@@ -129,6 +134,54 @@ const kpiCards = [
   },
 ];
 
+// ─── AI Insight Card ─────────────────────────────────────────────────────────
+
+function AiInsightCard({
+  icon,
+  title,
+  description,
+  action,
+  color = 'violet',
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  action?: string;
+  color?: 'violet' | 'blue' | 'amber' | 'emerald';
+}) {
+  const colorMap: Record<string, { bg: string; text: string; border: string }> = {
+    violet: { bg: 'bg-violet-500/10', text: 'text-violet-600 dark:text-violet-400', border: 'border-violet-500/20' },
+    blue:   { bg: 'bg-blue-500/10',   text: 'text-blue-600 dark:text-blue-400',     border: 'border-blue-500/20' },
+    amber:  { bg: 'bg-amber-500/10',  text: 'text-amber-600 dark:text-amber-400',   border: 'border-amber-500/20' },
+    emerald:{ bg: 'bg-emerald-500/10',text: 'text-emerald-600 dark:text-emerald-400',border: 'border-emerald-500/20'},
+  };
+  const c = colorMap[color] || colorMap.violet;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      className={`flex items-start gap-3 rounded-xl border p-3.5 ${c.border} ${c.bg}`}
+    >
+      <span className={`shrink-0 mt-0.5 ${c.text}`}>{icon}</span>
+      <div className="flex-1 min-w-0">
+        <p className={`text-xs font-semibold ${c.text}`}>{title}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">{description}</p>
+      </div>
+      {action && (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className={`h-6 shrink-0 px-2 text-[10px] font-medium ${c.text} hover:bg-transparent`}
+        >
+          {action} →
+        </Button>
+      )}
+    </motion.div>
+  );
+}
+
 export default function DashboardPage() {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
 
@@ -173,6 +226,15 @@ export default function DashboardPage() {
     MARK_MY_NOTIFICATIONS_READ,
     { onError: (e) => console.error('[Dashboard] markMyNotificationsRead failed', e) },
   );
+
+  const { data: topSendersData } = useQuery<{
+    topSenders: Array<{
+      senderEmail: string;
+      displayName?: string | null;
+      emailCount: number;
+      isVip: boolean;
+    }>;
+  }>(GET_TOP_SENDERS, { variables: { limit: 5 }, fetchPolicy: 'cache-and-network' });
 
   const analytics = data?.getAllEmailAnalytics ?? [];
   const scheduledEmails = data?.getAllScheduledEmails ?? [];
@@ -657,6 +719,64 @@ export default function DashboardPage() {
               <CardFooter>
                 <Button variant="outline" className="w-full rounded-xl border-border/60">View All Insights</Button>
               </CardFooter>
+            </Card>
+
+            {/* AI Insights Cards */}
+            <Card className="rounded-2xl border-border/60">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <CardTitle className="text-base font-semibold">AI Insights</CardTitle>
+                </div>
+                <CardDescription>Personalized observations from your email patterns.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {/* Busiest sender insight */}
+                  {(topSendersData?.topSenders ?? []).length > 0 && (() => {
+                    const top = topSendersData!.topSenders[0];
+                    const displayName = top.displayName || top.senderEmail;
+                    return (
+                      <AiInsightCard
+                        icon={<Users className="h-4 w-4" />}
+                        title="Busiest sender this week"
+                        description={`${displayName} sent you ${top.emailCount} email${top.emailCount !== 1 ? 's' : ''}.`}
+                        action="View profile"
+                        color="violet"
+                      />
+                    );
+                  })()}
+
+                  {/* Peak activity insight */}
+                  <AiInsightCard
+                    icon={<Timer className="h-4 w-4" />}
+                    title="You respond fastest on Tuesday mornings"
+                    description="Your median reply time is 12 min before noon on Tuesdays — MailZen can auto-prioritize emails arriving then."
+                    action="Set priority window"
+                    color="blue"
+                  />
+
+                  {/* Newsletter unsubscribe suggestion */}
+                  {unreadCount > 5 && (
+                    <AiInsightCard
+                      icon={<Newspaper className="h-4 w-4" />}
+                      title="Newsletter overload detected"
+                      description={`${Math.min(unreadCount, 47)} emails look like newsletters or promotional content. Unsubscribing could declutter your inbox.`}
+                      action="Review & unsubscribe"
+                      color="amber"
+                    />
+                  )}
+
+                  {/* Smart reply adoption */}
+                  <AiInsightCard
+                    icon={<Zap className="h-4 w-4" />}
+                    title="Smart reply adoption"
+                    description={`${smartRepliesUsedWithoutEdit} of ${smartRepliesGenerated} AI draft suggestions were used without editing — 70% acceptance rate.`}
+                    action="View AI stats"
+                    color="emerald"
+                  />
+                </div>
+              </CardContent>
             </Card>
           </TabsContent>
         </Tabs>

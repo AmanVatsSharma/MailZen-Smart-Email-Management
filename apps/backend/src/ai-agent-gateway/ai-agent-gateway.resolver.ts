@@ -8,12 +8,15 @@
  * - Exposes a mutation for skill-scoped assistant interactions.
  * - Read agentAssist() first.
  */
-import { Args, Context, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, Context, Field, InputType, Int, Mutation, ObjectType, Query, Resolver } from '@nestjs/graphql';
 import { randomUUID } from 'crypto';
 import { UseGuards } from '@nestjs/common';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
+import { AiFeedbackService, RecordFeedbackInput } from './services/ai-feedback.service';
+import { AiFeedback, AiFeedbackSignal } from './entities/ai-feedback.entity';
+import { EmailEmbeddingService } from './services/email-embedding.service';
 import { AiAgentPlatformHealthAlertScheduler } from './ai-agent-platform-health-alert.scheduler';
 import { AgentActionAuditRetentionPurgeResponse } from './dto/agent-action-audit-retention-purge.response';
 import { AgentAssistInput } from './dto/agent-assist.input';
@@ -59,11 +62,40 @@ interface RequestContext {
   };
 }
 
+@InputType()
+class RecordAiFeedbackInput {
+  @Field()
+  agentSkill: string;
+
+  @Field()
+  action: string;
+
+  @Field(() => AiFeedbackSignal)
+  signal: AiFeedbackSignal;
+
+  @Field(() => String, { nullable: true })
+  emailId?: string;
+
+  @Field(() => String, { nullable: true })
+  draftText?: string;
+}
+
+@ObjectType()
+class SemanticSearchResult {
+  @Field(() => [String])
+  emailIds: string[];
+
+  @Field()
+  query: string;
+}
+
 @Resolver()
 export class AiAgentGatewayResolver {
   constructor(
     private readonly gatewayService: AiAgentGatewayService,
     private readonly healthAlertScheduler: AiAgentPlatformHealthAlertScheduler,
+    private readonly aiFeedbackService: AiFeedbackService,
+    private readonly emailEmbeddingService: EmailEmbeddingService,
   ) {}
 
   @Mutation(() => AgentAssistResponse)
@@ -505,5 +537,47 @@ export class AiAgentGatewayResolver {
       retentionDays,
       actorUserId: actorUserId || undefined,
     });
+  }
+
+  // ── AI Feedback ─────────────────────────────────────────────────────────────
+
+  /**
+   * Record a user signal (accept / edit / dismiss) on an AI-generated suggestion.
+   * Used to build preference summaries that adapt future agent prompts.
+   */
+  @Mutation(() => AiFeedback, { name: 'recordAiFeedback' })
+  @UseGuards(JwtAuthGuard)
+  async recordAiFeedback(
+    @Args('input') input: RecordAiFeedbackInput,
+    @Context() ctx: RequestContext,
+  ): Promise<AiFeedback> {
+    const userId = String(ctx?.req?.user?.id || '').trim();
+    const feedbackInput: RecordFeedbackInput = {
+      userId,
+      agentSkill: input.agentSkill,
+      action: input.action,
+      signal: input.signal,
+      emailId: input.emailId,
+      draftText: input.draftText,
+    };
+    return this.aiFeedbackService.recordFeedback(feedbackInput);
+  }
+
+  // ── Semantic Search ──────────────────────────────────────────────────────────
+
+  /**
+   * Search emails by semantic similarity using pgvector cosine distance.
+   * Returns ordered email IDs — client fetches full data with getEmails(ids:[...]).
+   */
+  @Query(() => SemanticSearchResult, { name: 'semanticSearch' })
+  @UseGuards(JwtAuthGuard)
+  async semanticSearch(
+    @Args('query') query: string,
+    @Args('limit', { type: () => Int, nullable: true }) limit: number = 10,
+    @Context() ctx: RequestContext,
+  ): Promise<SemanticSearchResult> {
+    const userId = String(ctx?.req?.user?.id || '').trim();
+    const emailIds = await this.emailEmbeddingService.semanticSearch(userId, query, limit);
+    return { emailIds, query };
   }
 }

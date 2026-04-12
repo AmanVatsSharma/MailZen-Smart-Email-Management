@@ -48,34 +48,61 @@ def classify_intent_node(state: InboxGraphState) -> dict[str, object]:
     return {"intent": "inbox_general_help", "confidence": 0.73}
 
 
+def _build_conversation_context(request: AgentRequest) -> str:
+    """Serialize message history into a readable context string."""
+    return "\n".join(
+        f"{msg.role.upper()}: {msg.content}" for msg in request.messages
+    )
+
+
 def draft_response_node(
     state: InboxGraphState, model_provider: BaseModelProvider
 ) -> dict[str, object]:
-    """Draft assistant response for inbox workflows."""
+    """Draft assistant response using LLM with full conversation context."""
 
     request = state["request"]
     intent = state["intent"]
-    subject = request.context.metadata.get("subject", "the selected thread")
+    metadata = request.context.metadata
+    subject = metadata.get("subject", "this email thread")
+    thread_id = metadata.get("threadId", "")
+    conversation = _build_conversation_context(request)
 
-    templates = {
+    intent_instructions = {
         "summarize_thread": (
-            f"I can summarize {subject}. "
-            "Use the summary action and I will produce a concise overview."
+            f"The user wants to summarize the email thread: '{subject}'. "
+            "Briefly explain that you can create a concise summary with key points and action items."
         ),
         "compose_reply_draft": (
-            f"I can draft a reply for {subject}. "
-            "Use the draft action and I will prepare a response you can edit."
+            f"The user wants to draft a reply to: '{subject}'. "
+            "Confirm you'll prepare a context-aware draft they can review and edit."
         ),
         "open_thread": (
-            f"I can help you open and inspect {subject}. "
-            "Use the open-thread action to focus this conversation."
+            f"The user wants to view the email thread: '{subject}'. "
+            "Confirm you'll open it and highlight unread messages."
         ),
         "inbox_general_help": (
-            "I can summarize threads, suggest drafts, and help navigate your inbox actions."
+            "Help the user with their inbox. Briefly explain what you can do: "
+            "summarize threads, draft replies, flag priorities, detect follow-ups."
         ),
     }
-    prompt = templates.get(intent, templates["inbox_general_help"])
-    assistant_text = model_provider.generate(prompt)
+
+    task_instruction = intent_instructions.get(
+        intent, intent_instructions["inbox_general_help"]
+    )
+
+    system = (
+        "You are MailZen, a world-class intelligent email assistant. "
+        "Be concise, warm, and action-oriented. "
+        "Respond in 1-2 sentences. Do not repeat the user's question."
+    )
+    prompt = (
+        f"Email subject: {subject}\n"
+        f"Thread ID: {thread_id}\n\n"
+        f"Conversation history:\n{conversation}\n\n"
+        f"Your task: {task_instruction}"
+    )
+
+    assistant_text = model_provider.generate(prompt, system=system, max_tokens=200)
     return {"assistant_text": assistant_text}
 
 

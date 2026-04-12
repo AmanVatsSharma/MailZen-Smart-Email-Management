@@ -6,6 +6,7 @@ import { useQuery } from '@apollo/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import { CommandPalette, useCommandPalette } from '@/components/ui/command-palette';
 
 import { BackgroundGradient } from '@/components/ui/background-gradient';
 import { fadeIn, fadeInUp, springPremium } from '@/lib/motion';
@@ -18,6 +19,7 @@ interface MainLayoutProps {
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { open: cmdOpen, onClose: closeCmdPalette, setOpen: setCmdPaletteOpen } = useCommandPalette();
   const pathname = usePathname();
   const routeKey = useMemo(() => pathname || 'route:unknown', [pathname]);
   const isAuthRoute = pathname?.includes('/auth') ?? false;
@@ -104,6 +106,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     <div className="flex h-screen overflow-hidden relative">
       <BackgroundGradient className="opacity-40" />
 
+      <CommandPalette
+        open={cmdOpen}
+        onClose={closeCmdPalette}
+        onCompose={() => {
+          closeCmdPalette();
+          router.push('/inbox?compose=true');
+        }}
+      />
+
       <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
 
       {/* Main Content */}
@@ -113,7 +124,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         initial="hidden"
         animate="show"
       >
-        <Header onToggleSidebar={toggleSidebar} />
+        <Header
+          onToggleSidebar={toggleSidebar}
+          onOpenCommandPalette={() => setCmdPaletteOpen(true)}
+          onCompose={() => router.push('/inbox?compose=true')}
+        />
         <motion.main className="flex-1 overflow-y-auto p-4 md:p-6 bg-transparent">
           {/* Route transitions: keep navigation feeling premium and coherent. */}
           <AnimatePresence mode="wait" initial={false}>

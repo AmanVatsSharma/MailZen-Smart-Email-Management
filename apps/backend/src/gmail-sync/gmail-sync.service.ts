@@ -26,6 +26,7 @@ import { EmailProvider } from '../email-integration/entities/email-provider.enti
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
+import { SenderIntelligenceService } from '../sender-intelligence/sender-intelligence.service';
 
 type GmailListResponse = {
   messages?: { id: string; threadId?: string }[];
@@ -88,6 +89,7 @@ export class GmailSyncService {
     @InjectRepository(AuditLog)
     private readonly auditLogRepo: Repository<AuditLog>,
     private readonly providerSyncLease: ProviderSyncLeaseService,
+    private readonly senderIntelligence: SenderIntelligenceService,
   ) {
     this.providerSecretsKeyring = resolveProviderSecretsKeyring();
     // Dedicated client for Gmail API access token refresh.
@@ -700,6 +702,33 @@ export class GmailSyncService {
             ],
             ['providerId', 'externalMessageId'],
           );
+
+          // Phase 6 — Sender Intelligence: update sender profile (best-effort)
+          if (from) {
+            const emailMatch = from.match(/<([^>]+)>/) || from.match(/(\S+@\S+)/);
+            const senderEmail = emailMatch ? emailMatch[1] : from;
+            const displayNameMatch = from.match(/^([^<]+)</) ;
+            const displayName = displayNameMatch
+              ? displayNameMatch[1].trim()
+              : undefined;
+            this.senderIntelligence
+              .recordInboundEmail({
+                userId,
+                senderEmail: senderEmail.trim(),
+                displayName,
+                emailReceivedAt: internalDate || new Date(),
+              })
+              .catch((err: unknown) => {
+                this.logger.warn(
+                  serializeStructuredLog({
+                    event: 'gmail_sender_intelligence_update_failed',
+                    userId,
+                    senderEmail,
+                    error: err instanceof Error ? err.message : String(err),
+                  }),
+                );
+              });
+          }
 
           imported += 1;
         } catch (e: any) {
