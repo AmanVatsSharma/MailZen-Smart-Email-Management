@@ -23,6 +23,7 @@ import { EmailFilterInput } from './dto/email-filter.input';
 import { EmailSortInput } from './dto/email-sort.input';
 import { EmailUpdateInput } from './dto/email-update.input';
 import { EmailThread } from './entities/email-thread.entity';
+import { PaginatedEmailThreads } from './entities/paginated-email-threads.entity';
 import { EmailFolder } from './entities/email-folder.entity';
 import { EmailLabel } from './entities/email-label.entity';
 
@@ -611,12 +612,12 @@ export class UnifiedInboxService {
     offset = 0,
     filter?: EmailFilterInput | null,
     sort?: EmailSortInput | null,
-  ): Promise<EmailThread[]> {
+  ): Promise<PaginatedEmailThreads> {
     const source = await this.resolveActiveInboxSource(
       userId,
       filter?.providerId,
     );
-    if (!source) return [];
+    if (!source) return { items: [], totalCount: 0 };
 
     if (source.type === 'MAILBOX') {
       const mailboxEmails = await this.listMailboxEmailsForUser({
@@ -705,6 +706,7 @@ export class UnifiedInboxService {
         mailboxThreads = mailboxThreads.reverse();
       }
 
+      const totalCount = mailboxThreads.length;
       const pagedMailboxThreads = mailboxThreads.slice(offset, offset + limit);
       this.logger.log(
         serializeStructuredLog({
@@ -713,10 +715,11 @@ export class UnifiedInboxService {
           mailboxId: source.id,
           limit,
           offset,
+          totalCount,
           returnedCount: pagedMailboxThreads.length,
         }),
       );
-      return pagedMailboxThreads;
+      return { items: pagedMailboxThreads, totalCount };
     }
 
     const providerId = source.id;
@@ -728,10 +731,21 @@ export class UnifiedInboxService {
 
     const search = filter?.search?.trim();
     if (search) {
-      qb.andWhere(
-        '(m.subject ILIKE :q OR m."from" ILIKE :q OR m.snippet ILIKE :q)',
-        { q: `%${search}%` },
-      );
+      // Use full-text search via GIN index when available; short queries fall
+      // back to ILIKE to handle partial words and punctuation gracefully.
+      const words = search.split(/\s+/).filter(Boolean);
+      const usesFts = words.every((word) => word.length >= 2);
+      if (usesFts) {
+        qb.andWhere(
+          `to_tsvector('english', coalesce(m.subject,'') || ' ' || coalesce(m."from",'') || ' ' || coalesce(m.snippet,'')) @@ plainto_tsquery('english', :ftsQuery)`,
+          { ftsQuery: search },
+        );
+      } else {
+        qb.andWhere(
+          '(m.subject ILIKE :q OR m."from" ILIKE :q OR m.snippet ILIKE :q)',
+          { q: `%${search}%` },
+        );
+      }
     }
 
     // Label AND filter: require all specified labelIds.
@@ -801,8 +815,10 @@ export class UnifiedInboxService {
       'm.createdAt',
     ]);
 
-    qb.skip(offset).take(limit);
+    // Fetch total count before applying pagination.
+    const totalCount = await qb.getCount();
 
+    qb.skip(offset).take(limit);
     const page = await qb.getMany();
 
     this.logger.log(
@@ -812,11 +828,15 @@ export class UnifiedInboxService {
         providerId,
         limit,
         offset,
+        totalCount,
         returnedCount: page.length,
       }),
     );
 
-    return page.map((m) => this.mapExternalMessageToThreadSummary(m as any));
+    return {
+      items: page.map((m) => this.mapExternalMessageToThreadSummary(m as any)),
+      totalCount,
+    };
   }
 
   private mapExternalMessageToThreadSummary(m: ExternalMessage): EmailThread {

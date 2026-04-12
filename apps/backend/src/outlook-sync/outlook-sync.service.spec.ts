@@ -61,6 +61,7 @@ describe('OutlookSyncService', () => {
       messageRepo,
       auditLogRepo,
       providerSyncLease as unknown as ProviderSyncLeaseService,
+      { processNewEmail: jest.fn() } as any,
     );
   });
 

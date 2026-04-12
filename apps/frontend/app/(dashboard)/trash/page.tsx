@@ -9,7 +9,6 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useMutation, useQuery } from '@apollo/client';
 import { GET_LABELS, UPDATE_EMAIL } from '@/lib/apollo/queries/emails';
 import type { EmailThread, EmailLabel } from '@/lib/email/email-types';
-import { mockLabels } from '@/lib/email/mock-data';
 import { useToast } from '@/components/ui/use-toast';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Surface } from '@/components/ui/surface';
@@ -23,7 +22,7 @@ const TrashPage = () => {
 
   // Fetch labels for EmailDetail badge rendering.
   const { data: labelsData } = useQuery(GET_LABELS);
-  const availableLabels: EmailLabel[] = labelsData?.labels || mockLabels;
+  const availableLabels: EmailLabel[] = labelsData?.labels ?? [];
   const [updateEmail] = useMutation(UPDATE_EMAIL);
 
   const handleSelectThread = (thread: EmailThread) => {

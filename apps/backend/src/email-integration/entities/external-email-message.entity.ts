@@ -56,6 +56,9 @@ export class ExternalEmailMessage {
   @Column({ type: 'text', nullable: true })
   snippet?: string;
 
+  @Column({ type: 'text', nullable: true })
+  textBody?: string;
+
   @Column({ type: 'timestamp', nullable: true })
   internalDate?: Date;
 

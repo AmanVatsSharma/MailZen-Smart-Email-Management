@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function AuthLoginPage() {
   return (
-    <div className="grid w-full gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+    <div className="grid w-full gap-6 lg:items-start lg:gap-8 lg:grid-cols-[minmax(0,1fr)_420px]">
       <LoginForm />
       <LoginAssistantAdapter />
     </div>

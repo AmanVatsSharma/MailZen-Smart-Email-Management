@@ -23,7 +23,7 @@
       "dependsOn": ["prepare-env"],
       "options": {
         "cwd": "apps/frontend",
-        "command": "npm run build"
+        "command": "NODE_ENV=production npm run build"
       }
     },
     "start": {

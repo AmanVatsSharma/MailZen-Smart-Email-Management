@@ -1,11 +1,17 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useMutation } from '@apollo/client';
-import { AgentAssistant, AgentAssistantAction, AgentAssistantMessage } from '@/components/ai/AgentAssistant';
+import { useApolloClient, useMutation } from '@apollo/client';
+import {
+  AgentAssistant,
+  AgentAssistantAction,
+  AgentAssistantCreditsHint,
+  AgentAssistantMessage,
+} from '@/components/ai/AgentAssistant';
 import { parseActionPayload } from '@/components/ai/agent-assistant.utils';
 import { useToast } from '@/components/ui/use-toast';
 import { AGENT_ASSIST_MUTATION } from '@/lib/apollo/queries/agent-assistant';
+import { GET_ENTITLEMENT_USAGE } from '@/lib/apollo/queries/billing';
 import type { EmailThread } from '@/lib/email/email-types';
 
 interface InboxAssistantAdapterProps {
@@ -25,6 +31,9 @@ type AgentAssistData = {
       severity: string;
       message: string;
     }>;
+    aiCreditsMonthlyLimit?: number | null;
+    aiCreditsUsed?: number | null;
+    aiCreditsRemaining?: number | null;
     executedAction?: {
       action: string;
       executed: boolean;
@@ -45,6 +54,7 @@ type AgentAssistVariables = {
     allowedActions: string[];
     requestedAction?: string;
     executeRequestedAction?: boolean;
+    requestedActionApprovalToken?: string;
   };
 };
 
@@ -78,8 +88,10 @@ export function InboxAssistantAdapter({
   onUseDraft,
 }: InboxAssistantAdapterProps) {
   const { toast } = useToast();
+  const client = useApolloClient();
   const [messages, setMessages] = useState<AgentAssistantMessage[]>([]);
   const [actions, setActions] = useState<AgentAssistantAction[]>([]);
+  const [creditsHint, setCreditsHint] = useState<AgentAssistantCreditsHint | null>(null);
 
   const [assist, { loading }] = useMutation<AgentAssistData, AgentAssistVariables>(
     AGENT_ASSIST_MUTATION,
@@ -96,10 +108,26 @@ export function InboxAssistantAdapter({
 
   const conversation = useMemo(() => messages.slice(-10), [messages]);
 
+  const applyCreditsFromResponse = (response: AgentAssistData['agentAssist']) => {
+    if (
+      response.aiCreditsRemaining != null ||
+      response.aiCreditsMonthlyLimit != null ||
+      response.aiCreditsUsed != null
+    ) {
+      setCreditsHint({
+        remaining: response.aiCreditsRemaining ?? undefined,
+        limit: response.aiCreditsMonthlyLimit ?? undefined,
+        used: response.aiCreditsUsed ?? undefined,
+      });
+    }
+    void client.refetchQueries({ include: [GET_ENTITLEMENT_USAGE] });
+  };
+
   const askAssistant = async (
     nextMessages: AgentAssistantMessage[],
     requestedAction?: string,
     executeRequestedAction?: boolean,
+    requestedActionApprovalToken?: string,
   ) => {
     const result = await assist({
       variables: {
@@ -113,7 +141,10 @@ export function InboxAssistantAdapter({
           },
           allowedActions,
           requestedAction,
-          executeRequestedAction,
+          executeRequestedAction: executeRequestedAction ?? false,
+          ...(requestedActionApprovalToken
+            ? { requestedActionApprovalToken: requestedActionApprovalToken }
+            : {}),
         },
       },
     });
@@ -121,6 +152,7 @@ export function InboxAssistantAdapter({
     const response = result.data?.agentAssist;
     if (!response) return;
 
+    applyCreditsFromResponse(response);
     setActions(response.suggestedActions || []);
     const updatedMessages: AgentAssistantMessage[] = [
       ...nextMessages,
@@ -172,7 +204,18 @@ export function InboxAssistantAdapter({
       });
     }
 
-    await askAssistant(conversation, action.name, true);
+    const token = action.approvalToken ?? undefined;
+
+    if (action.requiresApproval && !token) {
+      toast({
+        title: 'Approval unavailable',
+        description: 'This action needs a fresh assistant response with an approval token. Ask again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    await askAssistant(conversation, action.name, true, token);
   };
 
   return (
@@ -186,6 +229,7 @@ export function InboxAssistantAdapter({
       onSend={handleSend}
       onAction={handleAction}
       enableVoice
+      creditsHint={creditsHint}
     />
   );
 }

@@ -22,6 +22,7 @@ import { AiAgentActionAuditRetentionScheduler } from './ai-agent-action-audit-re
 import { AiDigestScheduler } from './ai-digest.scheduler';
 import { AiAgentGatewayResolver } from './ai-agent-gateway.resolver';
 import { AiAgentGatewayService } from './ai-agent-gateway.service';
+import { InboxAiService } from './inbox-ai.service';
 import { AiAgentPlatformHealthAlertScheduler } from './ai-agent-platform-health-alert.scheduler';
 import { AiAgentPlatformHealthAlertRunRetentionScheduler } from './ai-agent-platform-health-alert-run-retention.scheduler';
 import { AiAgentPlatformHealthSampleRetentionScheduler } from './ai-agent-platform-health-sample-retention.scheduler';
@@ -58,6 +59,7 @@ import { EmailEmbeddingService } from './services/email-embedding.service';
   providers: [
     AiAgentGatewayResolver,
     AiAgentGatewayService,
+    InboxAiService,
     AiAgentActionAuditRetentionScheduler,
     AiAgentPlatformHealthAlertScheduler,
     AiAgentPlatformHealthAlertRunRetentionScheduler,
@@ -68,6 +70,6 @@ import { EmailEmbeddingService } from './services/email-embedding.service';
     AiFeedbackService,
     EmailEmbeddingService,
   ],
-  exports: [AiAgentGatewayService, AiFeedbackService, EmailEmbeddingService],
+  exports: [AiAgentGatewayService, AiFeedbackService, EmailEmbeddingService, InboxAiService],
 })
 export class AiAgentGatewayModule {}

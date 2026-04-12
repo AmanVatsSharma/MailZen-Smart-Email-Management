@@ -43,7 +43,7 @@ export const primaryNavItems: PrimaryNavItem[] = [
   {
     id: 'dashboard',
     label: 'Dashboard',
-    href: '/',
+    href: '/dashboard',
     icon: LayoutDashboard,
   },
   {
@@ -77,7 +77,7 @@ export const secondaryPanelBySection: Record<DashboardSectionId, SecondaryPanelC
     title: 'Workspace',
     description: 'Overview and design references.',
     links: [
-      { label: 'Overview', href: '/', description: 'Email performance and KPIs' },
+      { label: 'Overview', href: '/dashboard', description: 'Email performance and KPIs' },
       { label: 'Design System', href: '/design-system', description: 'UI components playground' },
     ],
   },
@@ -163,6 +163,10 @@ export const normalizePathname = (pathname: string): string => {
 export const getSectionFromPathname = (pathname: string): DashboardSectionId => {
   const normalized = normalizePathname(pathname);
 
+  if (normalized === '/dashboard' || normalized === '/design-system') {
+    return 'dashboard';
+  }
+
   if (mailFolderRoutes.has(normalized)) {
     return 'mail';
   }
@@ -192,10 +196,6 @@ export const getSectionFromPathname = (pathname: string): DashboardSectionId => 
 export const isRouteActive = (pathname: string, href: string): boolean => {
   const normalizedPath = normalizePathname(pathname);
   const normalizedHref = normalizePathname(href);
-
-  if (normalizedHref === '/') {
-    return normalizedPath === '/';
-  }
 
   return (
     normalizedPath === normalizedHref ||

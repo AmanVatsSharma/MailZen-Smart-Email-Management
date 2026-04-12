@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { join } from 'path';
 import { UserModule } from './user/user.module';
 import { EmailModule } from './email/email.module';
@@ -23,13 +25,16 @@ import { UnifiedInboxModule } from './unified-inbox/unified-inbox.module';
 import { WorkspaceModule } from './workspace/workspace.module';
 import { SmartReplyModule } from './smart-replies/smart-reply.module';
 import { LabelModule } from './organization/label.module';
-import { QuestionModule } from './question/question.module';
 import { AiAgentGatewayModule } from './ai-agent-gateway/ai-agent-gateway.module';
 import { SenderIntelligenceModule } from './sender-intelligence/sender-intelligence.module';
+import { HealthModule } from './health/health.module';
+import { InboxTriageModule } from './inbox-triage/inbox-triage.module';
 import { buildTypeOrmModuleOptions } from './database/typeorm.config';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
+
     // Configuration module to load environment variables
     ConfigModule.forRoot({
       isGlobal: true,
@@ -74,11 +79,17 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
     WorkspaceModule,
     SmartReplyModule,
     LabelModule,
-    QuestionModule,
     AiAgentGatewayModule,
     SenderIntelligenceModule,
+    HealthModule,
+    InboxTriageModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter,
+    },
+  ],
 })
 export class AppModule {}

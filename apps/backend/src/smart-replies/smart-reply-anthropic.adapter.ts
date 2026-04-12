@@ -39,6 +39,26 @@ export class SmartReplyAnthropicAdapter implements SmartReplySuggestionProvider 
     }
   }
 
+  private resolveTemperature(creativityLevel?: number | null): number {
+    if (typeof creativityLevel !== 'number' || !Number.isFinite(creativityLevel)) {
+      return 0.4;
+    }
+    return Math.max(0, Math.min(1, creativityLevel / 100));
+  }
+
+  private resolveSystemPrompt(personalization?: number | null): string {
+    const level = typeof personalization === 'number' && Number.isFinite(personalization)
+      ? Math.max(0, Math.min(100, personalization))
+      : 75;
+    if (level >= 80) {
+      return 'You are a business email assistant. Match the user\'s personal voice and writing style closely — be warm, natural, and true to how they typically express themselves. Return concise, practical reply suggestions.';
+    }
+    if (level >= 50) {
+      return 'You are a business email assistant. Balance a professional tone with a natural, human touch. Return concise, practical reply suggestions.';
+    }
+    return 'You are a business email assistant. Use a clear, generic professional tone that is universally appropriate. Return concise, practical reply suggestions.';
+  }
+
   async generateSuggestions(
     input: SmartReplyProviderRequest,
   ): Promise<string[]> {
@@ -60,13 +80,17 @@ export class SmartReplyAnthropicAdapter implements SmartReplySuggestionProvider 
       process.env.SMART_REPLY_ANTHROPIC_BASE_URL ||
       'https://api.anthropic.com/v1';
     const model =
-      process.env.SMART_REPLY_ANTHROPIC_MODEL || 'claude-3-5-haiku-latest';
+      input.modelOverride?.trim() ||
+      process.env.SMART_REPLY_ANTHROPIC_MODEL ||
+      'claude-3-5-haiku-latest';
     const timeoutMs = Number(
       process.env.SMART_REPLY_ANTHROPIC_TIMEOUT_MS || 4500,
     );
     const maxTokens = Number(
       process.env.SMART_REPLY_ANTHROPIC_MAX_TOKENS || 320,
     );
+    const temperature = this.resolveTemperature(input.creativityLevel);
+    const systemPrompt = this.resolveSystemPrompt(input.personalization);
     const endpoint = `${baseUrl.replace(/\/+$/, '')}/messages`;
 
     const userPrompt = [
@@ -75,7 +99,7 @@ export class SmartReplyAnthropicAdapter implements SmartReplySuggestionProvider 
       input.customInstructions
         ? `Custom instructions: ${input.customInstructions}`
         : null,
-      `Conversation: ${input.conversation}`,
+      `Conversation:\n${input.conversation}`,
       'Output strictly as a JSON array of strings. No markdown and no numbering.',
     ]
       .filter(Boolean)
@@ -86,13 +110,12 @@ export class SmartReplyAnthropicAdapter implements SmartReplySuggestionProvider 
         endpoint,
         {
           model,
-          temperature: 0.4,
+          temperature,
           max_tokens:
             Number.isFinite(maxTokens) && maxTokens > 0
               ? Math.trunc(maxTokens)
               : 320,
-          system:
-            'You are a business email assistant. Return concise, practical reply suggestions.',
+          system: systemPrompt,
           messages: [
             {
               role: 'user',

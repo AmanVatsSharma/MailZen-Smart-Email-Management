@@ -3,6 +3,12 @@ import { onError } from '@apollo/client/link/error';
 import { setContext } from '@apollo/client/link/context';
 import { getRefreshToken, removeRefreshToken, removeUserData, setRefreshToken } from '@/modules/auth';
 
+// Auth model: the backend sets an HttpOnly `token` cookie on login/refresh.
+// All GraphQL requests include the cookie automatically via `credentials: 'include'`.
+// The refresh token is stored in localStorage solely because the backend's
+// `refresh` mutation requires it as a body parameter. When the backend supports
+// cookie-based refresh, localStorage usage can be eliminated entirely.
+
 const GRAPHQL_ENDPOINT =
   process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql';
 
@@ -139,8 +145,6 @@ const debugLink = new ApolloLink((operation, forward) => {
 
 // Initialize Apollo Client
 export const client = new ApolloClient({
-  // Auth is cookie-based (HttpOnly) so we do NOT read tokens from localStorage.
-  // Cookies are sent automatically via `credentials: 'include'` on httpLink.
   link: from([errorLink, requestContextLink, debugLink, httpLink]),
   cache: new InMemoryCache(),
   defaultOptions: {

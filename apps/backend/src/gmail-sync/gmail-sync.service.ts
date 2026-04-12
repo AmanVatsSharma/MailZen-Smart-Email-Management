@@ -27,11 +27,18 @@ import { ExternalEmailLabel } from '../email-integration/entities/external-email
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
 import { SenderIntelligenceService } from '../sender-intelligence/sender-intelligence.service';
+import { EmailAiProcessorService } from '../email-integration/email-ai-processor.service';
 
 type GmailListResponse = {
   messages?: { id: string; threadId?: string }[];
   nextPageToken?: string;
   resultSizeEstimate?: number;
+};
+
+type GmailMessagePart = {
+  mimeType?: string;
+  body?: { data?: string; size?: number };
+  parts?: GmailMessagePart[];
 };
 
 type GmailMessageResponse = {
@@ -42,6 +49,9 @@ type GmailMessageResponse = {
   internalDate?: string;
   payload?: {
     headers?: { name: string; value: string }[];
+    mimeType?: string;
+    body?: { data?: string; size?: number };
+    parts?: GmailMessagePart[];
   };
 };
 
@@ -89,7 +99,11 @@ export class GmailSyncService {
     @InjectRepository(AuditLog)
     private readonly auditLogRepo: Repository<AuditLog>,
     private readonly providerSyncLease: ProviderSyncLeaseService,
+<<<<<<< Updated upstream
     private readonly senderIntelligence: SenderIntelligenceService,
+=======
+    private readonly emailAiProcessor: EmailAiProcessorService,
+>>>>>>> Stashed changes
   ) {
     this.providerSecretsKeyring = resolveProviderSecretsKeyring();
     // Dedicated client for Gmail API access token refresh.
@@ -99,6 +113,67 @@ export class GmailSyncService {
       process.env.GOOGLE_PROVIDER_REDIRECT_URI ||
         process.env.GOOGLE_REDIRECT_URI,
     );
+  }
+
+  /**
+   * Recursively extract plain-text body from a Gmail full-format message payload.
+   * Prefers text/plain; falls back to stripping tags from text/html.
+   * Truncates to 4000 chars to keep LLM token usage bounded.
+   */
+  private parseGmailBody(payload: GmailMessageResponse['payload']): string | null {
+    if (!payload) return null;
+
+    const collectParts = (part: GmailMessagePart): string | null => {
+      if (part.mimeType === 'text/plain' && part.body?.data) {
+        return Buffer.from(part.body.data, 'base64url').toString('utf-8');
+      }
+      if (part.parts?.length) {
+        for (const child of part.parts) {
+          const result = collectParts(child);
+          if (result) return result;
+        }
+      }
+      return null;
+    };
+
+    let text: string | null = null;
+
+    // Check top-level body first (simple single-part messages)
+    if (payload.mimeType === 'text/plain' && payload.body?.data) {
+      text = Buffer.from(payload.body.data, 'base64url').toString('utf-8');
+    } else if (payload.parts?.length) {
+      // Walk parts for text/plain first
+      for (const part of payload.parts) {
+        text = collectParts(part);
+        if (text) break;
+      }
+      // If no plain text, try html and strip tags
+      if (!text) {
+        const findHtml = (part: GmailMessagePart): string | null => {
+          if (part.mimeType === 'text/html' && part.body?.data) {
+            return Buffer.from(part.body.data, 'base64url').toString('utf-8');
+          }
+          for (const child of part.parts || []) {
+            const result = findHtml(child);
+            if (result) return result;
+          }
+          return null;
+        };
+        for (const part of payload.parts) {
+          const html = findHtml(part);
+          if (html) {
+            text = html.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim();
+            break;
+          }
+        }
+      }
+    } else if (payload.mimeType === 'text/html' && payload.body?.data) {
+      const html = Buffer.from(payload.body.data, 'base64url').toString('utf-8');
+      text = html.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    }
+
+    if (!text) return null;
+    return text.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, 4000) || null;
   }
 
   private async writeAuditLog(input: {
@@ -661,8 +736,7 @@ export class GmailSyncService {
           const details = await axios.get<GmailMessageResponse>(msgUrl, {
             headers: { Authorization: `Bearer ${accessToken}` },
             params: {
-              format: 'metadata',
-              metadataHeaders: ['From', 'To', 'Subject', 'Date'],
+              format: 'full',
             },
           });
 
@@ -683,6 +757,7 @@ export class GmailSyncService {
             ? new Date(Number(details.data.internalDate))
             : null;
           const labels = details.data.labelIds || [];
+          const textBody = this.parseGmailBody(details.data.payload) || undefined;
 
           await this.externalEmailMessageRepo.upsert(
             [
@@ -695,6 +770,7 @@ export class GmailSyncService {
                 to,
                 subject: subject || undefined,
                 snippet: details.data.snippet || undefined,
+                textBody,
                 internalDate: internalDate || undefined,
                 labels,
                 rawPayload: details.data as any,
@@ -703,6 +779,7 @@ export class GmailSyncService {
             ['providerId', 'externalMessageId'],
           );
 
+<<<<<<< Updated upstream
           // Phase 6 — Sender Intelligence: update sender profile (best-effort)
           if (from) {
             const emailMatch = from.match(/<([^>]+)>/) || from.match(/(\S+@\S+)/);
@@ -729,6 +806,18 @@ export class GmailSyncService {
                 );
               });
           }
+=======
+          this.emailAiProcessor.processNewEmail({
+            providerId,
+            externalMessageId: details.data.id,
+            from: from || undefined,
+            subject: subject || undefined,
+            snippet: details.data.snippet || undefined,
+            textBody,
+            internalDate: internalDate || undefined,
+            labels,
+          });
+>>>>>>> Stashed changes
 
           imported += 1;
         } catch (e: any) {

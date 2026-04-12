@@ -134,10 +134,19 @@ describe('AiAgentGatewayService', () => {
     }),
   } as unknown as Pick<BillingService, 'consumeAiCredits'>;
 
+  const mockInboxAiService = {
+    classifyThread: jest.fn().mockResolvedValue(null),
+    prioritizeThread: jest.fn().mockResolvedValue(null),
+    extractActionItems: jest.fn().mockResolvedValue(null),
+    summarizeThread: jest.fn().mockResolvedValue(null),
+    composeReplyDraft: jest.fn().mockResolvedValue(null),
+  };
+
   const createService = () =>
     new AiAgentGatewayService(
       authService as AuthService,
       billingService as BillingService,
+      mockInboxAiService as any,
       userRepo as Repository<User>,
       externalEmailMessageRepo as Repository<ExternalEmailMessage>,
       workspaceMemberRepo as Repository<WorkspaceMember>,

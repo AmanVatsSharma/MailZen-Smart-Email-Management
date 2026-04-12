@@ -4,6 +4,14 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Mic, MicOff, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { createBrowserVoiceIO } from '@/lib/voice/voice-io';
 
@@ -16,6 +24,15 @@ export type AgentAssistantAction = {
   name: string;
   label: string;
   payloadJson?: string | null;
+  requiresApproval?: boolean | null;
+  approvalToken?: string | null;
+  approvalTokenExpiresAtIso?: string | null;
+};
+
+export type AgentAssistantCreditsHint = {
+  remaining?: number | null;
+  limit?: number | null;
+  used?: number | null;
 };
 
 interface AgentAssistantProps {
@@ -28,6 +45,8 @@ interface AgentAssistantProps {
   onSend: (message: string) => void | Promise<void>;
   onAction: (action: AgentAssistantAction) => void | Promise<void>;
   enableVoice?: boolean;
+  /** Shown after assistant responses when the API returns credit fields */
+  creditsHint?: AgentAssistantCreditsHint | null;
 }
 
 export function AgentAssistant({
@@ -40,10 +59,12 @@ export function AgentAssistant({
   onSend,
   onAction,
   enableVoice = false,
+  creditsHint = null,
 }: AgentAssistantProps) {
   const [draft, setDraft] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [approvalDialogAction, setApprovalDialogAction] = useState<AgentAssistantAction | null>(null);
   const voiceIo = useMemo(() => createBrowserVoiceIO(), []);
   const stopListeningRef = useRef<(() => void) | null>(null);
 
@@ -97,6 +118,22 @@ export function AgentAssistant({
     voiceIo.speak(lastAssistantMessage.content);
   };
 
+  const handleActionButtonClick = (action: AgentAssistantAction) => {
+    if (loading) return;
+    if (action.requiresApproval && action.approvalToken) {
+      setApprovalDialogAction(action);
+      return;
+    }
+    void onAction(action);
+  };
+
+  const confirmApprovalDialog = () => {
+    if (approvalDialogAction) {
+      void onAction(approvalDialogAction);
+      setApprovalDialogAction(null);
+    }
+  };
+
   return (
     <Card className="premium-card h-full">
       <CardHeader className="space-y-2">
@@ -105,6 +142,21 @@ export function AgentAssistant({
           <CardTitle className="text-lg">{title}</CardTitle>
         </div>
         <CardDescription>{description}</CardDescription>
+        {creditsHint &&
+        (creditsHint.remaining != null ||
+          creditsHint.limit != null ||
+          creditsHint.used != null) ? (
+          <p className="text-xs text-muted-foreground">
+            AI credits
+            {creditsHint.remaining != null && creditsHint.limit != null
+              ? `: ${creditsHint.remaining} / ${creditsHint.limit} remaining this period`
+              : creditsHint.remaining != null
+                ? `: ${creditsHint.remaining} remaining`
+                : creditsHint.used != null && creditsHint.limit != null
+                  ? `: ${creditsHint.used} used of ${creditsHint.limit}`
+                  : ''}
+          </p>
+        ) : null}
       </CardHeader>
 
       <CardContent className="flex h-[500px] flex-col gap-4">
@@ -140,17 +192,37 @@ export function AgentAssistant({
           <div className="flex flex-wrap gap-2">
             {actions.map((action) => (
               <Button
-                key={`${action.name}-${action.label}`}
+                key={`${action.name}-${action.label}-${action.approvalToken || ''}`}
                 size="sm"
-                variant="outline"
+                variant={action.requiresApproval ? 'secondary' : 'outline'}
                 disabled={loading}
-                onClick={() => onAction(action)}
+                onClick={() => handleActionButtonClick(action)}
               >
                 {action.label}
               </Button>
             ))}
           </div>
         ) : null}
+
+        <Dialog open={!!approvalDialogAction} onOpenChange={(open) => !open && setApprovalDialogAction(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirm this action</DialogTitle>
+              <DialogDescription>
+                This runs a server-side step and may use AI credits. Only continue if you intended to run &quot;
+                {approvalDialogAction?.label}&quot;.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={() => setApprovalDialogAction(null)}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={confirmApprovalDialog} disabled={loading}>
+                Confirm and run
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {voiceError ? (
           <p className="text-xs text-destructive">{voiceError}</p>

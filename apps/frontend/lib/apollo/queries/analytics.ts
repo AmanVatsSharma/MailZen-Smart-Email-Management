@@ -16,3 +16,15 @@ export const GET_DASHBOARD_ANALYTICS = gql`
     }
   }
 `;
+
+export const GET_EMAIL_TRACKING_STATS = gql`
+  query GetEmailTrackingStats {
+    getAllEmailAnalytics {
+      id
+      emailId
+      openCount
+      clickCount
+      lastUpdatedAt
+    }
+  }
+`;

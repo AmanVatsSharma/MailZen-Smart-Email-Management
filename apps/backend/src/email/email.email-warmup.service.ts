@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuditLog } from '../auth/entities/audit-log.entity';
+import { BillingService } from '../billing/billing.service';
 import { EmailService } from './email.service';
 import { StartWarmupInput, PauseWarmupInput } from './dto/warmup.input';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -94,6 +95,8 @@ export class EmailWarmupService {
     </div>`,
   ];
 
+  private static readonly WARMUP_REQUIRED_PLAN_CODES = ['PRO', 'BUSINESS'];
+
   constructor(
     private readonly emailService: EmailService,
     @InjectRepository(EmailProvider)
@@ -104,7 +107,23 @@ export class EmailWarmupService {
     private readonly warmupActivityRepo: Repository<WarmupActivity>,
     @InjectRepository(AuditLog)
     private readonly auditLogRepo: Repository<AuditLog>,
+    private readonly billingService: BillingService,
   ) {}
+
+  private async enforceWarmupEntitlement(userId: string): Promise<void> {
+    const entitlements = await this.billingService.getEntitlements(userId);
+    if (
+      !EmailWarmupService.WARMUP_REQUIRED_PLAN_CODES.includes(
+        entitlements.planCode,
+      )
+    ) {
+      throw new ForbiddenException(
+        `Email warmup is available on Pro and Business plans. ` +
+          `Your current plan is ${entitlements.planCode}. ` +
+          `Upgrade to unlock email warmup.`,
+      );
+    }
+  }
 
   private async writeAuditLog(input: {
     userId: string;
@@ -141,6 +160,7 @@ export class EmailWarmupService {
   }
 
   async startWarmup(input: StartWarmupInput, userId: string) {
+    await this.enforceWarmupEntitlement(userId);
     this.logger.log(
       serializeStructuredLog({
         event: 'email_warmup_start_requested',

@@ -2,6 +2,7 @@ import { Args, Context, Mutation, Query, Resolver, Int } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { EmailThread } from './entities/email-thread.entity';
+import { PaginatedEmailThreads } from './entities/paginated-email-threads.entity';
 import { UnifiedInboxService } from './unified-inbox.service';
 import { EmailFilterInput } from './dto/email-filter.input';
 import { EmailSortInput } from './dto/email-sort.input';
@@ -25,9 +26,9 @@ export class UnifiedInboxResolver {
   /**
    * Frontend contract: `emails(...)` used by the inbox list UI.
    *
-   * Returns thread-shaped records (not the internal `Email` model).
+   * Returns a paginated wrapper with `items` and `totalCount`.
    */
-  @Query(() => [EmailThread])
+  @Query(() => PaginatedEmailThreads)
   async emails(
     @Args('limit', { type: () => Int, nullable: true }) limit: number,
     @Args('offset', { type: () => Int, nullable: true }) offset: number,

@@ -3,16 +3,16 @@
 import React, { useEffect, useState } from 'react';
 import { useApolloClient, useMutation, useQuery } from '@apollo/client';
 import { useSearchParams } from 'next/navigation';
-import { Filter, MoreVertical, Plus, RefreshCw } from 'lucide-react';
+import { Filter, MoreVertical, Plus, RefreshCw, BarChart2 } from 'lucide-react';
 import { EmailComposer } from '@/components/email/EmailComposer';
 import { EmailDetail } from '@/components/email/EmailDetail';
 import { EmailList } from '@/components/email/EmailList';
 import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
+import { EmailTrackingPanel } from '@/components/email/EmailTrackingPanel';
 import { Button } from '@/components/ui/button';
 import { Surface } from '@/components/ui/surface';
 import { useToast } from '@/components/ui/use-toast';
 import { GET_LABELS, UPDATE_EMAIL } from '@/lib/apollo/queries/emails';
-import { mockLabels } from '@/lib/email/mock-data';
 import { type EmailFolder, type EmailLabel, type EmailThread } from '@/lib/email/email-types';
 
 const SentPage = () => {
@@ -25,12 +25,13 @@ const SentPage = () => {
   const [composerMode, setComposerMode] = useState<'new' | 'reply' | 'forward'>('new');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'preview' | 'full'>('preview');
+  const [showTracking, setShowTracking] = useState(false);
 
   const currentFolder: EmailFolder = 'sent';
   const currentLabel = searchParams.get('label') ?? undefined;
 
   const { data: labelsData } = useQuery(GET_LABELS);
-  const availableLabels = labelsData?.labels || mockLabels;
+  const availableLabels = labelsData?.labels ?? [];
 
   const [updateEmail] = useMutation(UPDATE_EMAIL);
 
@@ -195,6 +196,17 @@ const SentPage = () => {
                   New Email
                 </Button>
                 <Button
+                  variant={showTracking ? 'default' : 'outline'}
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => setShowTracking((v) => !v)}
+                  aria-label="Toggle tracking panel"
+                  aria-pressed={showTracking}
+                >
+                  <BarChart2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Tracking</span>
+                </Button>
+                <Button
                   variant="outline"
                   size="icon"
                   onClick={handleRefresh}
@@ -266,6 +278,20 @@ const SentPage = () => {
                 </div>
               )}
             </Surface>
+
+            {/* Email tracking panel — visible when toggled */}
+            {showTracking && (
+              <Surface
+                className="hidden xl:flex w-[300px] min-w-[300px] overflow-auto"
+                variant="glass"
+                animateIn={false}
+              >
+                <EmailTrackingPanel
+                  emailId={selectedThread?.messages?.[0]?.id ?? null}
+                  className="w-full"
+                />
+              </Surface>
+            )}
           </div>
         </div>
       </div>

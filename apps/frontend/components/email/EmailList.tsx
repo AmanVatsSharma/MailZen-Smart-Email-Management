@@ -57,10 +57,18 @@ interface EmailListProps {
   onBatchAction?: (action: string, threadIds: string[]) => void;
   initialFolder?: EmailFolder;
   labelFilter?: string;
+  /** External search query from the URL (e.g. ?q=...). Overrides internal search state when provided. */
+  externalSearchQuery?: string;
 }
 
 // Number of emails per page
 const PAGE_SIZE = 10;
+
+const AI_PRIORITY_CHIPS: { id: string; label: string }[] = [
+  { id: 'ai:priority_high', label: 'AI · High' },
+  { id: 'ai:priority_medium', label: 'AI · Med' },
+  { id: 'ai:priority_low', label: 'AI · Low' },
+];
 
 export function EmailList({
   onSelectThread,
@@ -69,10 +77,11 @@ export function EmailList({
   onBatchAction,
   initialFolder = 'inbox',
   labelFilter,
+  externalSearchQuery,
 }: EmailListProps) {
   // State for folder, search, and pagination
   const [currentFolder, setCurrentFolder] = useState<EmailFolder>(initialFolder);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(externalSearchQuery ?? '');
   const [currentPage, setCurrentPage] = useState(1);
   const [semanticEmailIds, setSemanticEmailIds] = useState<string[] | null>(null);
 
@@ -97,25 +106,37 @@ export function EmailList({
     field: 'date',
     direction: 'desc'
   });
-  
+  const [aiPriorityFilter, setAiPriorityFilter] = useState<string | null>(null);
+
   // Get toast
   const { toast } = useToast();
   
   // Reset to page 1 when search, folder, or label changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, currentFolder, labelFilter]);
+  }, [searchQuery, currentFolder, labelFilter, aiPriorityFilter]);
   
   // Effect to update current folder when initialFolder prop changes
   useEffect(() => {
     setCurrentFolder(initialFolder);
   }, [initialFolder]);
+
+  // Sync external search query from URL params
+  useEffect(() => {
+    if (externalSearchQuery !== undefined) {
+      setSearchQuery(externalSearchQuery);
+    }
+  }, [externalSearchQuery]);
   
-  // Prepare GraphQL variables
+  // Prepare GraphQL variables (AND on all labelIds — matches unified inbox backend)
+  const mergedLabelIds = [
+    ...(labelFilter ? [labelFilter] : []),
+    ...(aiPriorityFilter ? [aiPriorityFilter] : []),
+  ];
   const filter: EmailFilter = {
     folder: currentFolder,
     search: searchQuery,
-    labelIds: labelFilter ? [labelFilter] : undefined
+    labelIds: mergedLabelIds.length ? mergedLabelIds : undefined,
   };
   
   // Fetch emails with Apollo Client
@@ -135,13 +156,13 @@ export function EmailList({
   // Update email mutation
   const [updateEmail] = useMutation(UPDATE_EMAIL);
   
-  // Setup emails state from GraphQL data
+  // Setup emails state from GraphQL paginated response
   const emails = {
-    items: data?.emails || [],
-    total: data?.emails?.length || 0,
+    items: data?.emails?.items || [],
+    total: data?.emails?.totalCount ?? (data?.emails?.items?.length || 0),
     page: currentPage,
     pageSize: PAGE_SIZE,
-    hasMore: (data?.emails?.length || 0) === PAGE_SIZE,
+    hasMore: (data?.emails?.totalCount ?? 0) > currentPage * PAGE_SIZE,
   };
 
   const visibleThreadIds = useMemo(() => {
@@ -518,11 +539,33 @@ export function EmailList({
           )}
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              AI priority
+            </span>
+            {AI_PRIORITY_CHIPS.map((chip) => {
+              const active = aiPriorityFilter === chip.id;
+              return (
+                <Button
+                  key={chip.id}
+                  type="button"
+                  variant={active ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() =>
+                    setAiPriorityFilter((prev) => (prev === chip.id ? null : chip.id))
+                  }
+                >
+                  {chip.label}
+                </Button>
+              );
+            })}
+          </div>
           <EmailSearch
             onSearch={(q) => { setSearchQuery(q); if (!q) setSemanticEmailIds(null); }}
             onSemanticSearch={handleSemanticSearch}
-            className="w-64"
+            className="w-full sm:w-64"
             placeholder={`Search in ${currentFolder}...`}
             initialQuery={searchQuery}
           />
@@ -569,16 +612,20 @@ export function EmailList({
           currentFolder === 'inbox' && !searchQuery ? (
             <InboxZeroState />
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <div className="bg-primary/10 p-4 rounded-full mb-4">
+            <div className="flex flex-col items-center justify-center h-full text-center p-8 gap-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
                 {getFolderIcon(currentFolder)}
               </div>
-              <h3 className="text-lg font-medium mb-1">No emails found</h3>
-              <p className="text-muted-foreground text-sm">
-                {searchQuery
-                  ? `No matching emails found for "${searchQuery}"`
-                  : `Your ${currentFolder} is empty`}
-              </p>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold">
+                  {searchQuery ? 'No matching emails' : `${currentFolder.charAt(0).toUpperCase() + currentFolder.slice(1)} is empty`}
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  {searchQuery
+                    ? `No emails match "${searchQuery}". Try a different search.`
+                    : `No emails in ${currentFolder} yet.`}
+                </p>
+              </div>
             </div>
           )
         ) : (

@@ -1,10 +1,9 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { EmailAnalytics } from './email-analytics.entity';
+import { EmailAnalytics } from './entities/email-analytics.entity';
 import { CreateEmailAnalyticsInput } from './dto/create-email-analytics.input';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuditLog } from '../auth/entities/audit-log.entity';
-import { EmailAnalytics as EmailAnalyticsEntity } from './entities/email-analytics.entity';
 import { Email } from '../email/entities/email.entity';
 import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
@@ -13,8 +12,8 @@ export class EmailAnalyticsService {
   private readonly logger = new Logger(EmailAnalyticsService.name);
 
   constructor(
-    @InjectRepository(EmailAnalyticsEntity)
-    private readonly analyticsRepo: Repository<EmailAnalyticsEntity>,
+    @InjectRepository(EmailAnalytics)
+    private readonly analyticsRepo: Repository<EmailAnalytics>,
     @InjectRepository(Email)
     private readonly emailRepo: Repository<Email>,
     @InjectRepository(AuditLog)
@@ -87,13 +86,6 @@ export class EmailAnalyticsService {
     });
     if (!rec)
       throw new NotFoundException('Email analytics not found after upsert');
-    const result = {
-      id: rec.id,
-      emailId: rec.emailId,
-      openCount: rec.openCount,
-      clickCount: rec.clickCount,
-      lastUpdatedAt: rec.updatedAt,
-    };
     this.logger.log(
       serializeStructuredLog({
         event: 'email_analytics_create_completed',
@@ -113,7 +105,7 @@ export class EmailAnalyticsService {
         lastUpdatedAtIso: rec.updatedAt.toISOString(),
       },
     });
-    return result;
+    return rec;
   }
 
   async getAllEmailAnalytics(userId: string): Promise<EmailAnalytics[]> {
@@ -129,21 +121,14 @@ export class EmailAnalyticsService {
       .where('e.userId = :userId', { userId })
       .orderBy('a.updatedAt', 'DESC')
       .getMany();
-    const response = recs.map((r) => ({
-      id: r.id,
-      emailId: r.emailId,
-      openCount: r.openCount,
-      clickCount: r.clickCount,
-      lastUpdatedAt: r.updatedAt,
-    }));
     this.logger.log(
       serializeStructuredLog({
         event: 'email_analytics_list_completed',
         userId,
-        resultCount: response.length,
+        resultCount: recs.length,
       }),
     );
-    return response;
+    return recs;
   }
 
   // Additional methods (update, delete) can be added as needed.

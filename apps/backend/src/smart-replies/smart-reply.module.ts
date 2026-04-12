@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditLog } from '../auth/entities/audit-log.entity';
+import { BillingModule } from '../billing/billing.module';
+import { RequirePlanGuard } from '../billing/guards/require-plan.guard';
 import { SmartReplyService } from './smart-reply.service';
 import { SmartReplyExternalModelAdapter } from './smart-reply-external-model.adapter';
 import { SmartReplyResolver } from './smart-reply.resolver';
@@ -16,6 +18,7 @@ import { SmartReplyOpenAiAdapter } from './smart-reply-openai.adapter';
 @Module({
   imports: [
     TypeOrmModule.forFeature([SmartReplySettings, SmartReplyHistory, AuditLog]),
+    BillingModule,
   ],
   providers: [
     SmartReplyService,
@@ -27,6 +30,7 @@ import { SmartReplyOpenAiAdapter } from './smart-reply-openai.adapter';
     SmartReplyAnthropicAdapter,
     SmartReplyExternalModelAdapter,
     SmartReplyProviderRouter,
+    RequirePlanGuard,
   ],
   exports: [SmartReplyService],
 })

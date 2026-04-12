@@ -44,4 +44,9 @@ export class EmailAnalytics {
   @Field()
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @Field()
+  get lastUpdatedAt(): Date {
+    return this.updatedAt;
+  }
 }

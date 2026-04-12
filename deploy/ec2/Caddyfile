@@ -2,13 +2,34 @@
 # MailZen EC2 HTTPS gateway (Caddy)
 # - Terminates TLS automatically for the configured domain.
 # - Routes API/auth/webhook/SSE paths to backend.
-# - Routes all remaining paths to frontend.
+# - Routes all remaining paths to frontend (dashboard app).
+# - Routes www subdomain to marketing site.
 # -----------------------------------------------------------------------------
 
 {
 	email {$ACME_EMAIL}
 }
 
+# Marketing site: www subdomain
+www.{$MAILZEN_DOMAIN} {
+	encode gzip zstd
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	log {
+		output stdout
+		format console
+	}
+
+	reverse_proxy marketing:3001
+}
+
+# Dashboard app and API: apex domain
 {$MAILZEN_DOMAIN} {
 	encode gzip zstd
 
@@ -26,7 +47,7 @@
 		format console
 	}
 
-	@backend path /graphql* /auth/* /email-integration/* /notifications/* /mailbox/* /gmail-sync/* /outlook-sync/* /billing/* /phone/*
+	@backend path /graphql* /auth/* /email-integration/* /notifications/* /mailbox/* /gmail-sync/* /outlook-sync/* /billing/* /phone/* /health
 	reverse_proxy @backend backend:4000
 
 	reverse_proxy frontend:3000

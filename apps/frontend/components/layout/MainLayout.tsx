@@ -7,14 +7,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import { CommandPalette, useCommandPalette } from '@/components/ui/command-palette';
+import { OnboardingBanner } from './OnboardingBanner';
 
 import { BackgroundGradient } from '@/components/ui/background-gradient';
 import { fadeIn, fadeInUp, springPremium } from '@/lib/motion';
 import { AUTH_ROUTES, MY_MAILBOXES_QUERY } from '@/modules/auth';
+import { GET_PROVIDERS } from '@/lib/apollo/queries/providers';
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
+
+const PROVIDER_SETUP_EXEMPT_PATHS = ['/email-providers', '/settings'];
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const router = useRouter();
@@ -23,16 +27,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const pathname = usePathname();
   const routeKey = useMemo(() => pathname || 'route:unknown', [pathname]);
   const isAuthRoute = pathname?.includes('/auth') ?? false;
+  const isProviderSetupExempt = PROVIDER_SETUP_EXEMPT_PATHS.some(
+    (p) => pathname?.startsWith(p) ?? false,
+  );
+
   const { data: mailboxData, loading: mailboxLoading, error: mailboxError } =
     useQuery(MY_MAILBOXES_QUERY, {
       fetchPolicy: 'network-only',
       skip: isAuthRoute,
     });
 
+  const { data: providersData, loading: providersLoading } = useQuery(
+    GET_PROVIDERS,
+    {
+      fetchPolicy: 'network-only',
+      skip: isAuthRoute || isProviderSetupExempt,
+    },
+  );
+
   const hasMailzenAlias = (mailboxData?.myMailboxes?.length ?? 0) > 0;
+  const hasProviders = (providersData?.providers?.length ?? 0) > 0;
+  const isLoading = mailboxLoading || (!isProviderSetupExempt && providersLoading);
 
   useEffect(() => {
-    // Debug-only log to help trace routing/transition issues later.
     if (process.env.NODE_ENV !== 'production') {
       // eslint-disable-next-line no-console
       console.debug('[MainLayout] route change', { pathname });
@@ -45,7 +62,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   }, [pathname]);
 
   useEffect(() => {
-    if (isAuthRoute || mailboxLoading) {
+    if (isAuthRoute || isLoading) {
       return;
     }
 
@@ -56,12 +73,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
     if (!hasMailzenAlias) {
       router.replace(AUTH_ROUTES.aliasSelect);
+      return;
+    }
+
+    if (!isProviderSetupExempt && !hasProviders && providersData !== undefined) {
+      router.replace('/email-providers');
     }
   }, [
     hasMailzenAlias,
+    hasProviders,
     isAuthRoute,
+    isLoading,
+    isProviderSetupExempt,
     mailboxError,
-    mailboxLoading,
+    providersData,
     router,
   ]);
 
@@ -94,7 +119,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     return <>{children}</>;
   }
 
-  if (mailboxLoading || (!mailboxError && !hasMailzenAlias)) {
+  if (isLoading || (!mailboxError && !hasMailzenAlias)) {
     return (
       <div className="flex min-h-screen items-center justify-center text-muted-foreground">
         Checking your account setup...
@@ -129,6 +154,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           onOpenCommandPalette={() => setCmdPaletteOpen(true)}
           onCompose={() => router.push('/inbox?compose=true')}
         />
+        <OnboardingBanner />
         <motion.main className="flex-1 overflow-y-auto p-4 md:p-6 bg-transparent">
           {/* Route transitions: keep navigation feeling premium and coherent. */}
           <AnimatePresence mode="wait" initial={false}>

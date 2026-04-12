@@ -43,6 +43,8 @@ import {
 } from './dto/agent-assist.response';
 import { serializeStructuredLog } from '../common/logging/structured-log.util';
 import { AiFeedbackService } from './services/ai-feedback.service';
+import { InboxAiService } from './inbox-ai.service';
+import { AutoSendTier } from '../smart-replies/auto-send-tier.enum';
 
 interface AgentPlatformPayload {
   version: 'v1';
@@ -334,6 +336,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly authService: AuthService,
     private readonly billingService: BillingService,
+    private readonly inboxAiService: InboxAiService,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     @InjectRepository(ExternalEmailMessage)
@@ -2818,13 +2821,32 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
-    await this.assertActionApprovalIfRequired({
-      skill,
-      skillPolicy,
-      requestedAction,
-      userId,
-      requestedApprovalToken: input.requestedActionApprovalToken,
-    });
+    // Check auto-send tier override for compose_reply_draft before token validation
+    let skipApprovalForDraft = false;
+    if (requestedAction === 'inbox.compose_reply_draft' && userId) {
+      const metadata = this.parseContextMetadata(input.context?.metadataJson);
+      const threadId =
+        metadata.threadId ||
+        metadata.emailThreadId ||
+        metadata.messageThreadId ||
+        undefined;
+      const tierCheck = await this.shouldSkipDraftApproval({
+        userId,
+        threadId,
+        draft: '',
+      });
+      skipApprovalForDraft = tierCheck.skip;
+    }
+
+    if (!skipApprovalForDraft) {
+      await this.assertActionApprovalIfRequired({
+        skill,
+        skillPolicy,
+        requestedAction,
+        userId,
+        requestedApprovalToken: input.requestedActionApprovalToken,
+      });
+    }
 
     if (!skillPolicy.serverExecutableActions.has(requestedAction)) {
       return this.finalizeActionExecution({
@@ -3065,6 +3087,17 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         threadId || undefined,
       );
 
+      // Re-check tier eligibility with the actual draft content
+      const tierCheck = await this.shouldSkipDraftApproval({
+        userId,
+        threadId: threadId || undefined,
+        draft,
+      });
+
+      const approvalRequired = tierCheck.skip
+        ? false
+        : skillPolicy.humanApprovalActions.has(requestedAction);
+
       return this.finalizeActionExecution({
         action: requestedAction,
         executed: true,
@@ -3072,10 +3105,12 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
         skill,
         userId,
         requestId,
-        approvalRequired: skillPolicy.humanApprovalActions.has(requestedAction),
+        approvalRequired,
         requestedApprovalToken: input.requestedActionApprovalToken,
         metadata: {
           threadId: threadId || null,
+          autoApproved: tierCheck.skip,
+          autoApprovalReason: tierCheck.reason,
         },
       });
     }
@@ -3250,57 +3285,25 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
           'Thread classified as GENERAL (confidence 35%) because no synced context is available yet.',
       };
     }
+
+    const aiResult = await this.inboxAiService.classifyThread(messages);
+    if (aiResult) return aiResult;
+
+    // Heuristic fallback when AI is unavailable
     const signalText = this.buildThreadSignalText(messages);
-    if (
-      /(urgent|asap|blocker|blocked|outage|critical|failure|escalat)/.test(
-        signalText,
-      )
-    ) {
-      return {
-        label: 'urgent_issue',
-        confidence: 0.91,
-        message:
-          'Thread classified as URGENT_ISSUE (confidence 91%) due to high-severity urgency signals.',
-      };
+    if (/(urgent|asap|blocker|blocked|outage|critical|failure|escalat)/.test(signalText)) {
+      return { label: 'urgent_issue', confidence: 0.91, message: 'Thread classified as URGENT_ISSUE (confidence 91%) due to high-severity urgency signals.' };
     }
-    if (
-      /(meeting|schedule|calendar|availability|slot|reschedul)/.test(signalText)
-    ) {
-      return {
-        label: 'coordination',
-        confidence: 0.84,
-        message:
-          'Thread classified as COORDINATION (confidence 84%) based on scheduling vocabulary.',
-      };
+    if (/(meeting|schedule|calendar|availability|slot|reschedul)/.test(signalText)) {
+      return { label: 'coordination', confidence: 0.84, message: 'Thread classified as COORDINATION (confidence 84%) based on scheduling vocabulary.' };
     }
-    if (
-      /(invoice|pricing|quote|contract|payment|renewal|budget)/.test(signalText)
-    ) {
-      return {
-        label: 'commercial',
-        confidence: 0.8,
-        message:
-          'Thread classified as COMMERCIAL (confidence 80%) from billing/pricing context.',
-      };
+    if (/(invoice|pricing|quote|contract|payment|renewal|budget)/.test(signalText)) {
+      return { label: 'commercial', confidence: 0.8, message: 'Thread classified as COMMERCIAL (confidence 80%) from billing/pricing context.' };
     }
-    if (
-      /(status|update|timeline|eta|follow up|follow-up|progress)/.test(
-        signalText,
-      )
-    ) {
-      return {
-        label: 'status_tracking',
-        confidence: 0.74,
-        message:
-          'Thread classified as STATUS_TRACKING (confidence 74%) from progress-tracking language.',
-      };
+    if (/(status|update|timeline|eta|follow up|follow-up|progress)/.test(signalText)) {
+      return { label: 'status_tracking', confidence: 0.74, message: 'Thread classified as STATUS_TRACKING (confidence 74%) from progress-tracking language.' };
     }
-    return {
-      label: 'general',
-      confidence: 0.62,
-      message:
-        'Thread classified as GENERAL (confidence 62%) with no high-priority special-case signals.',
-    };
+    return { label: 'general', confidence: 0.62, message: 'Thread classified as GENERAL (confidence 62%) with no high-priority special-case signals.' };
   }
 
   private async prioritizeThreadForUser(
@@ -3320,63 +3323,32 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       return {
         level: 'MEDIUM',
         score: 50,
-        message:
-          'Priority set to MEDIUM (score 50) because no thread history is available yet.',
+        message: 'Priority set to MEDIUM (score 50) because no thread history is available yet.',
       };
     }
 
+    const aiResult = await this.inboxAiService.prioritizeThread(messages);
+    if (aiResult) return aiResult;
+
+    // Heuristic fallback when AI is unavailable
     const signalText = this.buildThreadSignalText(messages);
     const reasons: string[] = [];
     let score = 0;
-    if (
-      /(urgent|asap|blocker|blocked|outage|critical|failure|escalat)/.test(
-        signalText,
-      )
-    ) {
-      score += 55;
-      reasons.push('urgent language detected');
-    }
-    const questionRatio = messages.filter((message) =>
-      String(message.snippet || '').includes('?'),
-    ).length;
-    if (questionRatio > 0) {
-      score += 12;
-      reasons.push('direct question found');
-    }
-    const recentActivity = messages.some((message) => {
-      if (!message.internalDate) return false;
-      return (
-        Date.now() - new Date(message.internalDate).getTime() <
-        24 * 60 * 60 * 1000
-      );
+    if (/(urgent|asap|blocker|blocked|outage|critical|failure|escalat)/.test(signalText)) { score += 55; reasons.push('urgent language detected'); }
+    const questionRatio = messages.filter((m) => String(m.snippet || '').includes('?')).length;
+    if (questionRatio > 0) { score += 12; reasons.push('direct question found'); }
+    const recentActivity = messages.some((m) => {
+      if (!m.internalDate) return false;
+      return Date.now() - new Date(m.internalDate).getTime() < 24 * 60 * 60 * 1000;
     });
-    if (recentActivity) {
-      score += 10;
-      reasons.push('recent activity (<24h)');
-    }
-    const executiveSender = messages.some((message) =>
-      /(ceo|founder|director|vp|head)/i.test(String(message.from || '')),
-    );
-    if (executiveSender) {
-      score += 18;
-      reasons.push('executive sender detected');
-    }
-    if (/(invoice|contract|renewal|payment)/.test(signalText)) {
-      score += 8;
-      reasons.push('commercial risk context');
-    }
-
+    if (recentActivity) { score += 10; reasons.push('recent activity (<24h)'); }
+    const executiveSender = messages.some((m) => /(ceo|founder|director|vp|head)/i.test(String(m.from || '')));
+    if (executiveSender) { score += 18; reasons.push('executive sender detected'); }
+    if (/(invoice|contract|renewal|payment)/.test(signalText)) { score += 8; reasons.push('commercial risk context'); }
     const cappedScore = Math.max(0, Math.min(100, score));
-    const level: 'HIGH' | 'MEDIUM' | 'LOW' =
-      cappedScore >= 65 ? 'HIGH' : cappedScore >= 30 ? 'MEDIUM' : 'LOW';
-    const reasonSummary = reasons.length
-      ? reasons.join('; ')
-      : 'no escalations detected';
-    return {
-      level,
-      score: cappedScore,
-      message: `Priority set to ${level} (score ${cappedScore}) because ${reasonSummary}.`,
-    };
+    const level: 'HIGH' | 'MEDIUM' | 'LOW' = cappedScore >= 65 ? 'HIGH' : cappedScore >= 30 ? 'MEDIUM' : 'LOW';
+    const reasonSummary = reasons.length ? reasons.join('; ') : 'no escalations detected';
+    return { level, score: cappedScore, message: `Priority set to ${level} (score ${cappedScore}) because ${reasonSummary}.` };
   }
 
   private async extractActionItemsForUser(
@@ -3392,44 +3364,23 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       take: 5,
     });
     if (!messages.length) {
-      return {
-        items: [],
-        message:
-          'No thread messages are available yet, so no action items could be extracted.',
-      };
+      return { items: [], message: 'No thread messages are available yet, so no action items could be extracted.' };
     }
 
+    const aiResult = await this.inboxAiService.extractActionItems(messages);
+    if (aiResult) return aiResult;
+
+    // Heuristic fallback when AI is unavailable
     const candidateSentences = messages.flatMap((message) =>
-      String(message.snippet || '')
-        .split(/[.!?]/)
-        .map((sentence) => sentence.replace(/\s+/g, ' ').trim())
-        .filter(Boolean),
+      String(message.snippet || '').split(/[.!?]/).map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean),
     );
-    const actionSignals =
-      /(please|need to|action|todo|follow up|follow-up|deadline|by (monday|tuesday|wednesday|thursday|friday|eod|tomorrow)|can you|let's|kindly)/i;
-    const extractedItems = Array.from(
-      new Set(
-        candidateSentences
-          .filter((sentence) => actionSignals.test(sentence))
-          .map((sentence) => sentence.slice(0, 180)),
-      ),
-    ).slice(0, 5);
-
+    const actionSignals = /(please|need to|action|todo|follow up|follow-up|deadline|by (monday|tuesday|wednesday|thursday|friday|eod|tomorrow)|can you|let's|kindly)/i;
+    const extractedItems = Array.from(new Set(candidateSentences.filter((s) => actionSignals.test(s)).map((s) => s.slice(0, 180)))).slice(0, 5);
     if (!extractedItems.length) {
-      return {
-        items: [],
-        message:
-          'No explicit action items were detected in recent thread snippets.',
-      };
+      return { items: [], message: 'No explicit action items were detected in recent thread snippets.' };
     }
-
-    const bulletItems = extractedItems
-      .map((item, index) => `${index + 1}. ${item}`)
-      .join(' ');
-    return {
-      items: extractedItems,
-      message: `Extracted ${extractedItems.length} action item(s): ${bulletItems}`,
-    };
+    const bulletItems = extractedItems.map((item, idx) => `${idx + 1}. ${item}`).join(' ');
+    return { items: extractedItems, message: `Extracted ${extractedItems.length} action item(s): ${bulletItems}` };
   }
 
   private async summarizeThreadForUser(
@@ -3446,18 +3397,19 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       return 'No email messages were found for this thread yet.';
     }
 
+    const aiResult = await this.inboxAiService.summarizeThread(messages);
+    if (aiResult) return aiResult;
+
+    // Heuristic fallback when AI is unavailable
     const subject = messages[0]?.subject || 'Untitled thread';
     const bulletPoints = messages
       .slice(0, 3)
       .map((message, index) => {
         const from = message.from || 'unknown sender';
-        const snippet = (message.snippet || 'No preview available')
-          .replace(/\s+/g, ' ')
-          .trim();
+        const snippet = (message.snippet || 'No preview available').replace(/\s+/g, ' ').trim();
         return `${index + 1}. ${from}: ${snippet}`;
       })
       .join(' ');
-
     return `Thread "${subject}" summary: ${bulletPoints}`;
   }
 
@@ -3532,21 +3484,21 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     const messages = await this.loadThreadMessagesForUser({
       userId,
       threadId,
-      take: 1,
+      take: 3,
     });
 
-    const latest = messages[0];
-    if (!latest) {
+    if (!messages.length) {
       return 'Draft reply: Thank you for your message. I will review and get back to you shortly.';
     }
 
+    const aiResult = await this.inboxAiService.composeReplyDraft(messages);
+    if (aiResult) return aiResult;
+
+    // Heuristic fallback when AI is unavailable
+    const latest = messages[0];
     const sender = latest.from || 'there';
     const subject = latest.subject || 'your email';
-    const snippet = (latest.snippet || '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 240);
-
+    const snippet = (latest.snippet || '').replace(/\s+/g, ' ').trim().slice(0, 240);
     return [
       `Draft reply for "${subject}":`,
       '',
@@ -3554,13 +3506,14 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       '',
       'Thank you for your email. I have reviewed your note and appreciate the context you shared.',
       snippet
-        ? `Regarding your message (“${snippet}”), I will proceed with the required next steps and share a clear update shortly.`
+        ? `Regarding your message ("${snippet}"), I will proceed with the required next steps and share a clear update shortly.`
         : 'I will proceed with the required next steps and share a clear update shortly.',
       '',
       'Best regards,',
       'MailZen User',
     ].join('\n');
   }
+
 
   private async recordGatewayMetrics(
     skill: string,
@@ -3683,5 +3636,105 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     if (typeof response !== 'object' || !response) return false;
     const code = (response as { code?: string }).code;
     return code === 'AI_AGENT_TIMEOUT';
+  }
+
+  /**
+   * Determine whether the compose_reply_draft action should bypass human approval
+   * based on the user's auto-send tier and thread characteristics.
+   */
+  private async shouldSkipDraftApproval(input: {
+    userId: string;
+    threadId?: string;
+    draft: string;
+  }): Promise<{ skip: boolean; reason: string }> {
+    const user = await this.userRepo.findOne({
+      where: { id: input.userId },
+      select: ['id', 'autoSendTier'],
+    });
+
+    const tier = user?.autoSendTier ?? AutoSendTier.MANUAL;
+
+    if (tier === AutoSendTier.AUTO) {
+      return { skip: true, reason: 'AUTO tier: all drafts auto-approved' };
+    }
+
+    if (tier !== AutoSendTier.SEMI_AUTO) {
+      return { skip: false, reason: 'MANUAL tier: approval required' };
+    }
+
+    // SEMI_AUTO: check word count and thread AI labels
+    const wordCount = input.draft.trim().split(/\s+/).length;
+    if (wordCount > 120) {
+      return { skip: false, reason: `SEMI_AUTO: draft too long (${wordCount} words > 120)` };
+    }
+
+    if (!input.threadId) {
+      return { skip: false, reason: 'SEMI_AUTO: no thread context for eligibility check' };
+    }
+
+    const latestMessage = await this.externalEmailMessageRepo.findOne({
+      where: [
+        { userId: input.userId, threadId: input.threadId },
+        { userId: input.userId, externalMessageId: input.threadId },
+      ],
+      order: { internalDate: 'DESC', createdAt: 'DESC' },
+      select: ['labels'],
+    });
+
+    const labels = latestMessage?.labels ?? [];
+    const hasLowStakesClass = labels.some(
+      (l) => l === 'ai:coordination' || l === 'ai:commercial',
+    );
+    const hasLowPriority = labels.some(
+      (l) => l === 'ai:priority_low' || l === 'ai:priority_medium',
+    );
+
+    if (hasLowStakesClass && hasLowPriority) {
+      return { skip: true, reason: 'SEMI_AUTO: low-stakes thread, short draft — auto-approved' };
+    }
+
+    return { skip: false, reason: 'SEMI_AUTO: thread classification or priority does not meet auto-send criteria' };
+  }
+
+  /**
+   * Generate AI-powered insights for an email thread.
+   * Runs summarize, classify, prioritize, and extract-action-items in parallel.
+   */
+  async getThreadInsights(input: {
+    userId: string;
+    threadId: string;
+  }): Promise<{
+    summary: string | null;
+    classification: { label: string; confidence: number; message: string } | null;
+    priority: { level: string; score: number; message: string } | null;
+    actionItems: string[];
+    generatedAt: string;
+    threadId: string;
+  }> {
+    const messages = await this.loadThreadMessagesForUser({
+      userId: input.userId,
+      threadId: input.threadId,
+      take: 8,
+    });
+
+    const [summary, classification, priority, actionItemsResult] = await Promise.all([
+      this.inboxAiService.summarizeThread(messages).catch(() => null),
+      this.inboxAiService.classifyThread(messages).catch(() => null),
+      this.inboxAiService.prioritizeThread(messages).catch(() => null),
+      this.inboxAiService.extractActionItems(messages).catch(() => null),
+    ]);
+
+    return {
+      threadId: input.threadId,
+      summary: summary ?? null,
+      classification: classification
+        ? { label: classification.label, confidence: classification.confidence, message: classification.message }
+        : null,
+      priority: priority
+        ? { level: priority.level, score: priority.score, message: priority.message }
+        : null,
+      actionItems: actionItemsResult?.items ?? [],
+      generatedAt: new Date().toISOString(),
+    };
   }
 }

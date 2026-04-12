@@ -1,63 +1,66 @@
 import { gql } from '@apollo/client';
 
-// Query to get all emails
+// Query to get all emails — returns paginated wrapper with items + totalCount
 export const GET_EMAILS = gql`
   query GetEmails($limit: Int, $offset: Int, $filter: EmailFilterInput, $sort: EmailSortInput) {
     emails(limit: $limit, offset: $offset, filter: $filter, sort: $sort) {
-      id
-      subject
-      participants {
-        name
-        email
-        avatar
-      }
-      lastMessageDate
-      isUnread
-      folder
-      labelIds
-      providerId
-      providerThreadId
-      messages {
+      totalCount
+      items {
         id
-        threadId
         subject
-        from {
+        participants {
           name
           email
           avatar
         }
-        to {
-          name
-          email
-          avatar
-        }
-        cc {
-          name
-          email
-          avatar
-        }
-        bcc {
-          name
-          email
-          avatar
-        }
-        content
-        contentPreview
-        date
+        lastMessageDate
+        isUnread
         folder
-        isStarred
-        importance
-        attachments {
-          id
-          name
-          size
-          type
-          url
-        }
-        status
         labelIds
         providerId
-        providerEmailId
+        providerThreadId
+        messages {
+          id
+          threadId
+          subject
+          from {
+            name
+            email
+            avatar
+          }
+          to {
+            name
+            email
+            avatar
+          }
+          cc {
+            name
+            email
+            avatar
+          }
+          bcc {
+            name
+            email
+            avatar
+          }
+          content
+          contentPreview
+          date
+          folder
+          isStarred
+          importance
+          attachments {
+            id
+            name
+            size
+            type
+            url
+          }
+          status
+          labelIds
+          providerId
+          providerEmailId
+        }
       }
     }
   }

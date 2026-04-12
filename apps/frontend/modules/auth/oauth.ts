@@ -14,3 +14,8 @@ export const getGoogleOAuthStartUrl = (): string => {
   const url = new URL('/auth/google/start', getBackendBaseUrl());
   return url.toString();
 };
+
+export const getMicrosoftOAuthStartUrl = (): string => {
+  const url = new URL('/auth/microsoft/start', getBackendBaseUrl());
+  return url.toString();
+};

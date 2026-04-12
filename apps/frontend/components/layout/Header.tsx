@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   Menu,
@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   AUTH_ROUTES,
-  getUserData,
+  AUTH_ME_QUERY,
   LOGOUT_MUTATION,
   logoutUser,
   type AuthUser,
@@ -119,10 +119,14 @@ const resolveBackendBaseUrl = (): string => {
 
 const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onCompose, onOpenCommandPalette }) => {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>(() => searchParams?.get('q') ?? '');
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [logout, { loading: logoutLoading }] = useMutation(LOGOUT_MUTATION, {
     onError: (e) => console.error('[Logout] GraphQL error', e),
@@ -170,10 +174,13 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onCompose, onOpenComma
     pollInterval: 30_000,
   });
 
+  const { data: authMeData } = useQuery(AUTH_ME_QUERY, {
+    fetchPolicy: 'cache-and-network',
+  });
   useEffect(() => {
-    const userData = getUserData();
-    if (userData) setUser(userData);
-  }, []);
+    const freshUser = authMeData?.authMe?.user;
+    if (freshUser) setUser(freshUser as AuthUser);
+  }, [authMeData]);
 
   useEffect(() => {
     const storedWorkspaceId =
@@ -317,6 +324,54 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onCompose, onOpenComma
     return contextParts.join(' · ');
   };
 
+  const commitSearch = useCallback(
+    (value: string) => {
+      const trimmed = value.trim();
+      const params = new URLSearchParams(Array.from(searchParams?.entries() ?? []));
+      if (trimmed) {
+        params.set('q', trimmed);
+      } else {
+        params.delete('q');
+      }
+      const targetPath = pathname?.startsWith('/inbox') ? pathname : '/inbox';
+      router.push(`${targetPath}?${params.toString()}`);
+    },
+    [router, pathname, searchParams],
+  );
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      commitSearch(value);
+    }, 400);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+      commitSearch(searchQuery);
+    }
+    if (e.key === 'Escape') {
+      setSearchQuery('');
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+      commitSearch('');
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  useEffect(() => {
+    const q = searchParams?.get('q') ?? '';
+    setSearchQuery(q);
+  }, [searchParams]);
+
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, []);
+
   const handleWorkspaceSelect = async (workspaceId: string) => {
     setSelectedWorkspaceId(workspaceId);
     if (typeof window !== 'undefined') localStorage.setItem('mailzen.selectedWorkspaceId', workspaceId);
@@ -378,7 +433,11 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onCompose, onOpenComma
           <Search className="absolute left-3 h-3.5 w-3.5 text-muted-foreground/60 pointer-events-none" />
           <input
             type="search"
+            value={searchQuery}
+            onChange={handleSearchChange}
+            onKeyDown={handleSearchKeyDown}
             placeholder="Search emails, contacts..."
+            aria-label="Search emails"
             className="h-9 w-full rounded-xl border border-border/50 bg-muted/40 pl-9 pr-16 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none transition-all duration-200 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}

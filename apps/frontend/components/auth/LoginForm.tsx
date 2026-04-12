@@ -23,6 +23,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   getGoogleOAuthStartUrl,
+  getMicrosoftOAuthStartUrl,
   LOGIN_MUTATION,
   resolvePostAuthRoute,
   setRefreshToken,
@@ -72,6 +73,10 @@ export default function LoginForm() {
 
   const handleGoogleSignIn = () => {
     window.location.href = getGoogleOAuthStartUrl();
+  };
+
+  const handleMicrosoftSignIn = () => {
+    window.location.href = getMicrosoftOAuthStartUrl();
   };
 
   return (
@@ -127,8 +132,8 @@ export default function LoginForm() {
         </button>
         <button
           type="button"
-          disabled
-          className="flex h-10 items-center justify-center gap-2.5 rounded-xl border border-border/40 bg-background/40 text-sm font-medium text-muted-foreground/60 cursor-not-allowed"
+          onClick={handleMicrosoftSignIn}
+          className="group flex h-10 items-center justify-center gap-2.5 rounded-xl border border-border/60 bg-background/60 text-sm font-medium transition-all duration-200 hover:-translate-y-0.5 hover:border-border hover:bg-muted/60 hover:shadow-md"
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" aria-hidden="true">
             <path d="M21.3545 0H2.64545C1.18636 0 0 1.18636 0 2.64545V21.3545C0 22.8136 1.18636 24 2.64545 24H21.3545C22.8136 24 24 22.8136 24 21.3545V2.64545C24 1.18636 22.8136 0 21.3545 0Z" fill="#0078D4" />
@@ -136,7 +141,6 @@ export default function LoginForm() {
             <path d="M3.99991 10.6667H19.9999C20.7363 10.6667 21.3333 11.2637 21.3333 12V20C21.3333 20.7364 20.7363 21.3334 19.9999 21.3334H3.99991C3.26353 21.3334 2.66656 20.7364 2.66656 20V12C2.66656 11.2637 3.26353 10.6667 3.99991 10.6667Z" fill="white" />
           </svg>
           Outlook
-          <span className="text-[10px] text-muted-foreground/50">soon</span>
         </button>
       </div>
 

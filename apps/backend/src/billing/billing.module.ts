@@ -8,6 +8,7 @@ import { NotificationModule } from '../notification/notification.module';
 import { BillingWebhookController } from './billing-webhook.controller';
 import { BillingResolver } from './billing.resolver';
 import { BillingService } from './billing.service';
+import { RequirePlanGuard } from './guards/require-plan.guard';
 import { BillingInvoice } from './entities/billing-invoice.entity';
 import { BillingWebhookEvent } from './entities/billing-webhook-event.entity';
 import { BillingPlan } from './entities/billing-plan.entity';
@@ -33,7 +34,7 @@ import { Workspace } from '../workspace/entities/workspace.entity';
     NotificationModule,
   ],
   controllers: [BillingWebhookController],
-  providers: [BillingService, BillingResolver, BillingRetentionScheduler],
-  exports: [BillingService],
+  providers: [BillingService, BillingResolver, BillingRetentionScheduler, RequirePlanGuard],
+  exports: [BillingService, RequirePlanGuard],
 })
 export class BillingModule {}

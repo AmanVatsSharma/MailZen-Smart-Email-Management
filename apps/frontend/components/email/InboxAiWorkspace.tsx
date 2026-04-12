@@ -3,21 +3,41 @@
 import React, { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLazyQuery, useMutation, useQuery } from '@apollo/client';
+import DOMPurify from 'dompurify';
 import {
   AlertCircle,
   Bot,
+  Brain,
+  CheckSquare,
   ChevronDown,
   ChevronUp,
   Clock,
+  Eye,
   FileText,
+  Lightbulb,
   Loader2,
   MessageSquarePlus,
+  RefreshCw,
   Sparkles,
+  Tag,
   WandSparkles,
   Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
@@ -26,7 +46,8 @@ import {
   GENERATE_SMART_REPLY,
   GET_SUGGESTED_REPLIES,
 } from '@/lib/apollo/queries/smart-replies';
-import { GET_EMAIL_TEMPLATES } from '@/lib/apollo/queries/email-templates';
+import { GET_EMAIL_TEMPLATES, RENDER_EMAIL_TEMPLATE } from '@/lib/apollo/queries/email-templates';
+import { GET_THREAD_INSIGHTS } from '@/lib/apollo/queries/agent-assistant';
 import { RECORD_AI_FEEDBACK } from '@/lib/apollo/queries/ai-feedback';
 import type { EmailThread } from '@/lib/email/email-types';
 import { InboxAssistantAdapter } from '@/components/email/InboxAssistantAdapter';
@@ -59,10 +80,23 @@ type EmailTemplatesData = {
   }>;
 };
 
-const getLastMessageText = (thread: EmailThread | null) => {
-  if (!thread || thread.messages.length === 0) return '';
-  const last = thread.messages[thread.messages.length - 1];
-  return last.content || last.contentPreview || '';
+type ThreadInsightsData = {
+  threadInsights: {
+    threadId: string;
+    summary?: string | null;
+    classification?: {
+      label: string;
+      confidence: number;
+      message: string;
+    } | null;
+    priority?: {
+      level: string;
+      score: number;
+      message: string;
+    } | null;
+    actionItems: string[];
+    generatedAt: string;
+  };
 };
 
 const getConversation = (thread: EmailThread | null) => {
@@ -278,9 +312,13 @@ export function InboxAiWorkspace({
   className,
 }: InboxAiWorkspaceProps) {
   const { toast } = useToast();
+  const [templatePreviewOpen, setTemplatePreviewOpen] = useState(false);
+  const [templatePreviewTitle, setTemplatePreviewTitle] = useState('');
+  const [templatePreviewHtml, setTemplatePreviewHtml] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [generatedReply, setGeneratedReply] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
+  const [activeTab, setActiveTab] = useState('reply');
 
   const { data: settingsData } = useQuery<SmartReplySettingsData>(
     GET_SMART_REPLY_SETTINGS,
@@ -291,6 +329,29 @@ export function InboxAiWorkspace({
       fetchPolicy: 'network-only',
       skip: !showTemplates,
     });
+
+  const [renderTemplatePreview, { loading: templatePreviewLoading }] = useLazyQuery(
+    RENDER_EMAIL_TEMPLATE,
+    { fetchPolicy: 'network-only' },
+  );
+
+  const handlePreviewTemplate = async (template: { id: string; name: string }) => {
+    setTemplatePreviewTitle(template.name);
+    setTemplatePreviewOpen(true);
+    setTemplatePreviewHtml('');
+    try {
+      const { data, error } = await renderTemplatePreview({
+        variables: { id: template.id, variables: '{}' },
+      });
+      if (error) throw error;
+      const raw = data?.renderEmailTemplate ?? '';
+      setTemplatePreviewHtml(DOMPurify.sanitize(raw));
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Preview failed';
+      toast({ title: 'Template preview failed', description: message, variant: 'destructive' });
+      setTemplatePreviewOpen(false);
+    }
+  };
 
   const [getSuggestedReplies, { loading: suggestionsLoading }] =
     useLazyQuery<SuggestedRepliesData>(GET_SUGGESTED_REPLIES, {
@@ -307,6 +368,17 @@ export function InboxAiWorkspace({
     });
 
   const [recordFeedback] = useMutation(RECORD_AI_FEEDBACK);
+  const [getThreadInsights, { data: insightsData, loading: insightsLoading, error: insightsError }] =
+    useLazyQuery<ThreadInsightsData>(GET_THREAD_INSIGHTS, {
+      fetchPolicy: 'network-only',
+      onError: (error) => {
+        toast({
+          title: 'Insights generation failed',
+          description: error.message,
+          variant: 'destructive',
+        });
+      },
+    });
 
   const lastMessageText = useMemo(() => getLastMessageText(selectedThread), [selectedThread]);
   const conversation = useMemo(() => getConversation(selectedThread), [selectedThread]);
@@ -380,6 +452,25 @@ export function InboxAiWorkspace({
       </div>
     );
   }
+
+  const handleLoadInsights = () => {
+    if (!selectedThread?.id) return;
+    getThreadInsights({ variables: { threadId: selectedThread.id } });
+  };
+
+  const insights = insightsData?.threadInsights;
+
+  const priorityColor = (level?: string) => {
+    if (level === 'HIGH') return 'text-destructive';
+    if (level === 'MEDIUM') return 'text-yellow-500';
+    return 'text-green-500';
+  };
+
+  const priorityBadgeVariant = (level?: string): 'destructive' | 'outline' | 'secondary' => {
+    if (level === 'HIGH') return 'destructive';
+    if (level === 'MEDIUM') return 'outline';
+    return 'secondary';
+  };
 
   return (
     <div className={cn('flex h-full min-h-0 flex-col', className)}>
@@ -599,6 +690,27 @@ export function InboxAiWorkspace({
           </SectionCard>
         </div>
       </ScrollArea>
+
+      <Dialog open={templatePreviewOpen} onOpenChange={setTemplatePreviewOpen}>
+        <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Preview: {templatePreviewTitle}</DialogTitle>
+          </DialogHeader>
+          {templatePreviewLoading ? (
+            <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Rendering template…
+            </div>
+          ) : (
+            <ScrollArea className="max-h-[60vh] rounded-md border border-border/60 p-3">
+              <div
+                className="prose prose-sm dark:prose-invert max-w-none text-sm"
+                dangerouslySetInnerHTML={{ __html: templatePreviewHtml || '<p class="text-muted-foreground">(empty)</p>' }}
+              />
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

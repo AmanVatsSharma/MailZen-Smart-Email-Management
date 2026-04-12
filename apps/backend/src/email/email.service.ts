@@ -176,20 +176,32 @@ export class EmailService {
       }),
     );
 
-    // Configure transport based on provider type
+    // Configure transport based on provider type.
+    // For OAuth providers we always fetch a valid (decrypted + refreshed) access token
+    // from EmailProviderService so we never send with a stale or encrypted token.
     let transportConfig: Record<string, unknown>;
     switch (provider.type) {
       case 'GMAIL':
-      case 'OUTLOOK':
+      case 'OUTLOOK': {
+        const freshAccessToken = await this.emailProviderService.getValidAccessToken(
+          provider.id,
+          userId,
+        );
+        if (!freshAccessToken) {
+          throw new Error(
+            `Could not obtain a valid access token for ${provider.type} provider ${provider.id}. Re-connect the provider.`,
+          );
+        }
         transportConfig = {
           service: provider.type.toLowerCase(),
           auth: {
             type: 'OAuth2',
             user: provider.email,
-            accessToken: provider.accessToken,
+            accessToken: freshAccessToken,
           },
         };
         break;
+      }
       case 'CUSTOM_SMTP':
         transportConfig = {
           host: provider.host,

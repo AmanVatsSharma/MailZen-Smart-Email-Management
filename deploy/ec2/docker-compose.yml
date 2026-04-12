@@ -131,6 +131,31 @@ services:
       timeout: 5s
       retries: 8
 
+  marketing:
+    build:
+      context: ../..
+      dockerfile: apps/marketing/Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://app.${MAILZEN_DOMAIN}}
+    container_name: mailzen-marketing
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+    expose:
+      - "3001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3001/', (res) => process.exit(res.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1));",
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 8
+
   caddy:
     image: caddy:2.9-alpine
     container_name: mailzen-caddy
@@ -139,6 +164,8 @@ services:
       frontend:
         condition: service_healthy
       backend:
+        condition: service_healthy
+      marketing:
         condition: service_healthy
     env_file:
       - ./.env.ec2

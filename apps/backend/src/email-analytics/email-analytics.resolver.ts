@@ -2,7 +2,7 @@ import { Resolver, Query, Mutation, Args, Context } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { EmailAnalyticsService } from './email-analytics.service';
-import { EmailAnalytics } from './email-analytics.entity';
+import { EmailAnalytics } from './entities/email-analytics.entity';
 import { CreateEmailAnalyticsInput } from './dto/create-email-analytics.input';
 
 @Resolver(() => EmailAnalytics)

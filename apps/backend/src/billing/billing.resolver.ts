@@ -1,5 +1,5 @@
 import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { UseGuards } from '@nestjs/common';
+import { BadRequestException, UseGuards } from '@nestjs/common';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { BillingService } from './billing.service';
@@ -8,6 +8,7 @@ import { BillingDataExportResponse } from './dto/billing-data-export.response';
 import { EntitlementUsageResponse } from './dto/entitlement-usage.response';
 import { BillingRetentionPurgeResponse } from './dto/billing-retention-purge.response';
 import { BillingUpgradeIntentResponse } from './dto/billing-upgrade-intent.response';
+import { RazorpayCheckoutResponse } from './dto/razorpay-checkout.response';
 import { StripeCheckoutSessionResponse } from './dto/stripe-checkout-session.response';
 import { BillingInvoice } from './entities/billing-invoice.entity';
 import { BillingPlan } from './entities/billing-plan.entity';
@@ -95,12 +96,21 @@ export class BillingResolver {
   }
 
   @Mutation(() => UserSubscription, {
-    description: 'Select an active plan for current user',
+    description:
+      'Downgrade current user to the FREE plan. Upgrading to a paid plan requires createStripeCheckoutSession or createRazorpayCheckoutSession.',
   })
   async selectMyPlan(
     @Args('planCode') planCode: string,
     @Context() context: RequestContext,
   ) {
+    const normalizedCode = String(planCode || '')
+      .trim()
+      .toUpperCase();
+    if (normalizedCode !== 'FREE') {
+      throw new BadRequestException(
+        'Paid plan upgrades must go through a payment gateway. Use createStripeCheckoutSession or createRazorpayCheckoutSession.',
+      );
+    }
     return this.billingService.selectPlan(context.req.user.id, planCode);
   }
 
@@ -130,6 +140,24 @@ export class BillingResolver {
     @Context() context: RequestContext,
   ) {
     return this.billingService.createStripeCheckoutSession({
+      userId: context.req.user.id,
+      planCode,
+      successUrl,
+      cancelUrl,
+    });
+  }
+
+  @Mutation(() => RazorpayCheckoutResponse, {
+    description:
+      'Create a Razorpay subscription checkout URL for upgrading to a paid plan',
+  })
+  async createRazorpayCheckoutSession(
+    @Args('planCode') planCode: string,
+    @Args('successUrl') successUrl: string,
+    @Args('cancelUrl') cancelUrl: string,
+    @Context() context: RequestContext,
+  ) {
+    return this.billingService.createRazorpayCheckoutSession({
       userId: context.req.user.id,
       planCode,
       successUrl,

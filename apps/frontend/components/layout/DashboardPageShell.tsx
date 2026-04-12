@@ -1,5 +1,8 @@
+'use client';
+
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 interface DashboardPageShellProps {
   title: string;
@@ -51,7 +54,9 @@ export function DashboardPageShell({
         ) : null}
       </header>
 
-      <div className={cn('min-h-0 flex-1', contentClassName)}>{children}</div>
+      <ErrorBoundary>
+        <div className={cn('min-h-0 flex-1', contentClassName)}>{children}</div>
+      </ErrorBoundary>
     </section>
   );
 }

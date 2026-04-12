@@ -1,14 +1,20 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useMutation } from '@apollo/client';
+import { useApolloClient, useMutation } from '@apollo/client';
 import { useRouter } from 'next/navigation';
-import { AgentAssistant, AgentAssistantAction, AgentAssistantMessage } from '@/components/ai/AgentAssistant';
+import {
+  AgentAssistant,
+  AgentAssistantAction,
+  AgentAssistantCreditsHint,
+  AgentAssistantMessage,
+} from '@/components/ai/AgentAssistant';
 import { parseActionPayload } from '@/components/ai/agent-assistant.utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { AGENT_ASSIST_MUTATION } from '@/lib/apollo/queries/agent-assistant';
+import { GET_ENTITLEMENT_USAGE } from '@/lib/apollo/queries/billing';
 
 type AgentAssistData = {
   agentAssist: {
@@ -22,6 +28,9 @@ type AgentAssistData = {
       severity: string;
       message: string;
     }>;
+    aiCreditsMonthlyLimit?: number | null;
+    aiCreditsUsed?: number | null;
+    aiCreditsRemaining?: number | null;
     executedAction?: {
       action: string;
       executed: boolean;
@@ -38,6 +47,7 @@ type AgentAssistVariables = {
     allowedActions: string[];
     requestedAction?: string;
     executeRequestedAction?: boolean;
+    requestedActionApprovalToken?: string;
   };
 };
 
@@ -60,9 +70,11 @@ const toGraphMessages = (
 export function LoginAssistantAdapter() {
   const router = useRouter();
   const { toast } = useToast();
+  const client = useApolloClient();
   const [emailContext, setEmailContext] = useState('');
   const [messages, setMessages] = useState<AgentAssistantMessage[]>([]);
   const [actions, setActions] = useState<AgentAssistantAction[]>([]);
+  const [creditsHint, setCreditsHint] = useState<AgentAssistantCreditsHint | null>(null);
 
   const [assist, { loading }] = useMutation<AgentAssistData, AgentAssistVariables>(
     AGENT_ASSIST_MUTATION,
@@ -79,10 +91,26 @@ export function LoginAssistantAdapter() {
 
   const conversation = useMemo(() => messages.slice(-8), [messages]);
 
+  const applyCreditsFromResponse = (response: AgentAssistData['agentAssist']) => {
+    if (
+      response.aiCreditsRemaining != null ||
+      response.aiCreditsMonthlyLimit != null ||
+      response.aiCreditsUsed != null
+    ) {
+      setCreditsHint({
+        remaining: response.aiCreditsRemaining ?? undefined,
+        limit: response.aiCreditsMonthlyLimit ?? undefined,
+        used: response.aiCreditsUsed ?? undefined,
+      });
+    }
+    void client.refetchQueries({ include: [GET_ENTITLEMENT_USAGE] });
+  };
+
   const askAssistant = async (
     nextMessages: AgentAssistantMessage[],
     requestedAction?: string,
     executeRequestedAction?: boolean,
+    requestedActionApprovalToken?: string,
   ) => {
     const result = await assist({
       variables: {
@@ -96,7 +124,10 @@ export function LoginAssistantAdapter() {
           },
           allowedActions,
           requestedAction,
-          executeRequestedAction,
+          executeRequestedAction: executeRequestedAction ?? false,
+          ...(requestedActionApprovalToken
+            ? { requestedActionApprovalToken: requestedActionApprovalToken }
+            : {}),
         },
       },
     });
@@ -104,6 +135,7 @@ export function LoginAssistantAdapter() {
     const response = result.data?.agentAssist;
     if (!response) return;
 
+    applyCreditsFromResponse(response);
     setActions(response.suggestedActions || []);
     const updatedMessages: AgentAssistantMessage[] = [
       ...nextMessages,
@@ -136,6 +168,13 @@ export function LoginAssistantAdapter() {
     await askAssistant(nextMessages);
   };
 
+  const resolveExecuteToken = (action: AgentAssistantAction): string | undefined => {
+    if (action.requiresApproval && !action.approvalToken) {
+      return undefined;
+    }
+    return action.approvalToken || undefined;
+  };
+
   const handleAction = async (action: AgentAssistantAction) => {
     const actionPayload = parseActionPayload(action.payloadJson);
     if (action.name === 'auth.open_register') {
@@ -165,12 +204,33 @@ export function LoginAssistantAdapter() {
       if (!emailContext && effectiveEmail) {
         setEmailContext(effectiveEmail);
       }
-      await askAssistant(conversation, action.name, true);
+
+      const token = resolveExecuteToken(action);
+      if (action.requiresApproval && !token) {
+        toast({
+          title: 'Approval unavailable',
+          description: 'Ask the assistant again to get a fresh approval for this action.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      await askAssistant(conversation, action.name, true, token);
       router.push('/auth/forgot-password');
       return;
     }
 
-    await askAssistant(conversation, action.name, true);
+    const token = resolveExecuteToken(action);
+    if (action.requiresApproval && !token) {
+      toast({
+        title: 'Approval unavailable',
+        description: 'Ask the assistant again to get a fresh approval for this action.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    await askAssistant(conversation, action.name, true, token);
   };
 
   return (
@@ -195,6 +255,7 @@ export function LoginAssistantAdapter() {
         onSend={handleSend}
         onAction={handleAction}
         enableVoice
+        creditsHint={creditsHint}
       />
     </div>
   );

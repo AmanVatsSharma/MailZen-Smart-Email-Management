@@ -9,6 +9,71 @@ import { IconButton } from '@/components/ui/icon-button';
 import { PriorityStrip, PriorityBadge, CategoryChip } from '@/components/ui/priority-badge';
 import { cn } from '@/lib/utils';
 
+// ─── AI label helpers ────────────────────────────────────────────────────────
+
+type AiPriority = 'high' | 'medium' | 'low';
+type AiClassification =
+  | 'urgent_issue'
+  | 'coordination'
+  | 'commercial'
+  | 'status_tracking'
+  | 'support'
+  | 'general';
+
+interface AiMetadata {
+  priority: AiPriority | null;
+  classification: AiClassification | null;
+}
+
+function extractAiMetadata(labelIds: string[] | null | undefined): AiMetadata {
+  const labels = labelIds ?? [];
+  let priority: AiPriority | null = null;
+  let classification: AiClassification | null = null;
+
+  for (const label of labels) {
+    if (label === 'ai:priority_high') priority = 'high';
+    else if (label === 'ai:priority_medium') priority = 'medium';
+    else if (label === 'ai:priority_low') priority = 'low';
+    else if (label.startsWith('ai:') && !label.startsWith('ai:priority_')) {
+      const cls = label.slice(3) as AiClassification;
+      const valid: AiClassification[] = [
+        'urgent_issue', 'coordination', 'commercial',
+        'status_tracking', 'support', 'general',
+      ];
+      if (valid.includes(cls)) classification = cls;
+    }
+  }
+
+  return { priority, classification };
+}
+
+const PRIORITY_CONFIG: Record<AiPriority, { label: string; dotClass: string; badgeStyle: React.CSSProperties }> = {
+  high: {
+    label: 'High',
+    dotClass: 'bg-red-500',
+    badgeStyle: { backgroundColor: '#ef444420', color: '#ef4444', borderColor: '#ef444440' },
+  },
+  medium: {
+    label: 'Medium',
+    dotClass: 'bg-amber-500',
+    badgeStyle: { backgroundColor: '#f59e0b20', color: '#f59e0b', borderColor: '#f59e0b40' },
+  },
+  low: {
+    label: 'Low',
+    dotClass: 'bg-emerald-500',
+    badgeStyle: { backgroundColor: '#10b98120', color: '#10b981', borderColor: '#10b98140' },
+  },
+};
+
+const CLASSIFICATION_LABELS: Record<AiClassification, string> = {
+  urgent_issue: 'Urgent',
+  coordination: 'Coordination',
+  commercial: 'Commercial',
+  status_tracking: 'Status',
+  support: 'Support',
+  general: 'General',
+};
+
 interface EmailThreadItemProps {
   thread: EmailThread;
   isSelected: boolean;

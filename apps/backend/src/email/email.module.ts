@@ -22,6 +22,8 @@ import { AttachmentService } from './email.attachment.service';
 import { AttachmentResolver } from './email.attachment.resolver';
 import { EmailWarmupService } from './email.email-warmup.service';
 import { EmailWarmupResolver } from './email.email-warmup.resolver';
+import { BillingModule } from '../billing/billing.module';
+import { RequirePlanGuard } from '../billing/guards/require-plan.guard';
 import { EmailProviderModule } from '../email-integration/email-provider.module';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { EjsAdapter } from '@nestjs-modules/mailer/dist/adapters/ejs.adapter';
@@ -56,6 +58,7 @@ import { AuditLog } from '../auth/entities/audit-log.entity';
       AuditLog,
     ]),
     ConfigModule,
+    BillingModule,
     EmailProviderModule,
     ScheduleModule.forRoot(),
     BullModule.forRoot({
@@ -103,6 +106,7 @@ import { AuditLog } from '../auth/entities/audit-log.entity';
     AttachmentResolver,
     EmailWarmupService,
     EmailWarmupResolver,
+    RequirePlanGuard,
   ],
   exports: [
     EmailService,

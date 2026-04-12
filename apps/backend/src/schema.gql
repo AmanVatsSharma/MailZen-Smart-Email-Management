@@ -2,6 +2,20 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type Contact {
+  id: ID!
+  name: String!
+  email: String!
+  phone: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
 type EmailProvider {
   id: ID!
   type: String!
@@ -17,10 +31,15 @@ type EmailProvider {
   updatedAt: DateTime!
 }
 
-"""
-A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
-"""
-scalar DateTime
+type EmailAnalytics {
+  id: ID!
+  emailId: String!
+  openCount: Int!
+  clickCount: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  lastUpdatedAt: DateTime!
+}
 
 type Email {
   id: ID!
@@ -51,6 +70,7 @@ type User {
   isEmailVerified: Boolean!
   phoneNumber: String
   isPhoneVerified: Boolean!
+  autoSendTier: String
   activeWorkspaceId: String
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -263,6 +283,135 @@ type EmailWarmup {
   activities: [WarmupActivity!]!
 }
 
+type NotificationDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type NotificationRetentionPurgeResponse {
+  notificationsDeleted: Int!
+  pushSubscriptionsDeleted: Int!
+  notificationRetentionDays: Int!
+  disabledPushRetentionDays: Int!
+  executedAtIso: String!
+}
+
+type MailboxInboundSlaIncidentAlertConfigResponse {
+  schedulerAlertsEnabled: Boolean!
+  alertsEnabled: Boolean!
+  targetSuccessPercent: Float!
+  warningRejectedPercent: Float!
+  criticalRejectedPercent: Float!
+  cooldownMinutes: Int!
+  incidentWindowHoursDefault: Int!
+  incidentBucketMinutesDefault: Int!
+  schedulerWindowHours: Int!
+  schedulerCooldownMinutes: Int!
+  schedulerMaxUsersPerRun: Int!
+  evaluatedAtIso: String!
+}
+
+type MailboxInboundSlaIncidentAlertResponse {
+  notificationId: String!
+  workspaceId: String
+  slaStatus: String!
+  title: String!
+  message: String!
+  totalCount: Int!
+  acceptedCount: Int!
+  deduplicatedCount: Int!
+  rejectedCount: Int!
+  successRatePercent: Float!
+  rejectionRatePercent: Float!
+  createdAt: DateTime!
+}
+
+type MailboxInboundSlaIncidentDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type MailboxInboundSlaIncidentStatsResponse {
+  workspaceId: String
+  windowHours: Int!
+  totalCount: Int!
+  warningCount: Int!
+  criticalCount: Int!
+  lastAlertAt: DateTime
+}
+
+type MailboxInboundSlaIncidentTrendPointResponse {
+  bucketStart: DateTime!
+  totalCount: Int!
+  warningCount: Int!
+  criticalCount: Int!
+}
+
+type AiCreditBalanceResponse {
+  planCode: String!
+  monthlyLimit: Int!
+  usedCredits: Int!
+  remainingCredits: Int!
+  periodStart: String!
+  lastConsumedAtIso: String
+}
+
+type BillingDataExportResponse {
+  generatedAtIso: String!
+  dataJson: String!
+}
+
+type EntitlementUsageResponse {
+  planCode: String!
+  providerLimit: Int!
+  providerUsed: Int!
+  providerRemaining: Int!
+  mailboxLimit: Int!
+  mailboxUsed: Int!
+  mailboxRemaining: Int!
+  workspaceLimit: Int!
+  workspaceUsed: Int!
+  workspaceRemaining: Int!
+  workspaceMemberLimit: Int!
+  workspaceMemberUsed: Int!
+  workspaceMemberRemaining: Int!
+  workspaceMemberWorkspaceId: String
+  mailboxStorageLimitMb: Int!
+  mailboxesOverEntitledStorageLimit: Int!
+  aiCreditsPerMonth: Int!
+  aiCreditsUsed: Int!
+  aiCreditsRemaining: Int!
+  periodStart: String!
+  evaluatedAtIso: String!
+}
+
+type BillingRetentionPurgeResponse {
+  webhookEventsDeleted: Int!
+  aiUsageRowsDeleted: Int!
+  webhookRetentionDays: Int!
+  aiUsageRetentionMonths: Int!
+  executedAtIso: String!
+}
+
+type BillingUpgradeIntentResponse {
+  success: Boolean!
+  targetPlanCode: String!
+  message: String!
+}
+
+type RazorpayCheckoutResponse {
+  checkoutUrl: String!
+  subscriptionId: String!
+  planCode: String!
+  keyId: String!
+}
+
+type StripeCheckoutSessionResponse {
+  sessionUrl: String!
+  sessionId: String!
+  planCode: String!
+}
+
 type Provider {
   id: ID!
   type: String!
@@ -417,122 +566,6 @@ type ProviderSyncStatsResponse {
   recentlyErroredProviders: Int!
   windowHours: Int!
   executedAtIso: String!
-}
-
-type NotificationDataExportResponse {
-  generatedAtIso: String!
-  dataJson: String!
-}
-
-type NotificationRetentionPurgeResponse {
-  notificationsDeleted: Int!
-  pushSubscriptionsDeleted: Int!
-  notificationRetentionDays: Int!
-  disabledPushRetentionDays: Int!
-  executedAtIso: String!
-}
-
-type MailboxInboundSlaIncidentAlertConfigResponse {
-  schedulerAlertsEnabled: Boolean!
-  alertsEnabled: Boolean!
-  targetSuccessPercent: Float!
-  warningRejectedPercent: Float!
-  criticalRejectedPercent: Float!
-  cooldownMinutes: Int!
-  incidentWindowHoursDefault: Int!
-  incidentBucketMinutesDefault: Int!
-  schedulerWindowHours: Int!
-  schedulerCooldownMinutes: Int!
-  schedulerMaxUsersPerRun: Int!
-  evaluatedAtIso: String!
-}
-
-type MailboxInboundSlaIncidentAlertResponse {
-  notificationId: String!
-  workspaceId: String
-  slaStatus: String!
-  title: String!
-  message: String!
-  totalCount: Int!
-  acceptedCount: Int!
-  deduplicatedCount: Int!
-  rejectedCount: Int!
-  successRatePercent: Float!
-  rejectionRatePercent: Float!
-  createdAt: DateTime!
-}
-
-type MailboxInboundSlaIncidentDataExportResponse {
-  generatedAtIso: String!
-  dataJson: String!
-}
-
-type MailboxInboundSlaIncidentStatsResponse {
-  workspaceId: String
-  windowHours: Int!
-  totalCount: Int!
-  warningCount: Int!
-  criticalCount: Int!
-  lastAlertAt: DateTime
-}
-
-type MailboxInboundSlaIncidentTrendPointResponse {
-  bucketStart: DateTime!
-  totalCount: Int!
-  warningCount: Int!
-  criticalCount: Int!
-}
-
-type AiCreditBalanceResponse {
-  planCode: String!
-  monthlyLimit: Int!
-  usedCredits: Int!
-  remainingCredits: Int!
-  periodStart: String!
-  lastConsumedAtIso: String
-}
-
-type BillingDataExportResponse {
-  generatedAtIso: String!
-  dataJson: String!
-}
-
-type EntitlementUsageResponse {
-  planCode: String!
-  providerLimit: Int!
-  providerUsed: Int!
-  providerRemaining: Int!
-  mailboxLimit: Int!
-  mailboxUsed: Int!
-  mailboxRemaining: Int!
-  workspaceLimit: Int!
-  workspaceUsed: Int!
-  workspaceRemaining: Int!
-  workspaceMemberLimit: Int!
-  workspaceMemberUsed: Int!
-  workspaceMemberRemaining: Int!
-  workspaceMemberWorkspaceId: String
-  mailboxStorageLimitMb: Int!
-  mailboxesOverEntitledStorageLimit: Int!
-  aiCreditsPerMonth: Int!
-  aiCreditsUsed: Int!
-  aiCreditsRemaining: Int!
-  periodStart: String!
-  evaluatedAtIso: String!
-}
-
-type BillingRetentionPurgeResponse {
-  webhookEventsDeleted: Int!
-  aiUsageRowsDeleted: Int!
-  webhookRetentionDays: Int!
-  aiUsageRetentionMonths: Int!
-  executedAtIso: String!
-}
-
-type BillingUpgradeIntentResponse {
-  success: Boolean!
-  targetPlanCode: String!
-  message: String!
 }
 
 type InboxMessage {
@@ -860,24 +893,6 @@ type ScheduledEmail {
   status: String!
 }
 
-type EmailAnalytics {
-  id: ID!
-  emailId: String!
-  openCount: Int!
-  clickCount: Int!
-  lastUpdatedAt: DateTime!
-}
-
-type Contact {
-  id: ID!
-  name: String!
-  email: String!
-  phone: String
-  userId: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-}
-
 type Inbox {
   id: ID!
   type: String!
@@ -968,6 +983,11 @@ type EmailThread {
   labelIds: [String!]
   providerId: String!
   providerThreadId: String
+}
+
+type PaginatedEmailThreads {
+  items: [EmailThread!]!
+  totalCount: Int!
 }
 
 type EmailFolder {
@@ -1343,13 +1363,35 @@ type AgentPlatformSkillRuntimeResetResponse {
   resetAtIso: String!
 }
 
+type ThreadClassificationResponse {
+  label: String!
+  confidence: Float!
+  message: String!
+}
+
+type ThreadPriorityResponse {
+  level: String!
+  score: Int!
+  message: String!
+}
+
+type ThreadInsightsResponse {
+  summary: String
+  classification: ThreadClassificationResponse
+  priority: ThreadPriorityResponse
+  actionItems: [String!]!
+  generatedAt: String!
+  threadId: String!
+}
+
 type Query {
   myAccountDataExport: AccountDataExportResponse!
   userAccountDataExport(id: ID!): AccountDataExportResponse!
   users: [User!]!
   user(id: ID!): User
-  getMyEmails(providerId: String): [Email!]!
-  getEmailById(id: String!): Email!
+  myProfile: User
+  getMyEmails(providerId: String): [Email!]! @deprecated(reason: "Use emails() from UnifiedInboxResolver instead")
+  getEmailById(id: String!): Email! @deprecated(reason: "Use email(id) from UnifiedInboxResolver instead")
 
   """Returns JSON stringified filters for now"""
   getEmailFilters: [String!]!
@@ -1359,25 +1401,6 @@ type Query {
   getAttachments(emailId: String!): [Attachment!]!
   getEmailWarmupStatus(providerId: String!): EmailWarmup
   getWarmupPerformanceMetrics(warmupId: String!): WarmupPerformanceMetrics!
-  getProviderEmails(providerId: String!): [Email!]!
-  getAllProviders: [EmailProvider!]!
-  getProviderById(id: String!): EmailProvider!
-  validateProvider(id: String!): Boolean!
-  providers(workspaceId: String): [Provider!]!
-  getEmailProviders(workspaceId: String): [Provider!]!
-  myProviderSyncStats(workspaceId: String, windowHours: Int): ProviderSyncStatsResponse!
-  myProviderSyncDataExport(workspaceId: String, limit: Int! = 200): ProviderSyncDataExportResponse!
-  userProviderSyncDataExport(userId: String!, workspaceId: String, limit: Int! = 200): ProviderSyncDataExportResponse!
-  myProviderSyncAlertDeliveryStats(workspaceId: String, windowHours: Int): ProviderSyncAlertDeliveryStatsResponse!
-  myProviderSyncAlertDeliverySeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [ProviderSyncAlertDeliveryTrendPointResponse!]!
-  myProviderSyncAlerts(workspaceId: String, windowHours: Int, limit: Int): [ProviderSyncAlertResponse!]!
-  myProviderSyncAlertDeliveryDataExport(workspaceId: String, windowHours: Int, bucketMinutes: Int, limit: Int): ProviderSyncAlertDeliveryDataExportResponse!
-  myProviderSyncIncidentAlertDeliveryStats(workspaceId: String, windowHours: Int): ProviderSyncIncidentAlertDeliveryStatsResponse!
-  myProviderSyncIncidentAlertDeliverySeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [ProviderSyncIncidentAlertDeliveryTrendPointResponse!]!
-  myProviderSyncIncidentAlerts(workspaceId: String, windowHours: Int, limit: Int): [ProviderSyncIncidentAlertResponse!]!
-  myProviderSyncIncidentAlertDeliveryDataExport(workspaceId: String, windowHours: Int, bucketMinutes: Int, limit: Int): ProviderSyncIncidentAlertDeliveryDataExportResponse!
-  myProviderSyncIncidentAlertHistoryDataExport(workspaceId: String, windowHours: Int, limit: Int): ProviderSyncIncidentAlertHistoryDataExportResponse!
-  myProviderSyncIncidentAlertConfig: ProviderSyncIncidentAlertConfigResponse!
 
   """List active billing plans"""
   billingPlans: [BillingPlan!]!
@@ -1451,6 +1474,25 @@ type Query {
   Admin export of target user notification preferences/history for legal/compliance requests
   """
   userNotificationDataExport(userId: String!, limit: Int): NotificationDataExportResponse!
+  getProviderEmails(providerId: String!): [Email!]!
+  getAllProviders: [EmailProvider!]!
+  getProviderById(id: String!): EmailProvider!
+  validateProvider(id: String!): Boolean!
+  providers(workspaceId: String): [Provider!]!
+  getEmailProviders(workspaceId: String): [Provider!]!
+  myProviderSyncStats(workspaceId: String, windowHours: Int): ProviderSyncStatsResponse!
+  myProviderSyncDataExport(workspaceId: String, limit: Int! = 200): ProviderSyncDataExportResponse!
+  userProviderSyncDataExport(userId: String!, workspaceId: String, limit: Int! = 200): ProviderSyncDataExportResponse!
+  myProviderSyncAlertDeliveryStats(workspaceId: String, windowHours: Int): ProviderSyncAlertDeliveryStatsResponse!
+  myProviderSyncAlertDeliverySeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [ProviderSyncAlertDeliveryTrendPointResponse!]!
+  myProviderSyncAlerts(workspaceId: String, windowHours: Int, limit: Int): [ProviderSyncAlertResponse!]!
+  myProviderSyncAlertDeliveryDataExport(workspaceId: String, windowHours: Int, bucketMinutes: Int, limit: Int): ProviderSyncAlertDeliveryDataExportResponse!
+  myProviderSyncIncidentAlertDeliveryStats(workspaceId: String, windowHours: Int): ProviderSyncIncidentAlertDeliveryStatsResponse!
+  myProviderSyncIncidentAlertDeliverySeries(workspaceId: String, windowHours: Int, bucketMinutes: Int): [ProviderSyncIncidentAlertDeliveryTrendPointResponse!]!
+  myProviderSyncIncidentAlerts(workspaceId: String, windowHours: Int, limit: Int): [ProviderSyncIncidentAlertResponse!]!
+  myProviderSyncIncidentAlertDeliveryDataExport(workspaceId: String, windowHours: Int, bucketMinutes: Int, limit: Int): ProviderSyncIncidentAlertDeliveryDataExportResponse!
+  myProviderSyncIncidentAlertHistoryDataExport(workspaceId: String, windowHours: Int, limit: Int): ProviderSyncIncidentAlertHistoryDataExportResponse!
+  myProviderSyncIncidentAlertConfig: ProviderSyncIncidentAlertConfigResponse!
 
   """List workspaces for current user"""
   myWorkspaces: [Workspace!]!
@@ -1538,7 +1580,7 @@ type Query {
   getContact(id: String!): Contact!
   myInboxes: [Inbox!]!
   myInboxSourceHealthStats(workspaceId: String, windowHours: Float): InboxSourceHealthStatsResponse!
-  emails(limit: Int, offset: Int, filter: EmailFilterInput, sort: EmailSortInput): [EmailThread!]!
+  emails(limit: Int, offset: Int, filter: EmailFilterInput, sort: EmailSortInput): PaginatedEmailThreads!
   email(id: String!): EmailThread!
   folders: [EmailFolder!]!
   labels: [EmailLabel!]!
@@ -1571,11 +1613,6 @@ type Query {
 
   """Get a label by id"""
   getLabel(id: String!): Label!
-
-  """
-  Temporary status endpoint while Question module domain entities are being designed.
-  """
-  questionModuleStatus: String!
   agentPlatformHealth: AgentPlatformHealthResponse!
 
   """List persisted AI platform health snapshots for observability analysis"""
@@ -1656,6 +1693,11 @@ type Query {
   Admin export target user agent action audits for legal/compliance workflows
   """
   userAgentActionDataExport(userId: String!, limit: Int! = 200): AgentActionDataExportResponse!
+
+  """
+  Generate AI-powered insights for an email thread: summary, classification, priority, and action items
+  """
+  threadInsights(threadId: String!): ThreadInsightsResponse!
 }
 
 input EmailFilterInput {
@@ -1679,6 +1721,7 @@ input SmartReplyInput {
 type Mutation {
   createUser(createUserInput: CreateUserInput!): User!
   updateUser(updateUserInput: UpdateUserInput!): User!
+  updateAutoSendTier(tier: String!): User!
   sendEmail(input: SendEmailInput!): Email!
   markEmailRead(markEmailReadInput: MarkEmailReadInput!): Email!
   sendRealEmail(createEmailInput: CreateEmailInput!): SendRealEmailResponse!
@@ -1692,24 +1735,22 @@ type Mutation {
   startEmailWarmup(input: StartWarmupInput!): EmailWarmup!
   pauseEmailWarmup(input: PauseWarmupInput!): EmailWarmup!
   adjustWarmupStrategy(warmupId: String!): EmailWarmup!
-  configureEmailProvider(providerInput: EmailProviderInput!): EmailProvider!
-  deleteProvider(input: DeleteProviderInput!): Boolean!
-  updateProviderCredentials(id: String!, input: EmailProviderInput!): EmailProvider!
-  connectGmail(code: String!): Provider!
-  connectOutlook(code: String!): Provider!
-  connectSmtp(settings: SmtpSettingsInput!): Provider!
-  disconnectProvider(id: String!): ProviderActionResult!
-  updateProvider(id: String!, isActive: Boolean): Provider!
-  syncProvider(id: String!): Provider!
-  syncMyProviders(workspaceId: String, providerId: String): ProviderSyncRunResponse!
-  runMyProviderSyncIncidentAlertCheck(windowHours: Int, warningErrorProviderPercent: Float, criticalErrorProviderPercent: Float, minErrorProviders: Int): ProviderSyncIncidentAlertCheckResponse!
-  updateProviderStatus(id: String!, isActive: Boolean): Provider!
 
-  """Select an active plan for current user"""
+  """
+  Downgrade current user to the FREE plan. Upgrading to a paid plan requires createStripeCheckoutSession or createRazorpayCheckoutSession.
+  """
   selectMyPlan(planCode: String!): UserSubscription!
 
   """Record a plan-upgrade intent for current user"""
   requestMyPlanUpgrade(targetPlanCode: String!, note: String): BillingUpgradeIntentResponse!
+
+  """Create a Stripe Checkout session URL for upgrading to a paid plan"""
+  createStripeCheckoutSession(planCode: String!, successUrl: String!, cancelUrl: String!): StripeCheckoutSessionResponse!
+
+  """
+  Create a Razorpay subscription checkout URL for upgrading to a paid plan
+  """
+  createRazorpayCheckoutSession(planCode: String!, successUrl: String!, cancelUrl: String!): RazorpayCheckoutResponse!
 
   """Start trial for an active paid plan"""
   startMyPlanTrial(planCode: String!, trialDays: Float): UserSubscription!
@@ -1737,6 +1778,18 @@ type Mutation {
 
   """Purge expired notification data using configured retention policy"""
   purgeNotificationRetentionData(notificationRetentionDays: Int, disabledPushRetentionDays: Int): NotificationRetentionPurgeResponse!
+  configureEmailProvider(providerInput: EmailProviderInput!): EmailProvider!
+  deleteProvider(input: DeleteProviderInput!): Boolean!
+  updateProviderCredentials(id: String!, input: EmailProviderInput!): EmailProvider!
+  connectGmail(code: String!): Provider!
+  connectOutlook(code: String!): Provider!
+  connectSmtp(settings: SmtpSettingsInput!): Provider!
+  disconnectProvider(id: String!): ProviderActionResult!
+  updateProvider(id: String!, isActive: Boolean): Provider!
+  syncProvider(id: String!): Provider!
+  syncMyProviders(workspaceId: String, providerId: String): ProviderSyncRunResponse!
+  runMyProviderSyncIncidentAlertCheck(windowHours: Int, warningErrorProviderPercent: Float, criticalErrorProviderPercent: Float, minErrorProviders: Int): ProviderSyncIncidentAlertCheckResponse!
+  updateProviderStatus(id: String!, isActive: Boolean): Provider!
 
   """Create a new workspace for current user"""
   createWorkspace(name: String!): Workspace!
@@ -1948,6 +2001,30 @@ input PauseWarmupInput {
   providerId: String!
 }
 
+input UpdateNotificationPreferencesInput {
+  inAppEnabled: Boolean
+  emailEnabled: Boolean
+  pushEnabled: Boolean
+  syncFailureEnabled: Boolean
+  mailboxInboundAcceptedEnabled: Boolean
+  mailboxInboundDeduplicatedEnabled: Boolean
+  mailboxInboundRejectedEnabled: Boolean
+  mailboxInboundSlaTargetSuccessPercent: Float
+  mailboxInboundSlaWarningRejectedPercent: Float
+  mailboxInboundSlaCriticalRejectedPercent: Float
+  mailboxInboundSlaAlertsEnabled: Boolean
+  notificationDigestEnabled: Boolean
+  mailboxInboundSlaAlertCooldownMinutes: Int
+}
+
+input RegisterNotificationPushSubscriptionInput {
+  endpoint: String!
+  p256dh: String!
+  auth: String!
+  workspaceId: String
+  userAgent: String
+}
+
 input EmailProviderInput {
   providerType: String!
   email: String!
@@ -1971,30 +2048,6 @@ input SmtpSettingsInput {
   username: String!
   password: String!
   secure: Boolean
-}
-
-input UpdateNotificationPreferencesInput {
-  inAppEnabled: Boolean
-  emailEnabled: Boolean
-  pushEnabled: Boolean
-  syncFailureEnabled: Boolean
-  mailboxInboundAcceptedEnabled: Boolean
-  mailboxInboundDeduplicatedEnabled: Boolean
-  mailboxInboundRejectedEnabled: Boolean
-  mailboxInboundSlaTargetSuccessPercent: Float
-  mailboxInboundSlaWarningRejectedPercent: Float
-  mailboxInboundSlaCriticalRejectedPercent: Float
-  mailboxInboundSlaAlertsEnabled: Boolean
-  notificationDigestEnabled: Boolean
-  mailboxInboundSlaAlertCooldownMinutes: Int
-}
-
-input RegisterNotificationPushSubscriptionInput {
-  endpoint: String!
-  p256dh: String!
-  auth: String!
-  workspaceId: String
-  userAgent: String
 }
 
 input LoginInput {

@@ -6,7 +6,7 @@ export const AUTH_ROUTES = {
   forgotPassword: '/auth/forgot-password',
   oauthSuccess: '/auth/oauth-success',
   aliasSelect: '/auth/alias-select',
-  dashboard: '/',
+  dashboard: '/inbox',
 } as const;
 
 export const resolvePostAuthRoute = (

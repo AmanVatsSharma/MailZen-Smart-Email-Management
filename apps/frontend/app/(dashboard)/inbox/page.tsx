@@ -1,15 +1,16 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { EmailList } from '@/components/email/EmailList';
 import { EmailDetail } from '@/components/email/EmailDetail';
 import { EmailComposer } from '@/components/email/EmailComposer';
 import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
 import { InboxAiWorkspace } from '@/components/email/InboxAiWorkspace';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { EmailFolder, EmailThread, EmailLabel } from '@/lib/email/email-types';
-import { mockLabels } from '@/lib/email/mock-data';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Filter, MoreVertical, Plus, Keyboard, Sparkles, X } from 'lucide-react';
+import { RefreshCw, Filter, MoreVertical, Plus, Keyboard, Sparkles, X, PlugZap } from 'lucide-react';
 import { gql, useApolloClient, useQuery, useMutation } from '@apollo/client';
 import { GET_LABELS, UPDATE_EMAIL } from '@/lib/apollo/queries/emails';
 import { useToast } from '@/components/ui/use-toast';
@@ -59,6 +60,7 @@ type InboxProvider = {
 };
 
 export default function InboxPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedThread, setSelectedThread] = useState<EmailThread | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -81,6 +83,7 @@ export default function InboxPage() {
       ? requestedFolder
       : 'inbox';
   const currentLabel = searchParams.get('label') ?? undefined;
+  const currentSearchQuery = searchParams.get('q') ?? '';
   
   // Keep track of last selected thread index for keyboard navigation
   const lastSelectedThreadIndex = useRef<number>(-1);
@@ -94,7 +97,7 @@ export default function InboxPage() {
   
   // Fetch labels
   const { data: labelsData } = useQuery(GET_LABELS);
-  const availableLabels = labelsData?.labels || mockLabels;
+  const availableLabels = labelsData?.labels ?? [];
 
   // Provider status (for refresh + UX)
   const { data: providersData } = useQuery(GET_PROVIDERS_FOR_INBOX, { fetchPolicy: 'network-only' });
@@ -194,42 +197,44 @@ export default function InboxPage() {
   };
   
   // Handle archiving an email
-  const handleArchive = useCallback((threadId: string) => {
-    // Would use a GraphQL mutation in a real app
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[Inbox] archive thread', { threadId });
+  const handleArchive = useCallback(async (threadId: string) => {
+    try {
+      await updateEmail({ variables: { id: threadId, input: { folder: 'archive' } } });
+      toast({
+        title: "Email archived",
+        description: "The email has been moved to the archive",
+      });
+      if (selectedThread?.id === threadId) {
+        setSelectedThread(null);
+      }
+    } catch {
+      toast({
+        title: "Archive failed",
+        description: "Could not archive the email. Please try again.",
+        variant: "destructive",
+      });
     }
-    
-    // Show notification
-    toast({
-      title: "Email archived",
-      description: "The email has been moved to the archive",
-    });
-    
-    // If the archived thread is the currently selected one, deselect it
-    if (selectedThread?.id === threadId) {
-      setSelectedThread(null);
-    }
-  }, [selectedThread?.id, toast]);
+  }, [selectedThread?.id, toast, updateEmail]);
   
   // Handle deleting an email
-  const handleDelete = useCallback((threadId: string) => {
-    // Would use a GraphQL mutation in a real app
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[Inbox] delete thread', { threadId });
+  const handleDelete = useCallback(async (threadId: string) => {
+    try {
+      await updateEmail({ variables: { id: threadId, input: { folder: 'trash' } } });
+      toast({
+        title: "Email deleted",
+        description: "The email has been moved to trash",
+      });
+      if (selectedThread?.id === threadId) {
+        setSelectedThread(null);
+      }
+    } catch {
+      toast({
+        title: "Delete failed",
+        description: "Could not delete the email. Please try again.",
+        variant: "destructive",
+      });
     }
-    
-    // Show notification
-    toast({
-      title: "Email deleted",
-      description: "The email has been moved to trash",
-    });
-    
-    // If the deleted thread is the currently selected one, deselect it
-    if (selectedThread?.id === threadId) {
-      setSelectedThread(null);
-    }
-  }, [selectedThread?.id, toast]);
+  }, [selectedThread?.id, toast, updateEmail]);
   
   // Handle toggling star on an email
   const handleToggleStar = useCallback((threadId: string, isStarred: boolean) => {
@@ -468,7 +473,24 @@ export default function InboxPage() {
 
           {/* Email list + content */}
           <div className="flex flex-1 overflow-hidden gap-4 min-w-0">
+            {/* No-provider empty state */}
+            {!isRefreshing && providers.length === 0 && (
+              <div className="flex-1 flex items-center justify-center">
+                <EmptyState
+                  icon={<PlugZap className="h-7 w-7" />}
+                  title="No email provider connected"
+                  description="Connect your Gmail or Outlook account to start reading and sending emails from MailZen."
+                  action={{
+                    label: 'Connect a provider',
+                    onClick: () => router.push('/email-providers'),
+                  }}
+                  className="max-w-md border-dashed"
+                />
+              </div>
+            )}
+
             {/* Middle panel: list */}
+            {(providers.length > 0 || isRefreshing) && (
             <Surface
               className="w-full md:w-[420px] lg:w-[460px] overflow-hidden flex flex-col"
               variant="glass"
@@ -481,10 +503,13 @@ export default function InboxPage() {
                 onBatchAction={handleBatchAction}
                 initialFolder={currentFolder}
                 labelFilter={currentLabel}
+                externalSearchQuery={currentSearchQuery}
               />
             </Surface>
+            )}
 
             {/* Right panel: preview/detail */}
+            {(providers.length > 0 || isRefreshing) && (
             <Surface
               className="hidden md:flex flex-1 overflow-hidden"
               variant="glass"
@@ -518,10 +543,11 @@ export default function InboxPage() {
                 )
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center p-8 text-muted-foreground">
-                  <p>Select an email to view</p>
+                  <p className="text-sm">Select an email to preview</p>
                 </div>
               )}
             </Surface>
+            )}
 
             <Surface
               className={cn(

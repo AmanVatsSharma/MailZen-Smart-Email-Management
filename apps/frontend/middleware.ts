@@ -36,10 +36,6 @@ const isAllowedAuthedPublicPath = (path: string): boolean => {
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
-  if (process.env.NODE_ENV === 'development') {
-    return NextResponse.next();
-  }
-
   if (isBypassPath(pathname)) {
     return NextResponse.next();
   }

@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { AuditLog } from '../auth/entities/audit-log.entity';
+import { BillingService } from '../billing/billing.service';
 import { SmartReplyInput } from './dto/smart-reply.input';
 import { SmartReplyHistory } from './entities/smart-reply-history.entity';
 import { SmartReplySettings } from './entities/smart-reply-settings.entity';
@@ -23,6 +24,8 @@ export class SmartReplyService {
   private readonly disabledReply =
     'Smart replies are disabled in your settings. Please enable them to generate suggestions.';
 
+  private static readonly AI_CREDITS_PER_SMART_REPLY = 1;
+
   constructor(
     @InjectRepository(SmartReplySettings)
     private readonly settingsRepo: Repository<SmartReplySettings>,
@@ -31,7 +34,34 @@ export class SmartReplyService {
     @InjectRepository(AuditLog)
     private readonly auditLogRepo: Repository<AuditLog>,
     private readonly providerRouter: SmartReplyProviderRouter,
+    private readonly billingService: BillingService,
   ) {}
+
+  private async enforceAiCreditQuota(
+    userId: string,
+    requestId?: string,
+  ): Promise<void> {
+    const creditResult = await this.billingService.consumeAiCredits({
+      userId,
+      credits: SmartReplyService.AI_CREDITS_PER_SMART_REPLY,
+      requestId,
+    });
+    if (!creditResult.allowed) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'smart_reply_ai_credits_exhausted',
+          userId,
+          usedCredits: creditResult.usedCredits,
+          monthlyLimit: creditResult.monthlyLimit,
+        }),
+      );
+      throw new ForbiddenException(
+        `AI credit limit reached for the current billing period. ` +
+          `Used: ${creditResult.usedCredits} / ${creditResult.monthlyLimit}. ` +
+          `Credits reset at the start of next month.`,
+      );
+    }
+  }
 
   private async writeAuditLog(input: {
     userId: string;
@@ -91,6 +121,8 @@ export class SmartReplyService {
         });
         return this.getSafetyBlockedReply();
       }
+
+      await this.enforceAiCreditQuota(userId);
 
       this.logger.log(
         serializeStructuredLog({
@@ -176,6 +208,8 @@ export class SmartReplyService {
     const maxAllowedSuggestions = Math.max(1, settings.maxSuggestions);
     const requestedCount = Math.max(1, Math.min(count, maxAllowedSuggestions));
 
+    await this.enforceAiCreditQuota(userId);
+
     try {
       const generated = await this.generateModelSuggestions(
         normalizedConversation,
@@ -240,6 +274,8 @@ export class SmartReplyService {
         count,
         includeSignature: settings.includeSignature,
         customInstructions: settings.customInstructions || undefined,
+        personalization: settings.personalization ?? 75,
+        creativityLevel: settings.creativityLevel ?? 60,
       },
     });
   }

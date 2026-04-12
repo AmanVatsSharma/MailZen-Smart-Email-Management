@@ -3,13 +3,18 @@
 import { motion } from 'framer-motion';
 import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { cn } from '@/lib/utils';
 
 interface AuthLayoutProps {
   children: React.ReactNode;
 }
 
 export default function AuthLayout({ children }: AuthLayoutProps) {
+  const pathname = usePathname();
+  const isLoginSplit = pathname === '/auth/login';
+
   return (
     <div className="relative min-h-screen flex flex-col overflow-hidden bg-background">
       {/* Animated orb background */}
@@ -102,7 +107,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
       {/* Content */}
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
         <motion.div
-          className="w-full max-w-[420px]"
+          className={cn('w-full', isLoginSplit ? 'max-w-6xl' : 'max-w-[420px]')}
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}

@@ -25,6 +25,7 @@ import { ExternalEmailLabel } from '../email-integration/entities/external-email
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
 import { SenderIntelligenceService } from '../sender-intelligence/sender-intelligence.service';
+import { EmailAiProcessorService } from '../email-integration/email-ai-processor.service';
 
 type OutlookRecipient = {
   emailAddress?: {
@@ -38,6 +39,10 @@ type OutlookMessage = {
   conversationId?: string;
   subject?: string;
   bodyPreview?: string;
+  body?: {
+    contentType?: 'text' | 'html';
+    content?: string;
+  };
   receivedDateTime?: string;
   isRead?: boolean;
   from?: OutlookRecipient;
@@ -67,7 +72,7 @@ export class OutlookSyncService {
   private readonly logger = new Logger(OutlookSyncService.name);
   private readonly providerSecretsKeyring: ProviderSecretsKeyring;
   private static readonly OUTLOOK_SELECT_FIELDS =
-    'id,conversationId,subject,bodyPreview,receivedDateTime,isRead,from,toRecipients,categories';
+    'id,conversationId,subject,bodyPreview,body,receivedDateTime,isRead,from,toRecipients,categories';
 
   constructor(
     @InjectRepository(EmailProvider)
@@ -79,9 +84,29 @@ export class OutlookSyncService {
     @InjectRepository(AuditLog)
     private readonly auditLogRepo: Repository<AuditLog>,
     private readonly providerSyncLease: ProviderSyncLeaseService,
+<<<<<<< Updated upstream
     private readonly senderIntelligence: SenderIntelligenceService,
+=======
+    private readonly emailAiProcessor: EmailAiProcessorService,
+>>>>>>> Stashed changes
   ) {
     this.providerSecretsKeyring = resolveProviderSecretsKeyring();
+  }
+
+  /**
+   * Extract plain text from an Outlook message body.
+   * Strips HTML tags when contentType is 'html'. Truncates to 4000 chars.
+   */
+  private parseOutlookBody(message: OutlookMessage): string | null {
+    const content = String(message.body?.content || '').trim();
+    if (!content) return null;
+    let text: string;
+    if (message.body?.contentType === 'html') {
+      text = content.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    } else {
+      text = content;
+    }
+    return text.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, 4000) || null;
   }
 
   private async writeAuditLog(input: {
@@ -404,6 +429,12 @@ export class OutlookSyncService {
       .map((categoryName) => String(categoryName || '').trim())
       .filter(Boolean);
 
+    const internalDate = input.message.receivedDateTime
+      ? new Date(input.message.receivedDateTime)
+      : undefined;
+
+    const textBody = this.parseOutlookBody(input.message) || undefined;
+
     await this.externalEmailMessageRepo.upsert(
       [
         {
@@ -415,15 +446,15 @@ export class OutlookSyncService {
           to,
           subject: input.message.subject || undefined,
           snippet: input.message.bodyPreview || undefined,
-          internalDate: input.message.receivedDateTime
-            ? new Date(input.message.receivedDateTime)
-            : undefined,
+          textBody,
+          internalDate,
           labels,
         },
       ],
       ['providerId', 'externalMessageId'],
     );
 
+<<<<<<< Updated upstream
     // Phase 6 — Sender Intelligence: update sender profile (best-effort)
     if (input.message.from?.emailAddress?.address) {
       const senderEmail = input.message.from.emailAddress.address.trim();
@@ -449,6 +480,18 @@ export class OutlookSyncService {
           );
         });
     }
+=======
+    this.emailAiProcessor.processNewEmail({
+      providerId: input.providerId,
+      externalMessageId: messageId,
+      from: from || undefined,
+      subject: input.message.subject || undefined,
+      snippet: input.message.bodyPreview || undefined,
+      textBody,
+      internalDate,
+      labels,
+    });
+>>>>>>> Stashed changes
 
     return { imported: true, categories };
   }

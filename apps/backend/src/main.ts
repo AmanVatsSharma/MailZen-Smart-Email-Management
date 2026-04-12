@@ -1,3 +1,7 @@
+// Sentry must be initialised before any other imports.
+import { initSentry } from './instrument';
+initSentry();
+
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import axios from 'axios';
@@ -109,6 +113,29 @@ async function assertAgentPlatformReadiness(): Promise<void> {
   }
 }
 
+function assertProductionSecrets(): void {
+  const isProduction = (process.env.NODE_ENV || 'development') === 'production';
+  if (!isProduction) return;
+
+  const missing: string[] = [];
+
+  if (!process.env.SECRETS_KEY || process.env.SECRETS_KEY.trim().length < 32) {
+    missing.push('SECRETS_KEY (required in production, >= 32 chars)');
+  }
+  if (
+    !process.env.PROVIDER_SECRETS_KEY ||
+    process.env.PROVIDER_SECRETS_KEY.trim().length < 32
+  ) {
+    missing.push('PROVIDER_SECRETS_KEY (required in production, >= 32 chars)');
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing or too-short secrets in production: ${missing.join(', ')}`,
+    );
+  }
+}
+
 async function bootstrap() {
   // Fail fast on unsafe/missing configuration (enterprise-grade default).
   // Keeping this here avoids scattered runtime failures later.
@@ -120,9 +147,12 @@ async function bootstrap() {
     );
   }
 
+  assertProductionSecrets();
+
   await assertAgentPlatformReadiness();
 
   const app = await NestFactory.create(AppModule, { rawBody: true });
+
 
   const securityHeadersEnabled = parseBooleanEnv(
     process.env.GLOBAL_SECURITY_HEADERS_ENABLED,
@@ -233,7 +263,7 @@ async function bootstrap() {
   );
   const csrfExcludedPaths = parseCsvEnv(
     process.env.GLOBAL_CSRF_EXCLUDED_PATHS,
-    ['/billing/webhooks/stripe/events'],
+    ['/billing/webhooks/stripe/events', '/billing/webhooks/razorpay/events', '/health'],
   );
   const sessionCookieName = String(
     process.env.MAILZEN_SESSION_COOKIE_NAME || 'token',
@@ -350,7 +380,7 @@ async function bootstrap() {
   );
   const rateLimitExcludedPaths = parseCsvEnv(
     process.env.GLOBAL_RATE_LIMIT_EXCLUDED_PATHS,
-    ['/auth/google/callback', '/auth/microsoft/callback'],
+    ['/auth/google/callback', '/auth/microsoft/callback', '/health'],
   );
   app.use(
     createHttpRateLimitMiddleware(

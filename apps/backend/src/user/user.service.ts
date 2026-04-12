@@ -11,6 +11,7 @@ import { User } from './entities/user.entity';
 import { CreateUserInput } from './dto/create-user.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { AuditLog } from '../auth/entities/audit-log.entity';
+import { AutoSendTier } from '../smart-replies/auto-send-tier.enum';
 import * as bcrypt from 'bcryptjs';
 import { AccountDataExportResponse } from './dto/account-data-export.response';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
@@ -564,5 +565,26 @@ export class UserService {
       }),
     );
     return response;
+  }
+
+  async updateAutoSendTier(userId: string, tier: AutoSendTier): Promise<User> {
+    const validTiers = Object.values(AutoSendTier) as string[];
+    if (!validTiers.includes(tier)) {
+      throw new BadRequestException(`Invalid auto-send tier: ${tier}`);
+    }
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    await this.userRepository.update({ id: userId }, { autoSendTier: tier });
+    user.autoSendTier = tier;
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'user_autosend_tier_updated',
+        userId,
+        tier,
+      }),
+    );
+    return user;
   }
 }

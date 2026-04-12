@@ -51,6 +51,7 @@ import { AgentPlatformHealthTrendSummaryResponse } from './dto/agent-platform-he
 import { AgentPlatformRuntimeResetResponse } from './dto/agent-platform-runtime-reset.response';
 import { AgentPlatformSkillRuntimeResetResponse } from './dto/agent-platform-skill-runtime-reset.response';
 import { AgentActionAudit } from './entities/agent-action-audit.entity';
+import { ThreadInsightsResponse } from './dto/thread-insights.response';
 
 interface RequestContext {
   req?: {
@@ -579,5 +580,27 @@ export class AiAgentGatewayResolver {
     const userId = String(ctx?.req?.user?.id || '').trim();
     const emailIds = await this.emailEmbeddingService.semanticSearch(userId, query, limit);
     return { emailIds, query };
+  }
+
+  // ── Thread Insights ──────────────────────────────────────────────────────────
+
+  @Query(() => ThreadInsightsResponse, {
+    description: 'Generate AI-powered insights for an email thread: summary, classification, priority, and action items',
+  })
+  @UseGuards(JwtAuthGuard)
+  async threadInsights(
+    @Args('threadId') threadId: string,
+    @Context() ctx: RequestContext,
+  ): Promise<ThreadInsightsResponse> {
+    const userId = String(ctx.req?.user?.id || '').trim();
+    const result = await this.gatewayService.getThreadInsights({ userId, threadId });
+    return {
+      threadId: result.threadId,
+      generatedAt: result.generatedAt,
+      actionItems: result.actionItems,
+      summary: result.summary ?? undefined,
+      classification: result.classification ?? undefined,
+      priority: result.priority ?? undefined,
+    };
   }
 }

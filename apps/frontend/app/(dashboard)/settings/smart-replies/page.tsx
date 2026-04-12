@@ -1,12 +1,25 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
-import { RefreshCw, Save, Sparkles } from 'lucide-react';
+import { useLazyQuery, useMutation, useQuery } from '@apollo/client';
+import {
+  Activity,
+  Bot,
+  CheckCircle2,
+  Database,
+  Download,
+  History,
+  RefreshCw,
+  Save,
+  Sparkles,
+  Trash2,
+  Zap,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardContent,
@@ -28,7 +41,25 @@ import {
   GET_SMART_REPLY_SETTINGS,
   UPDATE_SMART_REPLY_SETTINGS,
 } from '@/lib/apollo/queries/smart-reply-settings';
+import {
+  GET_MY_PROFILE,
+  UPDATE_AUTO_SEND_TIER,
+} from '@/lib/apollo/queries/agent-assistant';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  GET_SMART_REPLY_DATA_EXPORT,
+  GET_SMART_REPLY_HISTORY,
+  GET_SMART_REPLY_PROVIDER_HEALTH,
+  PURGE_SMART_REPLY_HISTORY,
+} from '@/lib/apollo/queries/smart-reply-history';
 
 type SmartReplySettings = {
   enabled: boolean;
@@ -58,13 +89,131 @@ const DEFAULT_SETTINGS: SmartReplySettings = {
   historyLength: 30,
 };
 
+type AutoSendTierValue = 'MANUAL' | 'SEMI_AUTO' | 'AUTO';
+
+type SmartReplyProviderHealthRow = {
+  providerId: string;
+  enabled: boolean;
+  configured: boolean;
+  priority?: number | null;
+  note?: string | null;
+};
+
+type SmartReplyProviderHealthPayload = {
+  mode: string;
+  hybridPrimary: string;
+  executedAtIso: string;
+  providers: SmartReplyProviderHealthRow[];
+};
+
+type SmartReplyHistoryRow = {
+  id: string;
+  conversationPreview: string;
+  suggestions: string[];
+  source: string;
+  blockedSensitive: boolean;
+  fallbackUsed: boolean;
+  createdAt: string;
+};
+
+const AUTO_SEND_TIERS: { value: AutoSendTierValue; label: string; description: string; badge?: string }[] = [
+  {
+    value: 'MANUAL',
+    label: 'Manual (Default)',
+    description: 'Every AI-composed draft is shown for your review before sending. You stay fully in control.',
+  },
+  {
+    value: 'SEMI_AUTO',
+    label: 'Semi-Automatic',
+    description: 'Short drafts (≤120 words) for low-stakes threads (coordination / commercial + low/medium priority) are auto-approved.',
+    badge: 'Smart',
+  },
+  {
+    value: 'AUTO',
+    label: 'Fully Automatic',
+    description: 'All AI-composed drafts are auto-approved without review. Use with caution.',
+    badge: 'Power',
+  },
+];
+
 const SmartRepliesSettingsPage = () => {
   const { toast } = useToast();
   const [settings, setSettings] = useState<SmartReplySettings>(DEFAULT_SETTINGS);
+  const [autoSendTier, setAutoSendTier] = useState<AutoSendTierValue>('MANUAL');
+  const [purgeOpen, setPurgeOpen] = useState(false);
 
   const { data, loading, error, refetch } = useQuery(GET_SMART_REPLY_SETTINGS, {
     fetchPolicy: 'network-only',
   });
+
+  const { data: profileData } = useQuery<{ myProfile?: { id: string; autoSendTier?: string } | null }>(
+    GET_MY_PROFILE,
+    { fetchPolicy: 'cache-first' },
+  );
+
+  const [updateAutoSendTierMutation, { loading: savingTier }] = useMutation(UPDATE_AUTO_SEND_TIER, {
+    onCompleted: () => {
+      toast({
+        title: 'Auto-send tier saved',
+        description: 'Your AI draft auto-send preference has been updated.',
+      });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Failed to update tier',
+        description: err.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const { data: healthData, loading: healthLoading } = useQuery<{
+    mySmartReplyProviderHealth: SmartReplyProviderHealthPayload;
+  }>(GET_SMART_REPLY_PROVIDER_HEALTH, {
+    fetchPolicy: 'cache-and-network',
+  });
+
+  const {
+    data: historyData,
+    loading: historyLoading,
+    refetch: refetchHistory,
+  } = useQuery<{ mySmartReplyHistory: SmartReplyHistoryRow[] }>(GET_SMART_REPLY_HISTORY, {
+    variables: { limit: 40 },
+    fetchPolicy: 'network-only',
+  });
+
+  const [fetchExport, { loading: exportLoading }] = useLazyQuery(GET_SMART_REPLY_DATA_EXPORT, {
+    fetchPolicy: 'network-only',
+  });
+
+  const [purgeHistory, { loading: purging }] = useMutation(PURGE_SMART_REPLY_HISTORY, {
+    onCompleted: async (payload) => {
+      const rows = payload?.purgeMySmartReplyHistory?.purgedRows ?? 0;
+      toast({ title: 'History cleared', description: `Removed ${rows} record(s).` });
+      setPurgeOpen(false);
+      await refetchHistory();
+    },
+    onError: (err) => {
+      toast({ title: 'Purge failed', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const handleDownloadExport = async () => {
+    const res = await fetchExport({ variables: { limit: 500 } });
+    const exp = res.data?.mySmartReplyDataExport;
+    if (!exp?.dataJson) {
+      toast({ title: 'Export failed', description: 'No data returned.', variant: 'destructive' });
+      return;
+    }
+    const blob = new Blob([exp.dataJson], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mailzen-smart-reply-export-${exp.generatedAtIso || 'data'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Download started', description: 'Smart reply export saved as JSON.' });
+  };
 
   const [updateSettings, { loading: saving }] = useMutation(UPDATE_SMART_REPLY_SETTINGS, {
     onCompleted: async () => {
@@ -93,6 +242,13 @@ const SmartRepliesSettingsPage = () => {
       historyLength: serverSettings.historyLength,
     });
   }, [data]);
+
+  useEffect(() => {
+    const tier = profileData?.myProfile?.autoSendTier;
+    if (tier === 'MANUAL' || tier === 'SEMI_AUTO' || tier === 'AUTO') {
+      setAutoSendTier(tier);
+    }
+  }, [profileData]);
 
   const handleSave = async () => {
     await updateSettings({
@@ -344,6 +500,231 @@ const SmartRepliesSettingsPage = () => {
             />
           </div>
         </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Activity className="h-5 w-5 text-primary" />
+            <div>
+              <CardTitle>Smart reply provider status</CardTitle>
+              <CardDescription className="mt-1">
+                Routing mode and which LLM backends are configured. Useful when you only see template replies.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {healthLoading ? (
+            <p className="text-sm text-muted-foreground">Loading provider health…</p>
+          ) : healthData?.mySmartReplyProviderHealth ? (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2 text-sm">
+                <Badge variant="outline">Mode: {healthData.mySmartReplyProviderHealth.mode}</Badge>
+                <Badge variant="outline">
+                  Hybrid primary: {healthData.mySmartReplyProviderHealth.hybridPrimary}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  Checked {new Date(healthData.mySmartReplyProviderHealth.executedAtIso).toLocaleString()}
+                </span>
+              </div>
+              <ul className="space-y-2 rounded-md border border-border/60 p-3 text-sm">
+                {healthData.mySmartReplyProviderHealth.providers.map((p) => (
+                  <li key={p.providerId} className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium">{p.providerId}</span>
+                    <span className="text-muted-foreground">
+                      {p.configured ? 'configured' : 'not configured'}
+                      {' · '}
+                      {p.enabled ? 'enabled' : 'disabled'}
+                      {typeof p.priority === 'number' ? ` · priority ${p.priority}` : ''}
+                    </span>
+                    {p.note ? <p className="w-full text-xs text-muted-foreground">{p.note}</p> : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Provider health unavailable.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <History className="h-5 w-5 text-primary" />
+            <div>
+              <CardTitle>Generation history</CardTitle>
+              <CardDescription className="mt-1">
+                Recent smart-reply generations stored for your account. Export or clear for privacy.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => void handleDownloadExport()}
+              disabled={exportLoading}
+            >
+              {exportLoading ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Download JSON export
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-destructive hover:text-destructive"
+              onClick={() => setPurgeOpen(true)}
+              disabled={purging}
+            >
+              <Trash2 className="h-4 w-4" />
+              Clear history
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => void refetchHistory()}
+            >
+              <Database className="h-4 w-4" />
+              Refresh list
+            </Button>
+          </div>
+
+          <Dialog open={purgeOpen} onOpenChange={setPurgeOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Clear smart reply history?</DialogTitle>
+                <DialogDescription>
+                  This removes stored generation history for your account. Your current settings are not affected.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={() => setPurgeOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={purging}
+                  onClick={() => void purgeHistory()}
+                >
+                  {purging ? 'Clearing…' : 'Clear history'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {historyLoading ? (
+            <p className="text-sm text-muted-foreground">Loading history…</p>
+          ) : (
+            <ul className="max-h-72 space-y-2 overflow-y-auto rounded-md border border-border/60 p-2 text-sm">
+              {(historyData?.mySmartReplyHistory ?? []).length === 0 ? (
+                <li className="p-3 text-muted-foreground">No history entries yet.</li>
+              ) : (
+                (historyData?.mySmartReplyHistory ?? []).map((row) => (
+                  <li key={row.id} className="rounded-md border border-border/40 p-2">
+                    <p className="line-clamp-2 text-xs text-muted-foreground">{row.conversationPreview}</p>
+                    <div className="mt-1 flex flex-wrap gap-1 text-[10px] text-muted-foreground">
+                      <span>{new Date(row.createdAt).toLocaleString()}</span>
+                      <span>·</span>
+                      <span>{row.source}</span>
+                      {row.fallbackUsed ? <Badge variant="secondary">fallback</Badge> : null}
+                      {row.blockedSensitive ? <Badge variant="destructive">blocked</Badge> : null}
+                    </div>
+                  </li>
+                ))
+              )}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Auto-Send Trust Tier */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Bot className="h-5 w-5 text-primary" />
+            <div>
+              <CardTitle>AI Draft Auto-Send Tier</CardTitle>
+              <CardDescription className="mt-1">
+                Control how much trust you grant to AI-composed reply drafts. Higher tiers reduce friction for low-stakes conversations.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {AUTO_SEND_TIERS.map((tier) => {
+            const isSelected = autoSendTier === tier.value;
+            return (
+              <button
+                key={tier.value}
+                type="button"
+                onClick={() => setAutoSendTier(tier.value)}
+                className={`w-full rounded-lg border p-4 text-left transition-all ${
+                  isSelected
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                    : 'border-border hover:border-primary/40 hover:bg-muted/30'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'}`}>
+                      {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{tier.label}</span>
+                        {tier.badge && (
+                          <Badge variant="outline" className="text-[10px]">
+                            {tier.badge}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{tier.description}</p>
+                    </div>
+                  </div>
+                  {isSelected && <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />}
+                </div>
+              </button>
+            );
+          })}
+
+          {autoSendTier === 'AUTO' && (
+            <Alert className="border-yellow-500/30 bg-yellow-500/5">
+              <Zap className="h-4 w-4 text-yellow-500" />
+              <AlertTitle className="text-yellow-600 dark:text-yellow-400">Heads up</AlertTitle>
+              <AlertDescription className="text-xs">
+                Fully Automatic mode auto-approves every AI draft. Make sure your AI is well-calibrated before enabling this.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+        <CardFooter>
+          <Button
+            onClick={() => updateAutoSendTierMutation({ variables: { tier: autoSendTier } })}
+            disabled={savingTier}
+            className="gap-2"
+            variant="outline"
+          >
+            {savingTier ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            Save Auto-Send Tier
+          </Button>
+        </CardFooter>
       </Card>
     </DashboardPageShell>
   );

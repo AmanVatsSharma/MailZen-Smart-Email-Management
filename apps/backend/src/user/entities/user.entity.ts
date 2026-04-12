@@ -8,6 +8,7 @@ import {
   OneToMany,
   Index,
 } from 'typeorm';
+import { AutoSendTier } from '../../smart-replies/auto-send-tier.enum';
 import { Contact } from '../../contacts/entities/contact.entity';
 import { Email } from '../../email/entities/email.entity';
 import { EmailProvider } from '../../email-integration/entities/email-provider.entity';
@@ -83,6 +84,16 @@ export class User {
   @Column({ unique: true, nullable: true })
   @Index()
   googleSub?: string;
+
+  // OAuth object ID for Microsoft Sign-In (oid claim — stable per Azure AD tenant)
+  @Column({ unique: true, nullable: true })
+  @Index()
+  microsoftSub?: string;
+
+  // AI auto-send trust tier — controls whether AI-composed drafts are sent automatically
+  @Field({ nullable: true })
+  @Column({ type: 'varchar', default: AutoSendTier.MANUAL })
+  autoSendTier: AutoSendTier;
 
   // Persisted inbox selection for multi-inbox switching
   @Column({ type: 'varchar', nullable: true })

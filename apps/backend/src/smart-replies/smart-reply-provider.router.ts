@@ -57,11 +57,43 @@ export class SmartReplyProviderRouter {
     return 'hybrid';
   }
 
+  /**
+   * Returns whether this aiModel value should route to an LLM provider.
+   * All three tiers (balanced, accurate, advanced) route to LLM — they differ
+   * only in which model is selected (see resolveModelOverrideForTier).
+   */
   private shouldPreferExternalByModel(aiModel?: string | null): boolean {
     const normalized = String(aiModel || '')
       .trim()
       .toLowerCase();
-    return ['accurate', 'advanced'].includes(normalized);
+    return ['balanced', 'accurate', 'advanced'].includes(normalized);
+  }
+
+  /**
+   * Maps user's aiModel tier to concrete model names for each provider.
+   * balanced  → fast/cheap models (gpt-4o-mini, claude-3-5-haiku)
+   * accurate  → capable models   (gpt-4o, claude-3-5-sonnet)
+   * advanced  → best models      (gpt-4o, claude-3-opus)
+   */
+  private resolveModelOverrideForTier(
+    aiModel?: string | null,
+    provider?: RoutedProvider,
+  ): string | null {
+    const tier = String(aiModel || 'balanced')
+      .trim()
+      .toLowerCase();
+    const isOpenAi = !provider || provider === 'openai' || provider === 'azure_openai';
+    if (isOpenAi) {
+      if (tier === 'advanced') return 'gpt-4o';
+      if (tier === 'accurate') return 'gpt-4o';
+      return 'gpt-4o-mini';
+    }
+    if (provider === 'anthropic') {
+      if (tier === 'advanced') return 'claude-3-opus-20240229';
+      if (tier === 'accurate') return 'claude-3-5-sonnet-latest';
+      return 'claude-3-5-haiku-latest';
+    }
+    return null;
   }
 
   private resolveHybridProviderPriority(): RoutedProvider[] {
@@ -111,17 +143,22 @@ export class SmartReplyProviderRouter {
   private async runProvider(
     provider: RoutedProvider,
     request: SmartReplyProviderRequest,
+    aiModel?: string | null,
   ): Promise<string[]> {
+    const tieredRequest: SmartReplyProviderRequest = {
+      ...request,
+      modelOverride: request.modelOverride ?? this.resolveModelOverrideForTier(aiModel, provider),
+    };
     if (provider === 'openai') {
-      return this.openAiProvider.generateSuggestions(request);
+      return this.openAiProvider.generateSuggestions(tieredRequest);
     }
     if (provider === 'azure_openai') {
-      return this.azureOpenAiProvider.generateSuggestions(request);
+      return this.azureOpenAiProvider.generateSuggestions(tieredRequest);
     }
     if (provider === 'anthropic') {
-      return this.anthropicProvider.generateSuggestions(request);
+      return this.anthropicProvider.generateSuggestions(tieredRequest);
     }
-    return this.externalProvider.generateSuggestions(request);
+    return this.externalProvider.generateSuggestions(tieredRequest);
   }
 
   async generateSuggestions(input: {
@@ -137,7 +174,7 @@ export class SmartReplyProviderRouter {
     });
     for (let index = 0; index < routedProviders.length; index += 1) {
       const provider = routedProviders[index];
-      const suggestions = await this.runProvider(provider, input.request);
+      const suggestions = await this.runProvider(provider, input.request, input.aiModel);
       if (suggestions.length) {
         const source =
           provider === 'openai'

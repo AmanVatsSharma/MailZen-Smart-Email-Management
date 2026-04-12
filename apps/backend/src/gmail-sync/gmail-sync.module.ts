@@ -11,6 +11,7 @@ import { ExternalEmailMessage } from '../email-integration/entities/external-ema
 import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
 import { NotificationModule } from '../notification/notification.module';
 import { SenderIntelligenceModule } from '../sender-intelligence/sender-intelligence.module';
+import { EmailAiProcessorModule } from '../email-integration/email-ai-processor.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { SenderIntelligenceModule } from '../sender-intelligence/sender-intellig
     ]),
     NotificationModule,
     SenderIntelligenceModule,
+    EmailAiProcessorModule,
   ],
   controllers: [GmailSyncWebhookController],
   providers: [

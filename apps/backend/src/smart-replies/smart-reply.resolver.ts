@@ -2,6 +2,8 @@ import { Resolver, Query, Args, Int, Context, Mutation } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RequirePlanGuard } from '../billing/guards/require-plan.guard';
+import { RequirePlan } from '../common/decorators/require-plan.decorator';
 import { SmartReplyService } from './smart-reply.service';
 import { SmartReplyDataExportResponse } from './entities/smart-reply-data-export.response';
 import { SmartReplyProviderHealthResponse } from './entities/smart-reply-provider-health.response';
@@ -27,6 +29,8 @@ export class SmartReplyResolver {
   @Query(() => String, {
     description: 'Generate a smart reply for a conversation',
   })
+  @UseGuards(RequirePlanGuard)
+  @RequirePlan('PRO', 'BUSINESS')
   async generateSmartReply(
     @Args('input') input: SmartReplyInput,
     @Context() context: RequestContext,
@@ -35,6 +39,8 @@ export class SmartReplyResolver {
   }
 
   @Query(() => [String], { description: 'Get suggested replies for an email' })
+  @UseGuards(RequirePlanGuard)
+  @RequirePlan('PRO', 'BUSINESS')
   async getSuggestedReplies(
     @Args('emailBody') emailBody: string,
     @Args('count', { type: () => Int, defaultValue: 3 }) count: number,

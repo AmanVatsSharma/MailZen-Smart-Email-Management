@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Menu, X, Zap, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 
 const navLinks = [
   { href: '/features', label: 'Features' },
@@ -91,7 +92,8 @@ export function Navbar() {
           </nav>
 
           {/* Desktop CTA */}
-          <div className="hidden items-center gap-2 md:flex">
+          <div className="hidden items-center gap-1 md:flex">
+            <ThemeToggle />
             <Link
               href={`${APP_URL}/auth/login`}
               className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
@@ -141,6 +143,10 @@ export function Navbar() {
             ))}
           </nav>
           <div className="border-t border-white/[0.06] p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3 pb-1">
+              <span className="text-sm font-medium text-muted-foreground">Theme</span>
+              <ThemeToggle />
+            </div>
             <Link
               href={`${APP_URL}/auth/login`}
               className="flex w-full items-center justify-center rounded-xl border border-white/[0.1] px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-white/[0.06]"

@@ -48,7 +48,29 @@ export class BillingWebhookController {
     const configuredSecret = this.normalizeString(
       process.env.BILLING_WEBHOOK_SHARED_SECRET,
     );
-    if (!configuredSecret) return;
+    if (!configuredSecret) {
+      if (process.env.NODE_ENV === 'production') {
+        this.logger.error(
+          serializeStructuredLog({
+            event: 'billing_webhook_secret_not_configured',
+            requestId: input.requestId,
+            provider: input.provider,
+          }),
+        );
+        throw new UnauthorizedException(
+          'BILLING_WEBHOOK_SHARED_SECRET is not configured. Set it in your environment.',
+        );
+      }
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'billing_webhook_secret_not_configured',
+          requestId: input.requestId,
+          provider: input.provider,
+          note: 'Skipping validation in non-production environment.',
+        }),
+      );
+      return;
+    }
     const inboundSecret = this.normalizeString(input.inboundSecret);
     if (!inboundSecret) {
       this.logger.warn(
@@ -124,6 +146,53 @@ export class BillingWebhookController {
     this.logger.log(
       serializeStructuredLog({
         event: 'billing_stripe_webhook_processed',
+        requestId,
+        eventType: result.eventType,
+      }),
+    );
+
+    return result;
+  }
+
+  @Post('razorpay/events')
+  async ingestRazorpayWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('x-razorpay-signature') razorpaySignature: string,
+    @Headers('x-request-id') requestIdHeader?: string,
+  ): Promise<{ received: boolean; eventType: string }> {
+    const requestId = resolveCorrelationId(requestIdHeader);
+    const rawBody = req.rawBody;
+    if (!rawBody || !rawBody.length) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'billing_razorpay_webhook_empty_body',
+          requestId,
+        }),
+      );
+      throw new BadRequestException(
+        'Razorpay webhook requires raw request body',
+      );
+    }
+    if (!razorpaySignature) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'billing_razorpay_webhook_missing_signature',
+          requestId,
+        }),
+      );
+      throw new UnauthorizedException(
+        'x-razorpay-signature header is required',
+      );
+    }
+
+    const result = await this.billingService.handleRazorpayWebhookPayload({
+      rawBody,
+      signature: razorpaySignature,
+    });
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'billing_razorpay_webhook_processed',
         requestId,
         eventType: result.eventType,
       }),

@@ -11,6 +11,7 @@ import { AuthResolver } from './auth.resolver';
 import { UserModule } from '../user/user.module';
 import { MailboxModule } from '../mailbox/mailbox.module';
 import { GoogleOAuthController } from './oauth.controller';
+import { MicrosoftOAuthController } from './microsoft-oauth.controller';
 import { SessionCookieService } from './session-cookie.service';
 import { EmailProviderModule } from '../email-integration/email-provider.module';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -70,7 +71,7 @@ function getJwtExpiresInSeconds(): number {
       signOptions: { expiresIn: getJwtExpiresInSeconds() },
     }),
   ],
-  controllers: [GoogleOAuthController],
+  controllers: [GoogleOAuthController, MicrosoftOAuthController],
   providers: [
     AuthService,
     AuthResolver,

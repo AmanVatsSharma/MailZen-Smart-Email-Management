@@ -6,7 +6,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { createHmac, timingSafeEqual } from 'crypto';
 import Stripe from 'stripe';
+import Razorpay from 'razorpay';
 import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { Mailbox } from '../mailbox/entities/mailbox.entity';
@@ -20,6 +22,7 @@ import { BillingInvoice } from './entities/billing-invoice.entity';
 import { BillingPlan } from './entities/billing-plan.entity';
 import { BillingWebhookEvent } from './entities/billing-webhook-event.entity';
 import { BillingUpgradeIntentResponse } from './dto/billing-upgrade-intent.response';
+import { RazorpayCheckoutResponse } from './dto/razorpay-checkout.response';
 import { StripeCheckoutSessionResponse } from './dto/stripe-checkout-session.response';
 import { UserAiCreditUsage } from './entities/user-ai-credit-usage.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
@@ -39,11 +42,12 @@ export type BillingEntitlements = {
 export class BillingService {
   private readonly logger = new Logger(BillingService.name);
   private readonly stripe: Stripe | null = this.buildStripeClient();
+  private readonly razorpay: Razorpay | null = this.buildRazorpayClient();
 
   private buildStripeClient(): Stripe | null {
     const secretKey = String(process.env.STRIPE_SECRET_KEY || '').trim();
     if (!secretKey) return null;
-    return new Stripe(secretKey, { apiVersion: '2025-02-24.acacia' });
+    return new Stripe(secretKey, { apiVersion: '2026-02-25.clover' });
   }
 
   private resolveStripeClient(): Stripe {
@@ -58,6 +62,28 @@ export class BillingService {
   private resolveStripePriceId(planCode: string): string | null {
     const normalized = this.normalizePlanCode(planCode);
     const envKey = `STRIPE_PRICE_ID_${normalized}`;
+    return String(process.env[envKey] || '').trim() || null;
+  }
+
+  private buildRazorpayClient(): Razorpay | null {
+    const keyId = String(process.env.RAZORPAY_KEY_ID || '').trim();
+    const keySecret = String(process.env.RAZORPAY_KEY_SECRET || '').trim();
+    if (!keyId || !keySecret) return null;
+    return new Razorpay({ key_id: keyId, key_secret: keySecret });
+  }
+
+  private resolveRazorpayClient(): Razorpay {
+    if (!this.razorpay) {
+      throw new BadRequestException(
+        'Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to enable payment flows.',
+      );
+    }
+    return this.razorpay;
+  }
+
+  private resolveRazorpayPlanId(planCode: string): string | null {
+    const normalized = this.normalizePlanCode(planCode);
+    const envKey = `RAZORPAY_PLAN_ID_${normalized}`;
     return String(process.env[envKey] || '').trim() || null;
   }
 
@@ -1493,7 +1519,9 @@ export class BillingService {
     });
     if (!subscription) return;
 
+    const previousPlanCode = subscription.planCode;
     subscription.status = 'canceled';
+    subscription.planCode = 'FREE';
     subscription.endsAt = new Date();
     subscription.cancelAtPeriodEnd = false;
     await this.userSubscriptionRepo.save(subscription);
@@ -1509,6 +1537,7 @@ export class BillingService {
       action: 'billing_stripe_subscription_deleted',
       metadata: {
         customerId,
+        previousPlanCode,
         planCode: subscription.planCode,
         endsAt: subscription.endsAt.toISOString(),
       },
@@ -1586,5 +1615,359 @@ export class BillingService {
       message:
         'Upgrade intent recorded. A billing workflow can process this request.',
     };
+  }
+
+  async createRazorpayCheckoutSession(input: {
+    userId: string;
+    planCode: string;
+    successUrl: string;
+    cancelUrl: string;
+  }): Promise<RazorpayCheckoutResponse> {
+    await this.ensureDefaultPlans();
+    const normalizedPlanCode = this.normalizePlanCode(input.planCode);
+    if (!normalizedPlanCode) {
+      throw new BadRequestException('Plan code is required');
+    }
+
+    const targetPlan = await this.billingPlanRepo.findOne({
+      where: { code: normalizedPlanCode, isActive: true },
+    });
+    if (!targetPlan) {
+      throw new NotFoundException(
+        `Billing plan '${normalizedPlanCode}' does not exist`,
+      );
+    }
+    if (targetPlan.priceMonthlyCents <= 0) {
+      throw new BadRequestException(
+        'Razorpay checkout is only required for paid plans',
+      );
+    }
+
+    const razorpayClient = this.resolveRazorpayClient();
+    const razorpayPlanId = this.resolveRazorpayPlanId(normalizedPlanCode);
+    if (!razorpayPlanId) {
+      throw new BadRequestException(
+        `No Razorpay plan ID configured for plan '${normalizedPlanCode}'. Set RAZORPAY_PLAN_ID_${normalizedPlanCode} in env.`,
+      );
+    }
+
+    const keyId = String(process.env.RAZORPAY_KEY_ID || '').trim();
+
+    const subscription = await razorpayClient.subscriptions.create({
+      plan_id: razorpayPlanId,
+      total_count: 12,
+      quantity: 1,
+      notes: {
+        userId: input.userId,
+        planCode: normalizedPlanCode,
+        successUrl: input.successUrl,
+        cancelUrl: input.cancelUrl,
+      },
+    });
+
+    const checkoutUrl = (subscription as unknown as Record<string, unknown>)
+      .short_url as string;
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'billing_razorpay_checkout_session_created',
+        userId: input.userId,
+        planCode: normalizedPlanCode,
+        subscriptionId: subscription.id,
+      }),
+    );
+    await this.writeAuditLog({
+      userId: input.userId,
+      action: 'billing_razorpay_checkout_session_created',
+      metadata: {
+        planCode: normalizedPlanCode,
+        subscriptionId: subscription.id,
+      },
+    });
+
+    return {
+      checkoutUrl: checkoutUrl ?? '',
+      subscriptionId: subscription.id as string,
+      planCode: normalizedPlanCode,
+      keyId,
+    };
+  }
+
+  async handleRazorpayWebhookPayload(input: {
+    rawBody: Buffer;
+    signature: string;
+  }): Promise<{ received: boolean; eventType: string }> {
+    const webhookSecret = String(
+      process.env.RAZORPAY_WEBHOOK_SECRET || '',
+    ).trim();
+    if (!webhookSecret) {
+      throw new BadRequestException(
+        'RAZORPAY_WEBHOOK_SECRET is not configured',
+      );
+    }
+
+    const expectedSignature = createHmac('sha256', webhookSecret)
+      .update(input.rawBody)
+      .digest('hex');
+
+    const inboundSig = Buffer.from(input.signature || '');
+    const expectedSig = Buffer.from(expectedSignature);
+
+    if (
+      inboundSig.length !== expectedSig.length ||
+      !timingSafeEqual(inboundSig, expectedSig)
+    ) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'billing_razorpay_webhook_signature_invalid',
+        }),
+      );
+      throw new BadRequestException(
+        'Razorpay webhook signature verification failed',
+      );
+    }
+
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(input.rawBody.toString('utf8')) as Record<
+        string,
+        unknown
+      >;
+    } catch {
+      throw new BadRequestException('Razorpay webhook payload is not valid JSON');
+    }
+
+    const eventType = this.toSafeString(payload.event) || 'unknown';
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'billing_razorpay_webhook_received',
+        razorpayEventType: eventType,
+      }),
+    );
+
+    await this.processRazorpayEvent(eventType, payload);
+
+    return { received: true, eventType };
+  }
+
+  private async processRazorpayEvent(
+    eventType: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    switch (eventType) {
+      case 'subscription.activated':
+        await this.onRazorpaySubscriptionActivated(payload);
+        break;
+      case 'subscription.charged':
+        await this.onRazorpaySubscriptionCharged(payload);
+        break;
+      case 'payment.failed':
+      case 'subscription.halted':
+        await this.onRazorpayPaymentFailed(payload, eventType);
+        break;
+      case 'subscription.cancelled':
+        await this.onRazorpaySubscriptionCancelled(payload);
+        break;
+      default:
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'billing_razorpay_webhook_event_ignored',
+            razorpayEventType: eventType,
+          }),
+        );
+    }
+  }
+
+  private extractRazorpaySubscriptionData(
+    payload: Record<string, unknown>,
+  ): { subscriptionId: string | null; userId: string | null; planCode: string | null } {
+    const payloadData = payload.payload as Record<string, unknown> | undefined;
+    const subscriptionWrapper = payloadData?.subscription as
+      | Record<string, unknown>
+      | undefined;
+    const subEntity = subscriptionWrapper?.entity as
+      | Record<string, unknown>
+      | undefined;
+
+    const subscriptionId = this.toSafeString(subEntity?.id);
+    const notes = subEntity?.notes as Record<string, unknown> | undefined;
+    const userId = this.toSafeString(notes?.userId);
+    const planCode = this.normalizePlanCode(
+      this.toSafeString(notes?.planCode) || '',
+    );
+
+    return {
+      subscriptionId: subscriptionId ?? null,
+      userId: userId ?? null,
+      planCode: planCode ?? null,
+    };
+  }
+
+  private async onRazorpaySubscriptionActivated(
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const { subscriptionId, userId, planCode } =
+      this.extractRazorpaySubscriptionData(payload);
+
+    if (!userId || !planCode || !subscriptionId) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'billing_razorpay_subscription_activated_missing_metadata',
+        }),
+      );
+      return;
+    }
+
+    const subscription = await this.getMySubscription(userId);
+    subscription.billingProviderCustomerId = subscriptionId;
+    subscription.planCode = planCode;
+    subscription.status = 'active';
+    subscription.startedAt = new Date();
+    subscription.cancelAtPeriodEnd = false;
+    subscription.isTrial = false;
+    subscription.trialEndsAt = null;
+    subscription.endsAt = null;
+    await this.userSubscriptionRepo.save(subscription);
+
+    await this.writeAuditLog({
+      userId,
+      action: 'billing_razorpay_subscription_activated',
+      metadata: { planCode, subscriptionId },
+    });
+
+    await this.notificationEventBus.publishSafely({
+      userId,
+      type: 'BILLING_PLAN_ACTIVATED',
+      title: 'Subscription activated',
+      message: `Your ${planCode} plan is now active via Razorpay.`,
+      metadata: { planCode, subscriptionId },
+    });
+  }
+
+  private async onRazorpaySubscriptionCharged(
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const { subscriptionId, userId, planCode } =
+      this.extractRazorpaySubscriptionData(payload);
+
+    if (!subscriptionId) return;
+
+    const subscription = await this.userSubscriptionRepo.findOne({
+      where: { billingProviderCustomerId: subscriptionId },
+    });
+    if (!subscription) return;
+
+    const resolvedUserId = userId || subscription.userId;
+    const resolvedPlanCode = planCode || subscription.planCode;
+
+    const payloadData = payload.payload as Record<string, unknown> | undefined;
+    const paymentWrapper = payloadData?.payment as
+      | Record<string, unknown>
+      | undefined;
+    const paymentEntity = paymentWrapper?.entity as
+      | Record<string, unknown>
+      | undefined;
+
+    const amountCents = Number(paymentEntity?.amount || 0);
+    const currency = String(paymentEntity?.currency || 'INR').toUpperCase();
+    const paymentId = this.toSafeString(paymentEntity?.id) || subscriptionId;
+
+    await this.createInvoice({
+      userId: resolvedUserId,
+      subscriptionId: subscription.id,
+      planCode: resolvedPlanCode,
+      provider: 'RAZORPAY',
+      providerInvoiceId: paymentId,
+      status: 'paid',
+      amountCents,
+      currency,
+      metadata: { razorpaySubscriptionId: subscriptionId, paymentId },
+    });
+
+    await this.writeAuditLog({
+      userId: resolvedUserId,
+      action: 'billing_razorpay_subscription_charged',
+      metadata: { subscriptionId, amountCents, planCode: resolvedPlanCode },
+    });
+  }
+
+  private async onRazorpayPaymentFailed(
+    payload: Record<string, unknown>,
+    eventType: string,
+  ): Promise<void> {
+    const { subscriptionId } = this.extractRazorpaySubscriptionData(payload);
+    if (!subscriptionId) return;
+
+    const subscription = await this.userSubscriptionRepo.findOne({
+      where: { billingProviderCustomerId: subscriptionId },
+    });
+    if (!subscription) return;
+
+    subscription.cancelAtPeriodEnd = true;
+    subscription.metadata = {
+      ...(subscription.metadata || {}),
+      lastPaymentFailureAtIso: new Date().toISOString(),
+      razorpayFailureEventType: eventType,
+    };
+    await this.userSubscriptionRepo.save(subscription);
+
+    await this.notificationEventBus.publishSafely({
+      userId: subscription.userId,
+      type: 'BILLING_PAYMENT_FAILED',
+      title: 'Payment failed',
+      message:
+        'Your last Razorpay payment could not be processed. Please update your payment method.',
+      metadata: { razorpaySubscriptionId: subscriptionId },
+    });
+
+    await this.writeAuditLog({
+      userId: subscription.userId,
+      action: 'billing_razorpay_payment_failed',
+      metadata: {
+        subscriptionId,
+        eventType,
+        planCode: subscription.planCode,
+      },
+    });
+  }
+
+  private async onRazorpaySubscriptionCancelled(
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const { subscriptionId } = this.extractRazorpaySubscriptionData(payload);
+    if (!subscriptionId) return;
+
+    const subscription = await this.userSubscriptionRepo.findOne({
+      where: { billingProviderCustomerId: subscriptionId },
+    });
+    if (!subscription) return;
+
+    const previousPlanCode = subscription.planCode;
+    subscription.status = 'canceled';
+    subscription.planCode = 'FREE';
+    subscription.endsAt = new Date();
+    subscription.cancelAtPeriodEnd = false;
+    await this.userSubscriptionRepo.save(subscription);
+
+    await this.notificationEventBus.publishSafely({
+      userId: subscription.userId,
+      type: 'BILLING_SUBSCRIPTION_CANCELLED',
+      title: 'Subscription cancelled',
+      message:
+        'Your Razorpay subscription has been cancelled and you have been moved to the FREE plan.',
+      metadata: { razorpaySubscriptionId: subscriptionId },
+    });
+
+    await this.writeAuditLog({
+      userId: subscription.userId,
+      action: 'billing_razorpay_subscription_cancelled',
+      metadata: {
+        subscriptionId,
+        previousPlanCode,
+        planCode: subscription.planCode,
+        endsAt: subscription.endsAt.toISOString(),
+      },
+    });
   }
 }

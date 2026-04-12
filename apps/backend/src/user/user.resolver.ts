@@ -7,6 +7,7 @@ import { UserService } from './user.service';
 import { UpdateUserInput } from './dto/update-user.input';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
+import { AutoSendTier } from '../smart-replies/auto-send-tier.enum';
 
 @Resolver(() => User)
 @UseGuards(JwtAuthGuard)
@@ -58,5 +59,23 @@ export class UserResolver {
     @Args('updateUserInput') updateUserInput: UpdateUserInput,
   ): Promise<User> {
     return this.userService.updateUser(updateUserInput);
+  }
+
+  @Mutation(() => User)
+  async updateAutoSendTier(
+    @Args('tier') tier: string,
+    @Context() context: { req: { user: { id: string } } },
+  ): Promise<User> {
+    return this.userService.updateAutoSendTier(
+      context.req.user.id,
+      tier as AutoSendTier,
+    );
+  }
+
+  @Query(() => User, { nullable: true })
+  async myProfile(
+    @Context() context: { req: { user: { id: string } } },
+  ): Promise<User | null> {
+    return this.userService.getUser(context.req.user.id);
   }
 }

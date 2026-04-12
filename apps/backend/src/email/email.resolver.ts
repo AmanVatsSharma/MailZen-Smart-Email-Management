@@ -21,7 +21,9 @@ export class EmailResolver {
     private readonly userRepo: Repository<User>,
   ) {}
 
-  @Query(() => [Email])
+  @Query(() => [Email], {
+    deprecationReason: 'Use emails() from UnifiedInboxResolver instead',
+  })
   @UseGuards(JwtAuthGuard)
   async getMyEmails(
     @Context() context: { req: { user: { id: string } } },
@@ -48,7 +50,9 @@ export class EmailResolver {
     );
   }
 
-  @Query(() => Email)
+  @Query(() => Email, {
+    deprecationReason: 'Use email(id) from UnifiedInboxResolver instead',
+  })
   @UseGuards(JwtAuthGuard)
   async getEmailById(
     @Args('id') id: string,
