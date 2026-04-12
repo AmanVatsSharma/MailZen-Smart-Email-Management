@@ -10,22 +10,27 @@ import {
   YAxis,
 } from 'recharts';
 
-const data = [
-  { name: 'Mon', total: Math.floor(Math.random() * 50) + 10 },
-  { name: 'Tue', total: Math.floor(Math.random() * 50) + 10 },
-  { name: 'Wed', total: Math.floor(Math.random() * 50) + 10 },
-  { name: 'Thu', total: Math.floor(Math.random() * 50) + 10 },
-  { name: 'Fri', total: Math.floor(Math.random() * 50) + 10 },
-  { name: 'Sat', total: Math.floor(Math.random() * 50) + 10 },
-  { name: 'Sun', total: Math.floor(Math.random() * 50) + 10 },
+const EMPTY_DATA = [
+  { name: 'Mon', total: 0 },
+  { name: 'Tue', total: 0 },
+  { name: 'Wed', total: 0 },
+  { name: 'Thu', total: 0 },
+  { name: 'Fri', total: 0 },
+  { name: 'Sat', total: 0 },
+  { name: 'Sun', total: 0 },
 ];
 
-export function OverviewChart() {
+interface OverviewChartProps {
+  data?: Array<{ name: string; total: number }>;
+}
+
+export function OverviewChart({ data }: OverviewChartProps) {
   const { theme } = useTheme();
+  const chartData = data && data.length > 0 ? data : EMPTY_DATA;
 
   return (
     <ResponsiveContainer width="100%" height={350}>
-      <BarChart data={data}>
+      <BarChart data={chartData}>
         <XAxis
           dataKey="name"
           stroke="#888888"
@@ -40,9 +45,9 @@ export function OverviewChart() {
           axisLine={false}
           tickFormatter={(value) => `${value}`}
         />
-        <Tooltip 
+        <Tooltip
           cursor={{ fill: 'transparent' }}
-          contentStyle={{ 
+          contentStyle={{
             backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
             borderColor: theme === 'dark' ? '#334155' : '#e2e8f0',
             borderRadius: '8px',

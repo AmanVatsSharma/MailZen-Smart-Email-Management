@@ -3,14 +3,22 @@
 import { useTheme } from 'next-themes';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 
-const data = [
-  { name: 'Emails', value: 2.8, color: 'hsl(var(--primary))' },
-  { name: 'Attachments', value: 1.2, color: 'hsl(var(--secondary))' },
-  { name: 'Other', value: 0.2, color: 'hsl(var(--muted))' },
-];
+interface StorageChartProps {
+  usedMb?: number;
+  totalMb?: number;
+}
 
-export function StorageChart() {
+export function StorageChart({ usedMb, totalMb }: StorageChartProps) {
   const { theme } = useTheme();
+
+  const used = usedMb ?? 4300;
+  const total = totalMb ?? 15360;
+  const remaining = Math.max(total - used, 0);
+
+  const data = [
+    { name: 'Used', value: used, color: 'hsl(var(--primary))' },
+    { name: 'Free', value: remaining, color: 'hsl(var(--muted))' },
+  ];
 
   return (
     <ResponsiveContainer width="100%" height={200}>
@@ -36,6 +44,7 @@ export function StorageChart() {
             color: theme === 'dark' ? '#f8fafc' : '#0f172a',
           }}
           itemStyle={{ color: 'inherit' }}
+          formatter={(value: number | undefined) => [`${((value ?? 0) / 1024).toFixed(1)} GB`, ''] as [string, string]}
         />
       </PieChart>
     </ResponsiveContainer>

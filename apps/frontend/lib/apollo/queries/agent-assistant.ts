@@ -39,6 +39,18 @@ export const GET_THREAD_INSIGHTS = gql`
   }
 `;
 
+export const GET_AGENT_PLATFORM_HEALTH = gql`
+  query AgentPlatformHealth {
+    agentPlatformHealth {
+      status
+      reachable
+      alertingState
+      errorRatePercent
+      latencyMs
+    }
+  }
+`;
+
 export const AGENT_ASSIST_MUTATION = gql`
   mutation AgentAssist($input: AgentAssistInput!) {
     agentAssist(input: $input) {
