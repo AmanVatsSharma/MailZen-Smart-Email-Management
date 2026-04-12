@@ -6,216 +6,216 @@
   "fileMap": {
     "nonProjectFiles": [
       {
-        "file": "deploy/ec2/scripts/restart.sh",
-        "hash": "3303087199054677206"
-      },
-      {
-        "file": "deploy/ec2/scripts/build-check.sh",
-        "hash": "174179042876143778"
-      },
-      {
-        "file": "deploy/ec2/scripts/self-check.sh",
-        "hash": "11213733107246290767"
-      },
-      {
-        "file": ".github/workflows/ci.yml",
-        "hash": "9852264237329005613"
-      },
-      {
-        "file": "deploy/ec2/scripts/restore-db.sh",
-        "hash": "8585520176930265643"
-      },
-      {
-        "file": "deploy/ec2/scripts/deploy.sh",
-        "hash": "12333465455928253676"
-      },
-      {
-        "file": "README.md",
-        "hash": "11827180227601564061"
-      },
-      {
-        "file": "deploy/ec2/scripts/backup-db.sh",
-        "hash": "7444407942659355097"
-      },
-      {
-        "file": "deploy/ec2/scripts/runtime-smoke.sh",
-        "hash": "5866865847802230832"
-      },
-      {
-        "file": "deploy/ec2/scripts/reports-prune.sh",
-        "hash": "18186479411761496262"
-      },
-      {
-        "file": "deploy/ec2/backups/.gitignore",
-        "hash": "8191922859220357953"
-      },
-      {
-        "file": "deploy/ec2/scripts/backup-list.sh",
-        "hash": "13004233965656393174"
-      },
-      {
-        "file": "deploy/ec2/scripts/logs.sh",
-        "hash": "11136840106235913001"
-      },
-      {
-        "file": "docs/ai-agent-platform.md",
-        "hash": "12685929449851605725"
-      },
-      {
-        "file": "deploy/ec2/docker-compose.yml",
-        "hash": "16098631399562400623"
-      },
-      {
-        "file": "package.json",
-        "hash": "13112403154527068990"
-      },
-      {
-        "file": "deploy/ec2/scripts/menu.sh",
-        "hash": "13226074825270361146"
-      },
-      {
-        "file": ".claude/settings.local.json",
-        "hash": "14186225998275813045"
-      },
-      {
-        "file": "deploy/ec2/scripts/host-readiness.sh",
-        "hash": "6537282881871105948"
-      },
-      {
-        "file": "deploy/ec2/scripts/pipeline-check.sh",
-        "hash": "8811641674593572139"
-      },
-      {
-        "file": "deploy/ec2/scripts/verify.sh",
-        "hash": "7804227714472198217"
-      },
-      {
-        "file": "deploy/ec2/scripts/common.sh",
-        "hash": "16022590504069202968"
-      },
-      {
-        "file": "deploy/ec2/FLOW.md",
-        "hash": "197196724814483593"
-      },
-      {
-        "file": "deploy/ec2/reports/.gitignore",
-        "hash": "4854053431585404831"
-      },
-      {
-        "file": "deploy/ec2/scripts/help.sh",
-        "hash": "14184861737222920612"
-      },
-      {
-        "file": "deploy/ec2/scripts/rollback-latest.sh",
-        "hash": "2979958203494185033"
-      },
-      {
-        "file": "deploy/ec2/scripts/setup.sh",
-        "hash": "13078247213950737397"
-      },
-      {
-        "file": ".gitignore",
-        "hash": "14795988321034134035"
-      },
-      {
-        "file": "deploy/ec2/scripts/backup-prune.sh",
-        "hash": "8405090803756644112"
-      },
-      {
-        "file": "CLAUDE.md",
-        "hash": "1811349596987735031"
-      },
-      {
-        "file": "deploy/ec2/scripts/rotate-app-secrets.sh",
-        "hash": "702060002821748719"
-      },
-      {
-        "file": "deploy/ec2/scripts/support-bundle.sh",
-        "hash": "14146567209109447815"
-      },
-      {
-        "file": "package-lock.json",
-        "hash": "6285364480923223299"
-      },
-      {
-        "file": "deploy/ec2/scripts/update.sh",
-        "hash": "12295339314336101572"
-      },
-      {
-        "file": "deploy/ec2/scripts/ssl-check.sh",
-        "hash": "4739700210646433808"
-      },
-      {
-        "file": "deploy/ec2/scripts/preflight.sh",
-        "hash": "18203397811275327282"
-      },
-      {
-        "file": "deploy/ec2/.env.ec2.example",
-        "hash": "15584251533798524090"
-      },
-      {
-        "file": ".dockerignore",
-        "hash": "5910725907312873671"
+        "file": "deploy/ec2/scripts/docs-check.sh",
+        "hash": "6960322528302483124"
       },
       {
         "file": "deploy/ec2/README.md",
         "hash": "18194459442035356772"
       },
       {
-        "file": "deploy/ec2/scripts/doctor.sh",
-        "hash": "17351412501801164701"
+        "file": "deploy/ec2/scripts/ssl-check.sh",
+        "hash": "4739700210646433808"
       },
       {
-        "file": "deploy/ec2/scripts/validate.sh",
-        "hash": "1576285170244544453"
+        "file": "deploy/ec2/scripts/reports-prune.sh",
+        "hash": "18186479411761496262"
+      },
+      {
+        "file": "deploy/ec2/scripts/restart.sh",
+        "hash": "3303087199054677206"
+      },
+      {
+        "file": "deploy/ec2/scripts/backup-prune.sh",
+        "hash": "8405090803756644112"
+      },
+      {
+        "file": "deploy/ec2/reports/.gitignore",
+        "hash": "4854053431585404831"
       },
       {
         "file": "deploy/ec2/scripts/launch.sh",
         "hash": "3667071601710872357"
       },
       {
-        "file": "deploy/ec2/Caddyfile",
-        "hash": "17512328996854688238"
-      },
-      {
-        "file": "deploy/ec2/scripts/bootstrap-ubuntu.sh",
-        "hash": "6306221702632142776"
-      },
-      {
-        "file": "deploy/ec2/scripts/stop.sh",
-        "hash": "8200334457157941971"
-      },
-      {
-        "file": "deploy/ec2/scripts/docs-check.sh",
-        "hash": "6960322528302483124"
-      },
-      {
-        "file": "tools/ensure-env.js",
-        "hash": "16624794780193372200"
-      },
-      {
-        "file": "deploy/ec2/scripts/dns-check.sh",
-        "hash": "2677008726789738252"
+        "file": "deploy/ec2/scripts/self-check.sh",
+        "hash": "11213733107246290767"
       },
       {
         "file": "deploy/ec2/scripts/env-audit.sh",
         "hash": "574531610055515007"
       },
       {
-        "file": "deploy/ec2/scripts/ports-check.sh",
-        "hash": "1059874576047461499"
+        "file": "deploy/ec2/scripts/pipeline-check.sh",
+        "hash": "8811641674593572139"
       },
       {
-        "file": "nx.json",
-        "hash": "4028464915613245907"
+        "file": "package-lock.json",
+        "hash": "6285364480923223299"
+      },
+      {
+        "file": "tools/ensure-env.js",
+        "hash": "16624794780193372200"
+      },
+      {
+        "file": "deploy/ec2/scripts/bootstrap-ubuntu.sh",
+        "hash": "6306221702632142776"
+      },
+      {
+        "file": "deploy/ec2/scripts/backup-db.sh",
+        "hash": "7444407942659355097"
+      },
+      {
+        "file": "deploy/ec2/scripts/setup.sh",
+        "hash": "13078247213950737397"
       },
       {
         "file": "deploy/ec2/VALIDATION.md",
         "hash": "1001714966989041561"
       },
       {
+        "file": "CLAUDE.md",
+        "hash": "1811349596987735031"
+      },
+      {
+        "file": ".dockerignore",
+        "hash": "5910725907312873671"
+      },
+      {
+        "file": ".github/workflows/ci.yml",
+        "hash": "9852264237329005613"
+      },
+      {
+        "file": "deploy/ec2/FLOW.md",
+        "hash": "197196724814483593"
+      },
+      {
+        "file": "deploy/ec2/scripts/restore-db.sh",
+        "hash": "8585520176930265643"
+      },
+      {
+        "file": "deploy/ec2/docker-compose.yml",
+        "hash": "16098631399562400623"
+      },
+      {
+        "file": "deploy/ec2/scripts/preflight.sh",
+        "hash": "18203397811275327282"
+      },
+      {
+        "file": "deploy/ec2/scripts/support-bundle.sh",
+        "hash": "14146567209109447815"
+      },
+      {
+        "file": "docs/ai-agent-platform.md",
+        "hash": "12685929449851605725"
+      },
+      {
+        "file": "deploy/ec2/scripts/help.sh",
+        "hash": "14184861737222920612"
+      },
+      {
+        "file": "deploy/ec2/scripts/common.sh",
+        "hash": "16022590504069202968"
+      },
+      {
+        "file": "deploy/ec2/scripts/ports-check.sh",
+        "hash": "1059874576047461499"
+      },
+      {
+        "file": "README.md",
+        "hash": "11827180227601564061"
+      },
+      {
+        "file": "deploy/ec2/.env.ec2.example",
+        "hash": "15584251533798524090"
+      },
+      {
+        "file": "deploy/ec2/scripts/logs.sh",
+        "hash": "11136840106235913001"
+      },
+      {
+        "file": ".gitignore",
+        "hash": "14795988321034134035"
+      },
+      {
+        "file": "deploy/ec2/scripts/validate.sh",
+        "hash": "1576285170244544453"
+      },
+      {
+        "file": "deploy/ec2/scripts/rotate-app-secrets.sh",
+        "hash": "702060002821748719"
+      },
+      {
+        "file": ".claude/settings.local.json",
+        "hash": "7829753683254938929"
+      },
+      {
         "file": "deploy/ec2/scripts/status.sh",
         "hash": "17829098222156642903"
+      },
+      {
+        "file": "deploy/ec2/scripts/verify.sh",
+        "hash": "7804227714472198217"
+      },
+      {
+        "file": "package.json",
+        "hash": "13112403154527068990"
+      },
+      {
+        "file": "deploy/ec2/scripts/backup-list.sh",
+        "hash": "13004233965656393174"
+      },
+      {
+        "file": "deploy/ec2/scripts/dns-check.sh",
+        "hash": "2677008726789738252"
+      },
+      {
+        "file": "deploy/ec2/backups/.gitignore",
+        "hash": "8191922859220357953"
+      },
+      {
+        "file": "deploy/ec2/scripts/update.sh",
+        "hash": "12295339314336101572"
+      },
+      {
+        "file": "deploy/ec2/Caddyfile",
+        "hash": "17512328996854688238"
+      },
+      {
+        "file": "deploy/ec2/scripts/stop.sh",
+        "hash": "8200334457157941971"
+      },
+      {
+        "file": "deploy/ec2/scripts/rollback-latest.sh",
+        "hash": "2979958203494185033"
+      },
+      {
+        "file": "deploy/ec2/scripts/runtime-smoke.sh",
+        "hash": "5866865847802230832"
+      },
+      {
+        "file": "nx.json",
+        "hash": "4028464915613245907"
+      },
+      {
+        "file": "deploy/ec2/scripts/doctor.sh",
+        "hash": "17351412501801164701"
+      },
+      {
+        "file": "deploy/ec2/scripts/host-readiness.sh",
+        "hash": "6537282881871105948"
+      },
+      {
+        "file": "deploy/ec2/scripts/build-check.sh",
+        "hash": "174179042876143778"
+      },
+      {
+        "file": "deploy/ec2/scripts/menu.sh",
+        "hash": "13226074825270361146"
+      },
+      {
+        "file": "deploy/ec2/scripts/deploy.sh",
+        "hash": "12333465455928253676"
       }
     ],
     "projectFileMap": {
@@ -270,7 +270,7 @@
         },
         {
           "file": "apps/frontend/app/(dashboard)/dashboard/page.tsx",
-          "hash": "3075826409025137502"
+          "hash": "15144787534821810461"
         },
         {
           "file": "apps/frontend/app/(dashboard)/dashboard/scheduled/page.tsx",
@@ -305,6 +305,10 @@
           "hash": "10151201963711483794"
         },
         {
+          "file": "apps/frontend/app/(dashboard)/mailbox-health/page.tsx",
+          "hash": "7234174069372338189"
+        },
+        {
           "file": "apps/frontend/app/(dashboard)/notifications/page.tsx",
           "hash": "5234745402860236990"
         },
@@ -313,8 +317,16 @@
           "hash": "5819977290547337383"
         },
         {
+          "file": "apps/frontend/app/(dashboard)/settings/ai-audit/page.tsx",
+          "hash": "14037203042365210108"
+        },
+        {
           "file": "apps/frontend/app/(dashboard)/settings/billing/page.tsx",
-          "hash": "1435908008998155127"
+          "hash": "13260506145027168880"
+        },
+        {
+          "file": "apps/frontend/app/(dashboard)/settings/feature-flags/page.tsx",
+          "hash": "761844752252709025"
         },
         {
           "file": "apps/frontend/app/(dashboard)/settings/notifications/page.tsx",
@@ -326,7 +338,11 @@
         },
         {
           "file": "apps/frontend/app/(dashboard)/settings/workspaces/page.tsx",
-          "hash": "3587456846549565311"
+          "hash": "17786928792247092559"
+        },
+        {
+          "file": "apps/frontend/app/(dashboard)/templates/page.tsx",
+          "hash": "3277337204369517979"
         },
         {
           "file": "apps/frontend/app/(dashboard)/trash/page.tsx",
@@ -419,6 +435,10 @@
         {
           "file": "apps/frontend/components/auth/LoginForm.tsx",
           "hash": "13443438547916335140"
+        },
+        {
+          "file": "apps/frontend/components/auth/PhoneVerificationDialog.tsx",
+          "hash": "12861101564488084493"
         },
         {
           "file": "apps/frontend/components/auth/SignupPhone.tsx",
@@ -530,11 +550,11 @@
         },
         {
           "file": "apps/frontend/components/layout/Sidebar.tsx",
-          "hash": "9294664336619834508"
+          "hash": "3267685121303328286"
         },
         {
           "file": "apps/frontend/components/layout/dashboard-nav.config.ts",
-          "hash": "4764781009121429573"
+          "hash": "5066595683530316630"
         },
         {
           "file": "apps/frontend/components/premium/Showcase.tsx",
@@ -606,7 +626,7 @@
         },
         {
           "file": "apps/frontend/components/ui/charts/OverviewChart.tsx",
-          "hash": "18180216131640844246"
+          "hash": "15344449621414025758"
         },
         {
           "file": "apps/frontend/components/ui/charts/ResponseTimeChart.tsx",
@@ -614,7 +634,7 @@
         },
         {
           "file": "apps/frontend/components/ui/charts/StorageChart.tsx",
-          "hash": "10921652855741277554"
+          "hash": "10369325719560834439"
         },
         {
           "file": "apps/frontend/components/ui/checkbox.tsx",
@@ -769,6 +789,10 @@
           "hash": "5412382350036447922"
         },
         {
+          "file": "apps/frontend/lib/apollo/queries/agent-audit.ts",
+          "hash": "16215411724932329836"
+        },
+        {
           "file": "apps/frontend/lib/apollo/queries/ai-feedback.ts",
           "hash": "4209137343400956022"
         },
@@ -778,7 +802,7 @@
         },
         {
           "file": "apps/frontend/lib/apollo/queries/billing.ts",
-          "hash": "1875899353612910122"
+          "hash": "18178500562358254087"
         },
         {
           "file": "apps/frontend/lib/apollo/queries/contacts.ts",
@@ -786,11 +810,15 @@
         },
         {
           "file": "apps/frontend/lib/apollo/queries/email-templates.ts",
-          "hash": "15121416664586191083"
+          "hash": "11441344252981453971"
         },
         {
           "file": "apps/frontend/lib/apollo/queries/emails.ts",
           "hash": "13072909408272571082"
+        },
+        {
+          "file": "apps/frontend/lib/apollo/queries/feature-flags.ts",
+          "hash": "3226693685978465585"
         },
         {
           "file": "apps/frontend/lib/apollo/queries/filters.ts",
@@ -801,12 +829,20 @@
           "hash": "12260892576511671057"
         },
         {
+          "file": "apps/frontend/lib/apollo/queries/mailbox-health.ts",
+          "hash": "15584614678842739315"
+        },
+        {
           "file": "apps/frontend/lib/apollo/queries/mailbox-observability.ts",
           "hash": "6108526300022884149"
         },
         {
           "file": "apps/frontend/lib/apollo/queries/notifications.ts",
           "hash": "17164841289863130559"
+        },
+        {
+          "file": "apps/frontend/lib/apollo/queries/phone.ts",
+          "hash": "7996880434170523970"
         },
         {
           "file": "apps/frontend/lib/apollo/queries/providers.ts",
@@ -842,7 +878,7 @@
         },
         {
           "file": "apps/frontend/lib/apollo/queries/workspaces.ts",
-          "hash": "12593782310585614455"
+          "hash": "3632856727511129945"
         },
         {
           "file": "apps/frontend/lib/auth/README.md",
@@ -859,6 +895,10 @@
         {
           "file": "apps/frontend/lib/email/mock-data.ts",
           "hash": "5028598859484203387"
+        },
+        {
+          "file": "apps/frontend/lib/hooks/useDataExport.ts",
+          "hash": "4876726307659753403"
         },
         {
           "file": "apps/frontend/lib/motion.ts",

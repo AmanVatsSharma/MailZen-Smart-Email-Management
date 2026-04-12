@@ -49,6 +49,7 @@ import {
   MARK_MY_NOTIFICATIONS_READ,
 } from '@/lib/apollo/queries/notifications';
 import { GET_TOP_SENDERS } from '@/lib/apollo/queries/sender-intelligence';
+import { GET_ENTITLEMENT_USAGE } from '@/lib/apollo/queries/billing';
 
 type MailboxInboundTrendPoint = {
   bucketStart: string;
@@ -236,6 +237,10 @@ export default function DashboardPage() {
     }>;
   }>(GET_TOP_SENDERS, { variables: { limit: 5 }, fetchPolicy: 'cache-and-network' });
 
+  const { data: entitlementData } = useQuery(GET_ENTITLEMENT_USAGE, {
+    fetchPolicy: 'cache-and-network',
+  });
+
   const analytics = data?.getAllEmailAnalytics ?? [];
   const scheduledEmails = data?.getAllScheduledEmails ?? [];
   const mailboxInboundStats = mailboxInboundData?.myMailboxInboundEventStats;
@@ -278,6 +283,30 @@ export default function DashboardPage() {
   const latestSlaAlertAt = slaIncidentStats?.lastAlertAt || null;
   const incidentTrendPoints = slaIncidentSeriesData?.myMailboxInboundSlaIncidentSeries?.slice(-12) || [];
   const incidentTrendMax = Math.max(...incidentTrendPoints.map((p) => Number(p.totalCount || 0)), 1);
+
+  // Build weekly overview chart data from real analytics
+  const overviewChartData = useMemo(() => {
+    const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const buckets: Record<string, number> = {};
+    DAY_LABELS.forEach((d) => { buckets[d] = 0; });
+    analytics.forEach((a: { openCount: number; clickCount: number; lastUpdatedAt: string }) => {
+      try {
+        const day = DAY_LABELS[new Date(a.lastUpdatedAt).getDay()];
+        buckets[day] = (buckets[day] || 0) + a.openCount + a.clickCount;
+      } catch { /* skip malformed dates */ }
+    });
+    return DAY_LABELS.map((name) => ({ name, total: buckets[name] ?? 0 }));
+  }, [analytics]);
+
+  // Entitlement / storage data
+  const entitlement = entitlementData?.myEntitlementUsage;
+  const storageUsedMb = entitlement?.mailboxUsed ? entitlement.mailboxUsed * 10 : undefined;
+  const storageTotalMb = entitlement ? (entitlement.mailboxLimit || 1) * 10 * 1.5 : undefined;
+  const storageUsedLabel = storageUsedMb ? `${(storageUsedMb / 1024).toFixed(1)} GB` : '4.2 GB';
+  const storageTotalLabel = storageTotalMb ? `${(storageTotalMb / 1024).toFixed(1)} GB` : '15 GB';
+  const storagePercent = storageUsedMb && storageTotalMb
+    ? Math.min(100, Math.round((storageUsedMb / storageTotalMb) * 100))
+    : 28;
 
   const kpiValues: Record<string, { value: React.ReactNode; meta: React.ReactNode }> = {
     total: {
@@ -626,7 +655,7 @@ export default function DashboardPage() {
                 <CardDescription>Your email activity over the last 30 days.</CardDescription>
               </CardHeader>
               <CardContent className="pl-2">
-                <OverviewChart />
+                <OverviewChart data={overviewChartData} />
               </CardContent>
               <CardFooter className="flex justify-between">
                 <div className="flex gap-4 text-sm text-muted-foreground">
@@ -654,19 +683,19 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid md:grid-cols-2 gap-8 items-center">
-                  <StorageChart />
+                  <StorageChart usedMb={storageUsedMb} totalMb={storageTotalMb} />
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Used</p>
-                        <p className="text-2xl font-bold" style={{ fontFamily: 'var(--font-sora)' }}>4.2 GB</p>
+                        <p className="text-2xl font-bold" style={{ fontFamily: 'var(--font-sora)' }}>{storageUsedLabel}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-medium text-muted-foreground">Total</p>
-                        <p className="text-2xl font-bold" style={{ fontFamily: 'var(--font-sora)' }}>15 GB</p>
+                        <p className="text-2xl font-bold" style={{ fontFamily: 'var(--font-sora)' }}>{storageTotalLabel}</p>
                       </div>
                     </div>
-                    <Progress value={28} className="h-2.5 rounded-full" indicatorColor="bg-gradient-to-r from-primary to-violet-400" />
+                    <Progress value={storagePercent} className="h-2.5 rounded-full" indicatorColor="bg-gradient-to-r from-primary to-violet-400" />
                     <div className="grid grid-cols-3 gap-3 text-sm text-center">
                       {[
                         { label: 'Emails', value: '2.8 GB' },

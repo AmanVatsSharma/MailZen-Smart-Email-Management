@@ -84,6 +84,10 @@ export default function InboxPage() {
       : 'inbox';
   const currentLabel = searchParams.get('label') ?? undefined;
   const currentSearchQuery = searchParams.get('q') ?? '';
+  const semanticIdsParam = searchParams.get('semanticIds');
+  const semanticEmailIds = semanticIdsParam
+    ? semanticIdsParam.split(',').filter(Boolean)
+    : undefined;
   
   // Keep track of last selected thread index for keyboard navigation
   const lastSelectedThreadIndex = useRef<number>(-1);
@@ -504,6 +508,7 @@ export default function InboxPage() {
                 initialFolder={currentFolder}
                 labelFilter={currentLabel}
                 externalSearchQuery={currentSearchQuery}
+                externalSemanticEmailIds={semanticEmailIds}
               />
             </Surface>
             )}
