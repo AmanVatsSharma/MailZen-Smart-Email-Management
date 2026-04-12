@@ -42,6 +42,7 @@ import {
   AgentSuggestedActionResponse,
 } from './dto/agent-assist.response';
 import { serializeStructuredLog } from '../common/logging/structured-log.util';
+import { AiFeedbackService } from './services/ai-feedback.service';
 
 interface AgentPlatformPayload {
   version: 'v1';
@@ -350,6 +351,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
     @InjectRepository(AuditLog)
     private readonly auditLogRepo: Repository<AuditLog>,
     private readonly notificationEventBus: NotificationEventBusService,
+    private readonly aiFeedbackService: AiFeedbackService,
   ) {}
 
   private async writeAuditLog(input: {
@@ -2073,6 +2075,21 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
       });
       if (workspacePolicySummary) {
         metadata.workspacePolicy = workspacePolicySummary;
+      }
+
+      // Inject user AI preference summary so the agent can adapt tone/style
+      try {
+        const prefs = await this.aiFeedbackService.getUserPreferenceSummary(input.userId);
+        if (prefs.totalSignals >= 5) {
+          metadata.userAiAcceptRate = String(prefs.acceptRate.toFixed(2));
+          metadata.userAiTotalSignals = String(prefs.totalSignals);
+          const skillPref = prefs.skillPreferences[input.input.skill];
+          if (skillPref && skillPref.count >= 3) {
+            metadata.userSkillAcceptRate = String(skillPref.acceptRate.toFixed(2));
+          }
+        }
+      } catch {
+        // non-critical — preference enrichment failure must not block the request
       }
     } catch (error: unknown) {
       const errorMessage =

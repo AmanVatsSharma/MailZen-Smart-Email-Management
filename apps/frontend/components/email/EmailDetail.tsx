@@ -17,6 +17,7 @@ import {
   Paperclip,
   Send,
   X,
+  Crown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,11 +37,26 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { EmailThread, EmailLabel, EmailMessage } from '@/lib/email/email-types';
 import { useQuery, useMutation } from '@apollo/client';
+import { gql } from '@apollo/client';
 import { GET_EMAIL, UPDATE_EMAIL } from '@/lib/apollo/queries/emails';
 import DOMPurify from 'dompurify';
 import { EmailAttachmentList } from './EmailAttachment';
 import { AvatarGroup } from '@/components/ui/avatar-group';
 import { PriorityBadge, CategoryChip } from '@/components/ui/priority-badge';
+
+const GET_SENDER_PROFILE = gql`
+  query GetSenderProfile($email: String!) {
+    senderProfile(email: $email) {
+      id
+      senderEmail
+      displayName
+      relationshipScore
+      isVip
+      emailCount
+      topics
+    }
+  }
+`;
 
 interface EmailDetailProps {
   thread: EmailThread | null;
@@ -313,6 +329,25 @@ export function EmailDetail({
   });
   void emailLoading;
 
+  // Fetch sender profile for VIP / relationship score display
+  const senderEmail = thread?.messages?.[thread.messages.length - 1]?.from?.email ?? '';
+  const { data: senderData } = useQuery<{
+    senderProfile: {
+      id: string;
+      senderEmail: string;
+      displayName?: string;
+      relationshipScore: number;
+      isVip: boolean;
+      emailCount: number;
+      topics: string[];
+    } | null;
+  }>(GET_SENDER_PROFILE, {
+    variables: { email: senderEmail },
+    skip: !senderEmail,
+    fetchPolicy: 'cache-first',
+  });
+  const senderProfile = senderData?.senderProfile;
+
   const effectiveThread = (emailData?.email as EmailThread | undefined) || thread;
   const effectiveThreadId = effectiveThread?.id;
   const effectiveIsUnread = !!effectiveThread?.isUnread;
@@ -460,6 +495,26 @@ export function EmailDetail({
           maxVisible={4}
         />
         <div className="flex items-center gap-1.5 flex-wrap">
+          {/* VIP sender badge */}
+          {senderProfile?.isVip && (
+            <span
+              title={`VIP Sender — relationship score ${senderProfile.relationshipScore.toFixed(2)}`}
+              className="inline-flex items-center gap-0.5 rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 border border-amber-400/30"
+            >
+              <Crown className="h-2.5 w-2.5" />
+              VIP
+            </span>
+          )}
+          {/* High relationship score (not yet manually flagged) */}
+          {!senderProfile?.isVip && (senderProfile?.relationshipScore ?? 0) >= 0.8 && (
+            <span
+              title={`Frequent contact — relationship score ${senderProfile!.relationshipScore.toFixed(2)}`}
+              className="inline-flex items-center gap-0.5 rounded-full bg-violet-400/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-500 border border-violet-400/20"
+            >
+              <Crown className="h-2.5 w-2.5" />
+              Frequent
+            </span>
+          )}
           <PriorityBadge priority={aiPriority} showLabel />
           <CategoryChip category={aiCategory} />
           {isMultiMessage && (

@@ -35,10 +35,20 @@ import { EmailSearch } from './EmailSearch';
 import { EmailListSkeleton } from './EmailListSkeleton';
 import { EmailPagination } from './EmailPagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery, useLazyQuery, useMutation } from '@apollo/client';
 import { GET_EMAILS, GET_LABELS, UPDATE_EMAIL } from '@/lib/apollo/queries/emails';
 import { useToast } from '@/components/ui/use-toast';
 import { InboxZeroState } from './InboxZeroState';
+import { gql } from '@apollo/client';
+
+const SEMANTIC_SEARCH_QUERY = gql`
+  query SemanticSearch($query: String!, $limit: Int) {
+    semanticSearch(query: $query, limit: $limit) {
+      emailIds
+      query
+    }
+  }
+`;
 
 interface EmailListProps {
   onSelectThread: (thread: EmailThread) => void;
@@ -64,6 +74,19 @@ export function EmailList({
   const [currentFolder, setCurrentFolder] = useState<EmailFolder>(initialFolder);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [semanticEmailIds, setSemanticEmailIds] = useState<string[] | null>(null);
+
+  const [runSemanticSearch, { loading: semanticLoading }] = useLazyQuery<{
+    semanticSearch: { emailIds: string[]; query: string };
+  }>(SEMANTIC_SEARCH_QUERY, {
+    onCompleted: (data) => setSemanticEmailIds(data.semanticSearch.emailIds),
+    onError: () => setSemanticEmailIds([]),
+  });
+
+  const handleSemanticSearch = (query: string) => {
+    if (!query.trim()) { setSemanticEmailIds(null); return; }
+    runSemanticSearch({ variables: { query, limit: 20 } });
+  };
   
   // Add state for selected emails
   const [selectedThreadIds, setSelectedThreadIds] = useState<string[]>([]);
@@ -497,7 +520,8 @@ export function EmailList({
         
         <div className="flex items-center gap-2">
           <EmailSearch
-            onSearch={setSearchQuery}
+            onSearch={(q) => { setSearchQuery(q); if (!q) setSemanticEmailIds(null); }}
+            onSemanticSearch={handleSemanticSearch}
             className="w-64"
             placeholder={`Search in ${currentFolder}...`}
             initialQuery={searchQuery}
@@ -539,7 +563,7 @@ export function EmailList({
       
       {/* Email list */}
       <div className="flex-1 overflow-auto py-4 space-y-2">
-        {isLoading ? (
+        {isLoading || semanticLoading ? (
           <EmailListSkeleton count={PAGE_SIZE} />
         ) : emails.items.length === 0 ? (
           currentFolder === 'inbox' && !searchQuery ? (

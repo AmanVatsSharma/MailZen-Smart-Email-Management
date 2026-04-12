@@ -124,6 +124,14 @@ export class Email {
   @Column({ type: 'timestamp', nullable: true })
   aiScoredAt?: Date | null;
 
+  /**
+   * pgvector embedding (1536 dims, text-embedding-3-small).
+   * Column is managed by migration 20260411100001 — NOT synced by TypeORM.
+   * select: false keeps it off default query payloads.
+   */
+  @Column({ type: 'text', nullable: true, select: false, synchronize: false })
+  embedding?: string | null;
+
   @Field()
   @CreateDateColumn()
   createdAt: Date;

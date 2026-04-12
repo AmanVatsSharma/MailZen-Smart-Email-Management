@@ -67,8 +67,8 @@ export class EmailEmbeddingService {
   async embedUnprocessedEmails(batchSize = 50): Promise<number> {
     const emails = await this.emailRepo
       .createQueryBuilder('email')
-      .where('email.embedding IS NULL')
-      .orderBy('email.receivedAt', 'DESC')
+      .where('"email"."embedding" IS NULL')
+      .orderBy('email.createdAt', 'DESC')
       .limit(batchSize)
       .getMany();
 
