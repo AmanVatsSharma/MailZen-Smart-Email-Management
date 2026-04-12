@@ -675,7 +675,6 @@ export function EmailComposer({
           )}
         </div>
 
-          </div>
           </motion.div>
           )}
           </AnimatePresence>
