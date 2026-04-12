@@ -1,13 +1,16 @@
 import {
+  Activity,
   BellRing,
   Building2,
   CreditCard,
   Contact,
+  FileText,
   Filter,
   LayoutDashboard,
   Mail,
   MailPlus,
   MessageSquareText,
+  ShieldCheck,
   type LucideIcon,
   Sparkles,
   Zap,
@@ -87,6 +90,7 @@ export const secondaryPanelBySection: Record<DashboardSectionId, SecondaryPanelC
     links: [
       { label: 'Inbox', href: '/inbox', description: 'Unread and active conversations' },
       { label: 'Sent', href: '/sent', description: 'Delivered messages' },
+      { label: 'Scheduled', href: '/dashboard/scheduled', description: 'Pending scheduled sends' },
       { label: 'Archive', href: '/archive', description: 'Archived conversations' },
       { label: 'Trash', href: '/trash', description: 'Deleted messages' },
     ],
@@ -96,6 +100,7 @@ export const secondaryPanelBySection: Record<DashboardSectionId, SecondaryPanelC
     description: 'Recipients and relationship data.',
     links: [
       { label: 'Address Book', href: '/contacts', description: 'Manage people and details' },
+      { label: 'Sender Intelligence', href: '/contacts/senders', description: 'AI relationship scores and VIP management' },
     ],
   },
   automation: {
@@ -120,9 +125,34 @@ export const secondaryPanelBySection: Record<DashboardSectionId, SecondaryPanelC
         description: 'Team access and members',
       },
       {
-        label: 'Notifications',
+        label: 'Notification Center',
+        href: '/notifications',
+        description: 'Browse all notifications and alerts',
+      },
+      {
+        label: 'Notification Settings',
         href: '/settings/notifications',
-        description: 'Notification channel preferences',
+        description: 'Channel preferences and SLA thresholds',
+      },
+      {
+        label: 'Mailbox Health',
+        href: '/mailbox-health',
+        description: 'Sync status, incidents, and alert delivery',
+      },
+      {
+        label: 'Templates',
+        href: '/templates',
+        description: 'Create and manage email templates',
+      },
+      {
+        label: 'AI Audit Log',
+        href: '/settings/ai-audit',
+        description: 'Agent action history and compliance export',
+      },
+      {
+        label: 'Feature Flags',
+        href: '/settings/feature-flags',
+        description: 'Admin-only feature rollout management',
       },
     ],
   },
@@ -143,9 +173,13 @@ export const automationQuickLinks = [
   { label: 'Filters', href: '/filters', icon: Filter },
   { label: 'Warmup', href: '/warmup', icon: Zap },
   { label: 'Smart Replies', href: '/settings/smart-replies', icon: MessageSquareText },
+  { label: 'Notification Center', href: '/notifications', icon: BellRing },
   { label: 'Billing', href: '/settings/billing', icon: CreditCard },
   { label: 'Workspaces', href: '/settings/workspaces', icon: Building2 },
-  { label: 'Notifications', href: '/settings/notifications', icon: BellRing },
+  { label: 'Notification Settings', href: '/settings/notifications', icon: BellRing },
+  { label: 'Mailbox Health', href: '/mailbox-health', icon: Activity },
+  { label: 'Templates', href: '/templates', icon: FileText },
+  { label: 'AI Audit Log', href: '/settings/ai-audit', icon: ShieldCheck },
 ];
 
 export const mailFolderRoutes = new Set(['/inbox', '/sent', '/archive', '/trash']);
@@ -167,21 +201,30 @@ export const getSectionFromPathname = (pathname: string): DashboardSectionId => 
     return 'dashboard';
   }
 
+  if (normalized.startsWith('/dashboard/scheduled')) {
+    return 'mail';
+  }
+
   if (mailFolderRoutes.has(normalized)) {
     return 'mail';
   }
 
-  if (normalized === '/contacts') {
+  if (normalized.startsWith('/contacts')) {
     return 'contacts';
   }
 
   if (
     normalized === '/filters' ||
     normalized === '/warmup' ||
+    normalized === '/notifications' ||
+    normalized === '/mailbox-health' ||
+    normalized === '/templates' ||
     normalized.startsWith('/settings/billing') ||
     normalized.startsWith('/settings/workspaces') ||
     normalized.startsWith('/settings/smart-replies') ||
-    normalized.startsWith('/settings/notifications')
+    normalized.startsWith('/settings/notifications') ||
+    normalized.startsWith('/settings/ai-audit') ||
+    normalized.startsWith('/settings/feature-flags')
   ) {
     return 'automation';
   }

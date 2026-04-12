@@ -49,10 +49,24 @@ import {
 import { GET_EMAIL_TEMPLATES, RENDER_EMAIL_TEMPLATE } from '@/lib/apollo/queries/email-templates';
 import { GET_THREAD_INSIGHTS } from '@/lib/apollo/queries/agent-assistant';
 import { RECORD_AI_FEEDBACK } from '@/lib/apollo/queries/ai-feedback';
+import { GET_MY_NOTIFICATIONS } from '@/lib/apollo/queries/notifications';
+import { formatDistanceToNow } from 'date-fns';
 import type { EmailThread } from '@/lib/email/email-types';
 import { InboxAssistantAdapter } from '@/components/email/InboxAssistantAdapter';
 import { PriorityBadge, CategoryChip } from '@/components/ui/priority-badge';
 import { cn } from '@/lib/utils';
+
+function getLastMessageText(thread: EmailThread | null): string {
+  if (!thread?.messages?.length) return '';
+  const last = thread.messages[thread.messages.length - 1];
+  const raw = last?.content ?? last?.contentPreview ?? '';
+  if (typeof window !== 'undefined' && raw.includes('<')) {
+    const el = document.createElement('div');
+    el.innerHTML = DOMPurify.sanitize(raw);
+    return el.textContent?.trim() ?? '';
+  }
+  return raw.trim();
+}
 
 interface InboxAiWorkspaceProps {
   selectedThread: EmailThread | null;
@@ -368,6 +382,20 @@ export function InboxAiWorkspace({
     });
 
   const [recordFeedback] = useMutation(RECORD_AI_FEEDBACK);
+
+  const { data: autoActionsData } = useQuery(GET_MY_NOTIFICATIONS, {
+    variables: { limit: 5, types: ['HIGH_PRIORITY_EMAIL'] },
+    fetchPolicy: 'cache-and-network',
+  });
+  const recentAutoActions = (autoActionsData?.myNotifications ?? []) as Array<{
+    id: string;
+    type: string;
+    title: string;
+    message: string;
+    createdAt: string;
+    isRead: boolean;
+  }>;
+
   const [getThreadInsights, { data: insightsData, loading: insightsLoading, error: insightsError }] =
     useLazyQuery<ThreadInsightsData>(GET_THREAD_INSIGHTS, {
       fetchPolicy: 'network-only',
@@ -511,6 +539,36 @@ export function InboxAiWorkspace({
 
           {/* Triage action suggestions */}
           <TriageActions priority={aiPriority} category={aiCategory} />
+
+          {/* Recent AI auto-actions */}
+          <SectionCard
+            icon={<Zap className="h-3.5 w-3.5" />}
+            title="Recent Auto-Actions"
+            delay={0.02}
+          >
+            {recentAutoActions.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-1">No recent AI auto-actions.</p>
+            ) : (
+              <div className="space-y-1.5 mt-1">
+                {recentAutoActions.map((n) => (
+                  <div
+                    key={n.id}
+                    className="flex items-start gap-2 rounded-lg bg-muted/30 px-2.5 py-1.5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium leading-none">{n.title}</p>
+                      <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+                        {n.message}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-[10px] text-muted-foreground/60 whitespace-nowrap">
+                      {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionCard>
 
           {/* Smart Replies card */}
           <SectionCard
