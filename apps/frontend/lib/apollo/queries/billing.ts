@@ -141,3 +141,16 @@ export const GET_MY_BILLING_DATA_EXPORT = gql`
   }
 `;
 
+export const START_MY_PLAN_TRIAL = gql`
+  mutation StartMyPlanTrial($planCode: String!, $trialDays: Float) {
+    startMyPlanTrial(planCode: $planCode, trialDays: $trialDays) {
+      id
+      planCode
+      status
+      startedAt
+      trialEndsAt
+      isTrial
+    }
+  }
+`;
+
