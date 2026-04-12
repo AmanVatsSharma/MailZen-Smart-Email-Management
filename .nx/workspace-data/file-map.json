@@ -6,208 +6,216 @@
   "fileMap": {
     "nonProjectFiles": [
       {
-        "file": "deploy/ec2/scripts/launch.sh",
-        "hash": "3667071601710872357"
-      },
-      {
-        "file": "nx.json",
-        "hash": "4028464915613245907"
-      },
-      {
-        "file": "deploy/ec2/scripts/runtime-smoke.sh",
-        "hash": "5866865847802230832"
-      },
-      {
-        "file": "deploy/ec2/scripts/rotate-app-secrets.sh",
-        "hash": "702060002821748719"
-      },
-      {
-        "file": "deploy/ec2/scripts/backup-prune.sh",
-        "hash": "8405090803756644112"
-      },
-      {
-        "file": "tools/ensure-env.js",
-        "hash": "16624794780193372200"
-      },
-      {
-        "file": "deploy/ec2/scripts/ssl-check.sh",
-        "hash": "4739700210646433808"
-      },
-      {
-        "file": "deploy/ec2/docker-compose.yml",
-        "hash": "16098631399562400623"
+        "file": "deploy/ec2/scripts/menu.sh",
+        "hash": "13226074825270361146"
       },
       {
         "file": "deploy/ec2/scripts/doctor.sh",
         "hash": "17351412501801164701"
       },
       {
-        "file": "deploy/ec2/scripts/restart.sh",
-        "hash": "3303087199054677206"
-      },
-      {
-        "file": "deploy/ec2/scripts/common.sh",
-        "hash": "16022590504069202968"
-      },
-      {
-        "file": "deploy/ec2/scripts/self-check.sh",
-        "hash": "11213733107246290767"
-      },
-      {
-        "file": "deploy/ec2/.env.ec2.example",
-        "hash": "15584251533798524090"
-      },
-      {
-        "file": "deploy/ec2/scripts/verify.sh",
-        "hash": "7804227714472198217"
-      },
-      {
-        "file": "deploy/ec2/scripts/host-readiness.sh",
-        "hash": "6537282881871105948"
-      },
-      {
-        "file": "deploy/ec2/reports/.gitignore",
-        "hash": "4854053431585404831"
-      },
-      {
-        "file": "README.md",
-        "hash": "11827180227601564061"
-      },
-      {
-        "file": "deploy/ec2/scripts/validate.sh",
-        "hash": "1576285170244544453"
-      },
-      {
-        "file": "deploy/ec2/scripts/ports-check.sh",
-        "hash": "1059874576047461499"
-      },
-      {
-        "file": "deploy/ec2/Caddyfile",
-        "hash": "17512328996854688238"
-      },
-      {
-        "file": "package-lock.json",
-        "hash": "6285364480923223299"
-      },
-      {
-        "file": "deploy/ec2/scripts/status.sh",
-        "hash": "17829098222156642903"
-      },
-      {
-        "file": "deploy/ec2/backups/.gitignore",
-        "hash": "8191922859220357953"
-      },
-      {
-        "file": "deploy/ec2/scripts/restore-db.sh",
-        "hash": "8585520176930265643"
-      },
-      {
-        "file": "deploy/ec2/scripts/env-audit.sh",
-        "hash": "574531610055515007"
-      },
-      {
-        "file": "deploy/ec2/scripts/rollback-latest.sh",
-        "hash": "2979958203494185033"
-      },
-      {
-        "file": ".github/workflows/ci.yml",
-        "hash": "9852264237329005613"
-      },
-      {
-        "file": "deploy/ec2/scripts/preflight.sh",
-        "hash": "18203397811275327282"
-      },
-      {
-        "file": "deploy/ec2/scripts/bootstrap-ubuntu.sh",
-        "hash": "6306221702632142776"
-      },
-      {
-        "file": "deploy/ec2/VALIDATION.md",
-        "hash": "1001714966989041561"
-      },
-      {
-        "file": "deploy/ec2/scripts/menu.sh",
-        "hash": "13226074825270361146"
-      },
-      {
-        "file": "deploy/ec2/scripts/help.sh",
-        "hash": "14184861737222920612"
-      },
-      {
-        "file": "deploy/ec2/scripts/backup-list.sh",
-        "hash": "13004233965656393174"
-      },
-      {
-        "file": "deploy/ec2/scripts/setup.sh",
-        "hash": "13078247213950737397"
-      },
-      {
-        "file": "deploy/ec2/scripts/stop.sh",
-        "hash": "8200334457157941971"
-      },
-      {
-        "file": "deploy/ec2/scripts/update.sh",
-        "hash": "12295339314336101572"
-      },
-      {
-        "file": "deploy/ec2/scripts/deploy.sh",
-        "hash": "12333465455928253676"
-      },
-      {
         "file": ".gitignore",
         "hash": "14795988321034134035"
-      },
-      {
-        "file": "deploy/ec2/scripts/dns-check.sh",
-        "hash": "2677008726789738252"
-      },
-      {
-        "file": "deploy/ec2/scripts/reports-prune.sh",
-        "hash": "18186479411761496262"
-      },
-      {
-        "file": "docs/ai-agent-platform.md",
-        "hash": "12685929449851605725"
-      },
-      {
-        "file": "deploy/ec2/scripts/backup-db.sh",
-        "hash": "7444407942659355097"
-      },
-      {
-        "file": "deploy/ec2/FLOW.md",
-        "hash": "197196724814483593"
       },
       {
         "file": "deploy/ec2/scripts/docs-check.sh",
         "hash": "6960322528302483124"
       },
       {
-        "file": "deploy/ec2/README.md",
-        "hash": "18194459442035356772"
+        "file": "README.md",
+        "hash": "11827180227601564061"
+      },
+      {
+        "file": "deploy/ec2/FLOW.md",
+        "hash": "197196724814483593"
+      },
+      {
+        "file": "docs/ai-agent-platform.md",
+        "hash": "12685929449851605725"
+      },
+      {
+        "file": "deploy/ec2/VALIDATION.md",
+        "hash": "1001714966989041561"
+      },
+      {
+        "file": "deploy/ec2/scripts/setup.sh",
+        "hash": "13078247213950737397"
+      },
+      {
+        "file": "deploy/ec2/scripts/restart.sh",
+        "hash": "3303087199054677206"
+      },
+      {
+        "file": "deploy/ec2/scripts/stop.sh",
+        "hash": "8200334457157941971"
+      },
+      {
+        "file": "tools/ensure-env.js",
+        "hash": "16624794780193372200"
+      },
+      {
+        "file": "deploy/ec2/scripts/verify.sh",
+        "hash": "7804227714472198217"
+      },
+      {
+        "file": "deploy/ec2/backups/.gitignore",
+        "hash": "8191922859220357953"
+      },
+      {
+        "file": "CLAUDE.md",
+        "hash": "1811349596987735031"
+      },
+      {
+        "file": "deploy/ec2/scripts/update.sh",
+        "hash": "12295339314336101572"
+      },
+      {
+        "file": "deploy/ec2/scripts/common.sh",
+        "hash": "16022590504069202968"
+      },
+      {
+        "file": "deploy/ec2/scripts/backup-prune.sh",
+        "hash": "8405090803756644112"
+      },
+      {
+        "file": "deploy/ec2/docker-compose.yml",
+        "hash": "16098631399562400623"
+      },
+      {
+        "file": "deploy/ec2/scripts/backup-list.sh",
+        "hash": "13004233965656393174"
+      },
+      {
+        "file": "deploy/ec2/reports/.gitignore",
+        "hash": "4854053431585404831"
+      },
+      {
+        "file": "deploy/ec2/scripts/deploy.sh",
+        "hash": "12333465455928253676"
+      },
+      {
+        "file": "deploy/ec2/scripts/rollback-latest.sh",
+        "hash": "2979958203494185033"
+      },
+      {
+        "file": "deploy/ec2/scripts/validate.sh",
+        "hash": "1576285170244544453"
+      },
+      {
+        "file": "deploy/ec2/Caddyfile",
+        "hash": "17512328996854688238"
+      },
+      {
+        "file": "deploy/ec2/scripts/preflight.sh",
+        "hash": "18203397811275327282"
+      },
+      {
+        "file": "deploy/ec2/scripts/env-audit.sh",
+        "hash": "574531610055515007"
+      },
+      {
+        "file": "deploy/ec2/scripts/reports-prune.sh",
+        "hash": "18186479411761496262"
+      },
+      {
+        "file": "deploy/ec2/scripts/launch.sh",
+        "hash": "3667071601710872357"
+      },
+      {
+        "file": "deploy/ec2/scripts/restore-db.sh",
+        "hash": "8585520176930265643"
       },
       {
         "file": "deploy/ec2/scripts/build-check.sh",
         "hash": "174179042876143778"
       },
       {
-        "file": "deploy/ec2/scripts/support-bundle.sh",
-        "hash": "14146567209109447815"
-      },
-      {
-        "file": "package.json",
-        "hash": "13112403154527068990"
+        "file": ".dockerignore",
+        "hash": "5910725907312873671"
       },
       {
         "file": "deploy/ec2/scripts/logs.sh",
         "hash": "11136840106235913001"
       },
       {
-        "file": ".dockerignore",
-        "hash": "5910725907312873671"
+        "file": "deploy/ec2/scripts/dns-check.sh",
+        "hash": "2677008726789738252"
+      },
+      {
+        "file": "deploy/ec2/scripts/ports-check.sh",
+        "hash": "1059874576047461499"
+      },
+      {
+        "file": "package-lock.json",
+        "hash": "6285364480923223299"
+      },
+      {
+        "file": "deploy/ec2/scripts/help.sh",
+        "hash": "14184861737222920612"
+      },
+      {
+        "file": "deploy/ec2/scripts/rotate-app-secrets.sh",
+        "hash": "702060002821748719"
+      },
+      {
+        "file": "package.json",
+        "hash": "13112403154527068990"
+      },
+      {
+        "file": "deploy/ec2/scripts/status.sh",
+        "hash": "17829098222156642903"
+      },
+      {
+        "file": "deploy/ec2/scripts/support-bundle.sh",
+        "hash": "14146567209109447815"
+      },
+      {
+        "file": "deploy/ec2/scripts/ssl-check.sh",
+        "hash": "4739700210646433808"
+      },
+      {
+        "file": "deploy/ec2/scripts/backup-db.sh",
+        "hash": "7444407942659355097"
+      },
+      {
+        "file": "deploy/ec2/README.md",
+        "hash": "18194459442035356772"
+      },
+      {
+        "file": ".github/workflows/ci.yml",
+        "hash": "9852264237329005613"
+      },
+      {
+        "file": "deploy/ec2/scripts/runtime-smoke.sh",
+        "hash": "5866865847802230832"
+      },
+      {
+        "file": ".claude/settings.local.json",
+        "hash": "14186225998275813045"
+      },
+      {
+        "file": "deploy/ec2/.env.ec2.example",
+        "hash": "15584251533798524090"
+      },
+      {
+        "file": "deploy/ec2/scripts/host-readiness.sh",
+        "hash": "6537282881871105948"
       },
       {
         "file": "deploy/ec2/scripts/pipeline-check.sh",
         "hash": "8811641674593572139"
+      },
+      {
+        "file": "deploy/ec2/scripts/bootstrap-ubuntu.sh",
+        "hash": "6306221702632142776"
+      },
+      {
+        "file": "deploy/ec2/scripts/self-check.sh",
+        "hash": "11213733107246290767"
+      },
+      {
+        "file": "nx.json",
+        "hash": "4028464915613245907"
       }
     ],
     "projectFileMap": {
@@ -257,8 +265,16 @@
           "hash": "18140904540264723078"
         },
         {
+          "file": "apps/frontend/app/(dashboard)/contacts/senders/page.tsx",
+          "hash": "9887217680450141985"
+        },
+        {
           "file": "apps/frontend/app/(dashboard)/dashboard/page.tsx",
-          "hash": "13875245806221453503"
+          "hash": "3075826409025137502"
+        },
+        {
+          "file": "apps/frontend/app/(dashboard)/dashboard/scheduled/page.tsx",
+          "hash": "13705191076655689294"
         },
         {
           "file": "apps/frontend/app/(dashboard)/design-system/page.tsx",
@@ -287,6 +303,10 @@
         {
           "file": "apps/frontend/app/(dashboard)/loading.tsx",
           "hash": "10151201963711483794"
+        },
+        {
+          "file": "apps/frontend/app/(dashboard)/notifications/page.tsx",
+          "hash": "5234745402860236990"
         },
         {
           "file": "apps/frontend/app/(dashboard)/sent/page.tsx",
@@ -405,20 +425,28 @@
           "hash": "3991016095072618051"
         },
         {
+          "file": "apps/frontend/components/email/ComposeCopilot.tsx",
+          "hash": "9902411475570583880"
+        },
+        {
+          "file": "apps/frontend/components/email/EmailAiInsightCard.tsx",
+          "hash": "3061318734544244118"
+        },
+        {
           "file": "apps/frontend/components/email/EmailAttachment.tsx",
           "hash": "9241768821495676958"
         },
         {
           "file": "apps/frontend/components/email/EmailComposer.tsx",
-          "hash": "17353923880037402873"
+          "hash": "12352579629478334170"
         },
         {
           "file": "apps/frontend/components/email/EmailDetail.tsx",
-          "hash": "5461239123334137584"
+          "hash": "11988675985662844828"
         },
         {
           "file": "apps/frontend/components/email/EmailList.tsx",
-          "hash": "15192172810617382765"
+          "hash": "8818574746137337498"
         },
         {
           "file": "apps/frontend/components/email/EmailListSkeleton.tsx",
@@ -438,11 +466,11 @@
         },
         {
           "file": "apps/frontend/components/email/EmailSearch.tsx",
-          "hash": "547651554522872099"
+          "hash": "3536405918283330209"
         },
         {
           "file": "apps/frontend/components/email/EmailThreadItem.tsx",
-          "hash": "4248249938967778008"
+          "hash": "1276914632974460705"
         },
         {
           "file": "apps/frontend/components/email/EmailTrackingPanel.tsx",
@@ -450,19 +478,31 @@
         },
         {
           "file": "apps/frontend/components/email/InboxAiWorkspace.tsx",
-          "hash": "13996115035263687350"
+          "hash": "13884891737149312546"
         },
         {
           "file": "apps/frontend/components/email/InboxAssistantAdapter.tsx",
           "hash": "14463633626688816291"
         },
         {
+          "file": "apps/frontend/components/email/InboxZeroState.tsx",
+          "hash": "14698780848616967698"
+        },
+        {
           "file": "apps/frontend/components/email/README.md",
           "hash": "12130818140000604823"
         },
         {
+          "file": "apps/frontend/components/email/SenderIntelligencePanel.tsx",
+          "hash": "4864920694184133672"
+        },
+        {
           "file": "apps/frontend/components/email/SmartReplySelector.tsx",
           "hash": "12513158601858284771"
+        },
+        {
+          "file": "apps/frontend/components/email/SnoozePopover.tsx",
+          "hash": "16729908468705046567"
         },
         {
           "file": "apps/frontend/components/layout/DashboardPageShell.tsx",
@@ -470,7 +510,7 @@
         },
         {
           "file": "apps/frontend/components/layout/Header.tsx",
-          "hash": "8547512412062910292"
+          "hash": "10530347250215163583"
         },
         {
           "file": "apps/frontend/components/layout/InboxSwitcherModal.tsx",
@@ -478,7 +518,7 @@
         },
         {
           "file": "apps/frontend/components/layout/MainLayout.tsx",
-          "hash": "13387701558821472200"
+          "hash": "5624277462681117197"
         },
         {
           "file": "apps/frontend/components/layout/OnboardingBanner.tsx",
@@ -490,11 +530,11 @@
         },
         {
           "file": "apps/frontend/components/layout/Sidebar.tsx",
-          "hash": "3984550333203480841"
+          "hash": "9294664336619834508"
         },
         {
           "file": "apps/frontend/components/layout/dashboard-nav.config.ts",
-          "hash": "16260747317172773871"
+          "hash": "4764781009121429573"
         },
         {
           "file": "apps/frontend/components/premium/Showcase.tsx",
@@ -537,6 +577,10 @@
           "hash": "5600928480901462285"
         },
         {
+          "file": "apps/frontend/components/ui/avatar-group.tsx",
+          "hash": "1108002963956278032"
+        },
+        {
           "file": "apps/frontend/components/ui/avatar.tsx",
           "hash": "17375546950013362611"
         },
@@ -577,6 +621,10 @@
           "hash": "13886519002590943407"
         },
         {
+          "file": "apps/frontend/components/ui/command-palette.tsx",
+          "hash": "56185198384445144"
+        },
+        {
           "file": "apps/frontend/components/ui/dialog.tsx",
           "hash": "4386055599221128098"
         },
@@ -593,6 +641,10 @@
           "hash": "9297770868910757857"
         },
         {
+          "file": "apps/frontend/components/ui/icon-button.tsx",
+          "hash": "12228730745248803942"
+        },
+        {
           "file": "apps/frontend/components/ui/input.tsx",
           "hash": "15052517445342459651"
         },
@@ -603,6 +655,10 @@
         {
           "file": "apps/frontend/components/ui/popover.tsx",
           "hash": "14169858307434860779"
+        },
+        {
+          "file": "apps/frontend/components/ui/priority-badge.tsx",
+          "hash": "5197219777631681745"
         },
         {
           "file": "apps/frontend/components/ui/progress.tsx",
@@ -639,6 +695,10 @@
         {
           "file": "apps/frontend/components/ui/switch.tsx",
           "hash": "14286023428878245383"
+        },
+        {
+          "file": "apps/frontend/components/ui/sync-status.tsx",
+          "hash": "9583339528084170570"
         },
         {
           "file": "apps/frontend/components/ui/table.tsx",
@@ -706,7 +766,11 @@
         },
         {
           "file": "apps/frontend/lib/apollo/queries/agent-assistant.ts",
-          "hash": "9802978928223083742"
+          "hash": "5412382350036447922"
+        },
+        {
+          "file": "apps/frontend/lib/apollo/queries/ai-feedback.ts",
+          "hash": "4209137343400956022"
         },
         {
           "file": "apps/frontend/lib/apollo/queries/analytics.ts",
@@ -749,6 +813,18 @@
           "hash": "8999238534884988739"
         },
         {
+          "file": "apps/frontend/lib/apollo/queries/scheduled-emails.ts",
+          "hash": "12861835129418864379"
+        },
+        {
+          "file": "apps/frontend/lib/apollo/queries/semantic-search.ts",
+          "hash": "1509734707336796071"
+        },
+        {
+          "file": "apps/frontend/lib/apollo/queries/sender-intelligence.ts",
+          "hash": "17028459331766173268"
+        },
+        {
           "file": "apps/frontend/lib/apollo/queries/smart-replies.ts",
           "hash": "2394744271563413335"
         },
@@ -778,7 +854,7 @@
         },
         {
           "file": "apps/frontend/lib/email/email-types.ts",
-          "hash": "5592719501090910935"
+          "hash": "5666999355906495314"
         },
         {
           "file": "apps/frontend/lib/email/mock-data.ts",
@@ -787,6 +863,10 @@
         {
           "file": "apps/frontend/lib/motion.ts",
           "hash": "16778835348271637409"
+        },
+        {
+          "file": "apps/frontend/lib/notifications/notification-context-formatter.ts",
+          "hash": "8334492273166985946"
         },
         {
           "file": "apps/frontend/lib/providers/README.md",
@@ -989,112 +1069,6 @@
           "hash": "16505881292448434709"
         }
       ],
-      "ai-agent-platform": [
-        {
-          "file": "services/ai-agent-platform/.env.example",
-          "hash": "7447067134109640040"
-        },
-        {
-          "file": "services/ai-agent-platform/Dockerfile",
-          "hash": "4744165984391320807"
-        },
-        {
-          "file": "services/ai-agent-platform/README.md",
-          "hash": "10128197624250218965"
-        },
-        {
-          "file": "services/ai-agent-platform/app/__init__.py",
-          "hash": "3244421341483603138"
-        },
-        {
-          "file": "services/ai-agent-platform/app/config/__init__.py",
-          "hash": "3244421341483603138"
-        },
-        {
-          "file": "services/ai-agent-platform/app/config/settings.py",
-          "hash": "16965658790125935132"
-        },
-        {
-          "file": "services/ai-agent-platform/app/contracts/__init__.py",
-          "hash": "3244421341483603138"
-        },
-        {
-          "file": "services/ai-agent-platform/app/contracts/agent_request.py",
-          "hash": "1633726446415697148"
-        },
-        {
-          "file": "services/ai-agent-platform/app/contracts/agent_response.py",
-          "hash": "8473027293366785451"
-        },
-        {
-          "file": "services/ai-agent-platform/app/core/__init__.py",
-          "hash": "3244421341483603138"
-        },
-        {
-          "file": "services/ai-agent-platform/app/core/agent_runtime.py",
-          "hash": "10455955965154668522"
-        },
-        {
-          "file": "services/ai-agent-platform/app/core/model_provider.py",
-          "hash": "1065523816238524726"
-        },
-        {
-          "file": "services/ai-agent-platform/app/core/skill_registry.py",
-          "hash": "12053793563459194438"
-        },
-        {
-          "file": "services/ai-agent-platform/app/main.py",
-          "hash": "5674836410680371335"
-        },
-        {
-          "file": "services/ai-agent-platform/app/skills/__init__.py",
-          "hash": "3244421341483603138"
-        },
-        {
-          "file": "services/ai-agent-platform/app/skills/auth/__init__.py",
-          "hash": "3244421341483603138"
-        },
-        {
-          "file": "services/ai-agent-platform/app/skills/auth/graph.py",
-          "hash": "18283513302749864326"
-        },
-        {
-          "file": "services/ai-agent-platform/app/skills/auth/skill.py",
-          "hash": "4795102568190187139"
-        },
-        {
-          "file": "services/ai-agent-platform/app/skills/inbox/__init__.py",
-          "hash": "3244421341483603138"
-        },
-        {
-          "file": "services/ai-agent-platform/app/skills/inbox/graph.py",
-          "hash": "3508694366967034288"
-        },
-        {
-          "file": "services/ai-agent-platform/app/skills/inbox/skill.py",
-          "hash": "2252820003500519913"
-        },
-        {
-          "file": "services/ai-agent-platform/project.json",
-          "hash": "10059866179712161802"
-        },
-        {
-          "file": "services/ai-agent-platform/requirements.txt",
-          "hash": "783577698660356643"
-        },
-        {
-          "file": "services/ai-agent-platform/tests/test_auth_skill.py",
-          "hash": "8757166846447568909"
-        },
-        {
-          "file": "services/ai-agent-platform/tests/test_health.py",
-          "hash": "13787233434629829397"
-        },
-        {
-          "file": "services/ai-agent-platform/tests/test_inbox_skill.py",
-          "hash": "533447471051359548"
-        }
-      ],
       "backend": [
         {
           "file": "apps/backend/.gitignore",
@@ -1248,7 +1222,7 @@
         },
         {
           "file": "apps/backend/scripts/seed-demo.ts",
-          "hash": "8439613109874042752"
+          "hash": "517808000385457984"
         },
         {
           "file": "apps/backend/src/ai-agent-gateway/README.md",
@@ -1264,7 +1238,7 @@
         },
         {
           "file": "apps/backend/src/ai-agent-gateway/ai-agent-gateway.module.ts",
-          "hash": "1970484094493909608"
+          "hash": "9167445854481448790"
         },
         {
           "file": "apps/backend/src/ai-agent-gateway/ai-agent-gateway.resolver.spec.ts",
@@ -1272,7 +1246,7 @@
         },
         {
           "file": "apps/backend/src/ai-agent-gateway/ai-agent-gateway.resolver.ts",
-          "hash": "17716141656807712828"
+          "hash": "3247206930690638176"
         },
         {
           "file": "apps/backend/src/ai-agent-gateway/ai-agent-gateway.service.spec.ts",
@@ -1280,7 +1254,7 @@
         },
         {
           "file": "apps/backend/src/ai-agent-gateway/ai-agent-gateway.service.ts",
-          "hash": "2066675107817691086"
+          "hash": "712089347342387591"
         },
         {
           "file": "apps/backend/src/ai-agent-gateway/ai-agent-platform-health-alert-run-retention.scheduler.spec.ts",
@@ -1305,6 +1279,10 @@
         {
           "file": "apps/backend/src/ai-agent-gateway/ai-agent-platform-health-sample-retention.scheduler.ts",
           "hash": "10637887606526083824"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/ai-digest.scheduler.ts",
+          "hash": "4059642524158676406"
         },
         {
           "file": "apps/backend/src/ai-agent-gateway/dto/agent-action-audit-retention-purge.response.ts",
@@ -1423,12 +1401,32 @@
           "hash": "12016547965868854268"
         },
         {
+          "file": "apps/backend/src/ai-agent-gateway/entities/ai-feedback.entity.ts",
+          "hash": "7491545139861328340"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/followup-detection.scheduler.ts",
+          "hash": "5090881034020988343"
+        },
+        {
           "file": "apps/backend/src/ai-agent-gateway/inbox-ai.service.ts",
           "hash": "6777520475475162478"
         },
         {
+          "file": "apps/backend/src/ai-agent-gateway/priority-scoring.scheduler.ts",
+          "hash": "5991394650437388843"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/services/ai-feedback.service.ts",
+          "hash": "12472712296708352374"
+        },
+        {
+          "file": "apps/backend/src/ai-agent-gateway/services/email-embedding.service.ts",
+          "hash": "7666650575535831898"
+        },
+        {
           "file": "apps/backend/src/app.module.ts",
-          "hash": "14150471550397786944"
+          "hash": "10384139882251622604"
         },
         {
           "file": "apps/backend/src/auth/README.md",
@@ -1461,6 +1459,10 @@
         {
           "file": "apps/backend/src/auth/auth.service.ts",
           "hash": "3309652037846279445"
+        },
+        {
+          "file": "apps/backend/src/auth/decorators/current-user.decorator.ts",
+          "hash": "16916127053632455175"
         },
         {
           "file": "apps/backend/src/auth/dto/auth-me.response.ts",
@@ -1517,6 +1519,10 @@
         {
           "file": "apps/backend/src/auth/guards/admin.guard.ts",
           "hash": "8388685795351942938"
+        },
+        {
+          "file": "apps/backend/src/auth/guards/gql-auth.guard.ts",
+          "hash": "17689819716679999200"
         },
         {
           "file": "apps/backend/src/auth/guards/jwt-auth.guard.spec.ts",
@@ -1919,6 +1925,18 @@
           "hash": "16560509848084479749"
         },
         {
+          "file": "apps/backend/src/database/migrations/20260411100000-email-ai-metadata.ts",
+          "hash": "12215277532028031232"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260411100001-add-email-embeddings.ts",
+          "hash": "4975978935691896978"
+        },
+        {
+          "file": "apps/backend/src/database/migrations/20260411100002-add-sender-profiles.ts",
+          "hash": "4955944938824220574"
+        },
+        {
           "file": "apps/backend/src/database/typeorm.config.ts",
           "hash": "1010695093825183926"
         },
@@ -2236,7 +2254,7 @@
         },
         {
           "file": "apps/backend/src/email/entities/email.entity.ts",
-          "hash": "10447099748617340468"
+          "hash": "16993335311203116818"
         },
         {
           "file": "apps/backend/src/email/entities/warmup-activity.entity.ts",
@@ -2324,7 +2342,7 @@
         },
         {
           "file": "apps/backend/src/gmail-sync/gmail-sync.module.ts",
-          "hash": "1268294439750763827"
+          "hash": "7312492312471773440"
         },
         {
           "file": "apps/backend/src/gmail-sync/gmail-sync.resolver.spec.ts",
@@ -2348,7 +2366,7 @@
         },
         {
           "file": "apps/backend/src/gmail-sync/gmail-sync.service.ts",
-          "hash": "3921956815504802269"
+          "hash": "8363228525297889645"
         },
         {
           "file": "apps/backend/src/health/health.controller.ts",
@@ -2760,7 +2778,7 @@
         },
         {
           "file": "apps/backend/src/outlook-sync/outlook-sync.module.ts",
-          "hash": "8965173144481634775"
+          "hash": "13151115866250210721"
         },
         {
           "file": "apps/backend/src/outlook-sync/outlook-sync.scheduler.spec.ts",
@@ -2776,7 +2794,7 @@
         },
         {
           "file": "apps/backend/src/outlook-sync/outlook-sync.service.ts",
-          "hash": "10097839885894204591"
+          "hash": "9799843837570124572"
         },
         {
           "file": "apps/backend/src/phone/README.md",
@@ -2840,7 +2858,23 @@
         },
         {
           "file": "apps/backend/src/schema.gql",
-          "hash": "44405964400127581"
+          "hash": "17639512782679836871"
+        },
+        {
+          "file": "apps/backend/src/sender-intelligence/entities/sender-profile.entity.ts",
+          "hash": "2364993365929240683"
+        },
+        {
+          "file": "apps/backend/src/sender-intelligence/sender-intelligence.module.ts",
+          "hash": "1031107517367548209"
+        },
+        {
+          "file": "apps/backend/src/sender-intelligence/sender-intelligence.resolver.ts",
+          "hash": "5126912607489061776"
+        },
+        {
+          "file": "apps/backend/src/sender-intelligence/sender-intelligence.service.ts",
+          "hash": "13992142845830448688"
         },
         {
           "file": "apps/backend/src/smart-replies/README.md",
@@ -3153,6 +3187,176 @@
         {
           "file": "apps/backend/tsconfig.json",
           "hash": "7585820297323587102"
+        }
+      ],
+      "ai-agent-platform": [
+        {
+          "file": "services/ai-agent-platform/.env.example",
+          "hash": "9339496345439074904"
+        },
+        {
+          "file": "services/ai-agent-platform/Dockerfile",
+          "hash": "4744165984391320807"
+        },
+        {
+          "file": "services/ai-agent-platform/README.md",
+          "hash": "10128197624250218965"
+        },
+        {
+          "file": "services/ai-agent-platform/app/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/config/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/config/settings.py",
+          "hash": "4727778070550618359"
+        },
+        {
+          "file": "services/ai-agent-platform/app/contracts/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/contracts/agent_request.py",
+          "hash": "1633726446415697148"
+        },
+        {
+          "file": "services/ai-agent-platform/app/contracts/agent_response.py",
+          "hash": "8473027293366785451"
+        },
+        {
+          "file": "services/ai-agent-platform/app/core/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/core/agent_runtime.py",
+          "hash": "6480189251848776606"
+        },
+        {
+          "file": "services/ai-agent-platform/app/core/agent_trace.py",
+          "hash": "6776962610111914195"
+        },
+        {
+          "file": "services/ai-agent-platform/app/core/model_provider.py",
+          "hash": "15495805281360910827"
+        },
+        {
+          "file": "services/ai-agent-platform/app/core/skill_registry.py",
+          "hash": "12178744221156731859"
+        },
+        {
+          "file": "services/ai-agent-platform/app/main.py",
+          "hash": "5674836410680371335"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/auth/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/auth/graph.py",
+          "hash": "18283513302749864326"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/auth/skill.py",
+          "hash": "10919315752276942669"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/coordinator/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/coordinator/graph.py",
+          "hash": "7823953290104849687"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/coordinator/skill.py",
+          "hash": "6522739523166327961"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/followup/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/followup/graph.py",
+          "hash": "7502354613514237272"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/followup/skill.py",
+          "hash": "3692863518609124341"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/inbox/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/inbox/graph.py",
+          "hash": "17703127507963341208"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/inbox/skill.py",
+          "hash": "17874048204691152056"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/summarize/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/summarize/graph.py",
+          "hash": "7675679446057299322"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/summarize/skill.py",
+          "hash": "9038305616520375744"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/triage/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/triage/graph.py",
+          "hash": "14838310101199339835"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/triage/skill.py",
+          "hash": "6905380789752054560"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/unsubscribe/__init__.py",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/unsubscribe/graph.py",
+          "hash": "17777521275494420102"
+        },
+        {
+          "file": "services/ai-agent-platform/app/skills/unsubscribe/skill.py",
+          "hash": "7268965308899041552"
+        },
+        {
+          "file": "services/ai-agent-platform/project.json",
+          "hash": "10059866179712161802"
+        },
+        {
+          "file": "services/ai-agent-platform/requirements.txt",
+          "hash": "1999722875994915959"
+        },
+        {
+          "file": "services/ai-agent-platform/tests/test_auth_skill.py",
+          "hash": "8757166846447568909"
+        },
+        {
+          "file": "services/ai-agent-platform/tests/test_health.py",
+          "hash": "13787233434629829397"
+        },
+        {
+          "file": "services/ai-agent-platform/tests/test_inbox_skill.py",
+          "hash": "533447471051359548"
         }
       ],
       "marketing": [

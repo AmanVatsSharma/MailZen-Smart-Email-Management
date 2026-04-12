@@ -1,0 +1,152 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Repository overview
+
+MailZen is an AI-powered email management platform. It is a **npm workspaces + Nx monorepo** with three applications:
+
+- `apps/backend/` — NestJS GraphQL API (port 4000)
+- `apps/frontend/` — Next.js 15 app router (port 3000)
+- `apps/marketing/` — Marketing/public pages
+
+Shared library: `libs/shared-types/` — TypeScript types shared between frontend and backend.
+
+## Common commands
+
+All commands run from the repo root unless noted.
+
+### Development
+
+```bash
+npm run dev                   # frontend + backend (parallel)
+npm run dev:lite              # frontend + backend only (no ai-agent)
+npm run dev:frontend          # frontend only
+npm run dev:backend           # backend only
+```
+
+`nx serve backend` and `nx serve frontend` both auto-run `tools/ensure-env.js` first (creates `.env` / `.env.local` without overwriting existing files).
+
+### Build & lint
+
+```bash
+npm run build                 # frontend + backend
+npm run lint                  # frontend + backend
+nx build frontend
+nx build backend
+nx lint marketing
+```
+
+### Testing
+
+```bash
+# Backend (from repo root or apps/backend/)
+nx test backend               # all backend tests
+nx test backend --testFile=src/email/email.service.spec.ts  # single file
+
+# Frontend
+nx test frontend              # all frontend unit tests
+nx test frontend --testFile=src/components/...  # single file
+cd apps/frontend && npx playwright test         # e2e
+```
+
+### Database migrations (run from `apps/backend/`)
+
+```bash
+npm run migration:generate -- --name=<MigrationName>
+npm run migration:run
+npm run migration:revert
+npm run migration:show
+```
+
+In local development `synchronize: true` is active by default (auto-sync schema). Migrations are used for staging/production.
+
+### Backend contract/quality checks (from `apps/backend/`)
+
+```bash
+npm run check:migration:contracts
+npm run check:schema:contracts
+npm run check:no-console-usage       # enforces structured logger usage
+npm run check:structured-logger-usage
+```
+
+## Architecture
+
+### Backend (NestJS, `apps/backend/src/`)
+
+Code-first GraphQL schema (`schema.gql` is auto-generated). Key modules:
+
+| Module | Purpose |
+|--------|---------|
+| `auth/` | JWT + OAuth (Google/Microsoft), HttpOnly cookie sessions, refresh tokens |
+| `user/` | User accounts |
+| `workspace/` | Multi-tenant workspace/team model with RBAC |
+| `billing/` | SaaS plan catalog, subscriptions, AI credit tracking, webhook ingestion |
+| `email/` | Core email CRUD, templates, scheduling, warmup, filters |
+| `mailbox/` | Mailbox (provider inbox) management |
+| `inbox/` + `unified-inbox/` | Unified inbox aggregation across providers |
+| `gmail-sync/` | Gmail OAuth sync, Pub/Sub push webhooks, incremental history sync |
+| `outlook-sync/` | Microsoft/Outlook OAuth sync |
+| `smart-replies/` | AI-assisted reply generation |
+| `inbox-triage/` | AI-powered inbox triage |
+| `sender-intelligence/` | Sender behavior analytics |
+| `contacts/` | Contact management |
+| `notification/` | Notification pipeline |
+| `email-analytics/` | Open/click tracking |
+| `organization/` | Labels |
+| `ai-agent-gateway/` | Gateway to external AI agent platform |
+| `feature/` | Feature flags |
+| `health/` | Health check endpoint |
+| `common/` | Guards (`JwtAuthGuard`, `AdminGuard`), structured logging util, decorators, rate limiting |
+
+**Auth model**: HttpOnly `token` cookie for session; refresh token passed as body parameter (stored in localStorage on frontend until backend supports cookie refresh).
+
+**Database**: PostgreSQL via TypeORM. `synchronize: true` in local dev only; production uses explicit migrations. Connection pool configured via `TYPEORM_POOL_MAX` / `TYPEORM_IDLE_TIMEOUT_MS`.
+
+**Schema synchronization**: `TYPEORM_SYNCHRONIZE=false` or setting `CI=true` disables auto-sync.
+
+### Frontend (Next.js 15, `apps/frontend/`)
+
+Uses the App Router. Key directories:
+
+- `app/` — Route segments: `(dashboard)/` for authenticated views, `auth/` for login/register
+- `components/` — Organized by domain: `email/`, `layout/`, `ai/`, `auth/`, `premium/`, `ui/`
+- `lib/apollo/` — Apollo Client setup (HttpOnly cookie auth, auto token refresh via error link)
+- `lib/auth/` — Auth utilities
+- `providers/` — React context providers (ApolloProvider, ThemeProvider)
+- `middleware.ts` — Route protection: redirects unauthenticated users to `/auth/login`; public paths: `/auth/*`
+
+**GraphQL client**: Apollo Client with `credentials: 'include'` (cookies). The error link intercepts 401s to attempt token refresh before retrying.
+
+**UI stack**: Tailwind CSS v4, shadcn/ui (Radix UI primitives), Framer Motion, Lucide icons. Primary brand color: purple `hsl(265 89% 60%)`.
+
+**Forms**: React Hook Form + Zod validation.
+
+**Observability**: Sentry integrated in both frontend and backend (source maps uploaded only when `SENTRY_AUTH_TOKEN` is set).
+
+### Shared types (`libs/shared-types/`)
+
+Shared TypeScript types consumed by both `apps/backend` and `apps/frontend` via the `@mailzen/shared-types` workspace alias.
+
+## Environment setup
+
+Environment files are auto-created by `tools/ensure-env.js` on first `nx serve`. To reset to defaults, delete the file and re-run.
+
+**Backend** (`apps/backend/.env`) — key vars:
+```
+DATABASE_URL=postgresql:///mailzen?host=/var/run/postgresql
+PORT=4000
+JWT_SECRET=<generated>
+GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI  # optional: enables Google OAuth
+```
+
+**Frontend** (`apps/frontend/.env.local`) — key vars:
+```
+NEXT_PUBLIC_GRAPHQL_ENDPOINT=http://localhost:4000/graphql
+```
+
+PostgreSQL database must exist: `createdb mailzen`. The default `DATABASE_URL` uses peer auth via Unix socket (Fedora/Ubuntu). For Docker use a TCP URL.
+
+## GraphQL schema
+
+Auto-generated at `apps/backend/src/schema.gql`. Do not edit it manually — it is regenerated on each `nx serve backend` / `nest build`. Add/modify resolvers and entity decorators instead.
