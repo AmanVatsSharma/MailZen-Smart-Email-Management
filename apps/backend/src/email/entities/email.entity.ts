@@ -129,7 +129,7 @@ export class Email {
    * Column is managed by migration 20260411100001 — NOT synced by TypeORM.
    * select: false keeps it off default query payloads.
    */
-  @Column({ type: 'text', nullable: true, select: false, synchronize: false })
+  @Column({ type: 'text', nullable: true, select: false })
   embedding?: string | null;
 
   @Field()
