@@ -388,7 +388,7 @@ async function seed() {
         daysAgoN: 2,
       },
       {
-        id: randomUUID(),
+        id: '60000000-0000-0000-0000-000000000006',
         threadId: 'thread-006',
         from: 'Demo User <demo@mailzen.dev>',
         to: ['sarah@acme.com'],
