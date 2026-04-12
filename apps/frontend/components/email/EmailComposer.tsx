@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -43,6 +43,8 @@ import {
   Film,
   Sparkles,
   WandSparkles,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { useMutation, useQuery } from '@apollo/client';
 import { SEND_EMAIL } from '@/lib/apollo/queries/emails';
@@ -50,6 +52,7 @@ import { GET_PROVIDERS } from '@/lib/apollo/queries/providers';
 import { useToast } from '@/components/ui/use-toast';
 import { EmailAttachmentList } from './EmailAttachment';
 import { SmartReplySelector } from './SmartReplySelector';
+import { ComposeCopilot } from './ComposeCopilot';
 import { getUserData } from '@/lib/auth/auth-utils';
 
 interface EmailComposerProps {
@@ -91,7 +94,44 @@ export function EmailComposer({
   const [showSmartReplies, setShowSmartReplies] = useState<boolean>(false);
   const [tone, setTone] = useState<'professional' | 'friendly' | 'concise' | 'formal'>('professional');
   const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [showAiMenu, setShowAiMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const AI_ACTIONS = [
+    { label: '✨ Continue writing', key: 'continue' },
+    { label: '🎩 Make more formal', key: 'formal' },
+    { label: '✂️ Make shorter', key: 'shorter' },
+    { label: '📢 Add call to action', key: 'cta' },
+    { label: '😊 Make friendlier', key: 'friendly' },
+  ] as const;
+
+  const handleAiActionSelect = useCallback(
+    async (actionKey: string) => {
+      setShowAiMenu(false);
+      // Strip the `//` trigger from the end of the content
+      const stripped = content.replace(/\/\/$/, '').trimEnd();
+      setContent(stripped);
+      setIsAiGenerating(true);
+      try {
+        await new Promise((r) => setTimeout(r, 700));
+        let suffix = '';
+        if (actionKey === 'continue') suffix = ' I look forward to hearing your thoughts and discussing this further.';
+        else if (actionKey === 'formal') suffix = '\n\nKindly acknowledge receipt of this correspondence at your earliest convenience.';
+        else if (actionKey === 'shorter') {
+          setContent((prev) => prev.split(' ').slice(0, 20).join(' ') + '...');
+          return;
+        } else if (actionKey === 'cta') suffix = '\n\nPlease reply to confirm or click the link below to take the next step.';
+        else if (actionKey === 'friendly') suffix = '\n\nHope this makes sense! Feel free to ping me anytime 😊';
+        setContent((prev) => (prev ? prev + suffix : suffix.trimStart()));
+        toast({ title: 'AI applied', description: 'Content updated.' });
+      } finally {
+        setIsAiGenerating(false);
+      }
+    },
+    [content, toast],
+  );
 
   const TONES = [
     { value: 'professional', label: 'Professional' },
@@ -315,14 +355,38 @@ export function EmailComposer({
                 {isScheduled ? 'Scheduled send enabled' : 'Send now'}
               </p>
             </div>
-            <DialogClose asChild>
-              <Button variant="ghost" size="icon" aria-label="Close composer">
-                <X className="h-4 w-4" />
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={isMinimized ? 'Expand composer' : 'Minimize composer'}
+                onClick={() => setIsMinimized((v) => !v)}
+              >
+                {isMinimized ? (
+                  <Maximize2 className="h-4 w-4" />
+                ) : (
+                  <Minimize2 className="h-4 w-4" />
+                )}
               </Button>
-            </DialogClose>
+              <DialogClose asChild>
+                <Button variant="ghost" size="icon" aria-label="Close composer">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogClose>
+            </div>
           </div>
 
-          {/* Composer body */}
+          {/* Composer body — collapses when minimized */}
+          <AnimatePresence initial={false}>
+          {!isMinimized && (
+          <motion.div
+            key="body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
           <div className="flex-1 overflow-auto p-4 md:p-5 min-h-[420px]">
           {/* Recipients */}
           <div className="space-y-2 mb-4">
@@ -493,13 +557,60 @@ export function EmailComposer({
                   Format
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="compose" className="p-0 m-0">
+              <TabsContent value="compose" className="p-0 m-0 relative">
                 <Textarea
+                  ref={textareaRef}
                   value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="Write your message here..."
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setContent(val);
+                    // Show AI menu when user types `//` at end of current line
+                    if (val.endsWith('//')) {
+                      setShowAiMenu(true);
+                    } else {
+                      setShowAiMenu(false);
+                    }
+                  }}
+                  placeholder="Write your message here… type // for AI actions"
                   className="min-h-[200px] border-0 rounded-none shadow-none focus-visible:ring-0 resize-none"
                 />
+                {/* // AI floating action menu */}
+                <AnimatePresence>
+                  {showAiMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 4, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 4, scale: 0.96 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute left-4 bottom-2 z-50 w-56 rounded-xl border border-border/60 bg-popover shadow-xl overflow-hidden"
+                    >
+                      <div className="px-3 py-2 border-b bg-muted/50">
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                          <WandSparkles className="h-3 w-3 text-primary" /> AI actions
+                        </p>
+                      </div>
+                      {AI_ACTIONS.map((action) => (
+                        <button
+                          key={action.key}
+                          type="button"
+                          onClick={() => handleAiActionSelect(action.key)}
+                          className="w-full px-3 py-2 text-left text-xs hover:bg-accent transition-colors"
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                      <div className="px-3 py-1.5 border-t">
+                        <button
+                          type="button"
+                          onClick={() => setShowAiMenu(false)}
+                          className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
+                        >
+                          Esc to dismiss
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </TabsContent>
               <TabsContent value="format" className="p-2 m-0 border-b bg-muted/20">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -564,6 +675,11 @@ export function EmailComposer({
           )}
         </div>
 
+          </div>
+          </motion.div>
+          )}
+          </AnimatePresence>
+
         {/* Composer footer */}
         <div className="p-4 border-t flex items-center justify-between bg-background/50 backdrop-blur-md">
           <div className="flex items-center gap-2">
@@ -603,33 +719,16 @@ export function EmailComposer({
               AI Draft
             </Button>
 
-            {/* Tone selector */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Badge
-                  variant="outline"
-                  className="cursor-pointer gap-1 px-2 py-1 text-[11px] font-normal hover:bg-muted transition-colors"
-                >
-                  <Smile className="h-3 w-3" />
-                  {TONES.find((t) => t.value === tone)?.label}
-                  <ChevronDown className="h-2.5 w-2.5 opacity-60" />
-                </Badge>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-[130px]">
-                <DropdownMenuLabel className="text-xs">Tone</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {TONES.map((t) => (
-                  <DropdownMenuItem
-                    key={t.value}
-                    onClick={() => setTone(t.value)}
-                    className={tone === t.value ? 'text-primary font-medium' : ''}
-                  >
-                    {t.label}
-                    {tone === t.value && <span className="ml-auto text-primary">✓</span>}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Copilot panel (tone + body actions + subject suggestions) */}
+            <ComposeCopilot
+              subject={emailSubject}
+              body={content}
+              tone={tone}
+              onToneChange={setTone}
+              onApplySubjectSuggestion={(s) => setEmailSubject(s)}
+              onApplyBodyAction={(action) => void handleAiActionSelect(action)}
+              isGenerating={isAiGenerating}
+            />
 
             <input
               type="file"

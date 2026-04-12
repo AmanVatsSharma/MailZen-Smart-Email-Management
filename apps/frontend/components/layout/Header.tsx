@@ -51,6 +51,7 @@ import {
   SET_ACTIVE_WORKSPACE,
 } from '@/lib/apollo/queries/workspaces';
 import { GET_MY_MAILBOX_INBOUND_EVENT_STATS } from '@/lib/apollo/queries/mailbox-observability';
+import { SyncStatus, type SyncState } from '@/components/ui/sync-status';
 import { cn } from '@/lib/utils';
 
 interface HeaderProps {
@@ -209,6 +210,13 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onCompose, onOpenComma
   const mailboxInboundSlaStatus = mailboxInboundStats?.slaStatus || 'NO_DATA';
   const hasMailboxInboundErrors =
     mailboxInboundSlaStatus === 'WARNING' || mailboxInboundSlaStatus === 'CRITICAL';
+
+  const syncState: SyncState = (() => {
+    if (mailboxInboundSlaStatus === 'CRITICAL') return 'offline';
+    if (mailboxInboundSlaStatus === 'WARNING') return 'degraded';
+    return 'idle';
+  })();
+  const lastSyncedAt = mailboxInboundStats?.lastProcessedAt ?? null;
 
   const workspaces = useMemo(
     () => (workspaceData?.myWorkspaces || []) as DashboardWorkspace[],
@@ -446,19 +454,12 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onCompose, onOpenComma
 
         <InboxSwitcherModal />
 
-        {/* AI sync status indicator */}
-        <div
-          title="AI Active — processing in background"
-          className="hidden md:flex h-8 w-8 items-center justify-center rounded-lg cursor-default"
-        >
-          <span className="relative flex h-2 w-2">
-            <span
-              className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping"
-              style={{ animationDuration: '3s' }}
-            />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-          </span>
-        </div>
+        {/* AI / sync status indicator */}
+        <SyncStatus
+          state={syncState}
+          lastSyncedAt={lastSyncedAt}
+          className="hidden md:flex"
+        />
 
         {/* Notifications */}
         <DropdownMenu>

@@ -24,6 +24,7 @@ import { EmailProvider } from '../email-integration/entities/email-provider.enti
 import { ExternalEmailLabel } from '../email-integration/entities/external-email-label.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
+import { SenderIntelligenceService } from '../sender-intelligence/sender-intelligence.service';
 
 type OutlookRecipient = {
   emailAddress?: {
@@ -78,6 +79,7 @@ export class OutlookSyncService {
     @InjectRepository(AuditLog)
     private readonly auditLogRepo: Repository<AuditLog>,
     private readonly providerSyncLease: ProviderSyncLeaseService,
+    private readonly senderIntelligence: SenderIntelligenceService,
   ) {
     this.providerSecretsKeyring = resolveProviderSecretsKeyring();
   }
@@ -421,6 +423,33 @@ export class OutlookSyncService {
       ],
       ['providerId', 'externalMessageId'],
     );
+
+    // Phase 6 — Sender Intelligence: update sender profile (best-effort)
+    if (input.message.from?.emailAddress?.address) {
+      const senderEmail = input.message.from.emailAddress.address.trim();
+      const displayName =
+        input.message.from.emailAddress.name?.trim() || undefined;
+      this.senderIntelligence
+        .recordInboundEmail({
+          userId: input.userId,
+          senderEmail,
+          displayName,
+          emailReceivedAt: input.message.receivedDateTime
+            ? new Date(input.message.receivedDateTime)
+            : new Date(),
+        })
+        .catch((err: unknown) => {
+          this.logger.warn(
+            serializeStructuredLog({
+              event: 'outlook_sender_intelligence_update_failed',
+              userId: input.userId,
+              senderEmail,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
+        });
+    }
+
     return { imported: true, categories };
   }
 

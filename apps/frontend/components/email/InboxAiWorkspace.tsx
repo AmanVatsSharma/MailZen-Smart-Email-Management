@@ -2,11 +2,13 @@
 
 import React, { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useLazyQuery, useQuery } from '@apollo/client';
+import { useLazyQuery, useMutation, useQuery } from '@apollo/client';
 import {
+  AlertCircle,
   Bot,
   ChevronDown,
   ChevronUp,
+  Clock,
   FileText,
   Loader2,
   MessageSquarePlus,
@@ -25,6 +27,7 @@ import {
   GET_SUGGESTED_REPLIES,
 } from '@/lib/apollo/queries/smart-replies';
 import { GET_EMAIL_TEMPLATES } from '@/lib/apollo/queries/email-templates';
+import { RECORD_AI_FEEDBACK } from '@/lib/apollo/queries/ai-feedback';
 import type { EmailThread } from '@/lib/email/email-types';
 import { InboxAssistantAdapter } from '@/components/email/InboxAssistantAdapter';
 import { PriorityBadge, CategoryChip } from '@/components/ui/priority-badge';
@@ -67,6 +70,16 @@ const getConversation = (thread: EmailThread | null) => {
   return thread.messages
     .map((m) => `${m.from?.name || m.from?.email || 'Unknown'}: ${m.content || m.contentPreview || ''}`)
     .join('\n\n');
+};
+
+/** Returns days since the most recent message in the thread. */
+const daysSinceLastMessage = (thread: EmailThread | null): number => {
+  if (!thread || thread.messages.length === 0) return 0;
+  const last = thread.messages[thread.messages.length - 1];
+  const dateVal = (last as any).receivedAt || (last as any).createdAt;
+  if (!dateVal) return 0;
+  const diff = Date.now() - new Date(dateVal as string).getTime();
+  return Math.floor(diff / (1000 * 60 * 60 * 24));
 };
 
 // ─── Collapsible Section Card ────────────────────────────────────────────────
@@ -155,6 +168,108 @@ function ReplyBubble({
   );
 }
 
+// ─── Follow-up Banner ────────────────────────────────────────────────────────
+
+function FollowUpBanner({ days }: { days: number }) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5"
+    >
+      <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+          Follow-up reminder
+        </p>
+        <p className="text-[11px] text-muted-foreground mt-0.5">
+          No reply in this thread for {days} day{days !== 1 ? 's' : ''}. Consider sending a follow-up.
+        </p>
+      </div>
+      <button
+        onClick={() => setDismissed(true)}
+        className="text-muted-foreground/50 hover:text-muted-foreground text-xs leading-none shrink-0"
+        aria-label="Dismiss"
+      >
+        ✕
+      </button>
+    </motion.div>
+  );
+}
+
+// ─── Triage Action Suggestions ────────────────────────────────────────────────
+
+function TriageActions({
+  priority,
+  category,
+}: {
+  priority?: string;
+  category?: string;
+}) {
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const dismiss = (key: string) => setDismissed((prev) => new Set(prev).add(key));
+
+  const actions: { key: string; label: string; icon: string }[] = [];
+
+  if (
+    category?.toLowerCase() === 'newsletter' ||
+    category?.toLowerCase() === 'promo'
+  ) {
+    actions.push({ key: 'unsub', label: 'Unsubscribe from sender', icon: '🚫' });
+  }
+  if (priority?.toUpperCase() === 'URGENT' || priority?.toUpperCase() === 'HIGH') {
+    actions.push({ key: 'important', label: 'Mark as important', icon: '⭐' });
+  }
+  if (category) {
+    actions.push({ key: 'label', label: `Apply label: ${category}`, icon: '🏷️' });
+  }
+
+  const visible = actions.filter((a) => !dismissed.has(a.key));
+  if (visible.length === 0) return null;
+
+  return (
+    <SectionCard
+      icon={<AlertCircle className="h-3.5 w-3.5" />}
+      title="Suggested Actions"
+      delay={0.03}
+    >
+      <div className="mt-1 space-y-1.5">
+        {visible.map((action) => (
+          <div
+            key={action.key}
+            className="flex items-center justify-between gap-2 rounded-lg border border-border/40 px-2.5 py-1.5"
+          >
+            <span className="text-xs">
+              {action.icon} {action.label}
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-5 px-2 text-[10px]"
+                onClick={() => dismiss(action.key)}
+              >
+                Apply
+              </Button>
+              <button
+                onClick={() => dismiss(action.key)}
+                className="text-muted-foreground/50 hover:text-muted-foreground text-xs"
+                aria-label="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function InboxAiWorkspace({
@@ -191,8 +306,11 @@ export function InboxAiWorkspace({
         toast({ title: 'Generation failed', description: err.message, variant: 'destructive' }),
     });
 
+  const [recordFeedback] = useMutation(RECORD_AI_FEEDBACK);
+
   const lastMessageText = useMemo(() => getLastMessageText(selectedThread), [selectedThread]);
   const conversation = useMemo(() => getConversation(selectedThread), [selectedThread]);
+  const staleDays = useMemo(() => daysSinceLastMessage(selectedThread), [selectedThread]);
 
   const isSmartReplyEnabled = settingsData?.smartReplySettings?.enabled ?? true;
   const maxSuggestions = settingsData?.smartReplySettings?.maxSuggestions ?? 3;
@@ -201,10 +319,22 @@ export function InboxAiWorkspace({
   const aiCategory = (selectedThread as any)?.aiCategory as string | undefined;
   const aiSummary = (selectedThread as any)?.aiSummary as string | undefined;
 
-  const applyDraft = (text: string, source: string) => {
+  const applyDraft = (text: string, source: string, skill = 'inbox') => {
     if (!text) return;
     onUseDraft(text);
     toast({ title: 'Draft prepared', description: `${source} inserted into composer.` });
+    // Phase 7: record positive feedback signal
+    recordFeedback({
+      variables: {
+        input: {
+          agentSkill: skill,
+          action: 'use_draft',
+          signal: 'accept',
+          emailId: selectedThread?.id ?? null,
+          draftText: text.slice(0, 500),
+        },
+      },
+    }).catch(() => {/* non-critical */});
   };
 
   const handleGetSuggestions = () => {
@@ -274,6 +404,9 @@ export function InboxAiWorkspace({
       <ScrollArea className="flex-1 min-h-0">
         <div className="space-y-2 px-3 py-3">
 
+          {/* Follow-up reminder banner (shown when thread is stale ≥ 3 days) */}
+          {staleDays >= 3 && <FollowUpBanner days={staleDays} />}
+
           {/* AI Summary card */}
           {aiSummary && (
             <SectionCard
@@ -284,6 +417,9 @@ export function InboxAiWorkspace({
               <p className="text-xs leading-relaxed text-muted-foreground">{aiSummary}</p>
             </SectionCard>
           )}
+
+          {/* Triage action suggestions */}
+          <TriageActions priority={aiPriority} category={aiCategory} />
 
           {/* Smart Replies card */}
           <SectionCard
@@ -322,7 +458,7 @@ export function InboxAiWorkspace({
                   <ReplyBubble
                     key={i}
                     text={s}
-                    onUse={() => applyDraft(s, 'Smart suggestion')}
+                    onUse={() => applyDraft(s, 'Smart suggestion', 'inbox')}
                   />
                 ))
               ) : (
@@ -373,7 +509,7 @@ export function InboxAiWorkspace({
                   type="button"
                   size="sm"
                   className="h-7 w-full text-xs"
-                  onClick={() => applyDraft(generatedReply, 'AI draft')}
+                  onClick={() => applyDraft(generatedReply, 'AI draft', 'inbox')}
                 >
                   Use this draft
                 </Button>
@@ -437,7 +573,7 @@ export function InboxAiWorkspace({
                       size="sm"
                       variant="outline"
                       className="h-6 px-2 text-[10px] shrink-0"
-                      onClick={() => applyDraft(t.body, 'template')}
+                      onClick={() => applyDraft(t.body, 'template', 'inbox')}
                     >
                       Use
                     </Button>

@@ -10,6 +10,7 @@ import { ExternalEmailLabel } from '../email-integration/entities/external-email
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
 import { NotificationModule } from '../notification/notification.module';
+import { SenderIntelligenceModule } from '../sender-intelligence/sender-intelligence.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { NotificationModule } from '../notification/notification.module';
       AuditLog,
     ]),
     NotificationModule,
+    SenderIntelligenceModule,
   ],
   controllers: [GmailSyncWebhookController],
   providers: [
