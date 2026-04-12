@@ -105,19 +105,19 @@ export class Email {
   @Column({ type: 'timestamp', nullable: true })
   scheduledAt?: Date;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Column({ type: 'varchar', length: 10, nullable: true })
   aiPriority?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Column({ type: 'varchar', length: 24, nullable: true })
   aiCategory?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Column({ type: 'text', nullable: true })
   aiSummary?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => Boolean, { nullable: true })
   @Column({ type: 'boolean', nullable: true })
   aiRequiresReply?: boolean | null;
 
