@@ -1,11 +1,40 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { ChevronLeft, type LucideIcon } from 'lucide-react';
+import {
+  Activity,
+  Archive,
+  Bell,
+  BellRing,
+  BookUser,
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  CreditCard,
+  FileText,
+  Filter,
+  Inbox,
+  type LucideIcon,
+  LayoutDashboard,
+  Mail,
+  MailPlus,
+  MessageSquareText,
+  Palette,
+  Send,
+  Shield,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  Zap,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useQuery } from '@apollo/client';
+import { GET_AGENT_PLATFORM_HEALTH } from '@/lib/apollo/queries/agent-assistant';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Sheet,
@@ -28,6 +57,93 @@ import {
   type RouteLink,
 } from './dashboard-nav.config';
 
+// Icon strip items shown when secondary panel is collapsed
+const COLLAPSED_ICONS: Record<DashboardSectionId, { icon: LucideIcon; href: string; label: string }[]> = {
+  mail: [
+    { icon: Inbox,   href: '/inbox',               label: 'Inbox' },
+    { icon: Send,    href: '/sent',                label: 'Sent' },
+    { icon: Clock,   href: '/dashboard/scheduled', label: 'Scheduled' },
+    { icon: Archive, href: '/archive',             label: 'Archive' },
+    { icon: Trash2,  href: '/trash',               label: 'Trash' },
+  ],
+  dashboard: [
+    { icon: LayoutDashboard, href: '/dashboard',    label: 'Overview' },
+    { icon: Palette,         href: '/design-system', label: 'Design System' },
+  ],
+  contacts: [
+    { icon: BookUser,  href: '/contacts',         label: 'Contacts' },
+    { icon: Sparkles,  href: '/contacts/senders', label: 'Sender Intelligence' },
+  ],
+  automation: [
+    { icon: Filter,            href: '/filters',                label: 'Filters' },
+    { icon: Zap,               href: '/warmup',                 label: 'Warmup' },
+    { icon: MessageSquareText, href: '/settings/smart-replies', label: 'Smart Replies' },
+    { icon: Bell,              href: '/notifications',              label: 'Notification Center' },
+    { icon: CreditCard,        href: '/settings/billing',           label: 'Billing' },
+    { icon: Building2,         href: '/settings/workspaces',        label: 'Workspaces' },
+    { icon: BellRing,          href: '/settings/notifications',     label: 'Notification Settings' },
+    { icon: Activity,          href: '/mailbox-health',             label: 'Mailbox Health' },
+    { icon: FileText,          href: '/templates',                  label: 'Templates' },
+    { icon: ShieldCheck,       href: '/settings/ai-audit',          label: 'AI Audit Log' },
+    { icon: Shield,            href: '/settings/feature-flags',     label: 'Feature Flags' },
+  ],
+  providers: [
+    { icon: MailPlus, href: '/email-providers', label: 'Providers' },
+  ],
+};
+
+const CollapsedSecondaryRail = ({
+  activeSection,
+  pathname,
+}: {
+  activeSection: DashboardSectionId;
+  pathname: string;
+}) => {
+  const items = COLLAPSED_ICONS[activeSection];
+  return (
+    <div className="flex w-[52px] flex-col items-center border-r border-border/50 bg-sidebar/60 py-3 gap-0.5">
+      {items.map(({ icon: Icon, href, label }) => {
+        const active = isRouteActive(pathname, href);
+        return (
+          <Link
+            key={href}
+            href={href}
+            title={label}
+            aria-label={label}
+            className={cn(
+              'relative flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200',
+              active
+                ? 'text-primary-foreground shadow-md'
+                : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground',
+            )}
+            style={
+              active
+                ? {
+                    background: 'linear-gradient(135deg, hsl(262 83% 58%), hsl(262 83% 48%))',
+                    boxShadow: '0 4px 12px hsl(262 83% 58% / 0.3)',
+                  }
+                : undefined
+            }
+          >
+            <Icon className="h-4 w-4" />
+            {active && (
+              <span
+                className="absolute -right-2 top-1/2 h-3.5 w-0.5 -translate-y-1/2 rounded-full"
+                style={{ background: 'hsl(262 83% 58%)' }}
+              />
+            )}
+          </Link>
+        );
+      })}
+
+      {/* Section type indicator at bottom */}
+      <div className="mt-auto flex items-center justify-center">
+        <div className="h-px w-6 rounded-full bg-border/60" />
+      </div>
+    </div>
+  );
+};
+
 const NAV_SHORTCUTS: Partial<Record<DashboardSectionId, string>> = {
   dashboard: 'G D',
   mail: 'G I',
@@ -39,6 +155,8 @@ const NAV_SHORTCUTS: Partial<Record<DashboardSectionId, string>> = {
 interface SidebarProps {
   isOpen: boolean;
   onClose?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 const folderFromPath = (pathname: string): EmailFolder => {
@@ -85,13 +203,55 @@ const SectionLinkItem = ({
   );
 };
 
+type AgentHealthData = {
+  agentPlatformHealth?: {
+    status?: string;
+    reachable?: boolean;
+    alertingState?: string;
+    errorRatePercent?: number;
+    latencyMs?: number;
+  };
+};
+
 const PrimaryRail = ({
   activeSection,
   onPrimarySelect,
+  isCollapsed,
+  onToggleCollapse,
 }: {
   activeSection: DashboardSectionId;
   onPrimarySelect: (item: PrimaryNavItem) => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }) => {
+  const { data: healthData } = useQuery<AgentHealthData>(GET_AGENT_PLATFORM_HEALTH, {
+    pollInterval: 60_000,
+    fetchPolicy: 'cache-and-network',
+  });
+
+  const health = healthData?.agentPlatformHealth;
+  const isOffline = health?.reachable === false || health?.status === 'UNREACHABLE';
+  const isDegraded =
+    !isOffline &&
+    (health?.alertingState === 'ALERTING' ||
+      (health?.errorRatePercent !== undefined && health.errorRatePercent > 5));
+
+  const aiDotColor = isOffline
+    ? 'bg-red-500'
+    : isDegraded
+    ? 'bg-amber-500'
+    : 'bg-emerald-500';
+  const aiTextColor = isOffline
+    ? 'text-red-600 dark:text-red-400'
+    : isDegraded
+    ? 'text-amber-600 dark:text-amber-400'
+    : 'text-emerald-600 dark:text-emerald-400';
+  const aiTitle = isOffline
+    ? 'AI Offline — agent platform unreachable'
+    : isDegraded
+    ? 'AI Degraded — elevated errors detected'
+    : 'AI Active — running background agents';
+
   return (
     <div className="flex w-[68px] flex-col items-center border-r border-border/50 bg-sidebar px-2.5 py-4">
       {/* Logo mark */}
@@ -152,19 +312,36 @@ const PrimaryRail = ({
         })}
       </div>
 
+      {/* Collapse toggle — desktop only */}
+      {onToggleCollapse && (
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+        >
+          {isCollapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </button>
+      )}
+
       {/* AI status indicator */}
       <div
-        title="AI Active — running background agents"
+        title={aiTitle}
         className="mb-1 flex flex-col items-center gap-1 cursor-default"
       >
         <span className="relative flex h-2 w-2">
           <span
-            className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping"
+            className={cn('absolute inline-flex h-full w-full rounded-full opacity-60 animate-ping', aiDotColor)}
             style={{ animationDuration: '4s' }}
           />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+          <span className={cn('relative inline-flex h-2 w-2 rounded-full', aiDotColor)} />
         </span>
-        <span className="text-[9px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+        <span className={cn('text-[9px] font-semibold uppercase tracking-wide', aiTextColor)}>
           AI
         </span>
       </div>
@@ -172,7 +349,7 @@ const PrimaryRail = ({
   );
 };
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
   const pathname = usePathname() ?? '/';
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -286,10 +463,42 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   return (
     <>
       <aside className="hidden h-full border-r border-border/50 bg-sidebar/80 backdrop-blur-xl lg:flex">
-        <PrimaryRail activeSection={activeSection} onPrimarySelect={handlePrimarySelect} />
-        <div className="w-[280px] min-w-[280px] bg-sidebar/60">
-          {renderSecondaryPanel(false)}
-        </div>
+        <PrimaryRail
+          activeSection={activeSection}
+          onPrimarySelect={handlePrimarySelect}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={onToggleCollapse}
+        />
+        {/* Secondary panel: full expanded panel OR collapsed icon strip */}
+        <AnimatePresence initial={false} mode="wait">
+          {isCollapsed ? (
+            <motion.div
+              key="collapsed"
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: 52 }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <CollapsedSecondaryRail
+                activeSection={activeSection}
+                pathname={pathname}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="expanded"
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: 280 }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="overflow-hidden min-h-0 bg-sidebar/60"
+              style={{ width: 280 }}
+            >
+              {renderSecondaryPanel(false)}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </aside>
 
       <Sheet

@@ -10,14 +10,16 @@ import {
   Bell,
   Building2,
   Search,
+  Sparkles,
   Users,
   LogOut,
   Settings,
   CreditCard,
   Command,
   PenSquare,
+  ExternalLink,
 } from 'lucide-react';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery, useLazyQuery } from '@apollo/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -51,8 +53,10 @@ import {
   SET_ACTIVE_WORKSPACE,
 } from '@/lib/apollo/queries/workspaces';
 import { GET_MY_MAILBOX_INBOUND_EVENT_STATS } from '@/lib/apollo/queries/mailbox-observability';
+import { SEMANTIC_SEARCH_QUERY } from '@/lib/apollo/queries/semantic-search';
 import { SyncStatus, type SyncState } from '@/components/ui/sync-status';
 import { cn } from '@/lib/utils';
+import { formatNotificationContext as sharedFormatNotificationContext } from '@/lib/notifications/notification-context-formatter';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -126,7 +130,19 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onCompose, onOpenComma
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>(() => searchParams?.get('q') ?? '');
+  const [semanticMode, setSemanticMode] = useState(false);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [runSemanticSearch] = useLazyQuery<{ semanticSearch: { emailIds: string[]; query: string } }>(
+    SEMANTIC_SEARCH_QUERY,
+    {
+      onCompleted: (data) => {
+        const ids = data.semanticSearch.emailIds.join(',');
+        const targetPath = pathname?.startsWith('/inbox') ? pathname : '/inbox';
+        router.push(ids ? `${targetPath}?semanticIds=${ids}` : targetPath);
+      },
+    },
+  );
 
   const [logout, { loading: logoutLoading }] = useMutation(LOGOUT_MUTATION, {
     onError: (e) => console.error('[Logout] GraphQL error', e),
@@ -287,56 +303,28 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onCompose, onOpenComma
     await Promise.all([refetchNotifications(), refetchUnreadCount()]);
   };
 
-  const resolveNotificationMetadata = (notification: DashboardNotification): Record<string, unknown> => {
-    const rawMetadata = notification.metadata;
-    if (!rawMetadata) return {};
-    if (typeof rawMetadata === 'string') {
-      try {
-        const parsed = JSON.parse(rawMetadata) as unknown;
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
-      } catch { return {}; }
-      return {};
-    }
-    if (typeof rawMetadata === 'object' && !Array.isArray(rawMetadata)) return rawMetadata;
-    return {};
-  };
-
   const formatNotificationContext = (notification: DashboardNotification): string | null => {
-    const metadata = resolveNotificationMetadata(notification);
-    const workspaceId = typeof metadata.workspaceId === 'string' ? metadata.workspaceId : notification.workspaceId || null;
-    const providerType = typeof metadata.providerType === 'string' ? metadata.providerType : null;
-    const mailboxEmail = typeof metadata.mailboxEmail === 'string' ? metadata.mailboxEmail : null;
-    const sourceIp = typeof metadata.sourceIp === 'string' && metadata.sourceIp !== '::1' && metadata.sourceIp !== '127.0.0.1' ? metadata.sourceIp : null;
-    const slaStatus = typeof metadata.slaStatus === 'string' ? metadata.slaStatus : null;
-    const successRatePercent = typeof metadata.successRatePercent === 'number' ? metadata.successRatePercent : null;
-    const rejectionRatePercent = typeof metadata.rejectionRatePercent === 'number' ? metadata.rejectionRatePercent : null;
-    const workspaceName = workspaceId && (workspaces.find((w) => w.id === workspaceId)?.name || workspaceId.slice(0, 8));
-    const contextParts = [
-      providerType ? `Provider: ${providerType}` : null,
-      mailboxEmail ? `Mailbox: ${mailboxEmail}` : null,
-      workspaceName ? `Workspace: ${workspaceName}` : null,
-      sourceIp ? `Source IP: ${sourceIp}` : null,
-      slaStatus ? `SLA: ${slaStatus}` : null,
-      successRatePercent !== null ? `Success: ${successRatePercent}%` : null,
-      rejectionRatePercent !== null ? `Reject: ${rejectionRatePercent}%` : null,
-    ].filter(Boolean);
-    if (!contextParts.length) return null;
-    return contextParts.join(' · ');
+    return sharedFormatNotificationContext(notification, workspaces);
   };
 
   const commitSearch = useCallback(
     (value: string) => {
       const trimmed = value.trim();
+      if (semanticMode && trimmed) {
+        void runSemanticSearch({ variables: { query: trimmed, limit: 20 } });
+        return;
+      }
       const params = new URLSearchParams(Array.from(searchParams?.entries() ?? []));
       if (trimmed) {
         params.set('q', trimmed);
       } else {
         params.delete('q');
+        params.delete('semanticIds');
       }
       const targetPath = pathname?.startsWith('/inbox') ? pathname : '/inbox';
       router.push(`${targetPath}?${params.toString()}`);
     },
-    [router, pathname, searchParams],
+    [router, pathname, searchParams, semanticMode, runSemanticSearch],
   );
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -436,12 +424,32 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onCompose, onOpenComma
             value={searchQuery}
             onChange={handleSearchChange}
             onKeyDown={handleSearchKeyDown}
-            placeholder="Search emails, contacts..."
+            placeholder={semanticMode ? 'AI semantic search...' : 'Search emails, contacts...'}
             aria-label="Search emails"
-            className="h-9 w-full rounded-xl border border-border/50 bg-muted/40 pl-9 pr-16 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none transition-all duration-200 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+            className={cn(
+              'h-9 w-full rounded-xl border bg-muted/40 pl-9 pr-24 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none transition-all duration-200 focus:bg-background focus:ring-2',
+              semanticMode
+                ? 'border-primary/50 focus:border-primary/60 focus:ring-primary/20'
+                : 'border-border/50 focus:border-primary/40 focus:ring-primary/15',
+            )}
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
           />
+          {/* Semantic toggle */}
+          <button
+            type="button"
+            onClick={() => setSemanticMode((v) => !v)}
+            title={semanticMode ? 'Switch to keyword search' : 'Switch to AI semantic search'}
+            className={cn(
+              'absolute right-10 flex h-5 w-5 items-center justify-center rounded-md transition-all duration-200',
+              semanticMode
+                ? 'text-primary opacity-100'
+                : 'text-muted-foreground/50 hover:text-muted-foreground',
+            )}
+            tabIndex={-1}
+          >
+            <Sparkles className="h-3 w-3" />
+          </button>
           <button
             type="button"
             onClick={onOpenCommandPalette}
@@ -617,6 +625,14 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onCompose, onOpenComma
                 );
               })
             )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => router.push('/notifications')}
+              className="rounded-lg justify-center"
+            >
+              <ExternalLink className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">View all notifications</span>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 

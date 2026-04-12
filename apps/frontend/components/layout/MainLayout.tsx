@@ -23,6 +23,9 @@ const PROVIDER_SETUP_EXEMPT_PATHS = ['/email-providers', '/settings'];
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(
+    () => typeof window !== 'undefined' && localStorage.getItem('mailzen.sidebarCollapsed') === 'true',
+  );
   const { open: cmdOpen, onClose: closeCmdPalette, setOpen: setCmdPaletteOpen } = useCommandPalette();
   const pathname = usePathname();
   const routeKey = useMemo(() => pathname || 'route:unknown', [pathname]);
@@ -102,6 +105,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     });
   };
 
+  const toggleSidebarCollapse = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('mailzen.sidebarCollapsed', String(next));
+      return next;
+    });
+  };
+
   const closeSidebar = () => {
     setSidebarOpen((prev) => {
       if (!prev) return prev;
@@ -140,7 +151,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         }}
       />
 
-      <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={closeSidebar}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={toggleSidebarCollapse}
+      />
 
       {/* Main Content */}
       <motion.div
