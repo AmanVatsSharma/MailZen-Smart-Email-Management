@@ -15,6 +15,7 @@ import {
   Settings,
   CreditCard,
   Command,
+  PenSquare,
 } from 'lucide-react';
 import { useMutation, useQuery } from '@apollo/client';
 import { Button } from '@/components/ui/button';
@@ -50,9 +51,13 @@ import {
   SET_ACTIVE_WORKSPACE,
 } from '@/lib/apollo/queries/workspaces';
 import { GET_MY_MAILBOX_INBOUND_EVENT_STATS } from '@/lib/apollo/queries/mailbox-observability';
+import { SyncStatus, type SyncState } from '@/components/ui/sync-status';
+import { cn } from '@/lib/utils';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
+  onCompose?: () => void;
+  onOpenCommandPalette?: () => void;
 }
 
 type DashboardNotification = {
@@ -112,11 +117,12 @@ const resolveBackendBaseUrl = (): string => {
   }
 };
 
-const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
+const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onCompose, onOpenCommandPalette }) => {
   const router = useRouter();
   const { toast } = useToast();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const [logout, { loading: logoutLoading }] = useMutation(LOGOUT_MUTATION, {
     onError: (e) => console.error('[Logout] GraphQL error', e),
@@ -204,6 +210,13 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const mailboxInboundSlaStatus = mailboxInboundStats?.slaStatus || 'NO_DATA';
   const hasMailboxInboundErrors =
     mailboxInboundSlaStatus === 'WARNING' || mailboxInboundSlaStatus === 'CRITICAL';
+
+  const syncState: SyncState = (() => {
+    if (mailboxInboundSlaStatus === 'CRITICAL') return 'offline';
+    if (mailboxInboundSlaStatus === 'WARNING') return 'degraded';
+    return 'idle';
+  })();
+  const lastSyncedAt = mailboxInboundStats?.lastProcessedAt ?? null;
 
   const workspaces = useMemo(
     () => (workspaceData?.myWorkspaces || []) as DashboardWorkspace[],
@@ -354,21 +367,44 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         </Link>
       </div>
 
-      {/* Center: search */}
-      <div className="flex flex-1 items-center justify-center px-4">
-        <div className="relative hidden md:flex items-center w-full max-w-[320px]">
-          <Search className="absolute left-3 h-3.5 w-3.5 text-muted-foreground/60" />
+      {/* Center: search + compose */}
+      <div className="flex flex-1 items-center justify-center gap-2 px-4">
+        <div
+          className={cn(
+            'relative hidden md:flex items-center w-full transition-all duration-300 ease-out',
+            searchFocused ? 'max-w-[440px]' : 'max-w-[320px]',
+          )}
+        >
+          <Search className="absolute left-3 h-3.5 w-3.5 text-muted-foreground/60 pointer-events-none" />
           <input
             type="search"
             placeholder="Search emails, contacts..."
             className="h-9 w-full rounded-xl border border-border/50 bg-muted/40 pl-9 pr-16 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none transition-all duration-200 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
           />
-          <div className="absolute right-2.5 flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={onOpenCommandPalette}
+            className="absolute right-2.5 flex items-center gap-0.5 cursor-pointer hover:opacity-80 transition-opacity"
+            tabIndex={-1}
+            aria-label="Open command palette"
+          >
             <kbd className="flex h-5 items-center gap-0.5 rounded border border-border/60 bg-muted px-1.5 text-[10px] font-medium text-muted-foreground/70">
               <Command className="h-2.5 w-2.5" />K
             </kbd>
-          </div>
+          </button>
         </div>
+
+        {/* Quick compose */}
+        <button
+          type="button"
+          onClick={onCompose}
+          title="Compose new email (C)"
+          className="hidden md:flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        >
+          <PenSquare className="h-4 w-4" />
+        </button>
       </div>
 
       {/* Right: actions */}
@@ -417,6 +453,13 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         </DropdownMenu>
 
         <InboxSwitcherModal />
+
+        {/* AI / sync status indicator */}
+        <SyncStatus
+          state={syncState}
+          lastSyncedAt={lastSyncedAt}
+          className="hidden md:flex"
+        />
 
         {/* Notifications */}
         <DropdownMenu>

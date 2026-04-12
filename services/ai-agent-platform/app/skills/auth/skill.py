@@ -2,15 +2,15 @@
 
 from app.contracts.agent_request import AgentRequest
 from app.contracts.agent_response import AgentResponse
-from app.core.model_provider import RuleBasedModelProvider
+from app.core.model_provider import BaseModelProvider, RuleBasedModelProvider
 from app.skills.auth.graph import build_auth_skill_graph
 
 
 class AuthSkill:
     """Handles auth-oriented assistant guidance and action hints."""
 
-    def __init__(self) -> None:
-        self._graph = build_auth_skill_graph(RuleBasedModelProvider())
+    def __init__(self, model_provider: BaseModelProvider | None = None) -> None:
+        self._graph = build_auth_skill_graph(model_provider or RuleBasedModelProvider())
 
     def run(self, request: AgentRequest) -> AgentResponse:
         """Execute the auth graph and map output to standard response."""

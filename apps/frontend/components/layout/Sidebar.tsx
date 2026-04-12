@@ -28,6 +28,14 @@ import {
   type RouteLink,
 } from './dashboard-nav.config';
 
+const NAV_SHORTCUTS: Partial<Record<DashboardSectionId, string>> = {
+  dashboard: 'G D',
+  mail: 'G I',
+  contacts: 'G C',
+  automation: 'G A',
+  providers: 'G P',
+};
+
 interface SidebarProps {
   isOpen: boolean;
   onClose?: () => void;
@@ -102,16 +110,17 @@ const PrimaryRail = ({
         {primaryNavItems.map((item) => {
           const Icon = item.icon as LucideIcon;
           const active = item.id === activeSection;
+          const shortcut = NAV_SHORTCUTS[item.id];
 
           return (
             <button
               key={item.id}
               type="button"
-              title={item.label}
+              title={shortcut ? `${item.label} — ${shortcut}` : item.label}
               aria-label={item.label}
               onClick={() => onPrimarySelect(item)}
               className={cn(
-                'relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200',
+                'group/nav relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200',
                 active
                   ? 'text-primary-foreground shadow-md'
                   : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground',
@@ -132,9 +141,32 @@ const PrimaryRail = ({
                   style={{ background: 'hsl(262 83% 58%)' }}
                 />
               )}
+              {/* Shortcut hint on hover */}
+              {shortcut && !active && (
+                <span className="pointer-events-none absolute left-full ml-2 hidden whitespace-nowrap rounded-md border border-border/60 bg-popover px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-sm group-hover/nav:flex">
+                  {shortcut}
+                </span>
+              )}
             </button>
           );
         })}
+      </div>
+
+      {/* AI status indicator */}
+      <div
+        title="AI Active — running background agents"
+        className="mb-1 flex flex-col items-center gap-1 cursor-default"
+      >
+        <span className="relative flex h-2 w-2">
+          <span
+            className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping"
+            style={{ animationDuration: '4s' }}
+          />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+        </span>
+        <span className="text-[9px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+          AI
+        </span>
       </div>
     </div>
   );

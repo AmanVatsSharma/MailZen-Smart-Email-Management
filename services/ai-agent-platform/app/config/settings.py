@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     latency_warn_ms: int = 1200
     error_rate_warn_percent: float = 5.0
 
+    # LLM provider: "claude" | "openai" | "rule_based"
+    agent_llm_provider: str = "rule_based"
+    agent_llm_api_key: str = ""
+    agent_llm_model: str = ""
+
     model_config = SettingsConfigDict(
         env_prefix="AGENT_PLATFORM_",
         env_file=".env",

@@ -9,6 +9,7 @@ import { NotificationModule } from '../notification/notification.module';
 import { OutlookSyncScheduler } from './outlook-sync.scheduler';
 import { OutlookSyncService } from './outlook-sync.service';
 import { OutlookSyncWebhookController } from './outlook-sync-webhook.controller';
+import { SenderIntelligenceModule } from '../sender-intelligence/sender-intelligence.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { OutlookSyncWebhookController } from './outlook-sync-webhook.controller'
       AuditLog,
     ]),
     NotificationModule,
+    SenderIntelligenceModule,
   ],
   controllers: [OutlookSyncWebhookController],
   providers: [
