@@ -39,16 +39,7 @@ import { useQuery, useLazyQuery, useMutation } from '@apollo/client';
 import { GET_EMAILS, GET_LABELS, UPDATE_EMAIL } from '@/lib/apollo/queries/emails';
 import { useToast } from '@/components/ui/use-toast';
 import { InboxZeroState } from './InboxZeroState';
-import { gql } from '@apollo/client';
-
-const SEMANTIC_SEARCH_QUERY = gql`
-  query SemanticSearch($query: String!, $limit: Int) {
-    semanticSearch(query: $query, limit: $limit) {
-      emailIds
-      query
-    }
-  }
-`;
+import { SEMANTIC_SEARCH_QUERY } from '@/lib/apollo/queries/semantic-search';
 
 interface EmailListProps {
   onSelectThread: (thread: EmailThread) => void;
@@ -59,6 +50,8 @@ interface EmailListProps {
   labelFilter?: string;
   /** External search query from the URL (e.g. ?q=...). Overrides internal search state when provided. */
   externalSearchQuery?: string;
+  /** Email IDs from a semantic search result to show instead of the normal list. */
+  externalSemanticEmailIds?: string[];
 }
 
 // Number of emails per page
@@ -68,6 +61,7 @@ const AI_PRIORITY_CHIPS: { id: string; label: string }[] = [
   { id: 'ai:priority_high', label: 'AI · High' },
   { id: 'ai:priority_medium', label: 'AI · Med' },
   { id: 'ai:priority_low', label: 'AI · Low' },
+  { id: 'ai:auto_archived', label: 'AI · Archived' },
 ];
 
 export function EmailList({
@@ -78,6 +72,7 @@ export function EmailList({
   initialFolder = 'inbox',
   labelFilter,
   externalSearchQuery,
+  externalSemanticEmailIds,
 }: EmailListProps) {
   // State for folder, search, and pagination
   const [currentFolder, setCurrentFolder] = useState<EmailFolder>(initialFolder);
@@ -157,12 +152,23 @@ export function EmailList({
   const [updateEmail] = useMutation(UPDATE_EMAIL);
   
   // Setup emails state from GraphQL paginated response
+  // When external semantic IDs are provided (from header AI search), filter to those threads
+  const activeSemanticIds = externalSemanticEmailIds ?? semanticEmailIds;
+  const rawItems: EmailThread[] = data?.emails?.items || [];
+  const filteredItems = activeSemanticIds
+    ? rawItems.filter((t) => activeSemanticIds.includes(t.id))
+    : rawItems;
+
   const emails = {
-    items: data?.emails?.items || [],
-    total: data?.emails?.totalCount ?? (data?.emails?.items?.length || 0),
+    items: filteredItems,
+    total: activeSemanticIds
+      ? filteredItems.length
+      : (data?.emails?.totalCount ?? rawItems.length),
     page: currentPage,
     pageSize: PAGE_SIZE,
-    hasMore: (data?.emails?.totalCount ?? 0) > currentPage * PAGE_SIZE,
+    hasMore: activeSemanticIds
+      ? false
+      : (data?.emails?.totalCount ?? 0) > currentPage * PAGE_SIZE,
   };
 
   const visibleThreadIds = useMemo(() => {

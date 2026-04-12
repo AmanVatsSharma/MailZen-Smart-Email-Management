@@ -109,7 +109,7 @@ function MessageCard({
   index: number;
   total: number;
   defaultExpanded: boolean;
-  contentRef?: React.RefObject<HTMLDivElement>;
+  contentRef?: React.RefObject<HTMLDivElement | null>;
   sanitize: (html: string) => string;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);

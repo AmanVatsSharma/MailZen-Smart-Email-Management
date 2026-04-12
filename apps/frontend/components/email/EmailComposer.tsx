@@ -2,10 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { EmailParticipant, EmailThread } from '@/lib/email/email-types';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -45,6 +43,13 @@ import {
   WandSparkles,
   Maximize2,
   Minimize2,
+  Bold,
+  Italic,
+  Underline,
+  List,
+  ListOrdered,
+  Link as LinkIcon,
+  AlignLeft,
 } from 'lucide-react';
 import { useMutation, useQuery } from '@apollo/client';
 import { SEND_EMAIL } from '@/lib/apollo/queries/emails';
@@ -54,6 +59,138 @@ import { EmailAttachmentList } from './EmailAttachment';
 import { SmartReplySelector } from './SmartReplySelector';
 import { ComposeCopilot } from './ComposeCopilot';
 import { getUserData } from '@/lib/auth/auth-utils';
+import { cn } from '@/lib/utils';
+
+// ── Recipient chip input ──────────────────────────────────────────────────────
+
+function parseEmailFromRaw(raw: string): string {
+  const trimmed = raw.trim();
+  const match = trimmed.match(/<([^>]+)>/);
+  return (match ? match[1] : trimmed).trim();
+}
+
+const CHIP_COLORS = [
+  'bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-700/40',
+  'bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-700/40',
+  'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700/40',
+  'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700/40',
+  'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-700/40',
+];
+
+interface RecipientChipInputProps {
+  label: string;
+  chips: string[];
+  onChipsChange: (chips: string[]) => void;
+  placeholder?: string;
+  onHide?: () => void;
+  autoFocus?: boolean;
+}
+
+function RecipientChipInput({
+  label,
+  chips,
+  onChipsChange,
+  placeholder = 'Add recipients…',
+  onHide,
+  autoFocus,
+}: RecipientChipInputProps) {
+  const [inputVal, setInputVal] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const commit = (raw: string) => {
+    const email = parseEmailFromRaw(raw);
+    if (email && !chips.includes(email)) {
+      onChipsChange([...chips, email]);
+    }
+    setInputVal('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === 'Tab' || e.key === ',') {
+      e.preventDefault();
+      if (inputVal.trim()) commit(inputVal);
+    } else if (e.key === 'Backspace' && !inputVal && chips.length > 0) {
+      onChipsChange(chips.slice(0, -1));
+    }
+  };
+
+  const handleBlur = () => {
+    if (inputVal.trim()) commit(inputVal);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData('text');
+    const emails = pasted.split(/[,;\s]+/).map(parseEmailFromRaw).filter(Boolean);
+    if (emails.length > 1) {
+      e.preventDefault();
+      const merged = [...chips, ...emails.filter(em => !chips.includes(em))];
+      onChipsChange(merged);
+      setInputVal('');
+    }
+  };
+
+  return (
+    <div
+      className="group flex items-start gap-0 border-b border-border/40 last:border-0 px-5 py-1.5 transition-colors hover:bg-muted/20 cursor-text"
+      onClick={() => inputRef.current?.focus()}
+    >
+      <span className="w-14 shrink-0 text-xs font-semibold text-muted-foreground/70 uppercase tracking-wide pt-2 select-none">
+        {label}
+      </span>
+      <div className="flex flex-1 flex-wrap items-center gap-1.5 min-h-[36px] py-1">
+        <AnimatePresence initial={false}>
+          {chips.map((chip, i) => (
+            <motion.span
+              key={chip}
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.85 }}
+              transition={{ duration: 0.12 }}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium',
+                CHIP_COLORS[i % CHIP_COLORS.length],
+              )}
+            >
+              <span className="h-3.5 w-3.5 rounded-full bg-current/20 text-[8px] flex items-center justify-center font-bold shrink-0">
+                {chip.charAt(0).toUpperCase()}
+              </span>
+              <span className="max-w-[160px] truncate">{chip}</span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onChipsChange(chips.filter((_, idx) => idx !== i)); }}
+                className="ml-0.5 rounded-full opacity-50 hover:opacity-100 transition-opacity"
+                aria-label={`Remove ${chip}`}
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </motion.span>
+          ))}
+        </AnimatePresence>
+        <input
+          ref={inputRef}
+          autoFocus={autoFocus}
+          value={inputVal}
+          onChange={e => setInputVal(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
+          onPaste={handlePaste}
+          placeholder={chips.length === 0 ? placeholder : ''}
+          className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder:text-muted-foreground/40 text-foreground"
+        />
+      </div>
+      {onHide && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onHide(); }}
+          className="shrink-0 mt-2 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+          aria-label={`Hide ${label} field`}
+        >
+          <MinusCircle className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
 
 interface EmailComposerProps {
   isOpen: boolean;
@@ -76,11 +213,11 @@ export function EmailComposer({
 }: EmailComposerProps) {
   const { toast } = useToast();
 
-  const [to, setTo] = useState<string>(
-    mode === 'reply' ? threadRecipients.map(r => r.email).join(', ') : ''
+  const [toChips, setToChips] = useState<string[]>(
+    mode === 'reply' ? threadRecipients.map(r => r.email) : [],
   );
-  const [cc, setCc] = useState<string>('');
-  const [bcc, setBcc] = useState<string>('');
+  const [ccChips, setCcChips] = useState<string[]>([]);
+  const [bccChips, setBccChips] = useState<string[]>([]);
   const [emailSubject, setEmailSubject] = useState<string>(
     mode === 'reply' ? `Re: ${subject}` : mode === 'forward' ? `Fwd: ${subject}` : subject
   );
@@ -193,9 +330,9 @@ export function EmailComposer({
   useEffect(() => {
     if (!isOpen) return;
 
-    setTo(mode === 'reply' ? threadRecipients.map((recipient) => recipient.email).join(', ') : '');
-    setCc('');
-    setBcc('');
+    setToChips(mode === 'reply' ? threadRecipients.map((recipient) => recipient.email) : []);
+    setCcChips([]);
+    setBccChips([]);
     setEmailSubject(
       mode === 'reply'
         ? `Re: ${subject}`
@@ -232,17 +369,9 @@ export function EmailComposer({
 
   // Handle sending the email
   const handleSendEmail = async () => {
-    // Parse recipient strings as plain email arrays for backend SendEmailInput.
-    const parseRecipients = (recipientString: string): string[] => {
-      return recipientString
-        .split(',')
-        .map((raw) => raw.trim())
-        .filter(Boolean);
-    };
-
-    const toRecipients = parseRecipients(to);
-    const ccRecipients = parseRecipients(cc);
-    const bccRecipients = parseRecipients(bcc);
+    const toRecipients = toChips;
+    const ccRecipients = ccChips;
+    const bccRecipients = bccChips;
 
     // Frontend validations (fast feedback, better UX).
     if (toRecipients.length === 0) {
@@ -342,23 +471,34 @@ export function EmailComposer({
       }}
     >
       <DialogContent
-        className="p-0 overflow-hidden sm:max-w-[980px] max-h-[90vh] bg-background/70 backdrop-blur-xl border-slate-200/40 dark:border-slate-800/40"
+        className="p-0 overflow-hidden sm:max-w-[900px] max-h-[92vh] bg-background/80 backdrop-blur-2xl border-border/50 shadow-2xl"
+        style={{ borderRadius: '1rem' }}
       >
-        <div className="flex flex-col max-h-[90vh]">
+        <div className="flex flex-col max-h-[92vh]">
           {/* Composer header */}
-          <div className="p-4 border-b flex items-center justify-between bg-background/50 backdrop-blur-md">
-            <div className="min-w-0">
-              <h2 className="text-lg md:text-xl font-semibold tracking-tight truncate">
-                {composerTitle}
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                {isScheduled ? 'Scheduled send enabled' : 'Send now'}
-              </p>
+          <div className="flex items-center justify-between px-5 py-3.5 border-b bg-background/60 backdrop-blur-md">
+            <div className="flex items-center gap-3 min-w-0">
+              <div
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                style={{ background: 'linear-gradient(135deg, hsl(262 83% 58%), hsl(262 83% 44%))', boxShadow: '0 2px 10px hsl(262 83% 58% / 0.3)' }}
+              >
+                <PenLine className="h-4 w-4 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold tracking-tight leading-tight">
+                  {composerTitle}
+                </h2>
+                <p className="text-[11px] text-muted-foreground/70 truncate">
+                  {fromAddress ? `from ${fromAddress}` : ''}
+                  {isScheduled ? ' · Scheduled' : ''}
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-8 w-8 rounded-lg"
                 aria-label={isMinimized ? 'Expand composer' : 'Minimize composer'}
                 onClick={() => setIsMinimized((v) => !v)}
               >
@@ -369,7 +509,7 @@ export function EmailComposer({
                 )}
               </Button>
               <DialogClose asChild>
-                <Button variant="ghost" size="icon" aria-label="Close composer">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" aria-label="Close composer">
                   <X className="h-4 w-4" />
                 </Button>
               </DialogClose>
@@ -387,103 +527,83 @@ export function EmailComposer({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-          <div className="flex-1 overflow-auto p-4 md:p-5 min-h-[420px]">
-          {/* Recipients */}
-          <div className="space-y-2 mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-16 text-sm font-medium">To:</div>
-              <div className="flex-1">
-                <Input
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                  placeholder="Add recipients..."
-                  className="border-0 shadow-none focus-visible:ring-0 px-0 bg-transparent"
-                />
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs h-6"
-                onClick={() => {
-                  setShowCc(true);
-                  setShowBcc(true);
-                }}
-              >
-                Cc/Bcc
-              </Button>
+          <div className="flex-1 overflow-auto min-h-[420px]">
+          {/* Recipients — chip inputs */}
+          <div className="border-b border-border/30">
+            {/* To field */}
+            <div className="relative">
+              <RecipientChipInput
+                label="To"
+                chips={toChips}
+                onChipsChange={setToChips}
+                placeholder="Add recipients…"
+                autoFocus={mode === 'new'}
+              />
+              {!showCc && !showBcc && (
+                <button
+                  type="button"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] font-medium text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                  onClick={() => { setShowCc(true); setShowBcc(true); }}
+                >
+                  Cc/Bcc
+                </button>
+              )}
             </div>
 
+            {/* Cc */}
             <AnimatePresence>
               {showCc && (
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="flex items-center gap-2 overflow-hidden"
+                  className="overflow-hidden"
                 >
-                  <div className="w-16 text-sm font-medium">Cc:</div>
-                  <div className="flex-1">
-                    <Input
-                      value={cc}
-                      onChange={(e) => setCc(e.target.value)}
-                      placeholder="Add CC recipients..."
-                      className="border-0 shadow-none focus-visible:ring-0 px-0 bg-transparent"
-                    />
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => setShowCc(false)}
-                    aria-label="Hide CC field"
-                  >
-                    <MinusCircle className="h-4 w-4" />
-                  </Button>
+                  <RecipientChipInput
+                    label="Cc"
+                    chips={ccChips}
+                    onChipsChange={setCcChips}
+                    placeholder="Add CC recipients…"
+                    onHide={() => setShowCc(false)}
+                  />
                 </motion.div>
               )}
+            </AnimatePresence>
 
+            {/* Bcc */}
+            <AnimatePresence>
               {showBcc && (
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="flex items-center gap-2 overflow-hidden"
+                  className="overflow-hidden"
                 >
-                  <div className="w-16 text-sm font-medium">Bcc:</div>
-                  <div className="flex-1">
-                    <Input
-                      value={bcc}
-                      onChange={(e) => setBcc(e.target.value)}
-                      placeholder="Add BCC recipients..."
-                      className="border-0 shadow-none focus-visible:ring-0 px-0 bg-transparent"
-                    />
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => setShowBcc(false)}
-                    aria-label="Hide BCC field"
-                  >
-                    <MinusCircle className="h-4 w-4" />
-                  </Button>
+                  <RecipientChipInput
+                    label="Bcc"
+                    chips={bccChips}
+                    onChipsChange={setBccChips}
+                    placeholder="Add BCC recipients…"
+                    onHide={() => setShowBcc(false)}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
 
-            <div className="flex items-center gap-2">
-              <div className="w-16 text-sm font-medium">Subject:</div>
-              <div className="flex-1">
-                <Input
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  placeholder="Subject..."
-                  className="border-0 shadow-none focus-visible:ring-0 px-0 bg-transparent"
-                />
-              </div>
+            {/* Subject */}
+            <div className="flex items-center gap-0 border-b border-border/30 px-5 py-2 hover:bg-muted/20 transition-colors">
+              <span className="w-14 shrink-0 text-xs font-semibold text-muted-foreground/70 uppercase tracking-wide select-none">
+                Subject
+              </span>
+              <input
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                placeholder="Subject…"
+                className="flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/40 text-foreground py-1.5"
+              />
             </div>
 
-            {/* Subject line AI suggestions */}
+            {/* Subject AI suggestions */}
             <AnimatePresence>
               {SUBJECT_SUGGESTIONS.length > 0 && (
                 <motion.div
@@ -492,7 +612,8 @@ export function EmailComposer({
                   exit={{ opacity: 0, height: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="flex items-center gap-1.5 flex-wrap pt-1 pl-[72px]">
+                  <div className="flex items-center gap-1.5 flex-wrap px-5 py-2 bg-muted/20">
+                    <Sparkles className="h-3 w-3 text-primary/60 shrink-0" />
                     <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">Suggested:</span>
                     {SUBJECT_SUGGESTIONS.map((s) => (
                       <button
@@ -546,120 +667,136 @@ export function EmailComposer({
             </div>
           )}
 
-          {/* Content editor */}
-          <div className="mt-2 border rounded-md overflow-hidden">
-            <Tabs defaultValue="compose">
-              <TabsList className="p-0 h-8 border-b bg-muted/50">
-                <TabsTrigger value="compose" className="text-xs rounded-none h-8 px-3 data-[state=active]:bg-background">
-                  Compose
-                </TabsTrigger>
-                <TabsTrigger value="format" className="text-xs rounded-none h-8 px-3 data-[state=active]:bg-background">
-                  Format
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="compose" className="p-0 m-0 relative">
-                <Textarea
-                  ref={textareaRef}
-                  value={content}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setContent(val);
-                    // Show AI menu when user types `//` at end of current line
-                    if (val.endsWith('//')) {
-                      setShowAiMenu(true);
-                    } else {
-                      setShowAiMenu(false);
-                    }
-                  }}
-                  placeholder="Write your message here… type // for AI actions"
-                  className="min-h-[200px] border-0 rounded-none shadow-none focus-visible:ring-0 resize-none"
-                />
-                {/* // AI floating action menu */}
-                <AnimatePresence>
-                  {showAiMenu && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 4, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 4, scale: 0.96 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute left-4 bottom-2 z-50 w-56 rounded-xl border border-border/60 bg-popover shadow-xl overflow-hidden"
-                    >
-                      <div className="px-3 py-2 border-b bg-muted/50">
-                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                          <WandSparkles className="h-3 w-3 text-primary" /> AI actions
-                        </p>
-                      </div>
-                      {AI_ACTIONS.map((action) => (
-                        <button
-                          key={action.key}
-                          type="button"
-                          onClick={() => handleAiActionSelect(action.key)}
-                          className="w-full px-3 py-2 text-left text-xs hover:bg-accent transition-colors"
-                        >
-                          {action.label}
-                        </button>
-                      ))}
-                      <div className="px-3 py-1.5 border-t">
-                        <button
-                          type="button"
-                          onClick={() => setShowAiMenu(false)}
-                          className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
-                        >
-                          Esc to dismiss
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </TabsContent>
-              <TabsContent value="format" className="p-2 m-0 border-b bg-muted/20">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button variant="ghost" size="sm" className="h-8">
-                    <span className="font-bold">B</span>
-                  </Button>
-                  <Button variant="ghost" size="sm" className="h-8">
-                    <span className="italic">I</span>
-                  </Button>
-                  <Button variant="ghost" size="sm" className="h-8">
-                    <span className="underline">U</span>
-                  </Button>
-                  <div className="h-4 w-px bg-border"></div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 text-xs">
-                        Paragraph <ChevronDown className="h-3 w-3 ml-1" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem>Paragraph</DropdownMenuItem>
-                      <DropdownMenuItem>Heading 1</DropdownMenuItem>
-                      <DropdownMenuItem>Heading 2</DropdownMenuItem>
-                      <DropdownMenuItem>Heading 3</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 text-xs">
-                        Font <ChevronDown className="h-3 w-3 ml-1" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem>Arial</DropdownMenuItem>
-                      <DropdownMenuItem>Helvetica</DropdownMenuItem>
-                      <DropdownMenuItem>Times New Roman</DropdownMenuItem>
-                      <DropdownMenuItem>Courier</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <div className="h-4 w-px bg-border"></div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <PenLine className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Smile className="h-4 w-4" />
-                  </Button>
-                </div>
-              </TabsContent>
-            </Tabs>
+          {/* Content editor — always-visible toolbar */}
+          <div className="flex flex-col flex-1 min-h-0 px-5 pt-3 pb-1">
+            {/* Formatting toolbar */}
+            <div className="flex items-center gap-0.5 mb-2 pb-2 border-b border-border/30">
+              <button
+                type="button"
+                title="Bold"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Bold className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                title="Italic"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Italic className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                title="Underline"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Underline className="h-3.5 w-3.5" />
+              </button>
+              <div className="h-4 w-px bg-border/60 mx-1" />
+              <button
+                type="button"
+                title="Bullet list"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                title="Numbered list"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <ListOrdered className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                title="Insert link"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <LinkIcon className="h-3.5 w-3.5" />
+              </button>
+              <div className="h-4 w-px bg-border/60 mx-1" />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex h-7 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                  >
+                    <AlignLeft className="h-3 w-3" />
+                    <span>Normal</span>
+                    <ChevronDown className="h-2.5 w-2.5 opacity-50" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem>Normal text</DropdownMenuItem>
+                  <DropdownMenuItem className="font-bold">Heading 1</DropdownMenuItem>
+                  <DropdownMenuItem className="text-sm font-semibold">Heading 2</DropdownMenuItem>
+                  <DropdownMenuItem className="text-sm">Heading 3</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <div className="flex-1" />
+              <button
+                type="button"
+                title="Emoji"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Smile className="h-3.5 w-3.5" />
+              </button>
+              <span className="ml-2 text-[10px] text-muted-foreground/40 select-none pr-1">
+                type <kbd className="rounded bg-muted px-1 py-0.5 font-mono text-[9px]">//</kbd> for AI
+              </span>
+            </div>
+
+            {/* Body textarea */}
+            <div className="relative flex-1">
+              <Textarea
+                ref={textareaRef}
+                value={content}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setContent(val);
+                  if (val.endsWith('//')) setShowAiMenu(true);
+                  else setShowAiMenu(false);
+                }}
+                placeholder="Write your message here…"
+                className="min-h-[220px] w-full border-0 shadow-none focus-visible:ring-0 resize-none bg-transparent text-sm leading-relaxed p-0"
+              />
+              {/* AI floating action menu */}
+              <AnimatePresence>
+                {showAiMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 6, scale: 0.96 }}
+                    transition={{ duration: 0.14 }}
+                    className="absolute left-0 bottom-2 z-50 w-60 rounded-xl border border-border/60 bg-popover/95 shadow-2xl backdrop-blur-xl overflow-hidden"
+                  >
+                    <div className="flex items-center gap-2 px-3 py-2 border-b bg-gradient-to-r from-primary/10 to-transparent">
+                      <WandSparkles className="h-3.5 w-3.5 text-primary" />
+                      <p className="text-[11px] font-semibold text-foreground">AI actions</p>
+                    </div>
+                    {AI_ACTIONS.map((action) => (
+                      <button
+                        key={action.key}
+                        type="button"
+                        onClick={() => handleAiActionSelect(action.key)}
+                        className="w-full px-3 py-2 text-left text-xs hover:bg-accent transition-colors"
+                      >
+                        {action.label}
+                      </button>
+                    ))}
+                    <div className="px-3 py-1.5 border-t bg-muted/20">
+                      <button
+                        type="button"
+                        onClick={() => setShowAiMenu(false)}
+                        className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground"
+                      >
+                        Esc to dismiss
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
           {/* Attachments */}
@@ -680,7 +817,7 @@ export function EmailComposer({
           </AnimatePresence>
 
         {/* Composer footer */}
-        <div className="p-4 border-t flex items-center justify-between bg-background/50 backdrop-blur-md">
+        <div className="px-5 py-3.5 border-t flex items-center justify-between bg-background/60 backdrop-blur-md gap-3">
           <div className="flex items-center gap-2">
             <Button
               variant="premium"
