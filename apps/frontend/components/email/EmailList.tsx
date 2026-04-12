@@ -38,6 +38,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_EMAILS, GET_LABELS, UPDATE_EMAIL } from '@/lib/apollo/queries/emails';
 import { useToast } from '@/components/ui/use-toast';
+import { InboxZeroState } from './InboxZeroState';
 
 interface EmailListProps {
   onSelectThread: (thread: EmailThread) => void;
@@ -541,17 +542,21 @@ export function EmailList({
         {isLoading ? (
           <EmailListSkeleton count={PAGE_SIZE} />
         ) : emails.items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-8">
-            <div className="bg-primary/10 p-4 rounded-full mb-4">
-              {getFolderIcon(currentFolder)}
+          currentFolder === 'inbox' && !searchQuery ? (
+            <InboxZeroState />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+              <div className="bg-primary/10 p-4 rounded-full mb-4">
+                {getFolderIcon(currentFolder)}
+              </div>
+              <h3 className="text-lg font-medium mb-1">No emails found</h3>
+              <p className="text-muted-foreground text-sm">
+                {searchQuery
+                  ? `No matching emails found for "${searchQuery}"`
+                  : `Your ${currentFolder} is empty`}
+              </p>
             </div>
-            <h3 className="text-lg font-medium mb-1">No emails found</h3>
-            <p className="text-muted-foreground text-sm">
-              {searchQuery
-                ? `No matching emails found for "${searchQuery}"`
-                : `Your ${currentFolder} is empty`}
-            </p>
-          </div>
+          )
         ) : (
           emails.items.map((thread: EmailThread, index: number) => (
             <div key={thread.id} className="flex items-center gap-2 group">

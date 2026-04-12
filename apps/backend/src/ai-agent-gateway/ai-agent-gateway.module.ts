@@ -32,6 +32,9 @@ import { AgentPlatformEndpointRuntimeStat } from './entities/agent-platform-endp
 import { AgentPlatformHealthAlertRun } from './entities/agent-platform-health-alert-run.entity';
 import { AgentPlatformHealthSample } from './entities/agent-platform-health-sample.entity';
 import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-runtime-stat.entity';
+import { AiFeedback } from './entities/ai-feedback.entity';
+import { AiFeedbackService } from './services/ai-feedback.service';
+import { EmailEmbeddingService } from './services/email-embedding.service';
 
 @Module({
   imports: [
@@ -47,6 +50,7 @@ import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-r
       AgentPlatformHealthSample,
       AgentPlatformSkillRuntimeStat,
       AuditLog,
+      AiFeedback,
     ]),
     BillingModule,
     NotificationModule,
@@ -61,7 +65,9 @@ import { AgentPlatformSkillRuntimeStat } from './entities/agent-platform-skill-r
     FollowupDetectionScheduler,
     PriorityScoringScheduler,
     AiDigestScheduler,
+    AiFeedbackService,
+    EmailEmbeddingService,
   ],
-  exports: [AiAgentGatewayService],
+  exports: [AiAgentGatewayService, AiFeedbackService, EmailEmbeddingService],
 })
 export class AiAgentGatewayModule {}

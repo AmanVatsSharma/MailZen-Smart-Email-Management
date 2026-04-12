@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { EmailParticipant, EmailThread } from '@/lib/email/email-types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -41,6 +42,7 @@ import {
   Image as ImageIcon,
   Film,
   Sparkles,
+  WandSparkles,
 } from 'lucide-react';
 import { useMutation, useQuery } from '@apollo/client';
 import { SEND_EMAIL } from '@/lib/apollo/queries/emails';
@@ -87,7 +89,43 @@ export function EmailComposer({
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
   const [isSending, setIsSending] = useState<boolean>(false);
   const [showSmartReplies, setShowSmartReplies] = useState<boolean>(false);
+  const [tone, setTone] = useState<'professional' | 'friendly' | 'concise' | 'formal'>('professional');
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const TONES = [
+    { value: 'professional', label: 'Professional' },
+    { value: 'friendly', label: 'Friendly' },
+    { value: 'concise', label: 'Concise' },
+    { value: 'formal', label: 'Formal' },
+  ] as const;
+
+  const SUBJECT_SUGGESTIONS = useMemo(() => {
+    if (!emailSubject || emailSubject.length > 20) return [];
+    if (mode === 'reply') return [];
+    return [
+      emailSubject ? `Following up: ${emailSubject}` : 'Following up on our conversation',
+      emailSubject ? `Re: ${emailSubject} — Action Required` : 'Action Required',
+    ].filter((s) => s !== emailSubject);
+  }, [emailSubject, mode]);
+
+  const handleAiDraft = async () => {
+    if (!content && !emailSubject) {
+      toast({ title: 'Add some context', description: 'Enter a subject or a few words in the body to generate a draft.' });
+      return;
+    }
+    setIsAiGenerating(true);
+    try {
+      // In production this would call the AI agent platform via GraphQL.
+      // For now, compose a structured placeholder the backend can hydrate.
+      await new Promise((r) => setTimeout(r, 900));
+      const stub = `[AI Draft — ${tone} tone]\n\nDear recipient,\n\nI hope this message finds you well. ${emailSubject ? `Regarding "${emailSubject}", ` : ''}I wanted to reach out to discuss next steps.\n\nPlease let me know your availability.\n\nBest regards`;
+      setContent(stub);
+      toast({ title: 'Draft ready', description: 'AI draft inserted — edit as needed before sending.' });
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
 
   // Apollo Client mutation for sending emails
   const [sendEmail] = useMutation(SEND_EMAIL);
@@ -380,6 +418,32 @@ export function EmailComposer({
                 />
               </div>
             </div>
+
+            {/* Subject line AI suggestions */}
+            <AnimatePresence>
+              {SUBJECT_SUGGESTIONS.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1 pl-[72px]">
+                    <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">Suggested:</span>
+                    {SUBJECT_SUGGESTIONS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setEmailSubject(s)}
+                        className="text-[11px] text-primary/80 hover:text-primary underline underline-offset-2 transition-colors"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {mode === 'reply' && replyToThread && (
@@ -503,8 +567,8 @@ export function EmailComposer({
         {/* Composer footer */}
         <div className="p-4 border-t flex items-center justify-between bg-background/50 backdrop-blur-md">
           <div className="flex items-center gap-2">
-            <Button 
-              variant="premium" 
+            <Button
+              variant="premium"
               className="gap-1"
               onClick={handleSendEmail}
               disabled={isSending}
@@ -521,6 +585,51 @@ export function EmailComposer({
                 </>
               )}
             </Button>
+
+            {/* AI Draft button */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
+              onClick={handleAiDraft}
+              disabled={isAiGenerating}
+            >
+              {isAiGenerating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <WandSparkles className="h-3.5 w-3.5" />
+              )}
+              AI Draft
+            </Button>
+
+            {/* Tone selector */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Badge
+                  variant="outline"
+                  className="cursor-pointer gap-1 px-2 py-1 text-[11px] font-normal hover:bg-muted transition-colors"
+                >
+                  <Smile className="h-3 w-3" />
+                  {TONES.find((t) => t.value === tone)?.label}
+                  <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+                </Badge>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[130px]">
+                <DropdownMenuLabel className="text-xs">Tone</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {TONES.map((t) => (
+                  <DropdownMenuItem
+                    key={t.value}
+                    onClick={() => setTone(t.value)}
+                    className={tone === t.value ? 'text-primary font-medium' : ''}
+                  >
+                    {t.label}
+                    {tone === t.value && <span className="ml-auto text-primary">✓</span>}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <input
               type="file"

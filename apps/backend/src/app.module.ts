@@ -25,6 +25,7 @@ import { SmartReplyModule } from './smart-replies/smart-reply.module';
 import { LabelModule } from './organization/label.module';
 import { QuestionModule } from './question/question.module';
 import { AiAgentGatewayModule } from './ai-agent-gateway/ai-agent-gateway.module';
+import { SenderIntelligenceModule } from './sender-intelligence/sender-intelligence.module';
 import { buildTypeOrmModuleOptions } from './database/typeorm.config';
 
 @Module({
@@ -75,6 +76,7 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
     LabelModule,
     QuestionModule,
     AiAgentGatewayModule,
+    SenderIntelligenceModule,
   ],
   controllers: [],
   providers: [],
