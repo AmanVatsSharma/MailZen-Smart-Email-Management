@@ -75,3 +75,12 @@ export const SET_ACTIVE_WORKSPACE = gql`
   }
 `;
 
+export const GET_MY_WORKSPACE_DATA_EXPORT = gql`
+  query MyWorkspaceDataExport($workspaceId: String!) {
+    myWorkspaceDataExport(workspaceId: $workspaceId) {
+      generatedAtIso
+      dataJson
+    }
+  }
+`;
+

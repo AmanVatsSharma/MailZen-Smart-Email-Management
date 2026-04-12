@@ -51,6 +51,8 @@ export interface Email {
   providerEmailId?: string;
 }
 
+export type EmailMessage = Email;
+
 export interface EmailLabel {
   id: string;
   name: string;

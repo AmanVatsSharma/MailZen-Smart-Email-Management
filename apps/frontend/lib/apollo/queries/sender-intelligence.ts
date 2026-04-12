@@ -27,3 +27,27 @@ export const GET_SENDER_PROFILE = gql`
     }
   }
 `;
+
+export const GET_VIP_SENDERS = gql`
+  query VipSenders {
+    vipSenders {
+      senderEmail
+      displayName
+      emailCount
+      relationshipScore
+      isVip
+      lastEmailAt
+    }
+  }
+`;
+
+export const SET_SENDER_VIP = gql`
+  mutation SetSenderVip($email: String!, $isVip: Boolean!) {
+    setSenderVip(email: $email, isVip: $isVip) {
+      senderEmail
+      displayName
+      isVip
+      relationshipScore
+    }
+  }
+`;
