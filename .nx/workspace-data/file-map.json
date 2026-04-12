@@ -6,216 +6,216 @@
   "fileMap": {
     "nonProjectFiles": [
       {
-        "file": "deploy/ec2/scripts/docs-check.sh",
-        "hash": "6960322528302483124"
-      },
-      {
-        "file": "deploy/ec2/README.md",
-        "hash": "18194459442035356772"
-      },
-      {
-        "file": "deploy/ec2/scripts/ssl-check.sh",
-        "hash": "4739700210646433808"
-      },
-      {
-        "file": "deploy/ec2/scripts/reports-prune.sh",
-        "hash": "18186479411761496262"
-      },
-      {
-        "file": "deploy/ec2/scripts/restart.sh",
-        "hash": "3303087199054677206"
-      },
-      {
-        "file": "deploy/ec2/scripts/backup-prune.sh",
-        "hash": "8405090803756644112"
-      },
-      {
-        "file": "deploy/ec2/reports/.gitignore",
-        "hash": "4854053431585404831"
-      },
-      {
-        "file": "deploy/ec2/scripts/launch.sh",
-        "hash": "3667071601710872357"
-      },
-      {
-        "file": "deploy/ec2/scripts/self-check.sh",
-        "hash": "11213733107246290767"
-      },
-      {
-        "file": "deploy/ec2/scripts/env-audit.sh",
-        "hash": "574531610055515007"
-      },
-      {
-        "file": "deploy/ec2/scripts/pipeline-check.sh",
-        "hash": "8811641674593572139"
-      },
-      {
-        "file": "package-lock.json",
-        "hash": "6285364480923223299"
-      },
-      {
-        "file": "tools/ensure-env.js",
-        "hash": "16624794780193372200"
-      },
-      {
-        "file": "deploy/ec2/scripts/bootstrap-ubuntu.sh",
-        "hash": "6306221702632142776"
-      },
-      {
-        "file": "deploy/ec2/scripts/backup-db.sh",
-        "hash": "7444407942659355097"
-      },
-      {
-        "file": "deploy/ec2/scripts/setup.sh",
-        "hash": "13078247213950737397"
-      },
-      {
-        "file": "deploy/ec2/VALIDATION.md",
-        "hash": "1001714966989041561"
-      },
-      {
-        "file": "CLAUDE.md",
-        "hash": "1811349596987735031"
-      },
-      {
-        "file": ".dockerignore",
-        "hash": "5910725907312873671"
-      },
-      {
-        "file": ".github/workflows/ci.yml",
-        "hash": "9852264237329005613"
-      },
-      {
         "file": "deploy/ec2/FLOW.md",
         "hash": "197196724814483593"
-      },
-      {
-        "file": "deploy/ec2/scripts/restore-db.sh",
-        "hash": "8585520176930265643"
-      },
-      {
-        "file": "deploy/ec2/docker-compose.yml",
-        "hash": "16098631399562400623"
       },
       {
         "file": "deploy/ec2/scripts/preflight.sh",
         "hash": "18203397811275327282"
       },
       {
-        "file": "deploy/ec2/scripts/support-bundle.sh",
-        "hash": "14146567209109447815"
+        "file": ".dockerignore",
+        "hash": "5910725907312873671"
+      },
+      {
+        "file": "deploy/ec2/VALIDATION.md",
+        "hash": "1001714966989041561"
       },
       {
         "file": "docs/ai-agent-platform.md",
         "hash": "12685929449851605725"
       },
       {
-        "file": "deploy/ec2/scripts/help.sh",
-        "hash": "14184861737222920612"
+        "file": "deploy/ec2/scripts/self-check.sh",
+        "hash": "11213733107246290767"
       },
       {
-        "file": "deploy/ec2/scripts/common.sh",
-        "hash": "16022590504069202968"
+        "file": "deploy/ec2/scripts/backup-db.sh",
+        "hash": "7444407942659355097"
+      },
+      {
+        "file": "tools/ensure-env.js",
+        "hash": "16624794780193372200"
       },
       {
         "file": "deploy/ec2/scripts/ports-check.sh",
         "hash": "1059874576047461499"
       },
       {
-        "file": "README.md",
-        "hash": "11827180227601564061"
+        "file": "deploy/ec2/scripts/support-bundle.sh",
+        "hash": "14146567209109447815"
       },
       {
         "file": "deploy/ec2/.env.ec2.example",
         "hash": "15584251533798524090"
       },
       {
-        "file": "deploy/ec2/scripts/logs.sh",
-        "hash": "11136840106235913001"
-      },
-      {
-        "file": ".gitignore",
-        "hash": "14795988321034134035"
-      },
-      {
         "file": "deploy/ec2/scripts/validate.sh",
         "hash": "1576285170244544453"
-      },
-      {
-        "file": "deploy/ec2/scripts/rotate-app-secrets.sh",
-        "hash": "702060002821748719"
-      },
-      {
-        "file": ".claude/settings.local.json",
-        "hash": "7829753683254938929"
-      },
-      {
-        "file": "deploy/ec2/scripts/status.sh",
-        "hash": "17829098222156642903"
-      },
-      {
-        "file": "deploy/ec2/scripts/verify.sh",
-        "hash": "7804227714472198217"
-      },
-      {
-        "file": "package.json",
-        "hash": "13112403154527068990"
-      },
-      {
-        "file": "deploy/ec2/scripts/backup-list.sh",
-        "hash": "13004233965656393174"
-      },
-      {
-        "file": "deploy/ec2/scripts/dns-check.sh",
-        "hash": "2677008726789738252"
-      },
-      {
-        "file": "deploy/ec2/backups/.gitignore",
-        "hash": "8191922859220357953"
       },
       {
         "file": "deploy/ec2/scripts/update.sh",
         "hash": "12295339314336101572"
       },
       {
-        "file": "deploy/ec2/Caddyfile",
-        "hash": "17512328996854688238"
-      },
-      {
-        "file": "deploy/ec2/scripts/stop.sh",
-        "hash": "8200334457157941971"
-      },
-      {
-        "file": "deploy/ec2/scripts/rollback-latest.sh",
-        "hash": "2979958203494185033"
-      },
-      {
-        "file": "deploy/ec2/scripts/runtime-smoke.sh",
-        "hash": "5866865847802230832"
-      },
-      {
-        "file": "nx.json",
-        "hash": "4028464915613245907"
-      },
-      {
         "file": "deploy/ec2/scripts/doctor.sh",
         "hash": "17351412501801164701"
-      },
-      {
-        "file": "deploy/ec2/scripts/host-readiness.sh",
-        "hash": "6537282881871105948"
       },
       {
         "file": "deploy/ec2/scripts/build-check.sh",
         "hash": "174179042876143778"
       },
       {
+        "file": "package.json",
+        "hash": "13112403154527068990"
+      },
+      {
+        "file": "deploy/ec2/scripts/verify.sh",
+        "hash": "7804227714472198217"
+      },
+      {
+        "file": "nx.json",
+        "hash": "4028464915613245907"
+      },
+      {
+        "file": "deploy/ec2/README.md",
+        "hash": "18194459442035356772"
+      },
+      {
+        "file": ".gitignore",
+        "hash": "14795988321034134035"
+      },
+      {
+        "file": "CLAUDE.md",
+        "hash": "1811349596987735031"
+      },
+      {
+        "file": "deploy/ec2/docker-compose.yml",
+        "hash": "16098631399562400623"
+      },
+      {
+        "file": "deploy/ec2/scripts/rotate-app-secrets.sh",
+        "hash": "702060002821748719"
+      },
+      {
+        "file": "deploy/ec2/scripts/status.sh",
+        "hash": "17829098222156642903"
+      },
+      {
+        "file": "deploy/ec2/scripts/setup.sh",
+        "hash": "13078247213950737397"
+      },
+      {
+        "file": "deploy/ec2/scripts/restart.sh",
+        "hash": "3303087199054677206"
+      },
+      {
+        "file": "package-lock.json",
+        "hash": "6285364480923223299"
+      },
+      {
+        "file": "deploy/ec2/scripts/backup-list.sh",
+        "hash": "13004233965656393174"
+      },
+      {
+        "file": "deploy/ec2/scripts/host-readiness.sh",
+        "hash": "6537282881871105948"
+      },
+      {
+        "file": "deploy/ec2/scripts/ssl-check.sh",
+        "hash": "4739700210646433808"
+      },
+      {
+        "file": "deploy/ec2/scripts/help.sh",
+        "hash": "14184861737222920612"
+      },
+      {
+        "file": "deploy/ec2/backups/.gitignore",
+        "hash": "8191922859220357953"
+      },
+      {
+        "file": "deploy/ec2/scripts/rollback-latest.sh",
+        "hash": "2979958203494185033"
+      },
+      {
+        "file": "deploy/ec2/reports/.gitignore",
+        "hash": "4854053431585404831"
+      },
+      {
+        "file": "deploy/ec2/scripts/logs.sh",
+        "hash": "11136840106235913001"
+      },
+      {
+        "file": "deploy/ec2/scripts/launch.sh",
+        "hash": "3667071601710872357"
+      },
+      {
+        "file": "deploy/ec2/scripts/env-audit.sh",
+        "hash": "574531610055515007"
+      },
+      {
+        "file": "README.md",
+        "hash": "11827180227601564061"
+      },
+      {
+        "file": ".claude/settings.local.json",
+        "hash": "7829753683254938929"
+      },
+      {
+        "file": ".github/workflows/ci.yml",
+        "hash": "9852264237329005613"
+      },
+      {
+        "file": "deploy/ec2/scripts/dns-check.sh",
+        "hash": "2677008726789738252"
+      },
+      {
+        "file": "deploy/ec2/scripts/stop.sh",
+        "hash": "8200334457157941971"
+      },
+      {
+        "file": "deploy/ec2/scripts/runtime-smoke.sh",
+        "hash": "5866865847802230832"
+      },
+      {
         "file": "deploy/ec2/scripts/menu.sh",
         "hash": "13226074825270361146"
       },
       {
+        "file": "deploy/ec2/Caddyfile",
+        "hash": "17512328996854688238"
+      },
+      {
+        "file": "deploy/ec2/scripts/common.sh",
+        "hash": "16022590504069202968"
+      },
+      {
         "file": "deploy/ec2/scripts/deploy.sh",
         "hash": "12333465455928253676"
+      },
+      {
+        "file": "deploy/ec2/scripts/reports-prune.sh",
+        "hash": "18186479411761496262"
+      },
+      {
+        "file": "deploy/ec2/scripts/restore-db.sh",
+        "hash": "8585520176930265643"
+      },
+      {
+        "file": "deploy/ec2/scripts/docs-check.sh",
+        "hash": "6960322528302483124"
+      },
+      {
+        "file": "deploy/ec2/scripts/backup-prune.sh",
+        "hash": "8405090803756644112"
+      },
+      {
+        "file": "deploy/ec2/scripts/pipeline-check.sh",
+        "hash": "8811641674593572139"
+      },
+      {
+        "file": "deploy/ec2/scripts/bootstrap-ubuntu.sh",
+        "hash": "6306221702632142776"
       }
     ],
     "projectFileMap": {
@@ -554,7 +554,7 @@
         },
         {
           "file": "apps/frontend/components/layout/dashboard-nav.config.ts",
-          "hash": "5066595683530316630"
+          "hash": "2605497789291217196"
         },
         {
           "file": "apps/frontend/components/premium/Showcase.tsx",

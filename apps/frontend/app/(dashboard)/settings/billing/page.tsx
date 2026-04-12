@@ -37,6 +37,7 @@ import {
   GET_MY_BILLING_INVOICES,
   REQUEST_PLAN_UPGRADE,
   SELECT_MY_PLAN,
+  START_MY_PLAN_TRIAL,
 } from '@/lib/apollo/queries/billing';
 
 type BillingPlan = {
@@ -192,6 +193,24 @@ const BillingSettingsPage = () => {
       },
     },
   );
+
+  const [startTrial, { loading: startingTrial }] = useMutation(START_MY_PLAN_TRIAL, {
+    onCompleted: async (payload) => {
+      await refetch();
+      toast({
+        title: 'Trial started!',
+        description: `Enjoy ${payload?.startMyPlanTrial?.planCode} features. Trial ends ${
+          payload?.startMyPlanTrial?.trialEndsAt
+            ? new Date(payload.startMyPlanTrial.trialEndsAt).toLocaleDateString()
+            : 'soon'
+        }.`,
+      });
+    },
+    onError: (err) => toast({ title: 'Trial failed', description: err.message, variant: 'destructive' }),
+  });
+
+  const subscriptionStatus: string = data?.mySubscription?.status || '';
+  const isTrialing = subscriptionStatus === 'TRIALING';
 
   const plans: BillingPlan[] = data?.billingPlans || [];
   const currentPlanCode: string = data?.mySubscription?.planCode || 'FREE';
@@ -468,29 +487,47 @@ const BillingSettingsPage = () => {
                   ))}
                 </ul>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="flex flex-col gap-2">
                 {isCurrent ? (
                   <Button className="w-full" variant="outline" disabled>
-                    Current plan
+                    {isTrialing ? '✓ Trial active' : 'Current plan'}
                   </Button>
                 ) : isPaid ? (
-                  <Button
-                    className="w-full gap-1"
-                    disabled={isLoadingThis || loading}
-                    onClick={() => handlePaidPlan(plan.code)}
-                  >
-                    {isLoadingThis ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                        Redirecting...
-                      </>
-                    ) : (
-                      <>
-                        <CreditCard className="h-4 w-4" />
-                        Subscribe via {selectedGateway === 'razorpay' ? 'Razorpay' : 'Stripe'} — ${monthlyPrice}/mo
-                      </>
+                  <>
+                    <Button
+                      className="w-full gap-1"
+                      disabled={isLoadingThis || loading}
+                      onClick={() => handlePaidPlan(plan.code)}
+                    >
+                      {isLoadingThis ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                          Redirecting...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="h-4 w-4" />
+                          Subscribe via {selectedGateway === 'razorpay' ? 'Razorpay' : 'Stripe'} — ${monthlyPrice}/mo
+                        </>
+                      )}
+                    </Button>
+                    {!isTrialing && (
+                      <Button
+                        className="w-full gap-1"
+                        variant="outline"
+                        size="sm"
+                        disabled={startingTrial}
+                        onClick={() => startTrial({ variables: { planCode: plan.code } })}
+                      >
+                        {startingTrial ? (
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3.5 w-3.5" />
+                        )}
+                        Start Free Trial
+                      </Button>
                     )}
-                  </Button>
+                  </>
                 ) : (
                   <Button
                     className="w-full gap-1"

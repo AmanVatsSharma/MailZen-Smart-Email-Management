@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
-import { Plus, RefreshCw, UserPlus, Users } from 'lucide-react';
+import { useLazyQuery, useMutation, useQuery } from '@apollo/client';
+import { Download, Phone, Plus, RefreshCw, UserPlus, Users } from 'lucide-react';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -20,10 +20,12 @@ import {
   CREATE_WORKSPACE,
   GET_MY_ACTIVE_WORKSPACE,
   GET_MY_WORKSPACES,
+  GET_MY_WORKSPACE_DATA_EXPORT,
   GET_WORKSPACE_MEMBERS,
   INVITE_WORKSPACE_MEMBER,
   SET_ACTIVE_WORKSPACE,
 } from '@/lib/apollo/queries/workspaces';
+import { PhoneVerificationDialog } from '@/components/auth/PhoneVerificationDialog';
 
 type Workspace = {
   id: string;
@@ -46,9 +48,29 @@ const WorkspaceSettingsPage = () => {
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('MEMBER');
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(
-    null,
-  );
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
+  const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
+  const [exportingWorkspaceId, setExportingWorkspaceId] = useState<string | null>(null);
+
+  const [fetchWorkspaceExport] = useLazyQuery(GET_MY_WORKSPACE_DATA_EXPORT, {
+    fetchPolicy: 'network-only',
+    onCompleted: (data) => {
+      const payload = data?.myWorkspaceDataExport;
+      if (!payload?.dataJson) return;
+      const blob = new Blob([payload.dataJson], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `workspace-${exportingWorkspaceId}-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setExportingWorkspaceId(null);
+    },
+    onError: (err) => {
+      toast({ title: 'Export failed', description: err.message, variant: 'destructive' });
+      setExportingWorkspaceId(null);
+    },
+  });
 
   const {
     data: workspaceData,
@@ -145,6 +167,11 @@ const WorkspaceSettingsPage = () => {
     await setActiveWorkspace({ variables: { workspaceId } });
   };
 
+  const handleExportWorkspace = (workspaceId: string) => {
+    setExportingWorkspaceId(workspaceId);
+    fetchWorkspaceExport({ variables: { workspaceId } });
+  };
+
   return (
     <DashboardPageShell
       title="Workspace & Team Settings"
@@ -210,25 +237,41 @@ const WorkspaceSettingsPage = () => {
           </CardHeader>
           <CardContent className="space-y-2">
             {workspaces.map((workspace) => (
-              <button
+              <div
                 key={workspace.id}
-                type="button"
-                onClick={() => handleSelectWorkspace(workspace.id)}
-                className={`w-full rounded-md border p-3 text-left transition ${
+                className={`w-full rounded-md border p-3 transition ${
                   workspace.id === selectedWorkspaceId
                     ? 'border-primary/60 bg-primary/5'
                     : 'hover:border-primary/30'
                 }`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium">{workspace.name}</p>
-                  <div className="flex items-center gap-1">
-                    {workspace.isPersonal && <Badge variant="outline">Personal</Badge>}
-                    {workspace.id === activeWorkspaceId && <Badge>Active</Badge>}
+                <button
+                  type="button"
+                  className="w-full text-left"
+                  onClick={() => handleSelectWorkspace(workspace.id)}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium">{workspace.name}</p>
+                    <div className="flex items-center gap-1">
+                      {workspace.isPersonal && <Badge variant="outline">Personal</Badge>}
+                      {workspace.id === activeWorkspaceId && <Badge>Active</Badge>}
+                    </div>
                   </div>
+                  <p className="text-xs text-muted-foreground">slug: {workspace.slug}</p>
+                </button>
+                <div className="mt-2 flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1 text-xs text-muted-foreground"
+                    onClick={() => handleExportWorkspace(workspace.id)}
+                    disabled={exportingWorkspaceId === workspace.id}
+                  >
+                    <Download className="h-3 w-3" />
+                    {exportingWorkspaceId === workspace.id ? 'Exporting…' : 'Export data'}
+                  </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">slug: {workspace.slug}</p>
-              </button>
+              </div>
             ))}
           </CardContent>
         </Card>
@@ -300,6 +343,33 @@ const WorkspaceSettingsPage = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Phone Verification */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Phone Verification</CardTitle>
+          <CardDescription>
+            Add phone verification to strengthen account security. Required for enterprise SSO and MFA.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPhoneDialogOpen(true)}
+            className="gap-1.5"
+          >
+            <Phone className="h-3.5 w-3.5" />
+            Verify Phone Number
+          </Button>
+        </CardContent>
+      </Card>
+
+      <PhoneVerificationDialog
+        open={phoneDialogOpen}
+        onOpenChange={setPhoneDialogOpen}
+        onVerified={() => toast({ title: 'Phone verified!', description: 'Your phone number is now verified.' })}
+      />
     </DashboardPageShell>
   );
 };
