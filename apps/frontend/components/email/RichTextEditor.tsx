@@ -7,7 +7,8 @@
  *
  * Exports:
  *   - RichTextEditor(props, ref)   — forwardRef component; renders EditorContent
- *                                    using the editor instance passed via props
+ *                                    using the editor instance passed via props;
+ *                                    injects placeholder CSS required by @tiptap/extension-placeholder
  *   - RichTextEditorHandle          — ref type exposing focus(), getHTML(), setContent(html)
  *   - RichTextEditorProps           — component prop shape
  *
@@ -16,7 +17,8 @@
  *   - @/lib/utils                   — cn() Tailwind class merger
  *
  * Side-effects:
- *   - none (pure client component; no I/O)
+ *   - Injects a <style> tag into the DOM for Placeholder extension CSS
+ *     (@tiptap/extension-placeholder ships no CSS; consumer must supply it)
  *
  * Key invariants:
  *   - The editor instance is owned by the parent (EmailComposer) and passed in via
@@ -64,10 +66,13 @@ export interface RichTextEditorProps {
    * the toolbar's chain() calls and the visible EditorContent share one state.
    */
   editor: Editor | null;
-  /** Initial / controlled HTML content — used only for the content-sync effect in parent. */
-  content: string;
-  /** Called with the updated HTML on every editor change (wired via onUpdate in parent). */
-  onChange: (html: string) => void;
+  /**
+   * These props are kept for API compatibility with EmailComposer but are not
+   * consumed here — content sync, onChange, and placeholder text are all
+   * configured via useEditor() in the parent.
+   */
+  content?: string;
+  onChange?: (html: string) => void;
   placeholder?: string;
   className?: string;
 }
@@ -93,6 +98,20 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     return (
       <div className={cn('relative', className)}>
         <EditorContent editor={editor} />
+        {/*
+         * @tiptap/extension-placeholder ships no CSS — it only sets the
+         * `data-placeholder` attribute and `is-editor-empty` class.
+         * This style block makes the placeholder visible when the editor is empty.
+         */}
+        <style>{`
+          .ProseMirror p.is-editor-empty:first-child::before {
+            content: attr(data-placeholder);
+            float: left;
+            color: hsl(var(--muted-foreground) / 0.4);
+            pointer-events: none;
+            height: 0;
+          }
+        `}</style>
       </div>
     );
   },

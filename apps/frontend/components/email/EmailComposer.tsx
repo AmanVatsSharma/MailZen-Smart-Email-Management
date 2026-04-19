@@ -309,6 +309,12 @@ export function EmailComposer({
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Placeholder.configure({ placeholder: 'Write your message here…' }),
     ],
+    editorProps: {
+      attributes: {
+        // prose classes give proper typography for headings, lists, links, etc.
+        class: 'min-h-[220px] w-full focus:outline-none text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none',
+      },
+    },
     content: '',
     onUpdate({ editor: ed }) {
       const html = ed.getHTML();
