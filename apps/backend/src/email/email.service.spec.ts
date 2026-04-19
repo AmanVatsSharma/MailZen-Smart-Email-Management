@@ -464,6 +464,9 @@ describe('EmailService', () => {
   });
 
   it('rejects send with BadRequestException when an attachment exceeds 25 MB', async () => {
+    // Generate a base64 string that decodes to ~26 MB (> 25 MB limit).
+    // base64 encodes 3 bytes as 4 chars, so 35 * 1024 * 1024 chars ≈ 26.25 MB decoded.
+    const oversizedBase64 = 'A'.repeat(35 * 1024 * 1024);
     await expect(
       service.sendEmail(
         {
@@ -476,8 +479,8 @@ describe('EmailService', () => {
             {
               filename: 'huge.zip',
               contentType: 'application/zip',
-              content: '',
-              size: 26 * 1024 * 1024,
+              content: oversizedBase64,
+              size: 0,
             },
           ],
         },
@@ -552,8 +555,9 @@ describe('EmailService', () => {
       status: 'READ',
     } as Email);
     emailRepo.update.mockResolvedValue({} as never);
+    // Simulate a real PostgreSQL unique-constraint violation (code 23505)
     suppressedSenderRepo.save.mockRejectedValueOnce(
-      new Error('duplicate key value violates unique constraint'),
+      Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }),
     );
 
     const result = await service.unsubscribeFromSender('email-11', 'user-1');

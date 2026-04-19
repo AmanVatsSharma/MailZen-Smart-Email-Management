@@ -36,8 +36,9 @@
  *   - Active inbox source resolution: requestedProviderId → user.activeInboxId →
  *     active provider → newest provider → newest mailbox.
  *   - For MAILBOX threads, aiPriority filter is applied in-process after mapping.
- *     For PROVIDER threads, the ExternalEmailMessage table has no aiPriority column
- *     so the filter is silently a no-op on that code path.
+ *     For PROVIDER threads, aiPriority is filtered via a correlated EXISTS subquery
+ *     against the Email table (providerId + inboundMessageId = externalMessageId);
+ *     an INNER JOIN was replaced to avoid duplicate rows when the join key is non-unique.
  *   - Gmail API calls use exponential backoff (max 5 attempts, 250ms–4s base).
  *
  * Read order:
@@ -845,19 +846,20 @@ export class UnifiedInboxService {
       }
     }
 
-    // aiPriority filter for provider path: join the Email table via
-    // providerId + inboundMessageId = externalMessageId.
-    // Email rows are populated by AI scoring; until then the join returns no
-    // matches (inner join semantics), which is the correct result — unscored
-    // messages have no priority.
+    // aiPriority filter for provider path: correlated EXISTS subquery against
+    // the Email table via providerId + inboundMessageId = externalMessageId.
+    // An EXISTS subquery avoids duplicate rows when the join key is non-unique
+    // and correctly excludes unscored messages (no matching Email row → no match).
     if (filter?.aiPriority) {
-      qb.innerJoin(
-        Email,
-        'e',
-        'e."providerId" = m."providerId" AND e."inboundMessageId" = m."externalMessageId"',
-      ).andWhere('e."aiPriority" = :aiPriority', {
-        aiPriority: filter.aiPriority,
-      });
+      qb.andWhere(
+        `EXISTS (
+          SELECT 1 FROM email e
+          WHERE e."providerId" = m."providerId"
+            AND e."inboundMessageId" = m."externalMessageId"
+            AND e."aiPriority" = :aiPriority
+        )`,
+        { aiPriority: filter.aiPriority },
+      );
     }
 
     if (sort?.field === 'from')

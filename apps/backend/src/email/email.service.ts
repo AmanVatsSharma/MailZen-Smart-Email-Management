@@ -32,14 +32,18 @@
  *   - Google Cloud Storage writes (via AttachmentService for inline attachments)
  *
  * Key invariants:
- *   - Attachment size is validated before the email record is saved; any attachment
- *     exceeding MAX_ATTACHMENT_SIZE_BYTES (25 MB) throws BadRequestException
+ *   - Attachment size is validated against the actual decoded byte length of the
+ *     base64 content (not the client-supplied size field) before the email record is
+ *     saved; any attachment exceeding MAX_ATTACHMENT_SIZE_BYTES (25 MB) throws BadRequestException
  *   - Attachment uploads happen after the email record is saved so emailId is known
- *   - Attachment upload failures are caught and logged; they do NOT abort the send
+ *   - uploadInlineAttachments returns only successfully-uploaded attachment metadata;
+ *     failures are caught and logged and do NOT produce a broken MIME reference
+ *   - Successfully uploaded attachments are passed to nodemailer sendMail via the
+ *     `attachments` field so recipients actually receive them
  *   - For scheduled emails, attachments are uploaded immediately (before the
  *     early-return) so they are associated with the email record at schedule time
  *   - OAuth provider tokens are always refreshed via EmailProviderService before send
- *   - unsubscribeFromSender is idempotent: duplicate suppression rows are silently ignored
+ *   - unsubscribeFromSender is idempotent: duplicate suppression (PG code 23505) silently ignored
  *   - assignLabel is idempotent: upsert on (emailId, labelId) unique constraint
  *
  * Read order:
@@ -70,6 +74,7 @@ import { SuppressedSender } from './entities/suppressed-sender.entity';
 import { EmailLabel } from './entities/email-label.entity';
 import { EmailLabelAssignment } from './entities/email-label-assignment.entity';
 import { EmailProviderService } from '../email-integration/email-provider.service';
+import { AttachmentInput } from './dto/attachment.input';
 import { SendEmailInput } from './dto/send-email.input';
 import { AttachmentService } from './email.attachment.service';
 import { MailerService } from '@nestjs-modules/mailer';
@@ -133,18 +138,18 @@ export class EmailService {
 
   /**
    * Validate that no attachment exceeds the 25 MB size limit.
+   * Measures the actual decoded byte length from the base64 content string so
+   * that a client-supplied `size` field cannot be used to bypass the guard.
    * Must be called before the email record is persisted so that oversized payloads
    * are rejected without creating an orphaned email row.
    * Throws BadRequestException on the first attachment that exceeds the limit.
    */
-  private validateAttachmentSizes(input: SendEmailInput): void {
-    if (!input.attachments || input.attachments.length === 0) {
-      return;
-    }
-    for (const att of input.attachments) {
-      if (att.size > MAX_ATTACHMENT_SIZE_BYTES) {
+  private validateAttachmentSizes(attachments: AttachmentInput[]): void {
+    for (const att of attachments) {
+      const actualBytes = Buffer.byteLength(att.content, 'base64');
+      if (actualBytes > MAX_ATTACHMENT_SIZE_BYTES) {
         throw new BadRequestException(
-          `Attachment "${att.filename}" exceeds the maximum allowed size of 25 MB (received ${att.size} bytes)`,
+          `Attachment "${att.filename}" exceeds the 25 MB limit`,
         );
       }
     }
@@ -152,26 +157,35 @@ export class EmailService {
 
   /**
    * Upload inline attachments from SendEmailInput after email record is saved.
-   * Failures are caught per-attachment and logged — they do not abort the send.
+   * Returns only the attachments that uploaded successfully — failures are caught
+   * per-attachment and logged so they do not abort the send, but a failed upload
+   * will not produce a broken MIME reference in the outgoing message.
    */
   private async uploadInlineAttachments(
     emailId: string,
     userId: string,
     input: SendEmailInput,
-  ): Promise<void> {
+  ): Promise<Array<{ filename: string; url: string; contentType: string }>> {
     if (!input.attachments || input.attachments.length === 0) {
-      return;
+      return [];
     }
+
+    const uploaded: Array<{ filename: string; url: string; contentType: string }> = [];
 
     for (const att of input.attachments) {
       try {
-        await this.attachmentService.uploadAttachment(
+        const result = await this.attachmentService.uploadAttachment(
           {
             emailId,
             attachment: att,
           },
           userId,
         );
+        uploaded.push({
+          filename: result.filename,
+          url: result.url,
+          contentType: result.contentType,
+        });
       } catch (error) {
         this.logger.warn(
           serializeStructuredLog({
@@ -184,6 +198,8 @@ export class EmailService {
         );
       }
     }
+
+    return uploaded;
   }
 
   /**
@@ -194,7 +210,9 @@ export class EmailService {
    */
   async sendEmail(input: SendEmailInput, userId: string) {
     // Validate attachment sizes before persisting anything
-    this.validateAttachmentSizes(input);
+    if (input.attachments?.length) {
+      this.validateAttachmentSizes(input.attachments);
+    }
 
     this.logger.log(
       serializeStructuredLog({
@@ -255,7 +273,7 @@ export class EmailService {
     // Upload inline attachments now that we have an emailId.
     // For scheduled emails, attachments are uploaded before the early-return so
     // they are associated with the record at schedule time.
-    await this.uploadInlineAttachments(savedEmail.id, userId, input);
+    const uploadedAttachments = await this.uploadInlineAttachments(savedEmail.id, userId, input);
 
     // If scheduled, return early
     if (input.scheduledAt) {
@@ -375,6 +393,11 @@ export class EmailService {
         to: input.to.join(','),
         subject: input.subject,
         html: bodyWithClickTracking,
+        attachments: uploadedAttachments.map((att) => ({
+          filename: att.filename,
+          path: att.url,        // public GCS URL
+          contentType: att.contentType,
+        })),
       });
 
       // Update email status
@@ -668,32 +691,27 @@ export class EmailService {
       });
       await this.suppressedSenderRepository.save(record);
     } catch (err: unknown) {
-      // Unique constraint violation (duplicate) — treat as idempotent success
-      const isUniqueViolation =
-        err instanceof Error &&
-        (err.message.includes('duplicate key') ||
-          err.message.includes('unique constraint'));
-
-      if (!isUniqueViolation) {
+      if ((err as any).code === '23505') {
+        // Unique constraint violation (duplicate) — treat as idempotent success
+        this.logger.log(
+          serializeStructuredLog({
+            event: 'email_unsubscribe_suppression_already_exists',
+            emailId,
+            userId,
+            senderEmail,
+          }),
+        );
+      } else {
         this.logger.warn(
           serializeStructuredLog({
             event: 'email_unsubscribe_suppression_save_failed',
             emailId,
             userId,
-            error: err instanceof Error ? err.message : String(err),
+            error: err instanceof Error ? (err as Error).message : String(err),
           }),
         );
         throw err;
       }
-
-      this.logger.log(
-        serializeStructuredLog({
-          event: 'email_unsubscribe_suppression_already_exists',
-          emailId,
-          userId,
-          senderEmail,
-        }),
-      );
     }
 
     await this.writeAuditLog({
