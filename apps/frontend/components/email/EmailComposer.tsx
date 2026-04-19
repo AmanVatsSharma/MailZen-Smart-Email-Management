@@ -13,7 +13,9 @@
  *   - @tiptap/starter-kit                     — core extensions (bold, italic, lists, etc.)
  *   - @tiptap/extension-link                  — hyperlink support
  *   - @tiptap/extension-underline             — underline mark
- *   - ./RichTextEditor                        — Tiptap wrapper component + ref handle
+ *   - @tiptap/extension-text-align            — left/center/right/justify alignment
+ *   - @tiptap/extension-placeholder           — empty-state placeholder text
+ *   - ./RichTextEditor                        — Tiptap EditorContent wrapper + ref handle
  *   - @/lib/apollo/queries/emails             — SEND_EMAIL mutation
  *   - @/lib/apollo/queries/providers          — GET_PROVIDERS query
  *   - @/lib/apollo/queries/agent-assistant    — AGENT_ASSIST_MUTATION for AI draft and inline actions
@@ -29,6 +31,9 @@
  *   - GraphQL query:    providers (cache-first, via Apollo)
  *
  * Key invariants:
+ *   - The editor instance (useEditor) is created here and passed into RichTextEditor as
+ *     a prop. This ensures the toolbar's chain() calls and the visible EditorContent share
+ *     one ProseMirror state — no dual-editor disconnection.
  *   - Body content is stored as HTML in `content` state; all AI text operations must
  *     work through the editor instance or convert HTML ↔ text appropriately.
  *   - The `//` AI trigger is detected via Tiptap onUpdate (editor.getText().endsWith('//'))
@@ -98,11 +103,15 @@ import {
   ListOrdered,
   Link as LinkIcon,
   AlignLeft,
+  AlignCenter,
+  AlignRight,
 } from 'lucide-react';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TiptapLink from '@tiptap/extension-link';
 import TiptapUnderline from '@tiptap/extension-underline';
+import TextAlign from '@tiptap/extension-text-align';
+import Placeholder from '@tiptap/extension-placeholder';
 import { useMutation, useQuery } from '@apollo/client';
 import { SEND_EMAIL } from '@/lib/apollo/queries/emails';
 import { GET_PROVIDERS } from '@/lib/apollo/queries/providers';
@@ -290,14 +299,16 @@ export function EmailComposer({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<RichTextEditorHandle>(null);
 
-  // ── Tiptap editor instance — used for toolbar commands and isEmpty checks ──
+  // ── Tiptap editor instance — owned here, passed into RichTextEditor as a prop ──
+  // Single instance shared between toolbar buttons (chain()) and EditorContent.
   const editor = useEditor({
     extensions: [
       StarterKit,
       TiptapLink.configure({ openOnClick: false }),
       TiptapUnderline,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Placeholder.configure({ placeholder: 'Write your message here…' }),
     ],
-    // Initialise with empty content; the RichTextEditor component handles syncing.
     content: '',
     onUpdate({ editor: ed }) {
       const html = ed.getHTML();
@@ -890,6 +901,47 @@ export function EmailComposer({
                 <LinkIcon className="h-3.5 w-3.5" />
               </button>
               <div className="h-4 w-px bg-border/60 mx-1" />
+              {/* Text alignment buttons */}
+              <button
+                type="button"
+                title="Align left"
+                onClick={() => editor?.chain().focus().setTextAlign('left').run()}
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+                  editor?.isActive({ textAlign: 'left' })
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+              >
+                <AlignLeft className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                title="Align center"
+                onClick={() => editor?.chain().focus().setTextAlign('center').run()}
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+                  editor?.isActive({ textAlign: 'center' })
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+              >
+                <AlignCenter className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                title="Align right"
+                onClick={() => editor?.chain().focus().setTextAlign('right').run()}
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+                  editor?.isActive({ textAlign: 'right' })
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+              >
+                <AlignRight className="h-3.5 w-3.5" />
+              </button>
+              <div className="h-4 w-px bg-border/60 mx-1" />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -929,13 +981,13 @@ export function EmailComposer({
               </span>
             </div>
 
-            {/* Body — Tiptap rich text editor */}
+            {/* Body — Tiptap rich text editor (editor instance hoisted here so toolbar works) */}
             <div className="relative flex-1">
               <RichTextEditor
                 ref={editorRef}
+                editor={editor}
                 content={content}
                 onChange={(html) => setContent(html)}
-                placeholder="Write your message here…"
                 className="min-h-[220px]"
               />
               {/* AI floating action menu */}
