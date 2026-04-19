@@ -21,6 +21,7 @@
  * Key invariants:
  *   - SuppressedSender entity is registered here so its repository is injectable
  *     by EmailService for the unsubscribeFromSender feature
+ *   - EmailAssignment entity is registered here for tracking thread assignment lifecycle
  *
  * Read order:
  *   1. TypeOrmModule.forFeature([...])  — all entities owned by this module
@@ -28,7 +29,7 @@
  *   3. providers                        — services and resolvers
  *
  * Author:      AmanVatsSharma
- * Last-updated: 2026-04-20
+ * Last-updated: 2026-04-19
  */
 
 import { Module } from '@nestjs/common';
@@ -44,6 +45,7 @@ import { Attachment } from './entities/attachment.entity';
 import { EmailWarmup } from './entities/email-warmup.entity';
 import { WarmupActivity } from './entities/warmup-activity.entity';
 import { SuppressedSender } from './entities/suppressed-sender.entity';
+import { EmailAssignment } from './entities/email-assignment.entity';
 import { EmailService } from './email.service';
 import { EmailResolver } from './email.resolver';
 import { EmailController } from './email.controller';
@@ -88,6 +90,7 @@ import { AuditLog } from '../auth/entities/audit-log.entity';
       EmailWarmup,
       WarmupActivity,
       SuppressedSender,
+      EmailAssignment,
       User,
       Template,
       AuditLog,

@@ -1,3 +1,49 @@
+/**
+ * File:        apps/backend/src/mailbox/mailbox.service.ts
+ * Module:      Mailbox · Service
+ * Purpose:     Business logic for provisioning, querying, sharing, and observability
+ *              of user-owned @mailzen.com mailboxes.
+ *
+ * Exports:
+ *   - MailboxService — injectable NestJS service with all mailbox operations
+ *     - createMailbox(userId, desiredLocalPart?) → { email, id }
+ *     - getUserMailboxes(userId, workspaceId?) → Mailbox[]
+ *     - shareMailboxWithWorkspace(mailboxId, workspaceId, userId) → Mailbox
+ *     - getSharedMailboxes(workspaceId) → Mailbox[]
+ *     - getProvisioningHealthSummary() → MailboxProvisioningHealthSnapshot
+ *     - getInboundEvents(userId, options?) → MailboxInboundEventObservabilityResponse[]
+ *     - getInboundEventStats(userId, options?) → MailboxInboundEventStatsResponse
+ *     - getInboundEventSeries(userId, options?) → MailboxInboundEventTrendPointResponse[]
+ *     - exportInboundEventData(input) → MailboxInboundDataExportResponse
+ *     - exportInboundEventDataForAdmin(input) → MailboxInboundDataExportResponse
+ *     - purgeInboundEventRetentionData(input) → MailboxInboundRetentionPurgeResponse
+ *     - suggestLocalPart(base) → string
+ *
+ * Depends on:
+ *   - ./entities/mailbox.entity — Mailbox TypeORM entity
+ *   - ../billing/billing.service — enforces per-plan mailbox limits and storage entitlements
+ *   - ../workspace/workspace.service — resolves default workspace on mailbox creation
+ *   - ./mail-server.service — SMTP/IMAP provisioning on self-hosted mail server
+ *   - ../common/logging/structured-log.util — structured log serialization and fingerprinting
+ *
+ * Side-effects:
+ *   - DB writes: mailboxes, audit_logs tables
+ *   - HTTP call: mail-server provisioning API on mailbox creation
+ *
+ * Key invariants:
+ *   - Mailbox count is enforced against billing entitlements before creation
+ *   - Mail server provisioning failure triggers DB rollback (mailbox delete)
+ *   - shareMailboxWithWorkspace only permits the owning userId to share their mailbox
+ *   - isShared flag is always set alongside workspaceId to avoid orphaned shares
+ *
+ * Read order:
+ *   1. createMailbox — primary provisioning flow
+ *   2. shareMailboxWithWorkspace / getSharedMailboxes — workspace sharing feature
+ *   3. getInboundEvents / getInboundEventStats / getInboundEventSeries — observability
+ *
+ * Author:      AmanVatsSharma
+ * Last-updated: 2026-04-19
+ */
 import {
   BadRequestException,
   ConflictException,
@@ -789,6 +835,24 @@ export class MailboxService {
       retentionDays,
       executedAtIso: now.toISOString(),
     };
+  }
+
+  async shareMailboxWithWorkspace(
+    mailboxId: string,
+    workspaceId: string,
+    userId: string,
+  ): Promise<Mailbox> {
+    const mailbox = await this.mailboxRepo.findOne({
+      where: { id: mailboxId, userId },
+    });
+    if (!mailbox) throw new NotFoundException('Mailbox not found');
+    mailbox.isShared = true;
+    mailbox.workspaceId = workspaceId;
+    return this.mailboxRepo.save(mailbox);
+  }
+
+  async getSharedMailboxes(workspaceId: string): Promise<Mailbox[]> {
+    return this.mailboxRepo.find({ where: { workspaceId, isShared: true } });
   }
 
   private async deriveBaseFromUser(userId: string): Promise<string> {

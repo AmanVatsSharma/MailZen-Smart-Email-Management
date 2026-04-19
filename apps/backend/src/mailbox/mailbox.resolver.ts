@@ -1,3 +1,72 @@
+/**
+ * File:        apps/backend/src/mailbox/mailbox.resolver.ts
+ * Module:      Mailbox · GraphQL Resolver
+ * Purpose:     Exposes mailbox provisioning, workspace sharing, sync observability,
+ *              inbound event analytics, and SLA alert operations over GraphQL.
+ *
+ * Exports:
+ *   - MailboxResolver — NestJS GraphQL resolver class (all operations JWT-guarded at class level)
+ *     Mutations:
+ *       - createMyMailbox(desiredLocalPart?) → String (email address)
+ *       - shareMailboxWithWorkspace(mailboxId, workspaceId) → Mailbox
+ *       - purgeMyMailboxInboundRetentionData(retentionDays?) → MailboxInboundRetentionPurgeResponse
+ *       - runMyMailboxSyncIncidentAlertCheck(...) → MailboxSyncIncidentAlertCheckResponse
+ *       - runMyMailboxInboundSlaAlertCheck(windowHours?) → MailboxInboundSlaAlertCheckResponse
+ *       - purgeMyMailboxSyncRunRetentionData(retentionDays?) → MailboxSyncRunRetentionPurgeResponse
+ *       - syncMyMailboxPull(mailboxId?, workspaceId?) → MailboxSyncRunResponse
+ *     Queries:
+ *       - myMailboxes(workspaceId?) → [String]
+ *       - getSharedMailboxes(workspaceId) → [Mailbox]
+ *       - myMailboxProvisioningHealth() → MailboxProvisioningHealthResponse
+ *       - myMailboxInboundEvents(...) → [MailboxInboundEventObservabilityResponse]
+ *       - myMailboxInboundEventStats(...) → MailboxInboundEventStatsResponse
+ *       - myMailboxInboundEventSeries(...) → [MailboxInboundEventTrendPointResponse]
+ *       - myMailboxInboundDataExport(...) → MailboxInboundDataExportResponse
+ *       - userMailboxInboundDataExport(...) → MailboxInboundDataExportResponse (AdminGuard)
+ *       - myMailboxSyncStates(workspaceId?) → [MailboxSyncStateResponse]
+ *       - myMailboxSyncRuns(...) → [MailboxSyncRunObservabilityResponse]
+ *       - myMailboxSyncRunStats(...) → MailboxSyncRunStatsResponse
+ *       - myMailboxSyncRunSeries(...) → [MailboxSyncRunTrendPointResponse]
+ *       - myMailboxSyncDataExport(...) → MailboxSyncDataExportResponse
+ *       - userMailboxSyncDataExport(...) → MailboxSyncDataExportResponse (AdminGuard)
+ *       - myMailboxSyncIncidentStats(...) → MailboxSyncIncidentStatsResponse
+ *       - myMailboxSyncIncidentSeries(...) → [MailboxSyncIncidentTrendPointResponse]
+ *       - myMailboxSyncIncidentDataExport(...) → MailboxSyncIncidentDataExportResponse
+ *       - userMailboxSyncIncidentDataExport(...) → MailboxSyncIncidentDataExportResponse (AdminGuard)
+ *       - myMailboxSyncIncidentAlertConfig() → MailboxSyncIncidentAlertConfigResponse
+ *       - myMailboxSyncIncidentAlertDeliveryStats(...) → MailboxSyncIncidentAlertDeliveryStatsResponse
+ *       - myMailboxSyncIncidentAlerts(...) → [MailboxSyncIncidentAlertResponse]
+ *       - myMailboxSyncIncidentAlertHistoryDataExport(...) → MailboxSyncIncidentAlertHistoryDataExportResponse
+ *       - userMailboxSyncIncidentAlertHistoryDataExport(...) → same (AdminGuard)
+ *       - myMailboxSyncIncidentAlertDeliverySeries(...) → [MailboxSyncIncidentAlertDeliveryTrendPointResponse]
+ *       - myMailboxSyncIncidentAlertDeliveryDataExport(...) → MailboxSyncIncidentAlertDeliveryDataExportResponse
+ *       - userMailboxSyncIncidentAlertDeliveryDataExport(...) → same (AdminGuard)
+ *
+ * Depends on:
+ *   - ./mailbox.service — all mailbox business logic
+ *   - ./mailbox-sync.service — sync run and incident observability
+ *   - ./mailbox-inbound-sla.scheduler — on-demand SLA alert check
+ *   - ./mailbox-sync-incident.scheduler — on-demand sync incident alert check
+ *   - ../common/guards/jwt-auth.guard — session authentication (applied class-wide)
+ *   - ../common/guards/admin.guard — admin-only operations
+ *   - ./entities/mailbox.entity — returned by shareMailboxWithWorkspace and getSharedMailboxes
+ *
+ * Side-effects:
+ *   - Delegates all DB and mail-server side-effects to MailboxService / MailboxSyncService
+ *
+ * Key invariants:
+ *   - JwtAuthGuard is applied at class level; per-method guards are not repeated
+ *   - AdminGuard is additive (applied only on admin-facing methods)
+ *   - ctx.req.user.id is the authenticated caller's userId in all JWT-guarded methods
+ *
+ * Read order:
+ *   1. MailboxResolver class — constructor wiring
+ *   2. createMyMailbox / shareMailboxWithWorkspace — provisioning mutations
+ *   3. myMailboxes / getSharedMailboxes — query methods
+ *
+ * Author:      AmanVatsSharma
+ * Last-updated: 2026-04-19
+ */
 import {
   Resolver,
   Mutation,
@@ -10,6 +79,7 @@ import {
 import { UseGuards } from '@nestjs/common';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { Mailbox } from './entities/mailbox.entity';
 import { MailboxService } from './mailbox.service';
 import { MailboxInboundSlaScheduler } from './mailbox-inbound-sla.scheduler';
 import { MailboxSyncIncidentScheduler } from './mailbox-sync-incident.scheduler';
@@ -84,6 +154,26 @@ export class MailboxResolver {
       workspaceId,
     );
     return boxes.map((b) => b.email);
+  }
+
+  @Mutation(() => Mailbox)
+  async shareMailboxWithWorkspace(
+    @Args('mailboxId') mailboxId: string,
+    @Args('workspaceId') workspaceId: string,
+    @Context() ctx: RequestContext,
+  ): Promise<Mailbox> {
+    return this.mailboxService.shareMailboxWithWorkspace(
+      mailboxId,
+      workspaceId,
+      ctx.req.user.id,
+    );
+  }
+
+  @Query(() => [Mailbox])
+  async getSharedMailboxes(
+    @Args('workspaceId') workspaceId: string,
+  ): Promise<Mailbox[]> {
+    return this.mailboxService.getSharedMailboxes(workspaceId);
   }
 
   @Query(() => MailboxProvisioningHealthResponse, {
