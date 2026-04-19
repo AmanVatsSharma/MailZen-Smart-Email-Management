@@ -26,6 +26,7 @@
  * Last-updated: 2026-04-20
  */
 import { Field, InputType } from '@nestjs/graphql';
+import { IsIn, IsOptional } from 'class-validator';
 
 @InputType()
 export class EmailFilterInput {
@@ -50,9 +51,12 @@ export class EmailFilterInput {
   /**
    * Filter threads by AI-assigned priority. Accepts 'HIGH', 'MEDIUM', or 'LOW'.
    * For MAILBOX-sourced threads this is applied in-process after mapping.
-   * For PROVIDER-sourced threads this field is not filterable at the DB level
-   * (ExternalEmailMessage has no aiPriority column) and is silently ignored.
+   * For PROVIDER-sourced threads filtering by aiPriority uses an inner join on
+   * the Email table, so only threads where an Email row with matching aiPriority
+   * exists (i.e., after AI scoring) are returned — unscored messages are filtered out.
    */
   @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsIn(['HIGH', 'MEDIUM', 'LOW'])
   aiPriority?: string;
 }
