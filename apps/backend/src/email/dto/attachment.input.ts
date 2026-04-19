@@ -17,7 +17,7 @@
  *
  * Key invariants:
  *   - content must be raw base64 (no data-URL prefix)
- *   - size is optional (nullable) — stored if provided, otherwise null
+ *   - size is required and non-nullable to enforce attachment size validation
  *
  * Read order:
  *   1. AttachmentInput        — base payload shape
@@ -28,8 +28,8 @@
  * Last-updated: 2026-04-20
  */
 
-import { Field, InputType } from '@nestjs/graphql';
-import { IsString, IsOptional, IsNumber } from 'class-validator';
+import { Field, InputType, Int } from '@nestjs/graphql';
+import { IsString, IsNumber } from 'class-validator';
 
 @InputType()
 export class AttachmentInput {
@@ -45,10 +45,9 @@ export class AttachmentInput {
   @IsString()
   content: string; // Base64 encoded content
 
-  @Field({ nullable: true })
-  @IsOptional()
+  @Field(() => Int)
   @IsNumber()
-  size?: number;
+  size: number;
 }
 
 @InputType()

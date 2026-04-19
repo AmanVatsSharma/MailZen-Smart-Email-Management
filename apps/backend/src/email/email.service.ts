@@ -142,7 +142,7 @@ export class EmailService {
       return;
     }
     for (const att of input.attachments) {
-      if (att.size !== undefined && att.size !== null && att.size > MAX_ATTACHMENT_SIZE_BYTES) {
+      if (att.size > MAX_ATTACHMENT_SIZE_BYTES) {
         throw new BadRequestException(
           `Attachment "${att.filename}" exceeds the maximum allowed size of 25 MB (received ${att.size} bytes)`,
         );
