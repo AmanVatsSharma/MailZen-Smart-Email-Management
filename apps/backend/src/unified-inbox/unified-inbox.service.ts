@@ -1,3 +1,55 @@
+/**
+ * File:        apps/backend/src/unified-inbox/unified-inbox.service.ts
+ * Module:      Unified Inbox · Service
+ * Purpose:     Core service that aggregates email threads from MAILBOX (internal Email
+ *              entity) and PROVIDER (ExternalEmailMessage / Gmail / Outlook) sources into
+ *              a unified EmailThread response shape. Handles listing, filtering, sorting,
+ *              pagination, full-thread hydration, and thread mutation (read/star/folder/labels).
+ *
+ * Exports:
+ *   - UnifiedInboxService — injectable NestJS service with:
+ *       listThreads(userId, limit, offset, filter?, sort?) → PaginatedEmailThreads
+ *       getThread(userId, threadId) → EmailThread
+ *       updateThread(userId, threadId, input) → EmailThread
+ *       listFolders(userId) → EmailFolder[]
+ *       listLabels(userId) → EmailLabel[]
+ *
+ * Depends on:
+ *   - ../email/entities/email.entity        — Email rows written by mailbox ingest / triage
+ *   - ../email-integration/entities/*       — ExternalEmailMessage / ExternalEmailLabel (provider sync)
+ *   - ../mailbox/entities/mailbox.entity    — Mailbox (SMTP/IMAP mailbox config)
+ *   - ../email/entities/email-label*        — Custom label entities
+ *   - ../auth/entities/audit-log.entity     — Audit log writes
+ *   - ../common/logging/structured-log.util — PII-safe structured logging
+ *   - google-auth-library                   — Gmail OAuth token refresh
+ *
+ * Side-effects:
+ *   - DB reads on every call (emailRepo, externalEmailMessageRepo, etc.)
+ *   - DB writes on updateThread (label upsert, status update, audit log)
+ *   - HTTP calls to Gmail API in getThread / updateThread (when provider is GMAIL)
+ *   - Gmail OAuth token refresh + DB update when access token is near-expiry
+ *
+ * Key invariants:
+ *   - aiPriority / aiCategory / aiSummary are populated from Email.aiPriority etc.
+ *     for MAILBOX-sourced threads. For PROVIDER-sourced threads (ExternalEmailMessage)
+ *     these fields are undefined — Email rows are NOT written during provider sync.
+ *   - Active inbox source resolution: requestedProviderId → user.activeInboxId →
+ *     active provider → newest provider → newest mailbox.
+ *   - For MAILBOX threads, aiPriority filter is applied in-process after mapping.
+ *     For PROVIDER threads, the ExternalEmailMessage table has no aiPriority column
+ *     so the filter is silently a no-op on that code path.
+ *   - Gmail API calls use exponential backoff (max 5 attempts, 250ms–4s base).
+ *
+ * Read order:
+ *   1. EmailThread (./entities/email-thread.entity) — response shape
+ *   2. listThreads — entry point for inbox list
+ *   3. mapMailboxEmailGroupToThreadSummary — MAILBOX thread mapping
+ *   4. mapExternalMessageToThreadSummary  — PROVIDER thread mapping
+ *   5. getThread / updateThread — full thread hydration and mutation
+ *
+ * Author:      AmanVatsSharma
+ * Last-updated: 2026-04-20
+ */
 import {
   BadRequestException,
   Injectable,
@@ -503,6 +555,10 @@ export class UnifiedInboxService {
       labelIds,
       providerId: source.id,
       messages,
+      // Propagate AI fields from the latest email in the thread.
+      aiPriority: latestEmail.aiPriority ?? undefined,
+      aiCategory: latestEmail.aiCategory ?? undefined,
+      aiSummary: latestEmail.aiSummary ?? undefined,
     };
   }
 
@@ -679,6 +735,12 @@ export class UnifiedInboxService {
           filter.labelIds!.every((labelId) =>
             (thread.labelIds || []).includes(labelId),
           ),
+        );
+      }
+
+      if (filter?.aiPriority) {
+        mailboxThreads = mailboxThreads.filter(
+          (thread) => thread.aiPriority === filter.aiPriority,
         );
       }
 
@@ -876,6 +938,12 @@ export class UnifiedInboxService {
       folder,
       labelIds: labels,
       providerId: m.providerId,
+      // AI fields are not available on ExternalEmailMessage rows — they live on
+      // the Email entity which is only written for MAILBOX-sourced emails.
+      // These will remain undefined until an AI scoring pass populates Email rows.
+      aiPriority: undefined,
+      aiCategory: undefined,
+      aiSummary: undefined,
       messages: [
         {
           id: m.id,
