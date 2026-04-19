@@ -14,6 +14,7 @@
  *       - markEmailRead(markEmailReadInput) → Email  — mark an email READ
  *       - sendRealEmail(createEmailInput) → SendRealEmailResponse  — send via real SMTP/OAuth
  *       - unsubscribeFromSender(emailId) → UnsubscribeResult  — archive email + suppress sender
+ *       - assignLabel(emailId, labelId) → Email  — assign a label to an email (triage panel)
  *
  * Depends on:
  *   - ./email.service        — business logic for all email operations
@@ -22,7 +23,8 @@
  *   - ./dto/unsubscribe-result  — GraphQL return type for unsubscribeFromSender
  *
  * Side-effects:
- *   - DB writes delegated to EmailService (email rows, audit logs, suppressed_senders)
+ *   - DB writes delegated to EmailService (email rows, audit logs, suppressed_senders,
+ *     email_label_assignments)
  *   - Outbound email delivery delegated to MailService
  *
  * Key invariants:
@@ -34,9 +36,10 @@
  *   2. getMyEmails / getEmailById — query handlers
  *   3. sendEmail / markEmailRead / sendRealEmail  — mutation handlers
  *   4. unsubscribeFromSender      — sender-suppression mutation
+ *   5. assignLabel                — triage-panel label assignment
  *
  * Author:      AmanVatsSharma
- * Last-updated: 2026-04-20
+ * Last-updated: 2026-04-19
  */
 
 import { Resolver, Query, Mutation, Args, Context } from '@nestjs/graphql';
@@ -148,5 +151,15 @@ export class EmailResolver {
     @Context() context: { req: { user: { id: string } } },
   ): Promise<UnsubscribeResult> {
     return this.emailService.unsubscribeFromSender(emailId, context.req.user.id);
+  }
+
+  @Mutation(() => Email)
+  @UseGuards(JwtAuthGuard)
+  async assignLabel(
+    @Args('emailId') emailId: string,
+    @Args('labelId') labelId: string,
+    @Context() context: { req: { user: { id: string } } },
+  ): Promise<Email> {
+    return this.emailService.assignLabel(emailId, labelId, context.req.user.id);
   }
 }

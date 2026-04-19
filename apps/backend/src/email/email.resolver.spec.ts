@@ -21,10 +21,10 @@
  *
  * Read order:
  *   1. mock setup  — service stubs
- *   2. test cases  — markEmailRead → sendRealEmail → unsubscribeFromSender
+ *   2. test cases  — markEmailRead → sendRealEmail → unsubscribeFromSender → assignLabel
  *
  * Author:      AmanVatsSharma
- * Last-updated: 2026-04-20
+ * Last-updated: 2026-04-19
  */
 
 import { Repository } from 'typeorm';
@@ -40,6 +40,7 @@ describe('EmailResolver', () => {
     sendEmail: jest.fn(),
     markEmailRead: jest.fn(),
     unsubscribeFromSender: jest.fn(),
+    assignLabel: jest.fn(),
   };
   const mailService = {
     sendRealEmail: jest.fn(),
@@ -137,5 +138,21 @@ describe('EmailResolver', () => {
       success: true,
       senderEmail: 'newsletter@example.com',
     });
+  });
+
+  it('forwards authenticated user id and label id to assignLabel', async () => {
+    const mockEmail = { id: 'email-10', status: 'READ', labels: [] };
+    emailService.assignLabel.mockResolvedValue(mockEmail);
+
+    const result = await resolver.assignLabel('email-10', 'label-1', {
+      req: { user: { id: 'user-4' } },
+    } as never);
+
+    expect(emailService.assignLabel).toHaveBeenCalledWith(
+      'email-10',
+      'label-1',
+      'user-4',
+    );
+    expect(result).toEqual(expect.objectContaining({ id: 'email-10' }));
   });
 });
