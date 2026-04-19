@@ -1,3 +1,34 @@
+/**
+ * File:        apps/backend/src/unified-inbox/unified-inbox.service.spec.ts
+ * Module:      Unified Inbox · Service Tests
+ * Purpose:     Unit tests for UnifiedInboxService — covering thread listing, filtering
+ *              (including aiPriority), label management, thread updates, and inbox
+ *              source resolution for both MAILBOX and PROVIDER paths.
+ *
+ * Exports:
+ *   - none (Jest test suite)
+ *
+ * Depends on:
+ *   - ./unified-inbox.service   — class under test
+ *   - typeorm                   — Repository type for mock construction
+ *
+ * Side-effects:
+ *   - none (all repositories are Jest mocks; no real DB calls)
+ *
+ * Key invariants:
+ *   - userRepo.findOne determines which inbox source (PROVIDER vs MAILBOX) is resolved.
+ *   - aiPriority filter on MAILBOX path is applied in-process after mapping — no DB join.
+ *   - aiPriority / aiCategory / aiSummary are mapped from Email.aiPriority etc. via
+ *     mapMailboxEmailGroupToThreadSummary (reads latestEmail in the group).
+ *
+ * Read order:
+ *   1. beforeEach — mock setup and service construction
+ *   2. 'filters mailbox threads by aiPriority' — aiPriority-specific coverage
+ *   3. remaining tests — other filter/update/label scenarios
+ *
+ * Author:      AmanVatsSharma
+ * Last-updated: 2026-04-19
+ */
 import { Repository } from 'typeorm';
 import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
@@ -289,6 +320,67 @@ describe('UnifiedInboxService', () => {
     expect(threads.items).toHaveLength(1);
     expect(threads.items[0].id).toBe('mail-1');
     expect(threads.items[0].labelIds).toContain('label-vip');
+  });
+
+  it('filters mailbox threads by aiPriority', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: userId,
+      activeInboxType: 'MAILBOX',
+      activeInboxId: 'mailbox-1',
+    } as any);
+    mailboxRepo.findOne.mockResolvedValue({
+      id: 'mailbox-1',
+      userId,
+      email: 'sales@mailzen.com',
+    } as any);
+    emailRepo.find.mockResolvedValue([
+      {
+        id: 'mail-high',
+        userId,
+        mailboxId: 'mailbox-1',
+        subject: 'Critical outage',
+        body: '<p>Server is down</p>',
+        from: 'ops@example.com',
+        to: ['sales@mailzen.com'],
+        status: 'UNREAD',
+        isImportant: true,
+        aiPriority: 'HIGH',
+        aiCategory: 'urgent_issue',
+        aiSummary: 'Server outage reported.',
+        createdAt: new Date('2026-04-01T08:00:00.000Z'),
+        updatedAt: new Date('2026-04-01T08:00:00.000Z'),
+      } as any,
+      {
+        id: 'mail-low',
+        userId,
+        mailboxId: 'mailbox-1',
+        subject: 'Newsletter',
+        body: '<p>Monthly digest</p>',
+        from: 'newsletter@example.com',
+        to: ['sales@mailzen.com'],
+        status: 'READ',
+        isImportant: false,
+        aiPriority: 'LOW',
+        aiCategory: 'newsletter',
+        aiSummary: 'Monthly newsletter.',
+        createdAt: new Date('2026-04-01T09:00:00.000Z'),
+        updatedAt: new Date('2026-04-01T09:00:00.000Z'),
+      } as any,
+    ]);
+
+    const threads = await service.listThreads(
+      userId,
+      20,
+      0,
+      { aiPriority: 'HIGH' } as any,
+      null,
+    );
+
+    expect(threads.items).toHaveLength(1);
+    expect(threads.items[0].id).toBe('mail-high');
+    expect(threads.items[0].aiPriority).toBe('HIGH');
+    expect(threads.items[0].aiCategory).toBe('urgent_issue');
+    expect(threads.items[0].aiSummary).toBe('Server outage reported.');
   });
 
   it('scopes mailbox thread list to mailboxId when mailbox linkage exists', async () => {
