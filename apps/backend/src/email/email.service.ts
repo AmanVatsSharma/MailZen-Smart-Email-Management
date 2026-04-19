@@ -1,3 +1,48 @@
+/**
+ * File:        apps/backend/src/email/email.service.ts
+ * Module:      Email · Core Service
+ * Purpose:     Orchestrates email persistence, provider dispatch (Gmail / Outlook /
+ *              SMTP), open/click tracking, template sends, and inline attachment
+ *              uploads at send-time.
+ *
+ * Exports:
+ *   - EmailService                                    — NestJS injectable service
+ *     - sendEmail(input, userId) → Email              — persists + dispatches an email;
+ *                                                       uploads any inline attachments
+ *     - sendTemplateEmail(template, to, ctx, userId) → Email  — sends via NestJS Mailer template
+ *     - trackOpen(emailId) → EmailAnalytics | null    — increments open counter
+ *     - trackClick(emailId) → EmailAnalytics | null   — increments click counter
+ *     - getEmailsByUser(userId, providerId?) → Email[] — lists emails for a user
+ *     - getEmailById(id, userId) → Email | null        — fetches a single email
+ *     - markEmailRead(emailId, userId) → Email         — sets status to READ
+ *
+ * Depends on:
+ *   - ./email.attachment.service  — used to upload inline attachments after email save
+ *   - ../email-integration/email-provider.service  — obtains fresh OAuth access tokens
+ *   - ../common/logging/structured-log.util        — PII-safe structured logging
+ *
+ * Side-effects:
+ *   - DB writes (email, email_analytics, audit_log, attachment)
+ *   - Outbound SMTP / OAuth2 email delivery via nodemailer
+ *   - Google Cloud Storage writes (via AttachmentService for inline attachments)
+ *
+ * Key invariants:
+ *   - Attachment uploads happen after the email record is saved so emailId is known
+ *   - Attachment upload failures are caught and logged; they do NOT abort the send
+ *   - For scheduled emails, attachments are uploaded immediately (before the
+ *     early-return) so they are associated with the email record at schedule time
+ *   - OAuth provider tokens are always refreshed via EmailProviderService before send
+ *
+ * Read order:
+ *   1. EmailService constructor  — injected dependencies
+ *   2. sendEmail()               — main send flow including attachment upload loop
+ *   3. sendTemplateEmail()       — template-based send path
+ *   4. trackOpen / trackClick    — analytics helpers
+ *
+ * Author:      AmanVatsSharma
+ * Last-updated: 2026-04-20
+ */
+
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -7,6 +52,7 @@ import { EmailProvider } from '../email-integration/entities/email-provider.enti
 import { EmailAnalytics } from '../email-analytics/entities/email-analytics.entity';
 import { EmailProviderService } from '../email-integration/email-provider.service';
 import { SendEmailInput } from './dto/send-email.input';
+import { AttachmentService } from './email.attachment.service';
 import { MailerService } from '@nestjs-modules/mailer';
 import * as nodemailer from 'nodemailer';
 import { serializeStructuredLog } from '../common/logging/structured-log.util';
@@ -30,6 +76,7 @@ export class EmailService {
     private readonly auditLogRepository: Repository<AuditLog>,
     private emailProviderService: EmailProviderService,
     private mailerService: MailerService,
+    private readonly attachmentService: AttachmentService,
   ) {}
 
   private async writeAuditLog(input: {
@@ -53,6 +100,42 @@ export class EmailService {
           error: String(error),
         }),
       );
+    }
+  }
+
+  /**
+   * Upload inline attachments from SendEmailInput after email record is saved.
+   * Failures are caught per-attachment and logged — they do not abort the send.
+   */
+  private async uploadInlineAttachments(
+    emailId: string,
+    userId: string,
+    input: SendEmailInput,
+  ): Promise<void> {
+    if (!input.attachments || input.attachments.length === 0) {
+      return;
+    }
+
+    for (const att of input.attachments) {
+      try {
+        await this.attachmentService.uploadAttachment(
+          {
+            emailId,
+            attachment: att,
+          },
+          userId,
+        );
+      } catch (error) {
+        this.logger.warn(
+          serializeStructuredLog({
+            event: 'email_send_attachment_upload_failed',
+            emailId,
+            userId,
+            filename: att.filename,
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
+      }
     }
   }
 
@@ -118,6 +201,11 @@ export class EmailService {
         scheduled: Boolean(input.scheduledAt),
       },
     });
+
+    // Upload inline attachments now that we have an emailId.
+    // For scheduled emails, attachments are uploaded before the early-return so
+    // they are associated with the record at schedule time.
+    await this.uploadInlineAttachments(savedEmail.id, userId, input);
 
     // If scheduled, return early
     if (input.scheduledAt) {

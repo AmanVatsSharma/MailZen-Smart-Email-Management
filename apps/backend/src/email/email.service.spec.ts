@@ -1,3 +1,31 @@
+/**
+ * File:        apps/backend/src/email/email.service.spec.ts
+ * Module:      Email · Core Service · Tests
+ * Purpose:     Unit tests for EmailService covering send, scheduled send, read
+ *              marking, audit logging, template sends, and inline attachment upload.
+ *
+ * Exports:
+ *   - none (Jest test suite)
+ *
+ * Depends on:
+ *   - ./email.service          — unit under test
+ *   - ./email.attachment.service  — mocked to verify inline attachment upload calls
+ *
+ * Side-effects:
+ *   - none (all repos / services are mocked)
+ *
+ * Key invariants:
+ *   - AttachmentService.uploadAttachment is mocked; GCS calls are never made in tests
+ *   - Constructor arg order must match EmailService's DI order exactly
+ *
+ * Read order:
+ *   1. beforeEach  — mock setup and service instantiation
+ *   2. test cases  — ordered by feature area (mark-read → send → attachments)
+ *
+ * Author:      AmanVatsSharma
+ * Last-updated: 2026-04-20
+ */
+
 import { NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { MailerService } from '@nestjs-modules/mailer';
@@ -7,6 +35,7 @@ import { Email } from './entities/email.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { EmailAnalytics } from '../email-analytics/entities/email-analytics.entity';
 import { EmailService } from './email.service';
+import { AttachmentService } from './email.attachment.service';
 
 describe('EmailService', () => {
   let service: EmailService;
@@ -15,6 +44,7 @@ describe('EmailService', () => {
   let analyticsRepo: jest.Mocked<Repository<EmailAnalytics>>;
   let mailerService: jest.Mocked<MailerService>;
   let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
+  let attachmentService: jest.Mocked<Pick<AttachmentService, 'uploadAttachment'>>;
 
   beforeEach(() => {
     emailRepo = {
@@ -38,6 +68,9 @@ describe('EmailService', () => {
       create: jest.fn((payload: unknown) => payload as AuditLog),
       save: jest.fn().mockResolvedValue({} as AuditLog),
     } as unknown as jest.Mocked<Repository<AuditLog>>;
+    attachmentService = {
+      uploadAttachment: jest.fn().mockResolvedValue({}),
+    };
 
     service = new EmailService(
       emailRepo,
@@ -46,6 +79,7 @@ describe('EmailService', () => {
       auditLogRepo,
       {} as EmailProviderService,
       mailerService,
+      attachmentService as unknown as AttachmentService,
     );
   });
 
@@ -270,5 +304,137 @@ describe('EmailService', () => {
         action: 'email_template_send_failed',
       }),
     );
+  });
+
+  it('uploads inline attachments after email record is saved', async () => {
+    const scheduledAt = new Date('2026-06-01T10:00:00.000Z');
+    emailRepo.create.mockReturnValue({
+      id: 'email-6',
+      userId: 'user-1',
+      status: 'SCHEDULED',
+      scheduledAt,
+    } as Email);
+    emailRepo.save.mockResolvedValue({
+      id: 'email-6',
+      userId: 'user-1',
+      status: 'SCHEDULED',
+      scheduledAt,
+    } as Email);
+    analyticsRepo.create.mockReturnValue({
+      id: 'analytics-3',
+      emailId: 'email-6',
+      openCount: 0,
+      clickCount: 0,
+    } as EmailAnalytics);
+    analyticsRepo.save.mockResolvedValue({} as EmailAnalytics);
+
+    const attachment = {
+      filename: 'doc.pdf',
+      contentType: 'application/pdf',
+      content: 'AAAA',
+      size: 100,
+    };
+
+    await service.sendEmail(
+      {
+        subject: 'With attachment',
+        body: 'Body',
+        from: 'sender@mailzen.com',
+        to: ['one@mailzen.com'],
+        providerId: 'provider-1',
+        scheduledAt,
+        attachments: [attachment],
+      },
+      'user-1',
+    );
+
+    expect(attachmentService.uploadAttachment).toHaveBeenCalledTimes(1);
+    expect(attachmentService.uploadAttachment).toHaveBeenCalledWith(
+      { emailId: 'email-6', attachment },
+      'user-1',
+    );
+  });
+
+  it('does not abort send when attachment upload fails', async () => {
+    const scheduledAt = new Date('2026-06-01T10:00:00.000Z');
+    emailRepo.create.mockReturnValue({
+      id: 'email-7',
+      userId: 'user-1',
+      status: 'SCHEDULED',
+      scheduledAt,
+    } as Email);
+    emailRepo.save.mockResolvedValue({
+      id: 'email-7',
+      userId: 'user-1',
+      status: 'SCHEDULED',
+      scheduledAt,
+    } as Email);
+    analyticsRepo.create.mockReturnValue({
+      id: 'analytics-4',
+      emailId: 'email-7',
+      openCount: 0,
+      clickCount: 0,
+    } as EmailAnalytics);
+    analyticsRepo.save.mockResolvedValue({} as EmailAnalytics);
+    attachmentService.uploadAttachment.mockRejectedValueOnce(
+      new Error('GCS unavailable'),
+    );
+
+    const result = await service.sendEmail(
+      {
+        subject: 'With failing attachment',
+        body: 'Body',
+        from: 'sender@mailzen.com',
+        to: ['one@mailzen.com'],
+        providerId: 'provider-1',
+        scheduledAt,
+        attachments: [
+          {
+            filename: 'doc.pdf',
+            contentType: 'application/pdf',
+            content: 'AAAA',
+            size: 100,
+          },
+        ],
+      },
+      'user-1',
+    );
+
+    // Send completes successfully despite attachment failure
+    expect(result).toEqual(
+      expect.objectContaining({ id: 'email-7', status: 'SCHEDULED' }),
+    );
+  });
+
+  it('skips attachment upload when no attachments provided', async () => {
+    const scheduledAt = new Date('2026-06-01T10:00:00.000Z');
+    emailRepo.create.mockReturnValue({
+      id: 'email-8',
+      userId: 'user-1',
+      status: 'SCHEDULED',
+      scheduledAt,
+    } as Email);
+    emailRepo.save.mockResolvedValue({
+      id: 'email-8',
+      userId: 'user-1',
+      status: 'SCHEDULED',
+      scheduledAt,
+    } as Email);
+    analyticsRepo.create.mockReturnValue({} as EmailAnalytics);
+    analyticsRepo.save.mockResolvedValue({} as EmailAnalytics);
+
+    await service.sendEmail(
+      {
+        subject: 'No attachments',
+        body: 'Body',
+        from: 'sender@mailzen.com',
+        to: ['one@mailzen.com'],
+        providerId: 'provider-1',
+        scheduledAt,
+      },
+      'user-1',
+    );
+
+    expect(attachmentService.uploadAttachment).not.toHaveBeenCalled();
   });
 });
