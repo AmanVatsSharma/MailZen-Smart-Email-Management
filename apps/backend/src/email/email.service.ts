@@ -17,6 +17,8 @@
  *     - markEmailRead(emailId, userId) → Email                 — sets status to READ
  *     - unsubscribeFromSender(emailId, userId) → { success, senderEmail }
  *                                                              — archives email and suppresses sender
+ *     - assignLabel(emailId, labelId, userId) → Email          — upserts one EmailLabelAssignment
+ *                                                                 and returns the updated email
  *
  * Depends on:
  *   - ./email.attachment.service  — used to upload inline attachments after email save
@@ -24,17 +26,21 @@
  *   - ../common/logging/structured-log.util        — PII-safe structured logging
  *
  * Side-effects:
- *   - DB writes (email, email_analytics, audit_log, attachment, suppressed_senders)
+ *   - DB writes (email, email_analytics, audit_log, attachment, suppressed_senders,
+ *     email_label_assignments)
  *   - Outbound SMTP / OAuth2 email delivery via nodemailer
  *   - Google Cloud Storage writes (via AttachmentService for inline attachments)
  *
  * Key invariants:
+ *   - Attachment size is validated before the email record is saved; any attachment
+ *     exceeding MAX_ATTACHMENT_SIZE_BYTES (25 MB) throws BadRequestException
  *   - Attachment uploads happen after the email record is saved so emailId is known
  *   - Attachment upload failures are caught and logged; they do NOT abort the send
  *   - For scheduled emails, attachments are uploaded immediately (before the
  *     early-return) so they are associated with the email record at schedule time
  *   - OAuth provider tokens are always refreshed via EmailProviderService before send
  *   - unsubscribeFromSender is idempotent: duplicate suppression rows are silently ignored
+ *   - assignLabel is idempotent: upsert on (emailId, labelId) unique constraint
  *
  * Read order:
  *   1. EmailService constructor     — injected dependencies
@@ -42,12 +48,18 @@
  *   3. sendTemplateEmail()          — template-based send path
  *   4. trackOpen / trackClick       — analytics helpers
  *   5. unsubscribeFromSender()      — sender suppression + email archive
+ *   6. assignLabel()                — single label assignment for triage panel
  *
  * Author:      AmanVatsSharma
- * Last-updated: 2026-04-20
+ * Last-updated: 2026-04-19
  */
 
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuditLog } from '../auth/entities/audit-log.entity';
@@ -55,6 +67,8 @@ import { Email } from './entities/email.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { EmailAnalytics } from '../email-analytics/entities/email-analytics.entity';
 import { SuppressedSender } from './entities/suppressed-sender.entity';
+import { EmailLabel } from './entities/email-label.entity';
+import { EmailLabelAssignment } from './entities/email-label-assignment.entity';
 import { EmailProviderService } from '../email-integration/email-provider.service';
 import { SendEmailInput } from './dto/send-email.input';
 import { AttachmentService } from './email.attachment.service';
@@ -66,6 +80,9 @@ import { serializeStructuredLog } from '../common/logging/structured-log.util';
  * EmailService - Handles email sending, tracking, and management
  * Integrates with external providers (Gmail, Outlook, SMTP)
  */
+/** 25 MB in bytes — maximum permitted size per inline attachment */
+const MAX_ATTACHMENT_SIZE_BYTES = 25 * 1024 * 1024;
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -84,6 +101,10 @@ export class EmailService {
     private readonly attachmentService: AttachmentService,
     @InjectRepository(SuppressedSender)
     private readonly suppressedSenderRepository: Repository<SuppressedSender>,
+    @InjectRepository(EmailLabel)
+    private readonly emailLabelRepository: Repository<EmailLabel>,
+    @InjectRepository(EmailLabelAssignment)
+    private readonly emailLabelAssignmentRepository: Repository<EmailLabelAssignment>,
   ) {}
 
   private async writeAuditLog(input: {
@@ -107,6 +128,25 @@ export class EmailService {
           error: String(error),
         }),
       );
+    }
+  }
+
+  /**
+   * Validate that no attachment exceeds the 25 MB size limit.
+   * Must be called before the email record is persisted so that oversized payloads
+   * are rejected without creating an orphaned email row.
+   * Throws BadRequestException on the first attachment that exceeds the limit.
+   */
+  private validateAttachmentSizes(input: SendEmailInput): void {
+    if (!input.attachments || input.attachments.length === 0) {
+      return;
+    }
+    for (const att of input.attachments) {
+      if (att.size !== undefined && att.size !== null && att.size > MAX_ATTACHMENT_SIZE_BYTES) {
+        throw new BadRequestException(
+          `Attachment "${att.filename}" exceeds the maximum allowed size of 25 MB (received ${att.size} bytes)`,
+        );
+      }
     }
   }
 
@@ -153,6 +193,9 @@ export class EmailService {
    * @returns Created email entity
    */
   async sendEmail(input: SendEmailInput, userId: string) {
+    // Validate attachment sizes before persisting anything
+    this.validateAttachmentSizes(input);
+
     this.logger.log(
       serializeStructuredLog({
         event: 'email_send_start',
@@ -711,6 +754,79 @@ export class EmailService {
         nextStatus: updatedEmail.status,
       },
     });
+    return updatedEmail;
+  }
+
+  /**
+   * Assign a label to an email for the triage panel.
+   * Idempotent — re-assigning the same label is a no-op thanks to the
+   * unique constraint on (emailId, labelId).
+   *
+   * @param emailId - Email ID (must be owned by userId)
+   * @param labelId - Label ID (must be owned by userId)
+   * @param userId  - Authenticated user ID from JWT
+   * @returns The email reloaded with its label assignments
+   */
+  async assignLabel(emailId: string, labelId: string, userId: string): Promise<Email> {
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_assign_label_start',
+        emailId,
+        labelId,
+        userId,
+      }),
+    );
+
+    // Verify email ownership
+    const email = await this.emailRepository.findOne({
+      where: { id: emailId, userId },
+    });
+    if (!email) {
+      throw new NotFoundException('Email not found');
+    }
+
+    // Verify label ownership
+    const label = await this.emailLabelRepository.findOne({
+      where: { id: labelId, userId },
+    });
+    if (!label) {
+      throw new NotFoundException('Label not found');
+    }
+
+    // Upsert the assignment — idempotent on (emailId, labelId) unique constraint
+    await this.emailLabelAssignmentRepository.upsert(
+      { emailId, labelId },
+      ['emailId', 'labelId'],
+    );
+
+    await this.writeAuditLog({
+      userId,
+      action: 'email_label_assigned',
+      metadata: {
+        emailId,
+        labelId,
+        labelName: label.name,
+      },
+    });
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_assign_label_completed',
+        emailId,
+        labelId,
+        userId,
+      }),
+    );
+
+    const updatedEmail = await this.emailRepository.findOne({
+      where: { id: emailId, userId },
+      relations: ['labels'],
+    });
+
+    if (!updatedEmail) {
+      throw new NotFoundException('Email not found after label assignment');
+    }
+
     return updatedEmail;
   }
 }

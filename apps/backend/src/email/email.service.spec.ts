@@ -3,7 +3,9 @@
  * Module:      Email · Core Service · Tests
  * Purpose:     Unit tests for EmailService covering send, scheduled send, read
  *              marking, audit logging, template sends, inline attachment upload,
- *              and unsubscribeFromSender (sender suppression + email archival).
+ *              25 MB attachment size rejection, unsubscribeFromSender
+ *              (sender suppression + email archival), and assignLabel
+ *              (triage-panel label assignment).
  *
  * Exports:
  *   - none (Jest test suite)
@@ -12,23 +14,25 @@
  *   - ./email.service              — unit under test
  *   - ./email.attachment.service   — mocked to verify inline attachment upload calls
  *   - ./entities/suppressed-sender.entity  — mocked repo for suppression tests
+ *   - ./entities/email-label.entity        — mocked repo for label ownership checks
+ *   - ./entities/email-label-assignment.entity  — mocked repo for label assignment upsert
  *
  * Side-effects:
  *   - none (all repos / services are mocked)
  *
  * Key invariants:
  *   - AttachmentService.uploadAttachment is mocked; GCS calls are never made in tests
- *   - Constructor arg order must match EmailService's DI order exactly (8 args)
+ *   - Constructor arg order must match EmailService's DI order exactly (10 args)
  *
  * Read order:
  *   1. beforeEach  — mock setup and service instantiation
- *   2. test cases  — ordered by feature area (mark-read → send → attachments → unsubscribe)
+ *   2. test cases  — ordered by feature area (mark-read → send → attachments → unsubscribe → assignLabel)
  *
  * Author:      AmanVatsSharma
- * Last-updated: 2026-04-20
+ * Last-updated: 2026-04-19
  */
 
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { MailerService } from '@nestjs-modules/mailer';
 import { AuditLog } from '../auth/entities/audit-log.entity';
@@ -37,6 +41,8 @@ import { Email } from './entities/email.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { EmailAnalytics } from '../email-analytics/entities/email-analytics.entity';
 import { SuppressedSender } from './entities/suppressed-sender.entity';
+import { EmailLabel } from './entities/email-label.entity';
+import { EmailLabelAssignment } from './entities/email-label-assignment.entity';
 import { EmailService } from './email.service';
 import { AttachmentService } from './email.attachment.service';
 
@@ -49,6 +55,8 @@ describe('EmailService', () => {
   let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
   let attachmentService: jest.Mocked<Pick<AttachmentService, 'uploadAttachment'>>;
   let suppressedSenderRepo: jest.Mocked<Repository<SuppressedSender>>;
+  let emailLabelRepo: jest.Mocked<Repository<EmailLabel>>;
+  let emailLabelAssignmentRepo: jest.Mocked<Repository<EmailLabelAssignment>>;
 
   beforeEach(() => {
     emailRepo = {
@@ -79,6 +87,12 @@ describe('EmailService', () => {
       create: jest.fn((payload: unknown) => payload as SuppressedSender),
       save: jest.fn().mockResolvedValue({} as SuppressedSender),
     } as unknown as jest.Mocked<Repository<SuppressedSender>>;
+    emailLabelRepo = {
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<EmailLabel>>;
+    emailLabelAssignmentRepo = {
+      upsert: jest.fn().mockResolvedValue({}),
+    } as unknown as jest.Mocked<Repository<EmailLabelAssignment>>;
 
     service = new EmailService(
       emailRepo,
@@ -89,6 +103,8 @@ describe('EmailService', () => {
       mailerService,
       attachmentService as unknown as AttachmentService,
       suppressedSenderRepo,
+      emailLabelRepo,
+      emailLabelAssignmentRepo,
     );
   });
 
@@ -447,6 +463,32 @@ describe('EmailService', () => {
     expect(attachmentService.uploadAttachment).not.toHaveBeenCalled();
   });
 
+  it('rejects send with BadRequestException when an attachment exceeds 25 MB', async () => {
+    await expect(
+      service.sendEmail(
+        {
+          subject: 'Oversized attachment',
+          body: 'Body',
+          from: 'sender@mailzen.com',
+          to: ['one@mailzen.com'],
+          providerId: 'provider-1',
+          attachments: [
+            {
+              filename: 'huge.zip',
+              contentType: 'application/zip',
+              content: '',
+              size: 26 * 1024 * 1024,
+            },
+          ],
+        },
+        'user-1',
+      ),
+    ).rejects.toThrow(BadRequestException);
+
+    // Email record must NOT be created when the payload is rejected
+    expect(emailRepo.save).not.toHaveBeenCalled();
+  });
+
   // ─── unsubscribeFromSender ───────────────────────────────────────────────────
 
   it('archives the email and suppresses the sender on unsubscribe', async () => {
@@ -532,5 +574,73 @@ describe('EmailService', () => {
     await expect(
       service.unsubscribeFromSender('email-12', 'user-1'),
     ).rejects.toThrow('DB connection lost');
+  });
+
+  // ─── assignLabel ─────────────────────────────────────────────────────────────
+
+  it('upserts a label assignment and returns the updated email', async () => {
+    emailRepo.findOne
+      .mockResolvedValueOnce({
+        id: 'email-13',
+        userId: 'user-1',
+        status: 'READ',
+      } as Email)
+      .mockResolvedValueOnce({
+        id: 'email-13',
+        userId: 'user-1',
+        status: 'READ',
+        labels: [{ emailId: 'email-13', labelId: 'label-1' }],
+      } as unknown as Email);
+    emailLabelRepo.findOne.mockResolvedValue({
+      id: 'label-1',
+      userId: 'user-1',
+      name: 'Important',
+      color: '#4F46E5',
+    } as EmailLabel);
+    emailLabelAssignmentRepo.upsert.mockResolvedValue({} as never);
+
+    const result = await service.assignLabel('email-13', 'label-1', 'user-1');
+
+    expect(emailLabelAssignmentRepo.upsert).toHaveBeenCalledWith(
+      { emailId: 'email-13', labelId: 'label-1' },
+      ['emailId', 'labelId'],
+    );
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'email_label_assigned',
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: 'email-13',
+      }),
+    );
+  });
+
+  it('throws NotFoundException when email not found for assignLabel', async () => {
+    emailRepo.findOne.mockResolvedValueOnce(null);
+
+    await expect(
+      service.assignLabel('missing-email', 'label-1', 'user-1'),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(emailLabelRepo.findOne).not.toHaveBeenCalled();
+    expect(emailLabelAssignmentRepo.upsert).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundException when label not found for assignLabel', async () => {
+    emailRepo.findOne.mockResolvedValueOnce({
+      id: 'email-14',
+      userId: 'user-1',
+      status: 'READ',
+    } as Email);
+    emailLabelRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.assignLabel('email-14', 'missing-label', 'user-1'),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(emailLabelAssignmentRepo.upsert).not.toHaveBeenCalled();
   });
 });
