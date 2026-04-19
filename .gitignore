@@ -73,3 +73,6 @@ Thumbs.db
 # Cursor local planning artifacts
 # ------------------------------
 .cursor/plans/
+
+# Git worktrees
+.worktrees/
