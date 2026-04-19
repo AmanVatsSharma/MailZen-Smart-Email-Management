@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BillingService } from '../billing/billing.service';
 import { EmailWarmupService } from './email.email-warmup.service';
 import { EmailWarmupResolver } from './email.email-warmup.resolver';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -48,6 +49,16 @@ describe('EmailWarmupResolver (smoke)', () => {
           provide: AuthService,
           useValue: {
             validateToken: jest.fn().mockReturnValue({ id: mockUserId }),
+          },
+        },
+        {
+          provide: BillingService,
+          useValue: {
+            consumeAiCredits: jest.fn().mockResolvedValue({
+              allowed: true,
+              usedCredits: 0,
+              monthlyLimit: 1000,
+            }),
           },
         },
       ],

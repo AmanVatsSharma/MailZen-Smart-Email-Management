@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Repository } from 'typeorm';
 import { AuditLog } from '../auth/entities/audit-log.entity';
+import { BillingService } from '../billing/billing.service';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { EmailService } from './email.service';
 import { EmailWarmupService } from './email.email-warmup.service';
@@ -74,6 +75,19 @@ describe('EmailWarmupService', () => {
         {
           provide: getRepositoryToken(AuditLog),
           useValue: auditRepoMock,
+        },
+        {
+          provide: BillingService,
+          useValue: {
+            consumeAiCredits: jest.fn().mockResolvedValue({
+              allowed: true,
+              usedCredits: 0,
+              monthlyLimit: 1000,
+            }),
+            getEntitlements: jest
+              .fn()
+              .mockResolvedValue({ planCode: 'PRO' }),
+          },
         },
       ],
     }).compile();

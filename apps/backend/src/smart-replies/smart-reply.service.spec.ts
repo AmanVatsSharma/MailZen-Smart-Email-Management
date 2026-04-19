@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DeleteResult, Repository } from 'typeorm';
 import { AuditLog } from '../auth/entities/audit-log.entity';
+import { BillingService } from '../billing/billing.service';
 import { SmartReplyHistory } from './entities/smart-reply-history.entity';
 import { SmartReplyProviderRouter } from './smart-reply-provider.router';
 import { SmartReplyService } from './smart-reply.service';
@@ -49,6 +50,16 @@ describe('SmartReplyService', () => {
         },
         { provide: getRepositoryToken(AuditLog), useValue: auditLogRepoMock },
         { provide: SmartReplyProviderRouter, useValue: providerRouterMock },
+        {
+          provide: BillingService,
+          useValue: {
+            consumeAiCredits: jest.fn().mockResolvedValue({
+              allowed: true,
+              usedCredits: 0,
+              monthlyLimit: 1000,
+            }),
+          },
+        },
       ],
     }).compile();
 

@@ -126,7 +126,7 @@ describe('SmartReplyProviderRouter', () => {
     });
   });
 
-  it('uses template provider in hybrid mode for balanced model', async () => {
+  it('uses openai provider in hybrid mode for balanced model', async () => {
     openAiProvider.generateSuggestions.mockResolvedValue(['OpenAI reply']);
     azureOpenAiProvider.generateSuggestions.mockResolvedValue([
       'Azure OpenAI reply',
@@ -148,14 +148,14 @@ describe('SmartReplyProviderRouter', () => {
       },
     });
 
-    expect(openAiProvider.generateSuggestions).not.toHaveBeenCalled();
+    expect(openAiProvider.generateSuggestions).toHaveBeenCalled();
     expect(azureOpenAiProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(anthropicProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(externalProvider.generateSuggestions).not.toHaveBeenCalled();
-    expect(templateProvider.generateSuggestions).toHaveBeenCalled();
+    expect(templateProvider.generateSuggestions).not.toHaveBeenCalled();
     expect(result).toEqual({
-      suggestions: ['Template reply'],
-      source: 'internal',
+      suggestions: ['OpenAI reply'],
+      source: 'openai',
       fallbackUsed: false,
     });
   });

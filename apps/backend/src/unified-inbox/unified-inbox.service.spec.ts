@@ -92,6 +92,7 @@ describe('UnifiedInboxService', () => {
       select: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(1),
       getMany: jest.fn().mockResolvedValue([
         {
           id: 'm1',
@@ -119,15 +120,15 @@ describe('UnifiedInboxService', () => {
       null,
     );
 
-    expect(threads).toHaveLength(1);
-    expect(threads[0]).toMatchObject({
+    expect(threads.items).toHaveLength(1);
+    expect(threads.items[0]).toMatchObject({
       id: 'thread-1',
       subject: 'Hello',
       folder: 'inbox',
       isUnread: true,
       providerId,
     });
-    expect(threads[0].messages[0]).toMatchObject({
+    expect(threads.items[0].messages[0]).toMatchObject({
       contentPreview: 'Hi there',
       status: 'unread',
     });
@@ -228,8 +229,8 @@ describe('UnifiedInboxService', () => {
     ]);
 
     const threads = await service.listThreads(userId, 20, 0, null, null);
-    expect(threads).toHaveLength(1);
-    expect(threads[0]).toMatchObject({
+    expect(threads.items).toHaveLength(1);
+    expect(threads.items[0]).toMatchObject({
       id: 'mail-1',
       folder: 'inbox',
       isUnread: true,
@@ -285,9 +286,9 @@ describe('UnifiedInboxService', () => {
       null,
     );
 
-    expect(threads).toHaveLength(1);
-    expect(threads[0].id).toBe('mail-1');
-    expect(threads[0].labelIds).toContain('label-vip');
+    expect(threads.items).toHaveLength(1);
+    expect(threads.items[0].id).toBe('mail-1');
+    expect(threads.items[0].labelIds).toContain('label-vip');
   });
 
   it('scopes mailbox thread list to mailboxId when mailbox linkage exists', async () => {
@@ -332,8 +333,8 @@ describe('UnifiedInboxService', () => {
 
     const threads = await service.listThreads(userId, 20, 0, null, null);
 
-    expect(threads).toHaveLength(1);
-    expect(threads[0].id).toBe('mail-1');
+    expect(threads.items).toHaveLength(1);
+    expect(threads.items[0].id).toBe('mail-1');
     expect(emailRepo.find).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.arrayContaining([
@@ -396,11 +397,11 @@ describe('UnifiedInboxService', () => {
 
     const threads = await service.listThreads(userId, 20, 0, null, null);
 
-    expect(threads).toHaveLength(1);
-    expect(threads[0].id).toBe('thread-msg-1');
-    expect(threads[0].messages).toHaveLength(2);
-    expect(threads[0].messages[1].providerEmailId).toBe('<msg-2@example.com>');
-    expect(threads[0].isUnread).toBe(true);
+    expect(threads.items).toHaveLength(1);
+    expect(threads.items[0].id).toBe('thread-msg-1');
+    expect(threads.items[0].messages).toHaveLength(2);
+    expect(threads.items[0].messages[1].providerEmailId).toBe('<msg-2@example.com>');
+    expect(threads.items[0].isUnread).toBe(true);
   });
 
   it('returns mailbox thread details by inbound thread key', async () => {
@@ -472,6 +473,7 @@ describe('UnifiedInboxService', () => {
       select: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(0),
       getMany: jest.fn().mockResolvedValue([]),
     };
     messageRepo.createQueryBuilder.mockReturnValue(queryBuilderMock as any);
@@ -498,7 +500,7 @@ describe('UnifiedInboxService', () => {
         workspaceId: null,
       },
     });
-    expect(threads).toEqual([]);
+    expect(threads.items).toEqual([]);
   });
 
   it('updates mailbox thread read/star state locally', async () => {
