@@ -845,6 +845,21 @@ export class UnifiedInboxService {
       }
     }
 
+    // aiPriority filter for provider path: join the Email table via
+    // providerId + inboundMessageId = externalMessageId.
+    // Email rows are populated by AI scoring; until then the join returns no
+    // matches (inner join semantics), which is the correct result — unscored
+    // messages have no priority.
+    if (filter?.aiPriority) {
+      qb.innerJoin(
+        Email,
+        'e',
+        'e."providerId" = m."providerId" AND e."inboundMessageId" = m."externalMessageId"',
+      ).andWhere('e."aiPriority" = :aiPriority', {
+        aiPriority: filter.aiPriority,
+      });
+    }
+
     if (sort?.field === 'from')
       qb.orderBy(
         'm."from"',
