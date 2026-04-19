@@ -1,7 +1,55 @@
+/**
+ * File:        apps/frontend/components/email/EmailComposer.tsx
+ * Module:      Email · Composer
+ * Purpose:     Full-featured email compose dialog with Tiptap rich text editing,
+ *              recipient chip inputs, scheduling, attachments, and AI draft/copilot features.
+ *
+ * Exports:
+ *   - EmailComposer(props) — Dialog-based email compose component
+ *   - EmailComposerProps   — prop shape (isOpen, onClose, replyToThread, etc.)
+ *
+ * Depends on:
+ *   - @tiptap/react                           — useEditor for toolbar command access
+ *   - @tiptap/starter-kit                     — core extensions (bold, italic, lists, etc.)
+ *   - @tiptap/extension-link                  — hyperlink support
+ *   - @tiptap/extension-underline             — underline mark
+ *   - ./RichTextEditor                        — Tiptap wrapper component + ref handle
+ *   - @/lib/apollo/queries/emails             — SEND_EMAIL mutation
+ *   - @/lib/apollo/queries/providers          — GET_PROVIDERS query
+ *   - @/lib/apollo/queries/agent-assistant    — AGENT_ASSIST_MUTATION for AI draft and inline actions
+ *   - @/lib/email/email-types                 — EmailParticipant, EmailThread types
+ *   - @/lib/auth/auth-utils                   — getUserData for fallback sender address
+ *   - ./ComposeCopilot                        — AI tone picker + body action panel
+ *   - ./SmartReplySelector                    — AI-suggested reply chips
+ *   - ./EmailAttachment                       — attachment list display
+ *
+ * Side-effects:
+ *   - GraphQL mutation: sendEmail (via Apollo)
+ *   - GraphQL mutation: agentAssist (via Apollo) — AI draft generation and inline actions
+ *   - GraphQL query:    providers (cache-first, via Apollo)
+ *
+ * Key invariants:
+ *   - Body content is stored as HTML in `content` state; all AI text operations must
+ *     work through the editor instance or convert HTML ↔ text appropriately.
+ *   - The `//` AI trigger is detected via Tiptap onUpdate (editor.getText().endsWith('//'))
+ *     rather than raw onChange on a textarea.
+ *   - ComposeCopilot.body receives plain text (editor.getText()) not HTML.
+ *   - Empty-body check uses editor?.isEmpty rather than falsy string check.
+ *   - assistantText from agentAssist is plain text; must be converted to paragraph HTML
+ *     before setting editor content via editor.commands.setContent().
+ *
+ * Read order:
+ *   1. EmailComposerProps     — component contract
+ *   2. RecipientChipInput     — reusable chip input used for To/Cc/Bcc
+ *   3. EmailComposer          — main composer implementation
+ *
+ * Author:      AmanVatsSharma
+ * Last-updated: 2026-04-19
+ */
+
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { EmailParticipant, EmailThread } from '@/lib/email/email-types';
 import {
@@ -45,21 +93,27 @@ import {
   Minimize2,
   Bold,
   Italic,
-  Underline,
+  Underline as UnderlineIcon,
   List,
   ListOrdered,
   Link as LinkIcon,
   AlignLeft,
 } from 'lucide-react';
+import { useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import TiptapLink from '@tiptap/extension-link';
+import TiptapUnderline from '@tiptap/extension-underline';
 import { useMutation, useQuery } from '@apollo/client';
 import { SEND_EMAIL } from '@/lib/apollo/queries/emails';
 import { GET_PROVIDERS } from '@/lib/apollo/queries/providers';
+import { AGENT_ASSIST_MUTATION } from '@/lib/apollo/queries/agent-assistant';
 import { useToast } from '@/components/ui/use-toast';
 import { EmailAttachmentList } from './EmailAttachment';
 import { SmartReplySelector } from './SmartReplySelector';
 import { ComposeCopilot } from './ComposeCopilot';
 import { getUserData } from '@/lib/auth/auth-utils';
 import { cn } from '@/lib/utils';
+import { RichTextEditor, type RichTextEditorHandle } from './RichTextEditor';
 
 // ── Recipient chip input ──────────────────────────────────────────────────────
 
@@ -234,7 +288,32 @@ export function EmailComposer({
   const [isMinimized, setIsMinimized] = useState(false);
   const [showAiMenu, setShowAiMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<RichTextEditorHandle>(null);
+
+  // ── Tiptap editor instance — used for toolbar commands and isEmpty checks ──
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      TiptapLink.configure({ openOnClick: false }),
+      TiptapUnderline,
+    ],
+    // Initialise with empty content; the RichTextEditor component handles syncing.
+    content: '',
+    onUpdate({ editor: ed }) {
+      const html = ed.getHTML();
+      setContent(html);
+      // Detect `//` AI trigger via plain text
+      if (ed.getText().endsWith('//')) {
+        setShowAiMenu(true);
+      } else {
+        setShowAiMenu(false);
+      }
+    },
+  });
+
+  // Apollo Client mutations — declared before handlers so they are available in callbacks
+  const [sendEmail] = useMutation(SEND_EMAIL);
+  const [agentAssist] = useMutation(AGENT_ASSIST_MUTATION);
 
   const AI_ACTIONS = [
     { label: '✨ Continue writing', key: 'continue' },
@@ -247,27 +326,44 @@ export function EmailComposer({
   const handleAiActionSelect = useCallback(
     async (actionKey: string) => {
       setShowAiMenu(false);
-      // Strip the `//` trigger from the end of the content
-      const stripped = content.replace(/\/\/$/, '').trimEnd();
-      setContent(stripped);
+
+      if (!editor) return;
+
+      // Strip the `//` trigger from the plain text end before sending to the AI —
+      // the trigger is a UI affordance and should not be included in the prompt context.
+      const plainText = editor.getText();
+      const stripped = plainText.replace(/\/\/$/, '').trimEnd();
+
       setIsAiGenerating(true);
       try {
-        await new Promise((r) => setTimeout(r, 700));
-        let suffix = '';
-        if (actionKey === 'continue') suffix = ' I look forward to hearing your thoughts and discussing this further.';
-        else if (actionKey === 'formal') suffix = '\n\nKindly acknowledge receipt of this correspondence at your earliest convenience.';
-        else if (actionKey === 'shorter') {
-          setContent((prev) => prev.split(' ').slice(0, 20).join(' ') + '...');
-          return;
-        } else if (actionKey === 'cta') suffix = '\n\nPlease reply to confirm or click the link below to take the next step.';
-        else if (actionKey === 'friendly') suffix = '\n\nHope this makes sense! Feel free to ping me anytime 😊';
-        setContent((prev) => (prev ? prev + suffix : suffix.trimStart()));
-        toast({ title: 'AI applied', description: 'Content updated.' });
+        const result = await agentAssist({
+          variables: {
+            input: {
+              skill: 'compose',
+              messages: [{ role: 'user', content: stripped }],
+              requestedAction: actionKey,
+            },
+          },
+        });
+        const assistantText = result.data?.agentAssist?.assistantText;
+        if (assistantText) {
+          // Convert plain text paragraphs to HTML — assistantText uses \n\n as paragraph separator
+          const newHtml = assistantText
+            .split(/\n\n+/)
+            .map((p: string) => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+            .join('');
+          editor.commands.setContent(newHtml, { emitUpdate: false });
+          setContent(newHtml);
+          toast({ title: 'AI applied', description: 'Content updated.' });
+        }
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        toast({ title: 'AI unavailable', description: message, variant: 'destructive' });
       } finally {
         setIsAiGenerating(false);
       }
     },
-    [content, toast],
+    [editor, toast, agentAssist],
   );
 
   const TONES = [
@@ -287,25 +383,49 @@ export function EmailComposer({
   }, [emailSubject, mode]);
 
   const handleAiDraft = async () => {
-    if (!content && !emailSubject) {
+    // Use editor.isEmpty rather than falsy string — Tiptap empty state returns '<p></p>'
+    const bodyIsEmpty = editor ? editor.isEmpty : !content;
+    if (bodyIsEmpty && !emailSubject) {
       toast({ title: 'Add some context', description: 'Enter a subject or a few words in the body to generate a draft.' });
       return;
     }
     setIsAiGenerating(true);
     try {
-      // In production this would call the AI agent platform via GraphQL.
-      // For now, compose a structured placeholder the backend can hydrate.
-      await new Promise((r) => setTimeout(r, 900));
-      const stub = `[AI Draft — ${tone} tone]\n\nDear recipient,\n\nI hope this message finds you well. ${emailSubject ? `Regarding "${emailSubject}", ` : ''}I wanted to reach out to discuss next steps.\n\nPlease let me know your availability.\n\nBest regards`;
-      setContent(stub);
-      toast({ title: 'Draft ready', description: 'AI draft inserted — edit as needed before sending.' });
+      const plainBody = editor ? editor.getText() : content;
+      const result = await agentAssist({
+        variables: {
+          input: {
+            skill: 'compose',
+            messages: [
+              {
+                role: 'user',
+                content: `Subject: ${emailSubject}\n\nTone: ${tone}\n\nContext: ${plainBody}`,
+              },
+            ],
+          },
+        },
+      });
+      const assistantText = result.data?.agentAssist?.assistantText;
+      if (assistantText) {
+        // Convert plain text paragraphs to HTML — assistantText uses \n\n as paragraph separator
+        const newHtml = assistantText
+          .split(/\n\n+/)
+          .map((p: string) => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+          .join('');
+        if (editor) {
+          editor.commands.setContent(newHtml, { emitUpdate: false });
+        }
+        setContent(newHtml);
+        toast({ title: 'Draft ready', description: 'AI draft inserted — edit as needed before sending.' });
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast({ title: 'AI unavailable', description: message, variant: 'destructive' });
     } finally {
       setIsAiGenerating(false);
     }
   };
 
-  // Apollo Client mutation for sending emails
-  const [sendEmail] = useMutation(SEND_EMAIL);
   const { data: providersData } = useQuery(GET_PROVIDERS, {
     fetchPolicy: 'cache-first',
   });
@@ -341,7 +461,11 @@ export function EmailComposer({
           : subject,
     );
     setContent(initialContent);
-  }, [initialContent, isOpen, mode, subject, threadRecipients]);
+    // Sync editor when the dialog opens / mode changes
+    if (editor) {
+      editor.commands.setContent(initialContent || '', { emitUpdate: false });
+    }
+  }, [editor, initialContent, isOpen, mode, subject, threadRecipients]);
 
   // Handle file selection for attachments
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -423,11 +547,13 @@ export function EmailComposer({
     }
 
     try {
+      // Get final HTML body from the editor (source of truth); fall back to state
+      const bodyHtml = editor ? editor.getHTML() : content;
       await sendEmail({
         variables: {
           input: {
             subject: emailSubject,
-            body: content,
+            body: bodyHtml,
             from: fromAddress,
             to: toRecipients,
             providerId: activeProvider.id,
@@ -654,7 +780,15 @@ export function EmailComposer({
                         : ''
                     }
                     onSelectReply={(text) => {
-                      setContent(text);
+                      // Smart reply text is plain — wrap in paragraph HTML for the editor
+                      const replyHtml = text
+                        .split(/\n\n+/)
+                        .map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+                        .join('');
+                      if (editor) {
+                        editor.commands.setContent(replyHtml, { emitUpdate: false });
+                      }
+                      setContent(replyHtml);
                       setShowSmartReplies(false);
                       toast({
                         title: 'Inserted',
@@ -669,48 +803,89 @@ export function EmailComposer({
 
           {/* Content editor — always-visible toolbar */}
           <div className="flex flex-col flex-1 min-h-0 px-5 pt-3 pb-1">
-            {/* Formatting toolbar */}
+            {/* Formatting toolbar — wired to Tiptap editor commands */}
             <div className="flex items-center gap-0.5 mb-2 pb-2 border-b border-border/30">
               <button
                 type="button"
                 title="Bold"
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                onClick={() => editor?.chain().focus().toggleBold().run()}
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+                  editor?.isActive('bold')
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
               >
                 <Bold className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"
                 title="Italic"
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                onClick={() => editor?.chain().focus().toggleItalic().run()}
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+                  editor?.isActive('italic')
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
               >
                 <Italic className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"
                 title="Underline"
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                onClick={() => editor?.chain().focus().toggleUnderline().run()}
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+                  editor?.isActive('underline')
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
               >
-                <Underline className="h-3.5 w-3.5" />
+                <UnderlineIcon className="h-3.5 w-3.5" />
               </button>
               <div className="h-4 w-px bg-border/60 mx-1" />
               <button
                 type="button"
                 title="Bullet list"
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+                  editor?.isActive('bulletList')
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
               >
                 <List className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"
                 title="Numbered list"
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+                  editor?.isActive('orderedList')
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
               >
                 <ListOrdered className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"
                 title="Insert link"
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                onClick={() => {
+                  const url = window.prompt('Enter URL');
+                  if (url) {
+                    editor?.chain().focus().setLink({ href: url }).run();
+                  }
+                }}
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+                  editor?.isActive('link')
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
               >
                 <LinkIcon className="h-3.5 w-3.5" />
               </button>
@@ -727,10 +902,18 @@ export function EmailComposer({
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  <DropdownMenuItem>Normal text</DropdownMenuItem>
-                  <DropdownMenuItem className="font-bold">Heading 1</DropdownMenuItem>
-                  <DropdownMenuItem className="text-sm font-semibold">Heading 2</DropdownMenuItem>
-                  <DropdownMenuItem className="text-sm">Heading 3</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => editor?.chain().focus().setParagraph().run()}>
+                    Normal text
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="font-bold" onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}>
+                    Heading 1
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-sm font-semibold" onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>
+                    Heading 2
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-sm" onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}>
+                    Heading 3
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <div className="flex-1" />
@@ -746,19 +929,14 @@ export function EmailComposer({
               </span>
             </div>
 
-            {/* Body textarea */}
+            {/* Body — Tiptap rich text editor */}
             <div className="relative flex-1">
-              <Textarea
-                ref={textareaRef}
-                value={content}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setContent(val);
-                  if (val.endsWith('//')) setShowAiMenu(true);
-                  else setShowAiMenu(false);
-                }}
+              <RichTextEditor
+                ref={editorRef}
+                content={content}
+                onChange={(html) => setContent(html)}
                 placeholder="Write your message here…"
-                className="min-h-[220px] w-full border-0 shadow-none focus-visible:ring-0 resize-none bg-transparent text-sm leading-relaxed p-0"
+                className="min-h-[220px]"
               />
               {/* AI floating action menu */}
               <AnimatePresence>
@@ -858,7 +1036,7 @@ export function EmailComposer({
             {/* Copilot panel (tone + body actions + subject suggestions) */}
             <ComposeCopilot
               subject={emailSubject}
-              body={content}
+              body={editor ? editor.getText() : content}
               tone={tone}
               onToneChange={setTone}
               onApplySubjectSuggestion={(s) => setEmailSubject(s)}
