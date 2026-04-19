@@ -1,3 +1,36 @@
+/**
+ * File:        apps/backend/src/email/email.module.ts
+ * Module:      Email · NestJS Module
+ * Purpose:     Registers all email-domain providers (service, resolvers, schedulers,
+ *              filters, templates, warmup, attachments) and wires up the TypeORM
+ *              repositories, Bull queues, and Mailer transport for the email feature.
+ *
+ * Exports:
+ *   - EmailModule  — NestJS module (re-exports EmailService, EmailFilterService,
+ *                    EmailTemplateService, AttachmentService, EmailWarmupService)
+ *
+ * Depends on:
+ *   - BillingModule         — exposes RequirePlanGuard for gated email features
+ *   - EmailProviderModule   — exposes EmailProviderService for OAuth token refresh
+ *
+ * Side-effects:
+ *   - Registers Bull queue "email" (requires running Redis)
+ *   - Registers ScheduleModule (starts cron scheduler)
+ *   - Registers MailerModule with SMTP transport from env vars
+ *
+ * Key invariants:
+ *   - SuppressedSender entity is registered here so its repository is injectable
+ *     by EmailService for the unsubscribeFromSender feature
+ *
+ * Read order:
+ *   1. TypeOrmModule.forFeature([...])  — all entities owned by this module
+ *   2. Module imports                   — external modules consumed
+ *   3. providers                        — services and resolvers
+ *
+ * Author:      AmanVatsSharma
+ * Last-updated: 2026-04-20
+ */
+
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Email } from './entities/email.entity';
@@ -10,6 +43,7 @@ import { EmailLabelAssignment } from './entities/email-label-assignment.entity';
 import { Attachment } from './entities/attachment.entity';
 import { EmailWarmup } from './entities/email-warmup.entity';
 import { WarmupActivity } from './entities/warmup-activity.entity';
+import { SuppressedSender } from './entities/suppressed-sender.entity';
 import { EmailService } from './email.service';
 import { EmailResolver } from './email.resolver';
 import { EmailController } from './email.controller';
@@ -53,6 +87,7 @@ import { AuditLog } from '../auth/entities/audit-log.entity';
       Attachment,
       EmailWarmup,
       WarmupActivity,
+      SuppressedSender,
       User,
       Template,
       AuditLog,

@@ -2,19 +2,21 @@
  * File:        apps/backend/src/email/email.service.ts
  * Module:      Email · Core Service
  * Purpose:     Orchestrates email persistence, provider dispatch (Gmail / Outlook /
- *              SMTP), open/click tracking, template sends, and inline attachment
- *              uploads at send-time.
+ *              SMTP), open/click tracking, template sends, inline attachment
+ *              uploads at send-time, and sender suppression (unsubscribe).
  *
  * Exports:
- *   - EmailService                                    — NestJS injectable service
- *     - sendEmail(input, userId) → Email              — persists + dispatches an email;
- *                                                       uploads any inline attachments
- *     - sendTemplateEmail(template, to, ctx, userId) → Email  — sends via NestJS Mailer template
- *     - trackOpen(emailId) → EmailAnalytics | null    — increments open counter
- *     - trackClick(emailId) → EmailAnalytics | null   — increments click counter
- *     - getEmailsByUser(userId, providerId?) → Email[] — lists emails for a user
- *     - getEmailById(id, userId) → Email | null        — fetches a single email
- *     - markEmailRead(emailId, userId) → Email         — sets status to READ
+ *   - EmailService                                              — NestJS injectable service
+ *     - sendEmail(input, userId) → Email                       — persists + dispatches an email;
+ *                                                                 uploads any inline attachments
+ *     - sendTemplateEmail(template, to, ctx, userId) → Email   — sends via NestJS Mailer template
+ *     - trackOpen(emailId) → EmailAnalytics | null             — increments open counter
+ *     - trackClick(emailId) → EmailAnalytics | null            — increments click counter
+ *     - getEmailsByUser(userId, providerId?) → Email[]         — lists emails for a user
+ *     - getEmailById(id, userId) → Email | null                — fetches a single email
+ *     - markEmailRead(emailId, userId) → Email                 — sets status to READ
+ *     - unsubscribeFromSender(emailId, userId) → { success, senderEmail }
+ *                                                              — archives email and suppresses sender
  *
  * Depends on:
  *   - ./email.attachment.service  — used to upload inline attachments after email save
@@ -22,7 +24,7 @@
  *   - ../common/logging/structured-log.util        — PII-safe structured logging
  *
  * Side-effects:
- *   - DB writes (email, email_analytics, audit_log, attachment)
+ *   - DB writes (email, email_analytics, audit_log, attachment, suppressed_senders)
  *   - Outbound SMTP / OAuth2 email delivery via nodemailer
  *   - Google Cloud Storage writes (via AttachmentService for inline attachments)
  *
@@ -32,12 +34,14 @@
  *   - For scheduled emails, attachments are uploaded immediately (before the
  *     early-return) so they are associated with the email record at schedule time
  *   - OAuth provider tokens are always refreshed via EmailProviderService before send
+ *   - unsubscribeFromSender is idempotent: duplicate suppression rows are silently ignored
  *
  * Read order:
- *   1. EmailService constructor  — injected dependencies
- *   2. sendEmail()               — main send flow including attachment upload loop
- *   3. sendTemplateEmail()       — template-based send path
- *   4. trackOpen / trackClick    — analytics helpers
+ *   1. EmailService constructor     — injected dependencies
+ *   2. sendEmail()                  — main send flow including attachment upload loop
+ *   3. sendTemplateEmail()          — template-based send path
+ *   4. trackOpen / trackClick       — analytics helpers
+ *   5. unsubscribeFromSender()      — sender suppression + email archive
  *
  * Author:      AmanVatsSharma
  * Last-updated: 2026-04-20
@@ -50,6 +54,7 @@ import { AuditLog } from '../auth/entities/audit-log.entity';
 import { Email } from './entities/email.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { EmailAnalytics } from '../email-analytics/entities/email-analytics.entity';
+import { SuppressedSender } from './entities/suppressed-sender.entity';
 import { EmailProviderService } from '../email-integration/email-provider.service';
 import { SendEmailInput } from './dto/send-email.input';
 import { AttachmentService } from './email.attachment.service';
@@ -77,6 +82,8 @@ export class EmailService {
     private emailProviderService: EmailProviderService,
     private mailerService: MailerService,
     private readonly attachmentService: AttachmentService,
+    @InjectRepository(SuppressedSender)
+    private readonly suppressedSenderRepository: Repository<SuppressedSender>,
   ) {}
 
   private async writeAuditLog(input: {
@@ -574,6 +581,97 @@ export class EmailService {
       where: { id, userId },
       relations: ['provider', 'analytics'],
     });
+  }
+
+  /**
+   * Unsubscribe from sender: archives the email and persists the sender address
+   * in the suppressed_senders table so future mail can be filtered.
+   * Idempotent — a duplicate suppression row is silently ignored.
+   *
+   * @param emailId - Email ID (must be owned by userId)
+   * @param userId  - Authenticated user ID from JWT
+   * @returns { success: true, senderEmail }
+   */
+  async unsubscribeFromSender(
+    emailId: string,
+    userId: string,
+  ): Promise<{ success: boolean; senderEmail: string }> {
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_unsubscribe_from_sender_start',
+        emailId,
+        userId,
+      }),
+    );
+
+    const email = await this.emailRepository.findOne({
+      where: { id: emailId, userId },
+    });
+
+    if (!email) {
+      throw new NotFoundException('Email not found');
+    }
+
+    const senderEmail = email.from;
+
+    // Archive the email
+    await this.emailRepository.update({ id: emailId, userId }, { status: 'ARCHIVED' });
+
+    // Persist the suppression (idempotent via unique constraint)
+    try {
+      const record = this.suppressedSenderRepository.create({
+        userId,
+        senderEmail,
+      });
+      await this.suppressedSenderRepository.save(record);
+    } catch (err: unknown) {
+      // Unique constraint violation (duplicate) — treat as idempotent success
+      const isUniqueViolation =
+        err instanceof Error &&
+        (err.message.includes('duplicate key') ||
+          err.message.includes('unique constraint'));
+
+      if (!isUniqueViolation) {
+        this.logger.warn(
+          serializeStructuredLog({
+            event: 'email_unsubscribe_suppression_save_failed',
+            emailId,
+            userId,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+        throw err;
+      }
+
+      this.logger.log(
+        serializeStructuredLog({
+          event: 'email_unsubscribe_suppression_already_exists',
+          emailId,
+          userId,
+          senderEmail,
+        }),
+      );
+    }
+
+    await this.writeAuditLog({
+      userId,
+      action: 'email_sender_unsubscribed',
+      metadata: {
+        emailId,
+        senderEmail,
+      },
+    });
+
+    this.logger.log(
+      serializeStructuredLog({
+        event: 'email_unsubscribe_from_sender_completed',
+        emailId,
+        userId,
+        senderEmail,
+      }),
+    );
+
+    return { success: true, senderEmail };
   }
 
   /**

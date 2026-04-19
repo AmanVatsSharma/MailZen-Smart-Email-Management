@@ -1,3 +1,44 @@
+/**
+ * File:        apps/backend/src/email/email.resolver.ts
+ * Module:      Email · GraphQL Resolver
+ * Purpose:     Exposes email queries and mutations over the GraphQL API, delegating
+ *              all business logic to EmailService and MailService.
+ *
+ * Exports:
+ *   - EmailResolver  — NestJS GraphQL Resolver (@Resolver)
+ *     Queries:
+ *       - getMyEmails(providerId?) → Email[]     — [deprecated] list emails for the authed user
+ *       - getEmailById(id) → Email               — [deprecated] fetch a single email by ID
+ *     Mutations:
+ *       - sendEmail(input) → Email               — persist + dispatch an email
+ *       - markEmailRead(markEmailReadInput) → Email  — mark an email READ
+ *       - sendRealEmail(createEmailInput) → SendRealEmailResponse  — send via real SMTP/OAuth
+ *       - unsubscribeFromSender(emailId) → UnsubscribeResult  — archive email + suppress sender
+ *
+ * Depends on:
+ *   - ./email.service        — business logic for all email operations
+ *   - ./mail.service         — real SMTP/OAuth delivery
+ *   - ../user/entities/user.entity  — user repo for inbox-type resolution in getMyEmails
+ *   - ./dto/unsubscribe-result  — GraphQL return type for unsubscribeFromSender
+ *
+ * Side-effects:
+ *   - DB writes delegated to EmailService (email rows, audit logs, suppressed_senders)
+ *   - Outbound email delivery delegated to MailService
+ *
+ * Key invariants:
+ *   - All mutations are scoped to the authenticated user ID extracted from the JWT cookie
+ *   - JwtAuthGuard is applied per-mutation (not class-level) to allow mixed access if needed
+ *
+ * Read order:
+ *   1. EmailResolver constructor  — injected services
+ *   2. getMyEmails / getEmailById — query handlers
+ *   3. sendEmail / markEmailRead / sendRealEmail  — mutation handlers
+ *   4. unsubscribeFromSender      — sender-suppression mutation
+ *
+ * Author:      AmanVatsSharma
+ * Last-updated: 2026-04-20
+ */
+
 import { Resolver, Query, Mutation, Args, Context } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -11,6 +52,7 @@ import { SendRealEmailResponse } from './dto/send-real-email.response';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { SendEmailInput } from './dto/send-email.input';
 import { User } from '../user/entities/user.entity';
+import { UnsubscribeResult } from './dto/unsubscribe-result';
 
 @Resolver(() => Email)
 export class EmailResolver {
@@ -97,5 +139,14 @@ export class EmailResolver {
       accepted: result.accepted,
       rejected: result.rejected,
     };
+  }
+
+  @Mutation(() => UnsubscribeResult)
+  @UseGuards(JwtAuthGuard)
+  async unsubscribeFromSender(
+    @Args('emailId') emailId: string,
+    @Context() context: { req: { user: { id: string } } },
+  ): Promise<UnsubscribeResult> {
+    return this.emailService.unsubscribeFromSender(emailId, context.req.user.id);
   }
 }

@@ -7,6 +7,7 @@ import { SmartReplyService } from './smart-reply.service';
 import { SmartReplyInput } from './dto/smart-reply.input';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AuthService } from '../auth/auth.service';
+import { BillingService } from '../billing/billing.service';
 
 describe('SmartReplyResolver', () => {
   let resolver: SmartReplyResolver;
@@ -70,6 +71,16 @@ describe('SmartReplyResolver', () => {
           provide: AuthService,
           useValue: {
             validateToken: jest.fn().mockReturnValue({ id: 'user-1' }),
+          },
+        },
+        {
+          provide: BillingService,
+          useValue: {
+            consumeAiCredits: jest.fn().mockResolvedValue({
+              allowed: true,
+              usedCredits: 0,
+              monthlyLimit: 1000,
+            }),
           },
         },
       ],

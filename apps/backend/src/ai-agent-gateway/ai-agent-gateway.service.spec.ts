@@ -142,6 +142,11 @@ describe('AiAgentGatewayService', () => {
     composeReplyDraft: jest.fn().mockResolvedValue(null),
   };
 
+  const mockAiFeedbackService = {
+    recordFeedback: jest.fn().mockResolvedValue(undefined),
+    getUserPreferenceSummary: jest.fn().mockResolvedValue(null),
+  };
+
   const createService = () =>
     new AiAgentGatewayService(
       authService as AuthService,
@@ -156,6 +161,7 @@ describe('AiAgentGatewayService', () => {
       skillRuntimeStatRepo as Repository<AgentPlatformSkillRuntimeStat>,
       auditLogRepo as Repository<AuditLog>,
       notificationEventBus as NotificationEventBusService,
+      mockAiFeedbackService as any,
     );
   const originalPlatformUrls = process.env.AI_AGENT_PLATFORM_URLS;
   const originalLoadBalanceEnabled =
@@ -640,24 +646,25 @@ describe('AiAgentGatewayService', () => {
 
   it('returns bucketed health trend series for dashboard plotting', async () => {
     const service = createService();
+    const now = Date.now();
     findHealthSamplesMock.mockResolvedValueOnce([
       {
         alertingState: 'healthy',
         errorRatePercent: 1,
         avgLatencyMs: 100,
-        checkedAt: new Date('2026-02-16T00:05:00.000Z'),
+        checkedAt: new Date(now - 5 * 60 * 1000),
       },
       {
         alertingState: 'warn',
         errorRatePercent: 7,
         avgLatencyMs: 210,
-        checkedAt: new Date('2026-02-16T00:20:00.000Z'),
+        checkedAt: new Date(now - 20 * 60 * 1000),
       },
       {
         alertingState: 'critical',
         errorRatePercent: 16,
         avgLatencyMs: 480,
-        checkedAt: new Date('2026-02-16T00:38:00.000Z'),
+        checkedAt: new Date(now - 38 * 60 * 1000),
       },
     ]);
 
@@ -717,22 +724,23 @@ describe('AiAgentGatewayService', () => {
 
   it('returns incident series with warn and critical bucket counts', async () => {
     const service = createService();
+    const now = Date.now();
     findHealthSamplesMock.mockResolvedValueOnce([
       {
         alertingState: 'warn',
-        checkedAt: new Date('2026-02-16T00:05:00.000Z'),
+        checkedAt: new Date(now - 5 * 60 * 1000),
       },
       {
         alertingState: 'critical',
-        checkedAt: new Date('2026-02-16T00:08:00.000Z'),
+        checkedAt: new Date(now - 8 * 60 * 1000),
       },
       {
         alertingState: 'healthy',
-        checkedAt: new Date('2026-02-16T00:12:00.000Z'),
+        checkedAt: new Date(now - 12 * 60 * 1000),
       },
       {
         alertingState: 'warn',
-        checkedAt: new Date('2026-02-16T00:37:00.000Z'),
+        checkedAt: new Date(now - 37 * 60 * 1000),
       },
     ]);
 
@@ -757,17 +765,18 @@ describe('AiAgentGatewayService', () => {
 
   it('exports incident analytics payload with stats and series', async () => {
     const service = createService();
+    const now = Date.now();
     findHealthSamplesMock
       .mockResolvedValueOnce([
         {
           alertingState: 'warn',
-          checkedAt: new Date('2026-02-16T00:05:00.000Z'),
+          checkedAt: new Date(now - 5 * 60 * 1000),
         },
       ])
       .mockResolvedValueOnce([
         {
           alertingState: 'warn',
-          checkedAt: new Date('2026-02-16T00:05:00.000Z'),
+          checkedAt: new Date(now - 5 * 60 * 1000),
         },
       ]);
 

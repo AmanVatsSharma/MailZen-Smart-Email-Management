@@ -32,9 +32,19 @@ describe('AiAgentGatewayResolver', () => {
     getAlertDeliverySeries: jest.fn(),
     exportAlertDeliveryData: jest.fn(),
   };
+  const aiFeedbackService = {
+    recordFeedback: jest.fn(),
+    getUserPreferenceSummary: jest.fn(),
+  };
+  const emailEmbeddingService = {
+    embedEmail: jest.fn(),
+    semanticSearch: jest.fn(),
+  };
   const resolver = new AiAgentGatewayResolver(
     gatewayService as never,
     healthAlertScheduler as never,
+    aiFeedbackService as never,
+    emailEmbeddingService as never,
   );
 
   beforeEach(() => {

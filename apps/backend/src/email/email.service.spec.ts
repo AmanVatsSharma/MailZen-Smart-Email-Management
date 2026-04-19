@@ -2,25 +2,27 @@
  * File:        apps/backend/src/email/email.service.spec.ts
  * Module:      Email · Core Service · Tests
  * Purpose:     Unit tests for EmailService covering send, scheduled send, read
- *              marking, audit logging, template sends, and inline attachment upload.
+ *              marking, audit logging, template sends, inline attachment upload,
+ *              and unsubscribeFromSender (sender suppression + email archival).
  *
  * Exports:
  *   - none (Jest test suite)
  *
  * Depends on:
- *   - ./email.service          — unit under test
- *   - ./email.attachment.service  — mocked to verify inline attachment upload calls
+ *   - ./email.service              — unit under test
+ *   - ./email.attachment.service   — mocked to verify inline attachment upload calls
+ *   - ./entities/suppressed-sender.entity  — mocked repo for suppression tests
  *
  * Side-effects:
  *   - none (all repos / services are mocked)
  *
  * Key invariants:
  *   - AttachmentService.uploadAttachment is mocked; GCS calls are never made in tests
- *   - Constructor arg order must match EmailService's DI order exactly
+ *   - Constructor arg order must match EmailService's DI order exactly (8 args)
  *
  * Read order:
  *   1. beforeEach  — mock setup and service instantiation
- *   2. test cases  — ordered by feature area (mark-read → send → attachments)
+ *   2. test cases  — ordered by feature area (mark-read → send → attachments → unsubscribe)
  *
  * Author:      AmanVatsSharma
  * Last-updated: 2026-04-20
@@ -34,6 +36,7 @@ import { EmailProviderService } from '../email-integration/email-provider.servic
 import { Email } from './entities/email.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
 import { EmailAnalytics } from '../email-analytics/entities/email-analytics.entity';
+import { SuppressedSender } from './entities/suppressed-sender.entity';
 import { EmailService } from './email.service';
 import { AttachmentService } from './email.attachment.service';
 
@@ -45,6 +48,7 @@ describe('EmailService', () => {
   let mailerService: jest.Mocked<MailerService>;
   let auditLogRepo: jest.Mocked<Repository<AuditLog>>;
   let attachmentService: jest.Mocked<Pick<AttachmentService, 'uploadAttachment'>>;
+  let suppressedSenderRepo: jest.Mocked<Repository<SuppressedSender>>;
 
   beforeEach(() => {
     emailRepo = {
@@ -71,6 +75,10 @@ describe('EmailService', () => {
     attachmentService = {
       uploadAttachment: jest.fn().mockResolvedValue({}),
     };
+    suppressedSenderRepo = {
+      create: jest.fn((payload: unknown) => payload as SuppressedSender),
+      save: jest.fn().mockResolvedValue({} as SuppressedSender),
+    } as unknown as jest.Mocked<Repository<SuppressedSender>>;
 
     service = new EmailService(
       emailRepo,
@@ -80,6 +88,7 @@ describe('EmailService', () => {
       {} as EmailProviderService,
       mailerService,
       attachmentService as unknown as AttachmentService,
+      suppressedSenderRepo,
     );
   });
 
@@ -436,5 +445,92 @@ describe('EmailService', () => {
     );
 
     expect(attachmentService.uploadAttachment).not.toHaveBeenCalled();
+  });
+
+  // ─── unsubscribeFromSender ───────────────────────────────────────────────────
+
+  it('archives the email and suppresses the sender on unsubscribe', async () => {
+    emailRepo.findOne.mockResolvedValue({
+      id: 'email-9',
+      userId: 'user-1',
+      from: 'newsletter@example.com',
+      status: 'READ',
+    } as Email);
+    emailRepo.update.mockResolvedValue({} as never);
+
+    const result = await service.unsubscribeFromSender('email-9', 'user-1');
+
+    expect(emailRepo.update).toHaveBeenCalledWith(
+      { id: 'email-9', userId: 'user-1' },
+      { status: 'ARCHIVED' },
+    );
+    expect(suppressedSenderRepo.create).toHaveBeenCalledWith({
+      userId: 'user-1',
+      senderEmail: 'newsletter@example.com',
+    });
+    expect(suppressedSenderRepo.save).toHaveBeenCalled();
+    expect(result).toEqual({ success: true, senderEmail: 'newsletter@example.com' });
+  });
+
+  it('records an audit log entry on successful unsubscribe', async () => {
+    emailRepo.findOne.mockResolvedValue({
+      id: 'email-10',
+      userId: 'user-1',
+      from: 'promo@shop.com',
+      status: 'READ',
+    } as Email);
+    emailRepo.update.mockResolvedValue({} as never);
+
+    await service.unsubscribeFromSender('email-10', 'user-1');
+
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        action: 'email_sender_unsubscribed',
+      }),
+    );
+  });
+
+  it('throws NotFoundException when email not found for unsubscribe', async () => {
+    emailRepo.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.unsubscribeFromSender('missing-email', 'user-1'),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(emailRepo.update).not.toHaveBeenCalled();
+    expect(suppressedSenderRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('treats duplicate suppression as idempotent success', async () => {
+    emailRepo.findOne.mockResolvedValue({
+      id: 'email-11',
+      userId: 'user-1',
+      from: 'dup@example.com',
+      status: 'READ',
+    } as Email);
+    emailRepo.update.mockResolvedValue({} as never);
+    suppressedSenderRepo.save.mockRejectedValueOnce(
+      new Error('duplicate key value violates unique constraint'),
+    );
+
+    const result = await service.unsubscribeFromSender('email-11', 'user-1');
+
+    expect(result).toEqual({ success: true, senderEmail: 'dup@example.com' });
+  });
+
+  it('rethrows non-unique errors from suppressedSender save', async () => {
+    emailRepo.findOne.mockResolvedValue({
+      id: 'email-12',
+      userId: 'user-1',
+      from: 'bad@example.com',
+      status: 'READ',
+    } as Email);
+    emailRepo.update.mockResolvedValue({} as never);
+    suppressedSenderRepo.save.mockRejectedValueOnce(new Error('DB connection lost'));
+
+    await expect(
+      service.unsubscribeFromSender('email-12', 'user-1'),
+    ).rejects.toThrow('DB connection lost');
   });
 });
