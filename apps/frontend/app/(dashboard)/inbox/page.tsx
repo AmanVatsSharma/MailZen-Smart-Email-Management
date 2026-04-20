@@ -10,9 +10,11 @@ import { InboxAiWorkspace } from '@/components/email/InboxAiWorkspace';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { EmailFolder, EmailThread, EmailLabel } from '@/lib/email/email-types';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Filter, MoreVertical, Plus, Keyboard, Sparkles, X, PlugZap } from 'lucide-react';
+import { RefreshCw, Filter, MoreVertical, Plus, Keyboard, Sparkles, X, PlugZap, Users, User, Loader2 } from 'lucide-react';
 import { gql, useApolloClient, useQuery, useMutation } from '@apollo/client';
-import { GET_LABELS, UPDATE_EMAIL } from '@/lib/apollo/queries/emails';
+import { GET_LABELS, UPDATE_EMAIL, GET_WORKSPACE_EMAILS } from '@/lib/apollo/queries/emails';
+import { GET_MY_WORKSPACES } from '@/lib/apollo/queries/workspaces';
+import { EmailAssignmentPanel } from '@/components/email/EmailAssignmentPanel';
 import { useToast } from '@/components/ui/use-toast';
 import { Surface } from '@/components/ui/surface';
 import { useSearchParams } from 'next/navigation';
@@ -71,6 +73,8 @@ export default function InboxPage() {
   const [isAiDockOpen, setIsAiDockOpen] = useState(true);
   const [isAiMobileOpen, setIsAiMobileOpen] = useState(false);
   const [aiDraftContent, setAiDraftContent] = useState('');
+  const [activeInboxTab, setActiveInboxTab] = useState<'personal' | 'team'>('personal');
+  const [rightPanelMode, setRightPanelMode] = useState<'ai' | 'assignment'>('ai');
 
   const requestedFolder = searchParams.get('folder');
   const currentFolder: EmailFolder =
@@ -102,6 +106,20 @@ export default function InboxPage() {
   // Fetch labels
   const { data: labelsData } = useQuery(GET_LABELS);
   const availableLabels = labelsData?.labels ?? [];
+
+  // Active workspace for Team inbox tab
+  const { data: workspacesData } = useQuery(GET_MY_WORKSPACES, { fetchPolicy: 'cache-first' });
+  const teamWorkspace = (workspacesData?.myWorkspaces as Array<{ id: string; name: string; isPersonal: boolean }> | undefined)
+    ?.find((w) => !w.isPersonal);
+  const activeWorkspaceId = teamWorkspace?.id ?? '';
+
+  // Team inbox emails (workspace-scoped, lazy by tab)
+  const { data: teamEmailsData, loading: teamEmailsLoading } = useQuery(GET_WORKSPACE_EMAILS, {
+    variables: { workspaceId: activeWorkspaceId, limit: 30 },
+    skip: activeInboxTab !== 'team' || !activeWorkspaceId,
+    fetchPolicy: 'network-only',
+  });
+  const teamThreads: EmailThread[] = teamEmailsData?.workspaceEmails?.items ?? [];
 
   // Provider status (for refresh + UX)
   const { data: providersData } = useQuery(GET_PROVIDERS_FOR_INBOX, { fetchPolicy: 'network-only' });
@@ -500,16 +518,103 @@ export default function InboxPage() {
               variant="glass"
               animateIn={false}
             >
-              <EmailList
-                onSelectThread={handleSelectThread}
-                selectedThreadId={selectedThread?.id}
-                className="h-full"
-                onBatchAction={handleBatchAction}
-                initialFolder={currentFolder}
-                labelFilter={currentLabel}
-                externalSearchQuery={currentSearchQuery}
-                externalSemanticEmailIds={semanticEmailIds}
-              />
+              {/* Tab toggle: My Inbox / Team */}
+              <div className="flex border-b border-border/40 px-3 shrink-0">
+                <button
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors',
+                    activeInboxTab === 'personal'
+                      ? 'border-primary text-foreground'
+                      : 'border-transparent text-muted-foreground hover:text-foreground',
+                  )}
+                  onClick={() => setActiveInboxTab('personal')}
+                >
+                  <User className="h-3 w-3" />
+                  My Inbox
+                </button>
+                {activeWorkspaceId && (
+                  <button
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors',
+                      activeInboxTab === 'team'
+                        ? 'border-primary text-foreground'
+                        : 'border-transparent text-muted-foreground hover:text-foreground',
+                    )}
+                    onClick={() => setActiveInboxTab('team')}
+                  >
+                    <Users className="h-3 w-3" />
+                    Team
+                  </button>
+                )}
+              </div>
+
+              {/* Personal inbox */}
+              {activeInboxTab === 'personal' && (
+                <EmailList
+                  onSelectThread={handleSelectThread}
+                  selectedThreadId={selectedThread?.id}
+                  className="flex-1 min-h-0"
+                  onBatchAction={handleBatchAction}
+                  initialFolder={currentFolder}
+                  labelFilter={currentLabel}
+                  externalSearchQuery={currentSearchQuery}
+                  externalSemanticEmailIds={semanticEmailIds}
+                />
+              )}
+
+              {/* Team inbox */}
+              {activeInboxTab === 'team' && (
+                <div className="flex-1 overflow-y-auto min-h-0">
+                  {teamEmailsLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : teamThreads.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+                      <Users className="h-8 w-8 text-muted-foreground/40 mb-3" />
+                      <p className="text-sm font-medium">No team emails yet</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Share a mailbox with your workspace to see team emails here.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border/30">
+                      {teamThreads.map((thread) => (
+                        <button
+                          key={thread.id}
+                          className={cn(
+                            'w-full text-left px-4 py-3 hover:bg-muted/30 transition-colors',
+                            selectedThread?.id === thread.id && 'bg-muted/50',
+                          )}
+                          onClick={() => {
+                            handleSelectThread(thread);
+                            setRightPanelMode('assignment');
+                          }}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <p className={cn('flex-1 text-xs font-medium truncate', thread.isUnread && 'font-semibold')}>
+                              {thread.subject || '(no subject)'}
+                            </p>
+                            {thread.aiPriority && (
+                              <span className={cn(
+                                'shrink-0 text-[10px] font-semibold uppercase',
+                                thread.aiPriority === 'HIGH' && 'text-destructive',
+                                thread.aiPriority === 'MEDIUM' && 'text-yellow-500',
+                                thread.aiPriority === 'LOW' && 'text-green-500',
+                              )}>
+                                {thread.aiPriority}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                            {thread.participants[0]?.email ?? ''}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </Surface>
             )}
 
@@ -556,17 +661,62 @@ export default function InboxPage() {
 
             <Surface
               className={cn(
-                'hidden xl:flex w-[340px] min-w-[340px] overflow-hidden',
+                'hidden xl:flex w-[340px] min-w-[340px] overflow-hidden flex-col',
                 isAiDockOpen ? 'xl:flex' : 'xl:hidden',
               )}
               variant="glass"
               animateIn={false}
             >
-              <InboxAiWorkspace
-                selectedThread={selectedThread}
-                onUseDraft={handleUseAiDraft}
-                className="h-full"
-              />
+              {/* Panel mode toggle (only shown when team tab + thread selected) */}
+              {activeInboxTab === 'team' && selectedThread && activeWorkspaceId && (
+                <div className="flex border-b border-border/40 px-3 shrink-0">
+                  <button
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors',
+                      rightPanelMode === 'ai'
+                        ? 'border-primary text-foreground'
+                        : 'border-transparent text-muted-foreground hover:text-foreground',
+                    )}
+                    onClick={() => setRightPanelMode('ai')}
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    AI
+                  </button>
+                  <button
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors',
+                      rightPanelMode === 'assignment'
+                        ? 'border-primary text-foreground'
+                        : 'border-transparent text-muted-foreground hover:text-foreground',
+                    )}
+                    onClick={() => setRightPanelMode('assignment')}
+                  >
+                    <Users className="h-3 w-3" />
+                    Assign
+                  </button>
+                </div>
+              )}
+
+              {rightPanelMode === 'ai' || activeInboxTab === 'personal' ? (
+                <InboxAiWorkspace
+                  selectedThread={selectedThread}
+                  onUseDraft={handleUseAiDraft}
+                  className="flex-1 min-h-0"
+                />
+              ) : (
+                <div className="flex-1 overflow-y-auto p-4">
+                  {selectedThread && activeWorkspaceId ? (
+                    <EmailAssignmentPanel
+                      threadId={selectedThread.id}
+                      workspaceId={activeWorkspaceId}
+                    />
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center py-8">
+                      Select a team email to manage its assignment.
+                    </p>
+                  )}
+                </div>
+              )}
             </Surface>
           </div>
         </div>

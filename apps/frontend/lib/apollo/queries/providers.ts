@@ -76,4 +76,28 @@ export const SYNC_PROVIDER = gql`
 `;
 
 // NOTE: the actual `SmtpSettingsInput` shape is defined by the backend schema.
-// Frontend types can be derived later via codegen; for now UI uses local TS types. 
+// Frontend types can be derived later via codegen; for now UI uses local TS types.
+
+// ─── Mailbox sharing (Phase B — Team Inbox) ──────────────────────────────────
+
+export const SHARE_MAILBOX_WITH_WORKSPACE = gql`
+  mutation ShareMailboxWithWorkspace($mailboxId: String!, $workspaceId: String!) {
+    shareMailboxWithWorkspace(mailboxId: $mailboxId, workspaceId: $workspaceId) {
+      id
+      address
+      isShared
+      workspaceId
+    }
+  }
+`;
+
+export const GET_SHARED_MAILBOXES = gql`
+  query GetSharedMailboxes($workspaceId: String!) {
+    getSharedMailboxes(workspaceId: $workspaceId) {
+      id
+      address
+      isShared
+      workspaceId
+    }
+  }
+`;

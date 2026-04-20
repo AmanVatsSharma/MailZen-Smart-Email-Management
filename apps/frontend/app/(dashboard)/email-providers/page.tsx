@@ -1,5 +1,32 @@
+/**
+ * File:        apps/frontend/app/(dashboard)/email-providers/page.tsx
+ * Module:      Email Providers · Page
+ * Purpose:     Server component page for managing connected email providers and shared
+ *              mailbox settings; shows OAuth success/error banners from query params.
+ *
+ * Exports:
+ *   - EmailProvidersPage({ searchParams }) — async server component; default export
+ *   - metadata — Next.js page metadata
+ *
+ * Depends on:
+ *   - @/components/providers/ProviderManagement — provider connect/disconnect UI
+ *   - @/components/providers/SharedMailboxSettings — team inbox sharing toggle (client)
+ *
+ * Side-effects:
+ *   - none (renders server component; children fire Apollo queries client-side)
+ *
+ * Key invariants:
+ *   - searchParams must be awaited (Next.js 15 async params)
+ *
+ * Read order:
+ *   1. EmailProvidersPage — entry point
+ *
+ * Author:      AmanVatsSharma
+ * Last-updated: 2026-04-20
+ */
 import { Metadata } from 'next';
 import { ProviderManagement } from '@/components/providers/ProviderManagement';
+import { SharedMailboxSettings } from '@/components/providers/SharedMailboxSettings';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
@@ -58,6 +85,7 @@ export default async function EmailProvidersPage({ searchParams }: EmailProvider
       
       <div className="grid grid-cols-1 gap-6">
         <ProviderManagement />
+        <SharedMailboxSettings />
       </div>
     </DashboardPageShell>
   );
