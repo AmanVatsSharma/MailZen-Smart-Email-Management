@@ -73,6 +73,7 @@ import { Template } from '../template/entities/template.entity';
 import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailAssignmentService } from './email-assignment.service';
 import { EmailAssignmentResolver } from './email-assignment.resolver';
+import { NotificationModule } from '../notification/notification.module';
 
 /**
  * EmailModule - Email sending, tracking, and management
@@ -100,6 +101,7 @@ import { EmailAssignmentResolver } from './email-assignment.resolver';
     ConfigModule,
     BillingModule,
     EmailProviderModule,
+    NotificationModule,
     ScheduleModule.forRoot(),
     BullModule.forRoot({
       redis: {

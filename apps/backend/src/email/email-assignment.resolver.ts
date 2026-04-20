@@ -39,6 +39,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { EmailAssignment } from './entities/email-assignment.entity';
 import { EmailAssignmentService } from './email-assignment.service';
 import { AssignEmailInput, TransferEmailInput } from './dto/email-assignment.input';
+import { NotificationService } from '../notification/notification.service';
 
 interface RequestContext {
   req: { user: { id: string } };
@@ -47,14 +48,26 @@ interface RequestContext {
 @Resolver(() => EmailAssignment)
 @UseGuards(JwtAuthGuard)
 export class EmailAssignmentResolver {
-  constructor(private readonly assignmentService: EmailAssignmentService) {}
+  constructor(
+    private readonly assignmentService: EmailAssignmentService,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   @Mutation(() => EmailAssignment)
   async assignEmail(
     @Args('input') input: AssignEmailInput,
     @Context() ctx: RequestContext,
   ): Promise<EmailAssignment> {
-    return this.assignmentService.assignEmail(input, ctx.req.user.id);
+    const assignment = await this.assignmentService.assignEmail(input, ctx.req.user.id);
+    // Fire-and-forget notification to the assignee
+    this.notificationService.createNotification({
+      userId: input.assigneeUserId,
+      type: 'EMAIL_ASSIGNED',
+      title: 'Email assigned to you',
+      message: `An email thread has been assigned to you.`,
+      metadata: { workspaceId: input.workspaceId, emailId: input.emailId },
+    }).catch(() => {/* non-critical */});
+    return assignment;
   }
 
   @Mutation(() => EmailAssignment)
