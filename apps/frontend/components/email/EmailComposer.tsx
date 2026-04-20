@@ -508,6 +508,14 @@ export function EmailComposer({
     fileInputRef.current?.click();
   };
 
+  const readFileAsBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string).split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   // Handle sending the email
   const handleSendEmail = async () => {
     const toRecipients = toChips;
@@ -566,6 +574,18 @@ export function EmailComposer({
     try {
       // Get final HTML body from the editor (source of truth); fall back to state
       const bodyHtml = editor ? editor.getHTML() : content;
+
+      const attachmentInputs = attachments.length
+        ? await Promise.all(
+            attachments.map(async (file) => ({
+              filename: file.name,
+              contentType: file.type || 'application/octet-stream',
+              content: await readFileAsBase64(file),
+              size: file.size,
+            })),
+          )
+        : undefined;
+
       await sendEmail({
         variables: {
           input: {
@@ -575,6 +595,7 @@ export function EmailComposer({
             to: toRecipients,
             providerId: activeProvider.id,
             scheduledAt: isScheduled ? scheduledDate?.toISOString() : undefined,
+            attachments: attachmentInputs,
           },
         },
       });
