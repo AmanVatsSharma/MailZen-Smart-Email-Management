@@ -81,6 +81,7 @@ export interface EmailFilter {
   from?: string;
   to?: string;
   providerId?: string;
+  aiPriority?: string;
 }
 
 export interface EmailSortOption {

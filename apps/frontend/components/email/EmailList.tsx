@@ -58,10 +58,9 @@ interface EmailListProps {
 const PAGE_SIZE = 10;
 
 const AI_PRIORITY_CHIPS: { id: string; label: string }[] = [
-  { id: 'ai:priority_high', label: 'AI · High' },
-  { id: 'ai:priority_medium', label: 'AI · Med' },
-  { id: 'ai:priority_low', label: 'AI · Low' },
-  { id: 'ai:auto_archived', label: 'AI · Archived' },
+  { id: 'HIGH', label: 'AI · High' },
+  { id: 'MEDIUM', label: 'AI · Med' },
+  { id: 'LOW', label: 'AI · Low' },
 ];
 
 export function EmailList({
@@ -123,15 +122,11 @@ export function EmailList({
     }
   }, [externalSearchQuery]);
   
-  // Prepare GraphQL variables (AND on all labelIds — matches unified inbox backend)
-  const mergedLabelIds = [
-    ...(labelFilter ? [labelFilter] : []),
-    ...(aiPriorityFilter ? [aiPriorityFilter] : []),
-  ];
   const filter: EmailFilter = {
     folder: currentFolder,
     search: searchQuery,
-    labelIds: mergedLabelIds.length ? mergedLabelIds : undefined,
+    labelIds: labelFilter ? [labelFilter] : undefined,
+    aiPriority: aiPriorityFilter ?? undefined,
   };
   
   // Fetch emails with Apollo Client

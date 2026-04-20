@@ -1,3 +1,39 @@
+/**
+ * File:        apps/frontend/components/email/InboxAiWorkspace.tsx
+ * Module:      Email · AI Workspace Sidebar
+ * Purpose:     Renders the AI-powered right-side panel for a selected email thread:
+ *              smart reply suggestions, AI summary, triage action buttons, thread
+ *              insights, email templates, and recent auto-action notifications.
+ *
+ * Exports:
+ *   - InboxAiWorkspace({ selectedThread, onUseDraft, className }) — main panel component
+ *   - InboxAiWorkspaceProps — prop shape for the component
+ *
+ * Depends on:
+ *   - @/lib/apollo/queries/emails — UPDATE_EMAIL, UNSUBSCRIBE_FROM_SENDER, CREATE_LABEL, GET_ALL_LABELS
+ *   - @/lib/apollo/queries/smart-replies — GENERATE_SMART_REPLY, GET_SUGGESTED_REPLIES
+ *   - @/lib/apollo/queries/agent-assistant — GET_THREAD_INSIGHTS
+ *   - @/lib/email/email-types — EmailThread shape
+ *   - @/components/email/InboxAssistantAdapter — bridging to AI agent Gateway for inline actions
+ *
+ * Side-effects:
+ *   - Apollo mutations: updateEmail, unsubscribeFromSender, createLabel
+ *   - Apollo queries: smartReplySettings, generateSmartReply, getSuggestedReplies,
+ *     getThreadInsights, recordAiFeedback, getMyNotifications, getAllLabels, emailTemplates
+ *
+ * Key invariants:
+ *   - TriageActions is only shown when selectedThread.id is present; emailId must be non-empty
+ *     before any mutation is fired
+ *   - GET_ALL_LABELS lazy query is fired only on 'label' triage action to avoid unnecessary requests
+ *
+ * Read order:
+ *   1. InboxAiWorkspaceProps — component contract
+ *   2. TriageActions — triage mutation wiring (Apply buttons)
+ *   3. InboxAiWorkspace — main render logic
+ *
+ * Author:      AmanVatsSharma
+ * Last-updated: 2026-04-20
+ */
 'use client';
 
 import React, { useMemo, useState } from 'react';
@@ -50,6 +86,12 @@ import { GET_EMAIL_TEMPLATES, RENDER_EMAIL_TEMPLATE } from '@/lib/apollo/queries
 import { GET_THREAD_INSIGHTS } from '@/lib/apollo/queries/agent-assistant';
 import { RECORD_AI_FEEDBACK } from '@/lib/apollo/queries/ai-feedback';
 import { GET_MY_NOTIFICATIONS } from '@/lib/apollo/queries/notifications';
+import {
+  UNSUBSCRIBE_FROM_SENDER,
+  UPDATE_EMAIL,
+  GET_ALL_LABELS,
+  CREATE_LABEL,
+} from '@/lib/apollo/queries/emails';
 import { formatDistanceToNow } from 'date-fns';
 import type { EmailThread } from '@/lib/email/email-types';
 import { InboxAssistantAdapter } from '@/components/email/InboxAssistantAdapter';
@@ -253,12 +295,55 @@ function FollowUpBanner({ days }: { days: number }) {
 function TriageActions({
   priority,
   category,
+  emailId,
 }: {
   priority?: string;
   category?: string;
+  emailId: string;
 }) {
+  const { toast } = useToast();
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const dismiss = (key: string) => setDismissed((prev) => new Set(prev).add(key));
+
+  const [unsubscribeFromSender] = useMutation(UNSUBSCRIBE_FROM_SENDER);
+  const [updateEmail] = useMutation(UPDATE_EMAIL);
+  const [getAllLabels] = useLazyQuery(GET_ALL_LABELS);
+  const [createLabel] = useMutation(CREATE_LABEL);
+
+  const handleApply = async (key: string) => {
+    if (!emailId) return;
+    setLoadingKey(key);
+    try {
+      if (key === 'unsub') {
+        await unsubscribeFromSender({ variables: { emailId } });
+        toast({ title: 'Unsubscribed', description: 'Sender suppressed from future emails.' });
+      } else if (key === 'important') {
+        await updateEmail({ variables: { id: emailId, input: { starred: true } } });
+        toast({ title: 'Marked as important' });
+      } else if (key === 'label' && category) {
+        const { data: labelsData } = await getAllLabels();
+        const existing = (labelsData?.getAllLabels as { id: string; name: string }[] | undefined)
+          ?.find((l) => l.name.toLowerCase() === category.toLowerCase());
+        let labelId = existing?.id;
+        if (!labelId) {
+          const { data: created } = await createLabel({
+            variables: { name: category, color: '#6366f1' },
+          });
+          labelId = created?.createLabel?.id;
+        }
+        if (labelId) {
+          await updateEmail({ variables: { id: emailId, input: { addLabelIds: [labelId] } } });
+          toast({ title: `Label applied: ${category}` });
+        }
+      }
+      dismiss(key);
+    } catch {
+      toast({ title: 'Action failed', description: 'Could not apply triage action.', variant: 'destructive' });
+    } finally {
+      setLoadingKey(null);
+    }
+  };
 
   const actions: { key: string; label: string; icon: string }[] = [];
 
@@ -299,9 +384,14 @@ function TriageActions({
                 size="sm"
                 variant="outline"
                 className="h-5 px-2 text-[10px]"
-                onClick={() => dismiss(action.key)}
+                onClick={() => handleApply(action.key)}
+                disabled={loadingKey === action.key}
               >
-                Apply
+                {loadingKey === action.key ? (
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                ) : (
+                  'Apply'
+                )}
               </Button>
               <button
                 onClick={() => dismiss(action.key)}
@@ -538,7 +628,7 @@ export function InboxAiWorkspace({
           )}
 
           {/* Triage action suggestions */}
-          <TriageActions priority={aiPriority} category={aiCategory} />
+          <TriageActions priority={aiPriority} category={aiCategory} emailId={selectedThread.id} />
 
           {/* Recent AI auto-actions */}
           <SectionCard
