@@ -126,6 +126,8 @@ import { RichTextEditor, type RichTextEditorHandle } from './RichTextEditor';
 
 // ── Recipient chip input ──────────────────────────────────────────────────────
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function parseEmailFromRaw(raw: string): string {
   const trimmed = raw.trim();
   const match = trimmed.match(/<([^>]+)>/);
@@ -158,11 +160,18 @@ function RecipientChipInput({
   autoFocus,
 }: RecipientChipInputProps) {
   const [inputVal, setInputVal] = useState('');
+  const [invalidInput, setInvalidInput] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const commit = (raw: string) => {
     const email = parseEmailFromRaw(raw);
-    if (email && !chips.includes(email)) {
+    if (!email) { setInputVal(''); return; }
+    if (!EMAIL_REGEX.test(email)) {
+      setInvalidInput(true);
+      setTimeout(() => setInvalidInput(false), 1500);
+      return;
+    }
+    if (!chips.includes(email)) {
       onChipsChange([...chips, email]);
     }
     setInputVal('');
@@ -238,7 +247,10 @@ function RecipientChipInput({
           onBlur={handleBlur}
           onPaste={handlePaste}
           placeholder={chips.length === 0 ? placeholder : ''}
-          className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder:text-muted-foreground/40 text-foreground"
+          className={cn(
+            'flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder:text-muted-foreground/40',
+            invalidInput ? 'text-destructive' : 'text-foreground',
+          )}
         />
       </div>
       {onHide && (
@@ -484,6 +496,38 @@ export function EmailComposer({
     }
   }, [editor, initialContent, isOpen, mode, subject, threadRecipients]);
 
+  // Draft auto-save — debounced 3s, localStorage, only in 'new' compose mode
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!isOpen || mode !== 'new') return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          'mailzen_draft_compose',
+          JSON.stringify({ subject: emailSubject, body: content, to: toChips, cc: ccChips, bcc: bccChips }),
+        );
+      } catch {}
+    }, 3000);
+    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
+  }, [isOpen, mode, emailSubject, content, toChips, ccChips, bccChips]);
+
+  // Restore draft when composer opens in 'new' mode
+  useEffect(() => {
+    if (!isOpen || mode !== 'new') return;
+    try {
+      const saved = localStorage.getItem('mailzen_draft_compose');
+      if (!saved) return;
+      const draft = JSON.parse(saved) as { subject?: string; body?: string; to?: string[]; cc?: string[]; bcc?: string[] };
+      if (draft.subject) setEmailSubject(draft.subject);
+      if (draft.to?.length) setToChips(draft.to);
+      if (draft.cc?.length) setCcChips(draft.cc);
+      if (draft.bcc?.length) setBccChips(draft.bcc);
+      if (draft.body && editor) editor.commands.setContent(draft.body, { emitUpdate: false });
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   // Handle file selection for attachments
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -599,6 +643,8 @@ export function EmailComposer({
           },
         },
       });
+
+      try { localStorage.removeItem('mailzen_draft_compose'); } catch {}
 
       toast({
         title: isScheduled ? 'Email scheduled' : 'Email sent',
