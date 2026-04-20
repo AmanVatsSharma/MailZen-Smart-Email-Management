@@ -71,6 +71,8 @@ import { MailService } from './mail.service';
 import { User } from '../user/entities/user.entity';
 import { Template } from '../template/entities/template.entity';
 import { AuditLog } from '../auth/entities/audit-log.entity';
+import { EmailAssignmentService } from './email-assignment.service';
+import { EmailAssignmentResolver } from './email-assignment.resolver';
 
 /**
  * EmailModule - Email sending, tracking, and management
@@ -144,6 +146,8 @@ import { AuditLog } from '../auth/entities/audit-log.entity';
     AttachmentResolver,
     EmailWarmupService,
     EmailWarmupResolver,
+    EmailAssignmentService,
+    EmailAssignmentResolver,
     RequirePlanGuard,
   ],
   exports: [
@@ -152,6 +156,7 @@ import { AuditLog } from '../auth/entities/audit-log.entity';
     EmailTemplateService,
     AttachmentService,
     EmailWarmupService,
+    EmailAssignmentService,
   ],
 })
 export class EmailModule {}

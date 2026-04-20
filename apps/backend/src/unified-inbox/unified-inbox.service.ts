@@ -1874,4 +1874,72 @@ export class UnifiedInboxService {
       };
     });
   }
+
+  /**
+   * Lists email threads from all shared mailboxes in a workspace.
+   * Returns MAILBOX-sourced (Email entity) threads owned by members who have
+   * shared their mailbox with the given workspace.
+   */
+  async listWorkspaceThreads(
+    workspaceId: string,
+    limit: number,
+    offset: number,
+    filter?: EmailFilterInput,
+  ): Promise<PaginatedEmailThreads> {
+    const sharedMailboxes = await this.mailboxRepo.find({
+      where: { workspaceId, isShared: true },
+    });
+    if (sharedMailboxes.length === 0) {
+      return { items: [], totalCount: 0 };
+    }
+
+    const ownerUserIds = [...new Set(sharedMailboxes.map((m) => m.userId))];
+
+    const qb = this.emailRepo
+      .createQueryBuilder('email')
+      .where('email."userId" IN (:...userIds)', { userIds: ownerUserIds });
+
+    if (filter?.folder) {
+      qb.andWhere('LOWER(email.folder) = :folder', {
+        folder: filter.folder.toLowerCase(),
+      });
+    }
+    if (filter?.search) {
+      qb.andWhere(
+        '(email.subject ILIKE :search OR email.body ILIKE :search)',
+        { search: `%${filter.search}%` },
+      );
+    }
+    if (filter?.isStarred !== undefined) {
+      qb.andWhere('email."isStarred" = :isStarred', {
+        isStarred: filter.isStarred,
+      });
+    }
+
+    const totalCount = await qb.getCount();
+    const emails = await qb
+      .orderBy('email."receivedAt"', 'DESC')
+      .limit(limit)
+      .offset(offset)
+      .getMany();
+
+    const items: PaginatedEmailThreads['items'] = emails.map((email) => ({
+      id: email.id,
+      subject: email.subject ?? '(no subject)',
+      participants: (() => {
+        const from = this.parseMailboxAddress(email.from);
+        return from ? [{ name: from.name || from.email, email: from.email }] : [];
+      })(),
+      lastMessageDate: email.receivedAt ?? email.createdAt,
+      isUnread: email.status === 'UNREAD',
+      folder: email.folder ?? 'INBOX',
+      labelIds: [],
+      messages: [],
+      aiPriority: email.aiPriority ?? undefined,
+      aiCategory: email.aiCategory ?? undefined,
+      aiSummary: email.aiSummary ?? undefined,
+    }));
+
+    return { items, totalCount };
+  }
 }

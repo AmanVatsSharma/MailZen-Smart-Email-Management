@@ -67,6 +67,25 @@ export class UnifiedInboxResolver {
     return this.unifiedInbox.updateThread(ctx.req.user.id, id, input);
   }
 
+  /**
+   * Frontend contract: `workspaceEmails(workspaceId, ...)` used by the Team inbox tab.
+   * Returns threads from all mailboxes shared with the given workspace.
+   */
+  @Query(() => PaginatedEmailThreads)
+  async workspaceEmails(
+    @Args('workspaceId') workspaceId: string,
+    @Args('limit', { type: () => Int, nullable: true }) limit: number,
+    @Args('offset', { type: () => Int, nullable: true }) offset: number,
+    @Args('filter', { type: () => EmailFilterInput, nullable: true }) filter: EmailFilterInput,
+  ) {
+    return this.unifiedInbox.listWorkspaceThreads(
+      workspaceId,
+      limit ?? 20,
+      offset ?? 0,
+      filter,
+    );
+  }
+
   @Query(() => [EmailFolder])
   async folders(@Context() ctx: RequestContext) {
     return this.unifiedInbox.listFolders(ctx.req.user.id);
