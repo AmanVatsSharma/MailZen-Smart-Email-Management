@@ -260,3 +260,96 @@ export const CREATE_LABEL = gql`
     }
   }
 `;
+
+// ─── Email Assignment (Phase B — Team Inbox) ─────────────────────────────────
+
+const ASSIGNMENT_FIELDS = gql`
+  fragment AssignmentFields on EmailAssignment {
+    id
+    emailId
+    workspaceId
+    assignedToUserId
+    assignedByUserId
+    status
+    notes
+    dueAt
+    resolvedAt
+    createdAt
+    updatedAt
+  }
+`;
+
+export const ASSIGN_EMAIL = gql`
+  ${ASSIGNMENT_FIELDS}
+  mutation AssignEmail($input: AssignEmailInput!) {
+    assignEmail(input: $input) {
+      ...AssignmentFields
+    }
+  }
+`;
+
+export const TRANSFER_EMAIL = gql`
+  ${ASSIGNMENT_FIELDS}
+  mutation TransferEmail($input: TransferEmailInput!) {
+    transferEmail(input: $input) {
+      ...AssignmentFields
+    }
+  }
+`;
+
+export const RESOLVE_EMAIL_ASSIGNMENT = gql`
+  ${ASSIGNMENT_FIELDS}
+  mutation ResolveEmailAssignment($assignmentId: String!) {
+    resolveEmailAssignment(assignmentId: $assignmentId) {
+      ...AssignmentFields
+    }
+  }
+`;
+
+export const GET_EMAIL_ASSIGNMENT = gql`
+  ${ASSIGNMENT_FIELDS}
+  query GetEmailAssignment($emailId: String!) {
+    getEmailAssignment(emailId: $emailId) {
+      ...AssignmentFields
+    }
+  }
+`;
+
+export const GET_WORKSPACE_ASSIGNMENTS = gql`
+  ${ASSIGNMENT_FIELDS}
+  query GetWorkspaceAssignments($workspaceId: String!, $status: String) {
+    getWorkspaceAssignments(workspaceId: $workspaceId, status: $status) {
+      ...AssignmentFields
+    }
+  }
+`;
+
+export const GET_WORKSPACE_EMAILS = gql`
+  query GetWorkspaceEmails($workspaceId: String!, $limit: Int, $offset: Int, $filter: EmailFilterInput) {
+    workspaceEmails(workspaceId: $workspaceId, limit: $limit, offset: $offset, filter: $filter) {
+      totalCount
+      items {
+        id
+        subject
+        participants {
+          name
+          email
+        }
+        lastMessageDate
+        isUnread
+        folder
+        labelIds
+        aiPriority
+        aiCategory
+        aiSummary
+        messages {
+          id
+          content
+          contentPreview
+          date
+          from { name email }
+        }
+      }
+    }
+  }
+`;
