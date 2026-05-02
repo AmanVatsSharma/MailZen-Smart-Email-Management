@@ -34,6 +34,14 @@ export class Workspace {
   isPersonal: boolean;
 
   @Field()
+  @Column({ default: true })
+  automationsEnabled: boolean;
+
+  @Field()
+  @Column({ type: 'int', default: 20 })
+  automationConcurrencyCap: number;
+
+  @Field()
   @CreateDateColumn()
   createdAt: Date;
 

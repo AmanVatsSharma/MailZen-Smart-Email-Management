@@ -29,6 +29,7 @@ import { AiAgentGatewayModule } from './ai-agent-gateway/ai-agent-gateway.module
 import { SenderIntelligenceModule } from './sender-intelligence/sender-intelligence.module';
 import { HealthModule } from './health/health.module';
 import { InboxTriageModule } from './inbox-triage/inbox-triage.module';
+import { AutomationModule } from './automation/automation.module';
 import { buildTypeOrmModuleOptions } from './database/typeorm.config';
 
 @Module({
@@ -83,6 +84,7 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
     SenderIntelligenceModule,
     HealthModule,
     InboxTriageModule,
+    AutomationModule,
   ],
   controllers: [],
   providers: [
