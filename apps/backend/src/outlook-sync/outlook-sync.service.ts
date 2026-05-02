@@ -1,3 +1,32 @@
+/**
+ * File:        apps/backend/src/outlook-sync/outlook-sync.service.ts
+ * Module:      Outlook Sync
+ * Purpose:     Orchestrates Outlook/Microsoft Graph API sync — delta cursor sync,
+ *              push subscription management, message upsert, and automation event publishing.
+ *
+ * Exports:
+ *   - OutlookSyncService  — Injectable NestJS service
+ *
+ * Depends on:
+ *   - EmailProvider, ExternalEmailMessage, ExternalEmailLabel, AuditLog  — TypeORM repos
+ *   - AutomationEventBus  — publishes email.received after each upserted inbound message
+ *   - SenderIntelligenceService  — records sender stats per message
+ *   - EmailAiProcessorService    — embeddings + triage (fire-and-forget)
+ *
+ * Side-effects:
+ *   - DB reads/writes (provider, messages, labels, audit log)
+ *   - Outbound HTTP to Microsoft Graph API
+ *   - AutomationEventBus.publish() — synchronous RxJS push per imported message
+ *
+ * Key invariants:
+ *   - workspaceId is nullable on EmailProvider; event is only published when present
+ *   - Delta cursor stored on EmailProvider for incremental sync; falls back to full sync
+ *   - Push subscriptions are renewed when within the configured renewal threshold
+ *
+ * Author:      AmanVatsSharma
+ * Last-updated: 2026-05-03
+ */
+
 import {
   BadRequestException,
   Injectable,
@@ -26,6 +55,7 @@ import { ExternalEmailMessage } from '../email-integration/entities/external-ema
 import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
 import { SenderIntelligenceService } from '../sender-intelligence/sender-intelligence.service';
 import { EmailAiProcessorService } from '../email-integration/email-ai-processor.service';
+import { AutomationEventBus } from '../automation/automation-event.bus';
 
 type OutlookRecipient = {
   emailAddress?: {
@@ -86,6 +116,7 @@ export class OutlookSyncService {
     private readonly providerSyncLease: ProviderSyncLeaseService,
     private readonly senderIntelligence: SenderIntelligenceService,
     private readonly emailAiProcessor: EmailAiProcessorService,
+    private readonly automationEventBus: AutomationEventBus,
   ) {
     this.providerSecretsKeyring = resolveProviderSecretsKeyring();
   }
@@ -404,6 +435,7 @@ export class OutlookSyncService {
     userId: string;
     providerId: string;
     message: OutlookMessage;
+    workspaceId?: string | null;
   }): Promise<{ imported: boolean; categories: string[] }> {
     const messageId = String(input.message.id || '').trim();
     if (!messageId) {
@@ -450,6 +482,19 @@ export class OutlookSyncService {
       ],
       ['providerId', 'externalMessageId'],
     );
+
+    if (input.workspaceId) {
+      this.automationEventBus.publish({
+        type: 'email.received',
+        workspaceId: input.workspaceId,
+        userId: input.userId,
+        messageId,
+        threadId: input.message.conversationId || messageId,
+        from: from || '',
+        subject: input.message.subject || '',
+        labels,
+      });
+    }
 
     // Phase 6 — Sender Intelligence: update sender profile (best-effort)
     if (input.message.from?.emailAddress?.address) {
@@ -498,6 +543,7 @@ export class OutlookSyncService {
     userId: string;
     cursor: string;
     pageLimit: number;
+    workspaceId?: string | null;
   }): Promise<{
     imported: number;
     removed: number;
@@ -522,6 +568,7 @@ export class OutlookSyncService {
           userId: input.userId,
           providerId: input.providerId,
           message,
+          workspaceId: input.workspaceId,
         });
         if (result.imported) imported += 1;
         if (hasRemovedMarker) removed += 1;
@@ -811,6 +858,7 @@ export class OutlookSyncService {
             userId,
             cursor: providerCursor,
             pageLimit: deltaPageLimit,
+            workspaceId: provider.workspaceId,
           });
           imported = deltaSyncResult.imported;
           removed = deltaSyncResult.removed;
@@ -854,6 +902,7 @@ export class OutlookSyncService {
             userId,
             providerId,
             message,
+            workspaceId: provider.workspaceId,
           });
           if (result.imported) imported += 1;
           for (const categoryName of result.categories) {

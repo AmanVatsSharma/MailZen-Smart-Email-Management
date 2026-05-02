@@ -12,6 +12,7 @@ import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lea
 import { NotificationModule } from '../notification/notification.module';
 import { SenderIntelligenceModule } from '../sender-intelligence/sender-intelligence.module';
 import { EmailAiProcessorModule } from '../email-integration/email-ai-processor.module';
+import { AutomationModule } from '../automation/automation.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { EmailAiProcessorModule } from '../email-integration/email-ai-processor.
     NotificationModule,
     SenderIntelligenceModule,
     EmailAiProcessorModule,
+    AutomationModule,
   ],
   controllers: [GmailSyncWebhookController],
   providers: [

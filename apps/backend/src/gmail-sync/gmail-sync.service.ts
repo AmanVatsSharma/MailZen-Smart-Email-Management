@@ -28,6 +28,7 @@ import { ExternalEmailMessage } from '../email-integration/entities/external-ema
 import { ProviderSyncLeaseService } from '../email-integration/provider-sync-lease.service';
 import { SenderIntelligenceService } from '../sender-intelligence/sender-intelligence.service';
 import { EmailAiProcessorService } from '../email-integration/email-ai-processor.service';
+import { AutomationEventBus } from '../automation/automation-event.bus';
 
 type GmailListResponse = {
   messages?: { id: string; threadId?: string }[];
@@ -101,6 +102,7 @@ export class GmailSyncService {
     private readonly providerSyncLease: ProviderSyncLeaseService,
     private readonly senderIntelligence: SenderIntelligenceService,
     private readonly emailAiProcessor: EmailAiProcessorService,
+    private readonly automationEventBus: AutomationEventBus,
   ) {
     this.providerSecretsKeyring = resolveProviderSecretsKeyring();
     // Dedicated client for Gmail API access token refresh.
@@ -775,6 +777,20 @@ export class GmailSyncService {
             ],
             ['providerId', 'externalMessageId'],
           );
+
+          // Automation Engine: publish email.received event (best-effort, fire-and-forget)
+          if (provider.workspaceId) {
+            this.automationEventBus.publish({
+              type: 'email.received',
+              workspaceId: provider.workspaceId,
+              userId,
+              messageId: details.data.id,
+              threadId: details.data.threadId || details.data.id,
+              from: from || '',
+              subject: subject || '',
+              labels,
+            });
+          }
 
           // Phase 6 — Sender Intelligence: update sender profile (best-effort)
           if (from) {

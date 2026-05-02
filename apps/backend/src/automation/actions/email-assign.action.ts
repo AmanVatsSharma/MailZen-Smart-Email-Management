@@ -64,7 +64,7 @@ export class EmailAssignActionHandler implements ActionHandler {
     if (!targetUserId) return { skipped: true };
 
     const assignment = await this.assignmentService.assignEmail(
-      { emailId, workspaceId: ctx.workspaceId, assignedToUserId: targetUserId },
+      { emailId, workspaceId: ctx.workspaceId, assigneeUserId: targetUserId },
       ctx.userId,
     );
 

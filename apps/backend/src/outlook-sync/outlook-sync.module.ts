@@ -11,6 +11,7 @@ import { OutlookSyncScheduler } from './outlook-sync.scheduler';
 import { OutlookSyncService } from './outlook-sync.service';
 import { OutlookSyncWebhookController } from './outlook-sync-webhook.controller';
 import { SenderIntelligenceModule } from '../sender-intelligence/sender-intelligence.module';
+import { AutomationModule } from '../automation/automation.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { SenderIntelligenceModule } from '../sender-intelligence/sender-intellig
     NotificationModule,
     SenderIntelligenceModule,
     EmailAiProcessorModule,
+    AutomationModule,
   ],
   controllers: [OutlookSyncWebhookController],
   providers: [

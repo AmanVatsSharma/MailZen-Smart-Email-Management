@@ -41,15 +41,18 @@ import { AutomationRun } from './entities/automation-run.entity';
 import { AutomationStepRun } from './entities/automation-step-run.entity';
 import { WorkspaceIntegration } from './entities/workspace-integration.entity';
 import { AutomationEventBus } from './automation-event.bus';
+import { AutomationDispatcherService } from './automation-dispatcher.service';
 import { WorkspaceAdminGuard } from './guards/workspace-admin.guard';
 import { EmailReceivedTriggerHandler } from './triggers/email-received.trigger';
+import { ManualTriggerHandler } from './triggers/manual.trigger';
 import { EmailLabelAddActionHandler, EmailLabelRemoveActionHandler } from './actions/email-label.action';
 import { EmailArchiveActionHandler } from './actions/email-archive.action';
 import { EmailAssignActionHandler } from './actions/email-assign.action';
 import { NotifyUserActionHandler } from './actions/notify-user.action';
 import { AiClassifyActionHandler } from './actions/ai-classify.action';
-// Cross-module entities for action handlers
+// Cross-module entities for action handlers and dispatcher
 import { WorkspaceMember } from '../workspace/entities/workspace-member.entity';
+import { Workspace } from '../workspace/entities/workspace.entity';
 import { EmailLabel } from '../email/entities/email-label.entity';
 import { EmailLabelAssignment } from '../email/entities/email-label-assignment.entity';
 import { Email } from '../email/entities/email.entity';
@@ -66,6 +69,7 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
       AutomationRun,
       AutomationStepRun,
       WorkspaceIntegration,
+      Workspace,
       WorkspaceMember,
       EmailLabel,
       EmailLabelAssignment,
@@ -81,8 +85,10 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
   ],
   providers: [
     AutomationEventBus,
+    AutomationDispatcherService,
     WorkspaceAdminGuard,
     EmailReceivedTriggerHandler,
+    ManualTriggerHandler,
     EmailLabelAddActionHandler,
     EmailLabelRemoveActionHandler,
     EmailArchiveActionHandler,
