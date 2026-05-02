@@ -42,6 +42,7 @@ import { AutomationStepRun } from './entities/automation-step-run.entity';
 import { WorkspaceIntegration } from './entities/workspace-integration.entity';
 import { AutomationEventBus } from './automation-event.bus';
 import { AutomationDispatcherService } from './automation-dispatcher.service';
+import { AutomationWorkerProcessor, AUTOMATION_ACTION_HANDLERS } from './automation-worker.processor';
 import { WorkspaceAdminGuard } from './guards/workspace-admin.guard';
 import { EmailReceivedTriggerHandler } from './triggers/email-received.trigger';
 import { ManualTriggerHandler } from './triggers/manual.trigger';
@@ -86,6 +87,7 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
   providers: [
     AutomationEventBus,
     AutomationDispatcherService,
+    AutomationWorkerProcessor,
     WorkspaceAdminGuard,
     EmailReceivedTriggerHandler,
     ManualTriggerHandler,
@@ -95,6 +97,25 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
     EmailAssignActionHandler,
     NotifyUserActionHandler,
     AiClassifyActionHandler,
+    {
+      provide: AUTOMATION_ACTION_HANDLERS,
+      useFactory: (
+        labelAdd: EmailLabelAddActionHandler,
+        labelRemove: EmailLabelRemoveActionHandler,
+        archive: EmailArchiveActionHandler,
+        assign: EmailAssignActionHandler,
+        notify: NotifyUserActionHandler,
+        aiClassify: AiClassifyActionHandler,
+      ) => [labelAdd, labelRemove, archive, assign, notify, aiClassify],
+      inject: [
+        EmailLabelAddActionHandler,
+        EmailLabelRemoveActionHandler,
+        EmailArchiveActionHandler,
+        EmailAssignActionHandler,
+        NotifyUserActionHandler,
+        AiClassifyActionHandler,
+      ],
+    },
   ],
   exports: [
     AutomationEventBus,
