@@ -43,6 +43,8 @@ import { WorkspaceIntegration } from './entities/workspace-integration.entity';
 import { AutomationEventBus } from './automation-event.bus';
 import { AutomationDispatcherService } from './automation-dispatcher.service';
 import { AutomationWorkerProcessor, AUTOMATION_ACTION_HANDLERS } from './automation-worker.processor';
+import { AutomationService } from './automation.service';
+import { AutomationResolver, AutomationRunResolver } from './automation.resolver';
 import { WorkspaceAdminGuard } from './guards/workspace-admin.guard';
 import { EmailReceivedTriggerHandler } from './triggers/email-received.trigger';
 import { ManualTriggerHandler } from './triggers/manual.trigger';
@@ -58,6 +60,7 @@ import { EmailLabel } from '../email/entities/email-label.entity';
 import { EmailLabelAssignment } from '../email/entities/email-label-assignment.entity';
 import { Email } from '../email/entities/email.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { NotificationModule } from '../notification/notification.module';
 import { EmailModule } from '../email/email.module';
 import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.module';
@@ -76,6 +79,7 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
       EmailLabelAssignment,
       Email,
       ExternalEmailMessage,
+      AuditLog,
     ]),
     BullModule.registerQueue({
       name: 'automations',
@@ -88,6 +92,9 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
     AutomationEventBus,
     AutomationDispatcherService,
     AutomationWorkerProcessor,
+    AutomationService,
+    AutomationResolver,
+    AutomationRunResolver,
     WorkspaceAdminGuard,
     EmailReceivedTriggerHandler,
     ManualTriggerHandler,
