@@ -38,6 +38,7 @@ import { AutomationVersion } from './entities/automation-version.entity';
 import { AutomationRun } from './entities/automation-run.entity';
 import { AutomationStepRun } from './entities/automation-step-run.entity';
 import { WorkspaceIntegration } from './entities/workspace-integration.entity';
+import { AutomationEventBus } from './automation-event.bus';
 
 @Module({
   imports: [
@@ -52,7 +53,7 @@ import { WorkspaceIntegration } from './entities/workspace-integration.entity';
       name: 'automations',
     }),
   ],
-  providers: [],
-  exports: [],
+  providers: [AutomationEventBus],
+  exports: [AutomationEventBus],
 })
 export class AutomationModule {}
