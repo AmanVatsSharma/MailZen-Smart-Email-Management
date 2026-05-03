@@ -7,10 +7,12 @@ import {
   FileText,
   Filter,
   LayoutDashboard,
+  Lock,
   Mail,
   MailPlus,
   MessageSquareText,
   ShieldCheck,
+  Tag,
   type LucideIcon,
   Sparkles,
   Zap,
@@ -63,9 +65,9 @@ export const primaryNavItems: PrimaryNavItem[] = [
   },
   {
     id: 'automation',
-    label: 'Automation',
-    href: '/filters',
-    icon: Sparkles,
+    label: 'Automations',
+    href: '/automations',
+    icon: Zap,
   },
   {
     id: 'providers',
@@ -93,6 +95,7 @@ export const secondaryPanelBySection: Record<DashboardSectionId, SecondaryPanelC
       { label: 'Scheduled', href: '/dashboard/scheduled', description: 'Pending scheduled sends' },
       { label: 'Archive', href: '/archive', description: 'Archived conversations' },
       { label: 'Trash', href: '/trash', description: 'Deleted messages' },
+      { label: 'Labels', href: '/labels', description: 'Colour-coded inbox labels' },
     ],
   },
   contacts: {
@@ -104,10 +107,11 @@ export const secondaryPanelBySection: Record<DashboardSectionId, SecondaryPanelC
     ],
   },
   automation: {
-    title: 'Automation',
-    description: 'Rules and AI automation.',
+    title: 'Automations',
+    description: 'Workflow automations and AI rules.',
     links: [
-      { label: 'Filters', href: '/filters', description: 'Rule-based inbox automation' },
+      { label: 'Automations', href: '/automations', description: 'Workspace workflow automations' },
+      { label: 'Filters (legacy)', href: '/filters', description: 'Rule-based inbox automation' },
       { label: 'Warmup', href: '/warmup', description: 'Deliverability warmup management' },
       {
         label: 'Smart Replies',
@@ -154,6 +158,11 @@ export const secondaryPanelBySection: Record<DashboardSectionId, SecondaryPanelC
         href: '/settings/feature-flags',
         description: 'Admin-only feature rollout management',
       },
+      {
+        label: 'Privacy & Data',
+        href: '/settings/privacy',
+        description: 'Download your account data export',
+      },
     ],
   },
   providers: {
@@ -170,6 +179,7 @@ export const secondaryPanelBySection: Record<DashboardSectionId, SecondaryPanelC
 };
 
 export const automationQuickLinks = [
+  { label: 'Automations', href: '/automations', icon: Zap },
   { label: 'Filters', href: '/filters', icon: Filter },
   { label: 'Warmup', href: '/warmup', icon: Zap },
   { label: 'Smart Replies', href: '/settings/smart-replies', icon: MessageSquareText },
@@ -180,6 +190,7 @@ export const automationQuickLinks = [
   { label: 'Mailbox Health', href: '/mailbox-health', icon: Activity },
   { label: 'Templates', href: '/templates', icon: FileText },
   { label: 'AI Audit Log', href: '/settings/ai-audit', icon: ShieldCheck },
+  { label: 'Privacy & Data', href: '/settings/privacy', icon: Lock },
 ];
 
 export const mailFolderRoutes = new Set(['/inbox', '/sent', '/archive', '/trash']);
@@ -205,7 +216,7 @@ export const getSectionFromPathname = (pathname: string): DashboardSectionId => 
     return 'mail';
   }
 
-  if (mailFolderRoutes.has(normalized)) {
+  if (normalized === '/labels' || mailFolderRoutes.has(normalized)) {
     return 'mail';
   }
 
@@ -216,6 +227,7 @@ export const getSectionFromPathname = (pathname: string): DashboardSectionId => 
   if (
     normalized === '/filters' ||
     normalized === '/warmup' ||
+    normalized.startsWith('/automations') ||
     normalized === '/notifications' ||
     normalized === '/mailbox-health' ||
     normalized === '/templates' ||
@@ -224,7 +236,8 @@ export const getSectionFromPathname = (pathname: string): DashboardSectionId => 
     normalized.startsWith('/settings/smart-replies') ||
     normalized.startsWith('/settings/notifications') ||
     normalized.startsWith('/settings/ai-audit') ||
-    normalized.startsWith('/settings/feature-flags')
+    normalized.startsWith('/settings/feature-flags') ||
+    normalized.startsWith('/settings/privacy')
   ) {
     return 'automation';
   }
