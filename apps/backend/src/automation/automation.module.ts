@@ -14,6 +14,7 @@
  *   - NotificationModule         — NotificationEventBusService for notify.user action
  *   - EmailModule                — EmailAssignmentService for email.assign action
  *   - AiAgentGatewayModule       — InboxAiService for ai.classify action
+ *   - EmailFilter                — source entity for one-time filter migration
  *
  * Side-effects:
  *   - Registers Bull queue "automations" (requires running Redis)
@@ -29,7 +30,7 @@
  *   3. providers / exports
  *
  * Author:      AmanVatsSharma
- * Last-updated: 2026-05-02
+ * Last-updated: 2026-05-03
  */
 
 import { Module } from '@nestjs/common';
@@ -61,6 +62,8 @@ import { EmailLabelAssignment } from '../email/entities/email-label-assignment.e
 import { Email } from '../email/entities/email.entity';
 import { ExternalEmailMessage } from '../email-integration/entities/external-email-message.entity';
 import { AuditLog } from '../auth/entities/audit-log.entity';
+import { EmailFilter } from '../email/entities/email-filter.entity';
+import { AutomationMigrationFromFilterService } from './automation-migration-from-filter.service';
 import { NotificationModule } from '../notification/notification.module';
 import { EmailModule } from '../email/email.module';
 import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.module';
@@ -80,6 +83,7 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
       Email,
       ExternalEmailMessage,
       AuditLog,
+      EmailFilter,
     ]),
     BullModule.registerQueue({
       name: 'automations',
@@ -104,6 +108,7 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
     EmailAssignActionHandler,
     NotifyUserActionHandler,
     AiClassifyActionHandler,
+    AutomationMigrationFromFilterService,
     {
       provide: AUTOMATION_ACTION_HANDLERS,
       useFactory: (
