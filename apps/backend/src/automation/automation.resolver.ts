@@ -39,8 +39,9 @@ import {
   ResolveField,
   Resolver,
 } from '@nestjs/graphql';
-import { UseGuards } from '@nestjs/common';
+import { BadRequestException, UseGuards } from '@nestjs/common';
 import GraphQLJSON from 'graphql-type-json';
+import { validateTrigger, validateCondition, validateSteps } from '@mailzen/shared-types';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { WorkspaceAdminGuard } from './guards/workspace-admin.guard';
 import { AutomationService } from './automation.service';
@@ -142,6 +143,14 @@ export class AutomationResolver {
     @Context() ctx?: GqlContext,
   ): Promise<Automation> {
     const userId = ctx!.req.user.id;
+    const triggerErr = validateTrigger(trigger);
+    if (triggerErr) throw new BadRequestException(`Invalid trigger: ${triggerErr}`);
+    const stepsErr = validateSteps(steps);
+    if (stepsErr) throw new BadRequestException(`Invalid steps: ${stepsErr}`);
+    if (conditions) {
+      const condErr = validateCondition(conditions);
+      if (condErr) throw new BadRequestException(`Invalid conditions: ${condErr}`);
+    }
     return this.automationService.createAutomation({
       workspaceId,
       ownerUserId,
@@ -166,6 +175,18 @@ export class AutomationResolver {
     @Context() ctx?: GqlContext,
   ): Promise<Automation> {
     const userId = ctx!.req.user.id;
+    if (trigger) {
+      const triggerErr = validateTrigger(trigger);
+      if (triggerErr) throw new BadRequestException(`Invalid trigger: ${triggerErr}`);
+    }
+    if (steps) {
+      const stepsErr = validateSteps(steps);
+      if (stepsErr) throw new BadRequestException(`Invalid steps: ${stepsErr}`);
+    }
+    if (conditions) {
+      const condErr = validateCondition(conditions);
+      if (condErr) throw new BadRequestException(`Invalid conditions: ${condErr}`);
+    }
     return this.automationService.updateAutomation({ id, workspaceId, userId, name, description, trigger, conditions, steps });
   }
 

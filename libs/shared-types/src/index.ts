@@ -3,3 +3,4 @@ export * from './billing';
 export * from './email';
 export * from './notification';
 export * from './automation.types';
+export * from './automation.schemas';

@@ -36,9 +36,9 @@
     "seed:demo:fresh": "ts-node -r tsconfig-paths/register scripts/seed-demo.ts --fresh"
   },
   "dependencies": {
-    "@mailzen/shared-types": "*",
     "@as-integrations/express5": "^1.1.2",
     "@google-cloud/storage": "^7.15.2",
+    "@mailzen/shared-types": "*",
     "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/apollo": "^13.0.2",
     "@nestjs/bull": "^11.0.2",
@@ -54,6 +54,7 @@
     "@sentry/profiling-node": "^10.46.0",
     "@types/bull": "^3.15.9",
     "@types/nodemailer": "^6.4.17",
+    "ajv": "^6.12.6",
     "axios": "^1.8.1",
     "bcryptjs": "^3.0.2",
     "bull": "^4.16.5",
