@@ -1,3 +1,31 @@
+/**
+ * File:        apps/backend/src/email/email.email-filter.resolver.ts
+ * Module:      Email · GraphQL Resolver · Email Filters (legacy)
+ * Purpose:     GraphQL mutations and queries for legacy EmailFilter rules.
+ *              All operations are @deprecated — new code should use the Automation Engine.
+ *
+ * Exports:
+ *   - EmailFilterResolver  — @Resolver('EmailFilter') NestJS class
+ *
+ * Depends on:
+ *   - EmailFilterService  — CRUD for email_filters rows
+ *
+ * Side-effects:
+ *   - DB reads/writes via EmailFilterService
+ *
+ * Key invariants:
+ *   - All three operations carry deprecationReason pointing to Automation Engine
+ *   - Legacy filters are preserved for migration read-back; no new features added here
+ *
+ * Read order:
+ *   1. createEmailFilter  — write path (deprecated)
+ *   2. getEmailFilters    — read path (deprecated)
+ *   3. deleteEmailFilter  — delete path (deprecated)
+ *
+ * Author:      AmanVatsSharma
+ * Last-updated: 2026-05-03
+ */
+
 import { Resolver, Query, Mutation, Args, Context } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -13,11 +41,13 @@ interface RequestContext {
   };
 }
 
+const DEPRECATION_REASON = 'Use Automation Engine instead. EmailFilter will be removed in v2.';
+
 @Resolver('EmailFilter')
 export class EmailFilterResolver {
   constructor(private readonly emailFilterService: EmailFilterService) {}
 
-  @Mutation(() => Boolean)
+  @Mutation(() => Boolean, { deprecationReason: DEPRECATION_REASON })
   @UseGuards(JwtAuthGuard)
   async createEmailFilter(
     @Args('input') input: CreateEmailFilterInput,
@@ -29,6 +59,7 @@ export class EmailFilterResolver {
 
   @Query(() => [String], {
     description: 'Returns JSON stringified filters for now',
+    deprecationReason: DEPRECATION_REASON,
   })
   @UseGuards(JwtAuthGuard)
   async getEmailFilters(@Context() context: RequestContext) {
@@ -40,7 +71,7 @@ export class EmailFilterResolver {
     );
   }
 
-  @Mutation(() => Boolean)
+  @Mutation(() => Boolean, { deprecationReason: DEPRECATION_REASON })
   @UseGuards(JwtAuthGuard)
   async deleteEmailFilter(
     @Args('id') id: string,
