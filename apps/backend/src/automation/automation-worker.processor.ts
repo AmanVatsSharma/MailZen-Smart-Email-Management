@@ -76,8 +76,8 @@ export class AutomationWorkerProcessor {
   ) {}
 
   @Process(AUTOMATION_JOB_TYPE)
-  async processRun(job: Job<{ runId: string }>): Promise<void> {
-    const { runId } = job.data;
+  async processRun(job: Job<{ runId: string; startFromStepIndex?: number }>): Promise<void> {
+    const { runId, startFromStepIndex = 0 } = job.data;
 
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) {
@@ -119,8 +119,9 @@ export class AutomationWorkerProcessor {
     const triggerEvent = run.triggerEvent as unknown as AutomationEvent;
     const previousStepOutputs: Record<number, ActionResult> = {};
     let runFailed = false;
+    let runDelayed = false;
 
-    for (let stepIndex = 0; stepIndex < steps.length; stepIndex++) {
+    for (let stepIndex = startFromStepIndex; stepIndex < steps.length; stepIndex++) {
       // Check for cancellation before each step
       const freshRun = await this.runRepo.findOne({
         where: { id: runId },
@@ -155,9 +156,18 @@ export class AutomationWorkerProcessor {
         runFailed = true;
         break;
       }
+      if (result.output?.delayed) {
+        // Delay action re-enqueued the job; stop this execution without marking terminal
+        runDelayed = true;
+        break;
+      }
       previousStepOutputs[stepIndex] = result.output!;
     }
 
+    if (runDelayed) {
+      // Leave run in RUNNING state — the re-enqueued delayed job will complete it
+      return;
+    }
     if (runFailed) {
       await this.runRepo.update(runId, {
         status: AutomationRunStatus.FAILED,

@@ -53,6 +53,12 @@ export type ActionResult = {
   skipped?: boolean;
   /** AI credit units consumed by this step (required for ai.* types) */
   creditsConsumed?: number;
+  /**
+   * Set to true by the delay action handler. The worker stops the current
+   * execution loop without marking the run terminal — the handler re-enqueues
+   * with { delay: ms, startFromStepIndex: stepIndex+1 } to resume later.
+   */
+  delayed?: boolean;
 };
 
 export interface ActionHandler {

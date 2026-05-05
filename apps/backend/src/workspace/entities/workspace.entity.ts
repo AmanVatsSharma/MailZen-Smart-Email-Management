@@ -41,6 +41,11 @@ export class Workspace {
   @Column({ type: 'int', default: 20 })
   automationConcurrencyCap: number;
 
+  /** Workspace admin must explicitly enable this before ai.draft.send actions fire real email */
+  @Field()
+  @Column({ default: false })
+  autoSendEnabled: boolean;
+
   @Field()
   @CreateDateColumn()
   createdAt: Date;
