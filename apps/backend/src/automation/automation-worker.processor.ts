@@ -51,6 +51,7 @@ import { AutomationVersion } from './entities/automation-version.entity';
 import { AutomationStepRun, AutomationStepRunStatus } from './entities/automation-step-run.entity';
 import { ActionContext, ActionHandler, ActionResult } from './actions/action.interface';
 import { AUTOMATION_JOB_TYPE } from './automation-dispatcher.service';
+import { AutomationRateLimiterService } from './automation-rate-limiter.service';
 import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 // Action handler token used in module DI — matches AUTOMATION_ACTION_HANDLERS injection token
@@ -73,6 +74,7 @@ export class AutomationWorkerProcessor {
     private readonly stepRunRepo: Repository<AutomationStepRun>,
     @Inject(AUTOMATION_ACTION_HANDLERS)
     private readonly actionHandlers: ActionHandler[],
+    private readonly rateLimiter: AutomationRateLimiterService,
   ) {}
 
   @Process(AUTOMATION_JOB_TYPE)
@@ -212,6 +214,34 @@ export class AutomationWorkerProcessor {
           attempt: 1,
           errorCode: 'NO_HANDLER',
           errorMessage: `No handler registered for action type: ${step.type}`,
+          startedAt: new Date(),
+          finishedAt: new Date(),
+        }),
+      );
+      return { failed: false, output: { skipped: true } };
+    }
+
+    // Per-action rate limit check (fail-fast before DB writes)
+    const rateCheck = this.rateLimiter.checkActionRate(ctx.workspaceId, step.type);
+    if (!rateCheck.allowed) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'automation_step_rate_limited',
+          stepType: step.type,
+          workspaceId: ctx.workspaceId,
+          runId: ctx.runId,
+          retryAfterSeconds: rateCheck.retryAfterSeconds,
+        }),
+      );
+      await this.stepRunRepo.save(
+        this.stepRunRepo.create({
+          runId: ctx.runId,
+          stepIndex: ctx.stepIndex,
+          stepType: step.type,
+          status: AutomationStepRunStatus.SKIPPED,
+          attempt: 1,
+          errorCode: 'RATE_LIMITED',
+          errorMessage: `Action type ${step.type} is rate-limited. Retry after ${rateCheck.retryAfterSeconds}s.`,
           startedAt: new Date(),
           finishedAt: new Date(),
         }),

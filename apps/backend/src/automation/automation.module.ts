@@ -65,6 +65,9 @@ import { DelayActionHandler } from './actions/delay.action';
 import { EmailDraftSendActionHandler } from './actions/email-draft-send.action';
 import { EmailDraftCreateActionHandler } from './actions/email-draft-create.action';
 import { WebhookPostActionHandler } from './actions/webhook-post.action';
+import { NotifySlackActionHandler } from './actions/notify-slack.action';
+import { AutomationRateLimiterService } from './automation-rate-limiter.service';
+import { AutomationRunRetentionScheduler } from './automation-run-retention.scheduler';
 import { WebhookIntegrationService } from './integrations/webhook-integration.service';
 import { SlackIntegrationService } from './integrations/slack-integration.service';
 import { SlackOAuthController } from './integrations/slack-oauth.controller';
@@ -134,6 +137,9 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
     EmailDraftSendActionHandler,
     EmailDraftCreateActionHandler,
     WebhookPostActionHandler,
+    NotifySlackActionHandler,
+    AutomationRateLimiterService,
+    AutomationRunRetentionScheduler,
     WebhookIntegrationService,
     SlackIntegrationService,
     AutomationMigrationFromFilterService,
@@ -152,7 +158,8 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
         draftSend: EmailDraftSendActionHandler,
         draftCreate: EmailDraftCreateActionHandler,
         webhookPost: WebhookPostActionHandler,
-      ) => [labelAdd, labelRemove, archive, assign, notify, aiClassify, aiSummarize, aiDraftReply, delay, draftSend, draftCreate, webhookPost],
+        notifySlack: NotifySlackActionHandler,
+      ) => [labelAdd, labelRemove, archive, assign, notify, aiClassify, aiSummarize, aiDraftReply, delay, draftSend, draftCreate, webhookPost, notifySlack],
       inject: [
         EmailLabelAddActionHandler,
         EmailLabelRemoveActionHandler,
@@ -166,6 +173,7 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
         EmailDraftSendActionHandler,
         EmailDraftCreateActionHandler,
         WebhookPostActionHandler,
+        NotifySlackActionHandler,
       ],
     },
   ],

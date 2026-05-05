@@ -1923,22 +1923,23 @@ export class UnifiedInboxService {
       .offset(offset)
       .getMany();
 
-    const items: PaginatedEmailThreads['items'] = emails.map((email) => ({
-      id: email.id,
-      subject: email.subject ?? '(no subject)',
-      participants: (() => {
-        const from = this.parseMailboxAddress(email.from);
-        return from ? [{ name: from.name || from.email, email: from.email }] : [];
-      })(),
-      lastMessageDate: email.receivedAt ?? email.createdAt,
-      isUnread: email.status === 'UNREAD',
-      folder: email.folder ?? 'INBOX',
-      labelIds: [],
-      messages: [],
-      aiPriority: email.aiPriority ?? undefined,
-      aiCategory: email.aiCategory ?? undefined,
-      aiSummary: email.aiSummary ?? undefined,
-    }));
+    const items = emails.map((email) => {
+      const from = this.parseMailboxAddress(email.from);
+      return {
+        id: email.id,
+        subject: email.subject ?? '(no subject)',
+        participants: (from ? [{ name: from.name || from.email, email: from.email, avatar: undefined }] : []),
+        lastMessageDate: email.createdAt.toISOString(),
+        isUnread: email.status === 'UNREAD',
+        folder: email.folder ?? 'INBOX',
+        providerId: email.providerId ?? '',
+        labelIds: [] as string[],
+        messages: [],
+        aiPriority: email.aiPriority ?? undefined,
+        aiCategory: email.aiCategory ?? undefined,
+        aiSummary: email.aiSummary ?? undefined,
+      };
+    }) as PaginatedEmailThreads['items'];
 
     return { items, totalCount };
   }
