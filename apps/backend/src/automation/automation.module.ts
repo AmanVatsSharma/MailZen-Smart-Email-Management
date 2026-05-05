@@ -30,7 +30,7 @@
  *   3. providers / exports
  *
  * Author:      AmanVatsSharma
- * Last-updated: 2026-05-03
+ * Last-updated: 2026-05-06
  */
 
 import { Module, forwardRef } from '@nestjs/common';
@@ -66,6 +66,8 @@ import { EmailDraftSendActionHandler } from './actions/email-draft-send.action';
 import { EmailDraftCreateActionHandler } from './actions/email-draft-create.action';
 import { WebhookPostActionHandler } from './actions/webhook-post.action';
 import { WebhookIntegrationService } from './integrations/webhook-integration.service';
+import { SlackIntegrationService } from './integrations/slack-integration.service';
+import { SlackOAuthController } from './integrations/slack-oauth.controller';
 // Cross-module entities for action handlers and dispatcher
 import { WorkspaceMember } from '../workspace/entities/workspace-member.entity';
 import { Workspace } from '../workspace/entities/workspace.entity';
@@ -133,6 +135,7 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
     EmailDraftCreateActionHandler,
     WebhookPostActionHandler,
     WebhookIntegrationService,
+    SlackIntegrationService,
     AutomationMigrationFromFilterService,
     {
       provide: AUTOMATION_ACTION_HANDLERS,
@@ -166,10 +169,12 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
       ],
     },
   ],
+  controllers: [SlackOAuthController],
   exports: [
     AutomationEventBus,
     WorkspaceAdminGuard,
     WebhookIntegrationService,
+    SlackIntegrationService,
   ],
 })
 export class AutomationModule {}

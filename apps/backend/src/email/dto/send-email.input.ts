@@ -64,6 +64,11 @@ export class SendEmailInput {
 
   @Field({ nullable: true })
   @IsOptional()
+  @IsString()
+  threadId?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
   @IsDate()
   scheduledAt?: Date;
 

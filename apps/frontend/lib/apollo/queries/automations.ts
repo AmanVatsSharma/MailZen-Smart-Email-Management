@@ -323,3 +323,48 @@ export const REVOKE_WEBHOOK_INTEGRATION = gql`
     }
   }
 `;
+
+// ─── Slack integration ────────────────────────────────────────────────────
+
+export const GET_SLACK_INTEGRATION = gql`
+  ${WORKSPACE_INTEGRATION_FIELDS}
+  query GetSlackIntegration($workspaceId: ID!) {
+    slackIntegration(workspaceId: $workspaceId) {
+      ...WorkspaceIntegrationFields
+    }
+  }
+`;
+
+export const GET_SLACK_CHANNELS = gql`
+  query GetSlackChannels($workspaceId: ID!) {
+    slackChannels(workspaceId: $workspaceId) {
+      id
+      name
+      isPrivate
+    }
+  }
+`;
+
+export const GET_SLACK_INSTALL_URL = gql`
+  query GetSlackInstallUrl($workspaceId: ID!) {
+    slackInstallUrl(workspaceId: $workspaceId)
+  }
+`;
+
+export const REVOKE_SLACK_INTEGRATION = gql`
+  ${WORKSPACE_INTEGRATION_FIELDS}
+  mutation RevokeSlackIntegration($workspaceId: ID!) {
+    revokeSlackIntegration(workspaceId: $workspaceId) {
+      ...WorkspaceIntegrationFields
+    }
+  }
+`;
+
+export const SET_SLACK_DEFAULT_CHANNEL = gql`
+  ${WORKSPACE_INTEGRATION_FIELDS}
+  mutation SetSlackDefaultChannel($workspaceId: ID!, $channelId: String!, $channelName: String!) {
+    setSlackDefaultChannel(workspaceId: $workspaceId, channelId: $channelId, channelName: $channelName) {
+      ...WorkspaceIntegrationFields
+    }
+  }
+`;

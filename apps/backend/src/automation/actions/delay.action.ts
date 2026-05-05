@@ -54,7 +54,7 @@ export class DelayActionHandler implements ActionHandler {
     if (step.type !== 'delay') return { skipped: true };
 
     const delayStep = step as DelayStep;
-    const rawMs = typeof delayStep.delayMs === 'number' ? delayStep.delayMs : DEFAULT_DELAY_MS;
+    const rawMs = typeof delayStep.durationMs === 'number' ? delayStep.durationMs : DEFAULT_DELAY_MS;
     const delayMs = Math.min(Math.max(rawMs, MIN_DELAY_MS), MAX_DELAY_MS);
 
     const resumeAt = new Date(Date.now() + delayMs);

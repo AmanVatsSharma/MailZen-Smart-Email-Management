@@ -53,6 +53,8 @@ import { AutomationConnection, AutomationRunConnection } from './dto/automation.
 import { WorkspaceIntegration } from './entities/workspace-integration.entity';
 import { WebhookIntegrationService } from './integrations/webhook-integration.service';
 import { WebhookInstallResult } from './dto/webhook-install.result';
+import { SlackIntegrationService } from './integrations/slack-integration.service';
+import { SlackChannel } from './dto/slack-channel.type';
 
 interface GqlContext {
   req: { user: { id: string } };
@@ -262,11 +264,16 @@ export class AutomationRunResolver {
   }
 }
 
-// Workspace integration management mutations (webhook install/revoke)
+// Workspace integration management — webhook + Slack
 @Resolver(() => WorkspaceIntegration)
 @UseGuards(JwtAuthGuard)
 export class IntegrationResolver {
-  constructor(private readonly webhookIntegrationService: WebhookIntegrationService) {}
+  constructor(
+    private readonly webhookIntegrationService: WebhookIntegrationService,
+    private readonly slackIntegrationService: SlackIntegrationService,
+  ) {}
+
+  // ─── Webhook ──────────────────────────────────────────────────────────────
 
   @Mutation(() => WebhookInstallResult)
   async installWebhookIntegration(
@@ -296,5 +303,45 @@ export class IntegrationResolver {
     @Args('workspaceId', { type: () => ID }) workspaceId: string,
   ): Promise<WorkspaceIntegration | null> {
     return this.webhookIntegrationService.getWebhookIntegration(workspaceId);
+  }
+
+  // ─── Slack ────────────────────────────────────────────────────────────────
+
+  @Query(() => WorkspaceIntegration, { nullable: true })
+  async slackIntegration(
+    @Args('workspaceId', { type: () => ID }) workspaceId: string,
+  ): Promise<WorkspaceIntegration | null> {
+    return this.slackIntegrationService.getSlackIntegration(workspaceId);
+  }
+
+  @Query(() => [SlackChannel])
+  async slackChannels(
+    @Args('workspaceId', { type: () => ID }) workspaceId: string,
+  ): Promise<SlackChannel[]> {
+    return this.slackIntegrationService.listChannels(workspaceId);
+  }
+
+  /** Returns the Slack OAuth authorize URL — frontend redirects the browser here. */
+  @Query(() => String)
+  slackInstallUrl(
+    @Args('workspaceId', { type: () => ID }) workspaceId: string,
+  ): string {
+    return this.slackIntegrationService.getInstallUrl(workspaceId);
+  }
+
+  @Mutation(() => WorkspaceIntegration)
+  async revokeSlackIntegration(
+    @Args('workspaceId', { type: () => ID }) workspaceId: string,
+  ): Promise<WorkspaceIntegration> {
+    return this.slackIntegrationService.revokeSlack(workspaceId);
+  }
+
+  @Mutation(() => WorkspaceIntegration)
+  async setSlackDefaultChannel(
+    @Args('workspaceId', { type: () => ID }) workspaceId: string,
+    @Args('channelId') channelId: string,
+    @Args('channelName') channelName: string,
+  ): Promise<WorkspaceIntegration> {
+    return this.slackIntegrationService.setDefaultChannel(workspaceId, channelId, channelName);
   }
 }
