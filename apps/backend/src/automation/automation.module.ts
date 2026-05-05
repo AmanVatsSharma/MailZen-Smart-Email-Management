@@ -45,7 +45,7 @@ import { AutomationEventBus } from './automation-event.bus';
 import { AutomationDispatcherService } from './automation-dispatcher.service';
 import { AutomationWorkerProcessor, AUTOMATION_ACTION_HANDLERS } from './automation-worker.processor';
 import { AutomationService } from './automation.service';
-import { AutomationResolver, AutomationRunResolver } from './automation.resolver';
+import { AutomationResolver, AutomationRunResolver, IntegrationResolver } from './automation.resolver';
 import { WorkspaceAdminGuard } from './guards/workspace-admin.guard';
 import { EmailReceivedTriggerHandler } from './triggers/email-received.trigger';
 import { ManualTriggerHandler } from './triggers/manual.trigger';
@@ -63,6 +63,9 @@ import { AiSummarizeActionHandler } from './actions/ai-summarize.action';
 import { AiDraftReplyActionHandler } from './actions/ai-draft-reply.action';
 import { DelayActionHandler } from './actions/delay.action';
 import { EmailDraftSendActionHandler } from './actions/email-draft-send.action';
+import { EmailDraftCreateActionHandler } from './actions/email-draft-create.action';
+import { WebhookPostActionHandler } from './actions/webhook-post.action';
+import { WebhookIntegrationService } from './integrations/webhook-integration.service';
 // Cross-module entities for action handlers and dispatcher
 import { WorkspaceMember } from '../workspace/entities/workspace-member.entity';
 import { Workspace } from '../workspace/entities/workspace.entity';
@@ -108,6 +111,7 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
     AutomationService,
     AutomationResolver,
     AutomationRunResolver,
+    IntegrationResolver,
     WorkspaceAdminGuard,
     EmailReceivedTriggerHandler,
     ManualTriggerHandler,
@@ -126,6 +130,9 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
     AiDraftReplyActionHandler,
     DelayActionHandler,
     EmailDraftSendActionHandler,
+    EmailDraftCreateActionHandler,
+    WebhookPostActionHandler,
+    WebhookIntegrationService,
     AutomationMigrationFromFilterService,
     {
       provide: AUTOMATION_ACTION_HANDLERS,
@@ -140,7 +147,9 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
         aiDraftReply: AiDraftReplyActionHandler,
         delay: DelayActionHandler,
         draftSend: EmailDraftSendActionHandler,
-      ) => [labelAdd, labelRemove, archive, assign, notify, aiClassify, aiSummarize, aiDraftReply, delay, draftSend],
+        draftCreate: EmailDraftCreateActionHandler,
+        webhookPost: WebhookPostActionHandler,
+      ) => [labelAdd, labelRemove, archive, assign, notify, aiClassify, aiSummarize, aiDraftReply, delay, draftSend, draftCreate, webhookPost],
       inject: [
         EmailLabelAddActionHandler,
         EmailLabelRemoveActionHandler,
@@ -152,12 +161,15 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
         AiDraftReplyActionHandler,
         DelayActionHandler,
         EmailDraftSendActionHandler,
+        EmailDraftCreateActionHandler,
+        WebhookPostActionHandler,
       ],
     },
   ],
   exports: [
     AutomationEventBus,
     WorkspaceAdminGuard,
+    WebhookIntegrationService,
   ],
 })
 export class AutomationModule {}

@@ -50,6 +50,9 @@ import { AutomationVersion } from './entities/automation-version.entity';
 import { AutomationRun, AutomationRunStatus } from './entities/automation-run.entity';
 import { AutomationStepRun } from './entities/automation-step-run.entity';
 import { AutomationConnection, AutomationRunConnection } from './dto/automation.connection';
+import { WorkspaceIntegration } from './entities/workspace-integration.entity';
+import { WebhookIntegrationService } from './integrations/webhook-integration.service';
+import { WebhookInstallResult } from './dto/webhook-install.result';
 
 interface GqlContext {
   req: { user: { id: string } };
@@ -256,5 +259,42 @@ export class AutomationRunResolver {
   @ResolveField(() => [AutomationStepRun])
   async steps(@Parent() run: AutomationRun): Promise<AutomationStepRun[]> {
     return this.automationService.getRunSteps(run.id);
+  }
+}
+
+// Workspace integration management mutations (webhook install/revoke)
+@Resolver(() => WorkspaceIntegration)
+@UseGuards(JwtAuthGuard)
+export class IntegrationResolver {
+  constructor(private readonly webhookIntegrationService: WebhookIntegrationService) {}
+
+  @Mutation(() => WebhookInstallResult)
+  async installWebhookIntegration(
+    @Args('workspaceId', { type: () => ID }) workspaceId: string,
+    @Args('url') url: string,
+    @Args('displayName') displayName: string,
+    @Context() ctx: GqlContext,
+  ): Promise<WebhookInstallResult> {
+    const { integration, plaintextSecret } = await this.webhookIntegrationService.installWebhook(
+      workspaceId,
+      url,
+      displayName,
+      ctx.req.user.id,
+    );
+    return { integration, plaintextSecret };
+  }
+
+  @Mutation(() => WorkspaceIntegration)
+  async revokeWebhookIntegration(
+    @Args('workspaceId', { type: () => ID }) workspaceId: string,
+  ): Promise<WorkspaceIntegration> {
+    return this.webhookIntegrationService.revokeWebhook(workspaceId);
+  }
+
+  @Query(() => WorkspaceIntegration, { nullable: true })
+  async webhookIntegration(
+    @Args('workspaceId', { type: () => ID }) workspaceId: string,
+  ): Promise<WorkspaceIntegration | null> {
+    return this.webhookIntegrationService.getWebhookIntegration(workspaceId);
   }
 }
