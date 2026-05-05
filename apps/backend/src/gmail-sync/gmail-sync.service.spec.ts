@@ -58,6 +58,7 @@ describe('GmailSyncService', () => {
       providerSyncLease as unknown as ProviderSyncLeaseService,
       { recordInboundEmail: jest.fn().mockResolvedValue(undefined) } as any,
       { processNewEmail: jest.fn() } as any,
+      { publish: jest.fn() } as any,
     );
   });
 

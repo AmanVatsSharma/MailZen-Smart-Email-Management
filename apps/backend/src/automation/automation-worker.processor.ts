@@ -18,10 +18,12 @@
  *   - AutomationVersion          — TypeORM repository for step definitions
  *   - AutomationStepRun          — TypeORM repository for per-step audit rows
  *   - ActionHandler[]            — injected array of all registered action handlers
+ *   - BillingService             — AI credit debit for ai.* steps
  *
  * Side-effects:
  *   - DB reads (run + version) and writes (step rows, run status updates)
  *   - Calls action handlers which may make external API calls
+ *   - Calls BillingService.consumeAiCredits after each successful ai.* step
  *
  * Key invariants:
  *   - Worker reads run status before each step; CANCELED → immediate abort
@@ -29,15 +31,17 @@
  *   - Each step attempt is a separate AutomationStepRun row (runId, stepIndex, attempt)
  *   - Bull job-level retries are disabled (attempts: 1 set by dispatcher); retry is per-step
  *   - SKIPPED steps (from action handler returning { skipped: true }) count as success
+ *   - AI credit debit is fire-and-forget; credit failure does not block step success
  *
  * Read order:
  *   1. AUTOMATION_JOB_TYPE / MAX_STEP_ATTEMPTS / STEP_RETRY_BASE_DELAY_MS — constants
  *   2. AutomationWorkerProcessor — class
  *   3. processRun               — main job handler
  *   4. executeStep              — per-step execution with retry
+ *   5. debitAiCredits           — post-step credit accounting
  *
  * Author:      AmanVatsSharma
- * Last-updated: 2026-05-03
+ * Last-updated: 2026-05-06
  */
 
 import { Inject, Injectable, Logger } from '@nestjs/common';
@@ -52,6 +56,7 @@ import { AutomationStepRun, AutomationStepRunStatus } from './entities/automatio
 import { ActionContext, ActionHandler, ActionResult } from './actions/action.interface';
 import { AUTOMATION_JOB_TYPE } from './automation-dispatcher.service';
 import { AutomationRateLimiterService } from './automation-rate-limiter.service';
+import { BillingService } from '../billing/billing.service';
 import { serializeStructuredLog } from '../common/logging/structured-log.util';
 
 // Action handler token used in module DI — matches AUTOMATION_ACTION_HANDLERS injection token
@@ -75,6 +80,7 @@ export class AutomationWorkerProcessor {
     @Inject(AUTOMATION_ACTION_HANDLERS)
     private readonly actionHandlers: ActionHandler[],
     private readonly rateLimiter: AutomationRateLimiterService,
+    private readonly billingService: BillingService,
   ) {}
 
   @Process(AUTOMATION_JOB_TYPE)
@@ -277,6 +283,13 @@ export class AutomationWorkerProcessor {
           finishedAt: new Date(),
         });
 
+        // Debit AI credits for ai.* steps (fire-and-forget; never fails the step)
+        if (!result.skipped && result.creditsConsumed && ctx.userId) {
+          this.debitAiCredits(ctx.userId, result.creditsConsumed, ctx.runId, step.type).catch(() => {
+            // Intentionally silent — billing failure must not block execution
+          });
+        }
+
         this.logger.debug(
           serializeStructuredLog({
             event: 'automation_worker_step_succeeded',
@@ -285,6 +298,7 @@ export class AutomationWorkerProcessor {
             stepType: step.type,
             attempt,
             skipped: result.skipped ?? false,
+            creditsConsumed: result.creditsConsumed ?? 0,
             correlationId,
           }),
         );
@@ -372,5 +386,30 @@ export class AutomationWorkerProcessor {
         correlationId: run.correlationId,
       }),
     );
+  }
+
+  private async debitAiCredits(
+    userId: string,
+    credits: number,
+    runId: string,
+    stepType: string,
+  ): Promise<void> {
+    const result = await this.billingService.consumeAiCredits({
+      userId,
+      credits,
+      requestId: `automation:${runId}:${stepType}`,
+    });
+    if (!result.allowed) {
+      this.logger.warn(
+        serializeStructuredLog({
+          event: 'automation_ai_credit_cap_reached',
+          userId,
+          stepType,
+          runId,
+          usedCredits: result.usedCredits,
+          monthlyLimit: result.monthlyLimit,
+        }),
+      );
+    }
   }
 }

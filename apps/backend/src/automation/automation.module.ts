@@ -14,6 +14,7 @@
  *   - NotificationModule         — NotificationEventBusService for notify.user action
  *   - EmailModule                — EmailAssignmentService for email.assign action
  *   - AiAgentGatewayModule       — InboxAiService for ai.classify action
+ *   - BillingModule              — BillingService for AI credit debit on ai.* steps
  *   - EmailFilter                — source entity for one-time filter migration
  *
  * Side-effects:
@@ -84,6 +85,7 @@ import { AutomationMigrationFromFilterService } from './automation-migration-fro
 import { NotificationModule } from '../notification/notification.module';
 import { EmailModule } from '../email/email.module';
 import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.module';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
   imports: [
@@ -108,6 +110,7 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
     NotificationModule,
     forwardRef(() => EmailModule),
     AiAgentGatewayModule,
+    BillingModule,
   ],
   providers: [
     AutomationEventBus,
