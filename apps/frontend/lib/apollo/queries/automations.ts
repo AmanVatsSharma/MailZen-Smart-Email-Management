@@ -277,3 +277,49 @@ export const CANCEL_AUTOMATION_RUN = gql`
     }
   }
 `;
+
+// ─── Integration queries/mutations ────────────────────────────────────────
+
+const WORKSPACE_INTEGRATION_FIELDS = gql`
+  fragment WorkspaceIntegrationFields on WorkspaceIntegration {
+    id
+    workspaceId
+    provider
+    status
+    displayName
+    config
+    installedByUserId
+    createdAt
+    updatedAt
+  }
+`;
+
+export const GET_WEBHOOK_INTEGRATION = gql`
+  ${WORKSPACE_INTEGRATION_FIELDS}
+  query GetWebhookIntegration($workspaceId: ID!) {
+    webhookIntegration(workspaceId: $workspaceId) {
+      ...WorkspaceIntegrationFields
+    }
+  }
+`;
+
+export const INSTALL_WEBHOOK_INTEGRATION = gql`
+  ${WORKSPACE_INTEGRATION_FIELDS}
+  mutation InstallWebhookIntegration($workspaceId: ID!, $url: String!, $displayName: String!) {
+    installWebhookIntegration(workspaceId: $workspaceId, url: $url, displayName: $displayName) {
+      integration {
+        ...WorkspaceIntegrationFields
+      }
+      plaintextSecret
+    }
+  }
+`;
+
+export const REVOKE_WEBHOOK_INTEGRATION = gql`
+  ${WORKSPACE_INTEGRATION_FIELDS}
+  mutation RevokeWebhookIntegration($workspaceId: ID!) {
+    revokeWebhookIntegration(workspaceId: $workspaceId) {
+      ...WorkspaceIntegrationFields
+    }
+  }
+`;

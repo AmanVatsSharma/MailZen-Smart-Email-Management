@@ -11,6 +11,7 @@ import {
   Mail,
   MailPlus,
   MessageSquareText,
+  Plug2,
   ShieldCheck,
   Tag,
   type LucideIcon,
@@ -163,6 +164,11 @@ export const secondaryPanelBySection: Record<DashboardSectionId, SecondaryPanelC
         href: '/settings/privacy',
         description: 'Download your account data export',
       },
+      {
+        label: 'Integrations',
+        href: '/settings/integrations',
+        description: 'Connect Slack, webhooks, and external services',
+      },
     ],
   },
   providers: {
@@ -191,6 +197,7 @@ export const automationQuickLinks = [
   { label: 'Templates', href: '/templates', icon: FileText },
   { label: 'AI Audit Log', href: '/settings/ai-audit', icon: ShieldCheck },
   { label: 'Privacy & Data', href: '/settings/privacy', icon: Lock },
+  { label: 'Integrations', href: '/settings/integrations', icon: Plug2 },
 ];
 
 export const mailFolderRoutes = new Set(['/inbox', '/sent', '/archive', '/trash']);
@@ -237,7 +244,8 @@ export const getSectionFromPathname = (pathname: string): DashboardSectionId => 
     normalized.startsWith('/settings/notifications') ||
     normalized.startsWith('/settings/ai-audit') ||
     normalized.startsWith('/settings/feature-flags') ||
-    normalized.startsWith('/settings/privacy')
+    normalized.startsWith('/settings/privacy') ||
+    normalized.startsWith('/settings/integrations')
   ) {
     return 'automation';
   }
