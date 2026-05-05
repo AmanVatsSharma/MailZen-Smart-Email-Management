@@ -32,6 +32,10 @@
  *   - Bull job-level retries are disabled (attempts: 1 set by dispatcher); retry is per-step
  *   - SKIPPED steps (from action handler returning { skipped: true }) count as success
  *   - AI credit debit is fire-and-forget; credit failure does not block step success
+ *   - Sentry 'automation_run_failed' event emitted on every FAILED run for threshold alerting;
+ *     fingerprint scoped to workspaceId so per-workspace alert rules can be configured.
+ *     Sentry alert setup: Issues > Alert Rules > "When automation_run_failed count > 5 in 10 min"
+ *     filter by tag workspaceId to create per-partner alerts.
  *
  * Read order:
  *   1. AUTOMATION_JOB_TYPE / MAX_STEP_ATTEMPTS / STEP_RETRY_BASE_DELAY_MS — constants
@@ -53,6 +57,7 @@ import { AutomationEvent, AutomationStep } from '@mailzen/shared-types';
 import { AutomationRun, AutomationRunStatus } from './entities/automation-run.entity';
 import { AutomationVersion } from './entities/automation-version.entity';
 import { AutomationStepRun, AutomationStepRunStatus } from './entities/automation-step-run.entity';
+import * as Sentry from '@sentry/nestjs';
 import { ActionContext, ActionHandler, ActionResult } from './actions/action.interface';
 import { AUTOMATION_JOB_TYPE } from './automation-dispatcher.service';
 import { AutomationRateLimiterService } from './automation-rate-limiter.service';
@@ -180,6 +185,21 @@ export class AutomationWorkerProcessor {
       await this.runRepo.update(runId, {
         status: AutomationRunStatus.FAILED,
         finishedAt: new Date(),
+      });
+      // Emit to Sentry for threshold alerting on automation_run_failed rate
+      Sentry.captureEvent({
+        message: 'automation_run_failed',
+        level: 'error',
+        tags: {
+          automationId: run.automationId,
+          workspaceId: run.workspaceId,
+        },
+        extra: {
+          runId,
+          correlationId: run.correlationId,
+          automationVersionId: run.automationVersionId,
+        },
+        fingerprint: ['automation_run_failed', run.workspaceId],
       });
     } else {
       await this.markRunSucceeded(run);
@@ -386,6 +406,17 @@ export class AutomationWorkerProcessor {
         correlationId: run.correlationId,
       }),
     );
+    Sentry.captureEvent({
+      message: 'automation_run_failed',
+      level: 'error',
+      tags: {
+        automationId: run.automationId,
+        workspaceId: run.workspaceId,
+        errorCode,
+      },
+      extra: { runId: run.id, errorMessage, correlationId: run.correlationId },
+      fingerprint: ['automation_run_failed', run.workspaceId],
+    });
   }
 
   private async debitAiCredits(
