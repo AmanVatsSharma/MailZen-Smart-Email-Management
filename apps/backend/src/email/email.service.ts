@@ -60,12 +60,16 @@
 
 import {
   BadRequestException,
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { AutomationEventBus } from '../automation/automation-event.bus';
 import { AuditLog } from '../auth/entities/audit-log.entity';
 import { Email } from './entities/email.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
@@ -110,6 +114,9 @@ export class EmailService {
     private readonly emailLabelRepository: Repository<EmailLabel>,
     @InjectRepository(EmailLabelAssignment)
     private readonly emailLabelAssignmentRepository: Repository<EmailLabelAssignment>,
+    @Optional()
+    @Inject(forwardRef(() => AutomationEventBus))
+    private readonly automationEventBus?: AutomationEventBus,
   ) {}
 
   private async writeAuditLog(input: {
@@ -423,6 +430,16 @@ export class EmailService {
           recipientCount: input.to.length,
         },
       });
+      if (input.threadId && provider.workspaceId && this.automationEventBus) {
+        this.automationEventBus.publish({
+          type: 'email.thread.replied',
+          workspaceId: provider.workspaceId,
+          userId,
+          messageId: savedEmail.id,
+          threadId: input.threadId,
+          replyFrom: input.from,
+        });
+      }
       return persistedEmail;
     } catch (error: unknown) {
       // Update email status on failure
@@ -795,9 +812,10 @@ export class EmailService {
       }),
     );
 
-    // Verify email ownership
+    // Verify email ownership; load provider relation to resolve workspaceId for automation events
     const email = await this.emailRepository.findOne({
       where: { id: emailId, userId },
+      relations: ['provider'],
     });
     if (!email) {
       throw new NotFoundException('Email not found');
@@ -826,6 +844,18 @@ export class EmailService {
         labelName: label.name,
       },
     });
+
+    if (this.automationEventBus && email.provider?.workspaceId) {
+      this.automationEventBus.publish({
+        type: 'email.label.added',
+        workspaceId: email.provider.workspaceId,
+        userId,
+        messageId: emailId,
+        threadId: emailId,
+        labelId,
+        labelName: label.name,
+      });
+    }
 
     this.logger.log(
       serializeStructuredLog({

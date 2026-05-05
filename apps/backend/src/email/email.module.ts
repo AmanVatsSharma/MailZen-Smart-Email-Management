@@ -12,6 +12,7 @@
  * Depends on:
  *   - BillingModule         — exposes RequirePlanGuard for gated email features
  *   - EmailProviderModule   — exposes EmailProviderService for OAuth token refresh
+ *   - AutomationModule      — forwardRef; provides AutomationEventBus for trigger publishing
  *
  * Side-effects:
  *   - Registers Bull queue "email" (requires running Redis)
@@ -29,10 +30,10 @@
  *   3. providers                        — services and resolvers
  *
  * Author:      AmanVatsSharma
- * Last-updated: 2026-04-19
+ * Last-updated: 2026-05-05
  */
 
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Email } from './entities/email.entity';
 import { EmailProvider } from '../email-integration/entities/email-provider.entity';
@@ -74,6 +75,7 @@ import { AuditLog } from '../auth/entities/audit-log.entity';
 import { EmailAssignmentService } from './email-assignment.service';
 import { EmailAssignmentResolver } from './email-assignment.resolver';
 import { NotificationModule } from '../notification/notification.module';
+import { AutomationModule } from '../automation/automation.module';
 
 /**
  * EmailModule - Email sending, tracking, and management
@@ -102,6 +104,7 @@ import { NotificationModule } from '../notification/notification.module';
     BillingModule,
     EmailProviderModule,
     NotificationModule,
+    forwardRef(() => AutomationModule),
     ScheduleModule.forRoot(),
     BullModule.forRoot({
       redis: {

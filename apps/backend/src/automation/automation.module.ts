@@ -33,7 +33,7 @@
  * Last-updated: 2026-05-03
  */
 
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
 import { Automation } from './entities/automation.entity';
@@ -49,6 +49,11 @@ import { AutomationResolver, AutomationRunResolver } from './automation.resolver
 import { WorkspaceAdminGuard } from './guards/workspace-admin.guard';
 import { EmailReceivedTriggerHandler } from './triggers/email-received.trigger';
 import { ManualTriggerHandler } from './triggers/manual.trigger';
+import { EmailThreadRepliedTriggerHandler } from './triggers/email-thread-replied.trigger';
+import { EmailThreadAssignedTriggerHandler } from './triggers/email-thread-assigned.trigger';
+import { EmailLabelAddedTriggerHandler } from './triggers/email-label-added.trigger';
+import { ScheduleCronTriggerHandler } from './triggers/schedule-cron.trigger';
+import { AutomationCronScheduler } from './automation-cron.scheduler';
 import { EmailLabelAddActionHandler, EmailLabelRemoveActionHandler } from './actions/email-label.action';
 import { EmailArchiveActionHandler } from './actions/email-archive.action';
 import { EmailAssignActionHandler } from './actions/email-assign.action';
@@ -89,7 +94,7 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
       name: 'automations',
     }),
     NotificationModule,
-    EmailModule,
+    forwardRef(() => EmailModule),
     AiAgentGatewayModule,
   ],
   providers: [
@@ -102,6 +107,11 @@ import { AiAgentGatewayModule } from '../ai-agent-gateway/ai-agent-gateway.modul
     WorkspaceAdminGuard,
     EmailReceivedTriggerHandler,
     ManualTriggerHandler,
+    EmailThreadRepliedTriggerHandler,
+    EmailThreadAssignedTriggerHandler,
+    EmailLabelAddedTriggerHandler,
+    ScheduleCronTriggerHandler,
+    AutomationCronScheduler,
     EmailLabelAddActionHandler,
     EmailLabelRemoveActionHandler,
     EmailArchiveActionHandler,

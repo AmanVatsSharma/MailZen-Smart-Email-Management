@@ -14,15 +14,18 @@
  *
  * Depends on:
  *   - EmailAssignment entity repository — all persistence operations
+ *   - AutomationEventBus (optional, forwardRef) — publish email.thread.assigned events
  *
  * Side-effects:
  *   - DB writes: INSERT/UPDATE on email_assignments table
+ *   - Publishes email.thread.assigned to AutomationEventBus on assignEmail
  *
  * Key invariants:
  *   - transferEmail creates a new EmailAssignment row (preserving history) rather than
  *     mutating the existing row; the old assignment is set to 'transferred'
  *   - resolveAssignment sets status = 'resolved' and resolvedAt = now()
  *   - getAssignmentByEmail returns the most recent open/in_progress assignment for a thread
+ *   - AutomationEventBus injected with @Optional() so service works without AutomationModule
  *
  * Read order:
  *   1. assignEmail          — primary assignment creation
@@ -32,20 +35,24 @@
  *   5. getWorkspaceAssignments — bulk workspace query
  *
  * Author:      AmanVatsSharma
- * Last-updated: 2026-04-20
+ * Last-updated: 2026-05-05
  */
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, Optional, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EmailAssignment } from './entities/email-assignment.entity';
 import { AssignEmailInput, TransferEmailInput } from './dto/email-assignment.input';
+import { AutomationEventBus } from '../automation/automation-event.bus';
 
 @Injectable()
 export class EmailAssignmentService {
   constructor(
     @InjectRepository(EmailAssignment)
     private readonly repo: Repository<EmailAssignment>,
+    @Optional()
+    @Inject(forwardRef(() => AutomationEventBus))
+    private readonly automationEventBus?: AutomationEventBus,
   ) {}
 
   async assignEmail(input: AssignEmailInput, assignedByUserId: string): Promise<EmailAssignment> {
@@ -58,7 +65,20 @@ export class EmailAssignmentService {
       dueAt: input.dueAt ? new Date(input.dueAt) : null,
       status: 'open',
     });
-    return this.repo.save(assignment);
+    const saved = await this.repo.save(assignment);
+
+    if (this.automationEventBus) {
+      this.automationEventBus.publish({
+        type: 'email.thread.assigned',
+        workspaceId: input.workspaceId,
+        userId: assignedByUserId,
+        threadId: input.emailId,
+        assignedToUserId: input.assigneeUserId,
+        assignedByUserId,
+      });
+    }
+
+    return saved;
   }
 
   async transferEmail(input: TransferEmailInput, assignedByUserId: string): Promise<EmailAssignment> {
