@@ -50,6 +50,7 @@ import {
 } from '@/lib/apollo/queries/notifications';
 import { GET_TOP_SENDERS } from '@/lib/apollo/queries/sender-intelligence';
 import { GET_ENTITLEMENT_USAGE } from '@/lib/apollo/queries/billing';
+import { OnboardingChecklist } from '@/components/onboarding/OnboardingChecklist';
 
 type MailboxInboundTrendPoint = {
   bucketStart: string;
@@ -356,6 +357,12 @@ export default function DashboardPage() {
       }
       contentClassName="space-y-6"
     >
+      {/* ── Onboarding checklist ─────────────────────────── */}
+      <OnboardingChecklist
+        providerUsed={entitlement?.providerUsed}
+        workspaceId={activeWorkspaceId}
+      />
+
       {/* ── KPI cards ───────────────────────────────────── */}
       <motion.div
         className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"

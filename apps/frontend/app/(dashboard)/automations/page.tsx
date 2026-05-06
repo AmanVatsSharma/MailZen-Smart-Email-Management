@@ -27,7 +27,7 @@
  *   4. AutomationsPage (main component)
  *
  * Author:      AmanVatsSharma
- * Last-updated: 2026-05-03
+ * Last-updated: 2026-05-07
  */
 
 'use client';
@@ -41,6 +41,7 @@ import {
   ChevronRight,
   Circle,
   Clock,
+  Lock,
   Loader2,
   Plus,
   Search,
@@ -68,6 +69,8 @@ import {
   DISABLE_AUTOMATION,
   ARCHIVE_AUTOMATION,
 } from '@/lib/apollo/queries/automations';
+import { GET_ENTITLEMENT_USAGE } from '@/lib/apollo/queries/billing';
+import { UpgradePlanModal } from '@/components/billing/UpgradePlanModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -240,11 +243,18 @@ export default function AutomationsPage() {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   useEffect(() => {
     const id = typeof window !== 'undefined' ? localStorage.getItem('mailzen.selectedWorkspaceId') : null;
     setWorkspaceId(id);
   }, []);
+
+  const { data: entitlementData } = useQuery<{
+    myEntitlementUsage: { automationsEnabled: boolean };
+  }>(GET_ENTITLEMENT_USAGE);
+
+  const automationsEnabled = entitlementData?.myEntitlementUsage?.automationsEnabled ?? true;
 
   const { data, loading, error, refetch } = useQuery<{
     automations: { nodes: Automation[]; nextCursor?: string | null };
@@ -307,14 +317,28 @@ export default function AutomationsPage() {
       title="Automations"
       description="Workspace workflow automations — trigger actions when emails arrive, are assigned, or labelled."
       actions={
-        <Button asChild size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
-          <Link href="/automations/new">
-            <Plus className="h-4 w-4 mr-1.5" />
+        automationsEnabled ? (
+          <Button asChild size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
+            <Link href="/automations/new">
+              <Plus className="h-4 w-4 mr-1.5" />
+              New Automation
+            </Link>
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            className="opacity-60 cursor-not-allowed"
+            title="Upgrade to Pro to create automations"
+            onClick={() => setUpgradeModalOpen(true)}
+          >
+            <Lock className="h-4 w-4 mr-1.5" />
             New Automation
-          </Link>
-        </Button>
+          </Button>
+        )
       }
     >
+      <UpgradePlanModal open={upgradeModalOpen} onClose={() => setUpgradeModalOpen(false)} />
       {/* Search */}
       <div className="relative mb-4 max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -357,12 +381,24 @@ export default function AutomationsPage() {
             </p>
           </div>
           {!search && (
-            <Button asChild size="sm" className="bg-purple-600 hover:bg-purple-700 text-white mt-2">
-              <Link href="/automations/new">
-                <Plus className="h-4 w-4 mr-1.5" />
-                New Automation
-              </Link>
-            </Button>
+            automationsEnabled ? (
+              <Button asChild size="sm" className="bg-purple-600 hover:bg-purple-700 text-white mt-2">
+                <Link href="/automations/new">
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  New Automation
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="opacity-60 mt-2"
+                onClick={() => setUpgradeModalOpen(true)}
+              >
+                <Lock className="h-4 w-4 mr-1.5" />
+                Upgrade to create automations
+              </Button>
+            )
           )}
         </div>
       ) : (

@@ -144,6 +144,7 @@ describe('BillingResolver', () => {
       aiCreditsPerMonth: 500,
       aiCreditsUsed: 80,
       aiCreditsRemaining: 420,
+      automationsEnabled: true,
       periodStart: '2026-02-01',
       evaluatedAtIso: '2026-02-16T00:00:00.000Z',
     });

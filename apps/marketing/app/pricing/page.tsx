@@ -13,11 +13,11 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 const plans = [
   {
-    name: 'Starter',
-    monthlyPrice: 19,
-    annualPrice: 15,
+    name: 'Free',
+    monthlyPrice: 0,
+    annualPrice: 0,
     period: '/user/mo',
-    description: 'For individuals and small teams getting started with smarter email.',
+    description: 'For individuals getting started — connect your inbox, try AI features, no card required.',
     badge: null,
     highlighted: false,
     accent: 'hsl(215 20% 50%)',
@@ -25,11 +25,11 @@ const plans = [
     ctaHref: `${APP_URL}/auth/register`,
   },
   {
-    name: 'Growth',
-    monthlyPrice: 49,
-    annualPrice: 39,
-    period: '/user/mo',
-    description: 'For growing teams that need speed, automation, and control.',
+    name: 'Pro',
+    monthlyPrice: 25,
+    annualPrice: 20,
+    period: '/seat/mo',
+    description: 'For growing teams that need automation, AI workflows, and shared inboxes.',
     badge: 'Most popular',
     highlighted: true,
     accent: 'hsl(262 83% 62%)',
@@ -37,11 +37,11 @@ const plans = [
     ctaHref: `${APP_URL}/auth/register`,
   },
   {
-    name: 'Enterprise',
+    name: 'Business',
     monthlyPrice: null,
     annualPrice: null,
     period: '',
-    description: 'For large organizations with enterprise security and compliance needs.',
+    description: 'For large organizations with enterprise security, compliance, and dedicated support.',
     badge: null,
     highlighted: false,
     accent: 'hsl(160 84% 45%)',
@@ -71,9 +71,11 @@ const featureTable: FeatureRow[] = [
   { label: 'Follow-up reminders', starter: false, growth: true, enterprise: true },
   { label: 'Custom AI tone settings', starter: false, growth: true, enterprise: true },
   { section: 'Automation', label: '', starter: '', growth: '', enterprise: '' },
-  { label: 'Automation rules', starter: '5 rules', growth: 'Unlimited', enterprise: 'Unlimited' },
-  { label: 'Webhook triggers', starter: false, growth: true, enterprise: true },
-  { label: 'Scheduled runs', starter: false, growth: true, enterprise: true },
+  { label: 'Automation engine (unlimited rules)', starter: false, growth: true, enterprise: true },
+  { label: 'AI classify, summarise & draft-reply actions', starter: false, growth: true, enterprise: true },
+  { label: 'Slack notifications & webhook actions', starter: false, growth: true, enterprise: true },
+  { label: 'Scheduled runs (cron)', starter: false, growth: true, enterprise: true },
+  { label: 'Per-run audit trail', starter: false, growth: true, enterprise: true },
   { section: 'Analytics', label: '', starter: '', growth: '', enterprise: '' },
   { label: 'Basic inbox analytics', starter: true, growth: true, enterprise: true },
   { label: 'Team performance dashboards', starter: false, growth: true, enterprise: true },
@@ -222,7 +224,14 @@ export default function PricingPage() {
                       {plan.name}
                     </p>
                     <div className="mt-3 flex items-baseline gap-1">
-                      {plan.monthlyPrice !== null ? (
+                      {plan.monthlyPrice === 0 ? (
+                        <span
+                          className="text-4xl font-bold tracking-tight"
+                          style={{ fontFamily: 'var(--font-display)' }}
+                        >
+                          Free
+                        </span>
+                      ) : plan.monthlyPrice !== null ? (
                         <>
                           <span
                             className="text-4xl font-bold tracking-tight"
@@ -241,7 +250,7 @@ export default function PricingPage() {
                         </span>
                       )}
                     </div>
-                    {plan.monthlyPrice !== null && annual && (
+                    {plan.monthlyPrice !== null && plan.monthlyPrice > 0 && annual && (
                       <p className="mt-0.5 text-xs text-muted-foreground/60">
                         Billed annually · save ${(plan.monthlyPrice - plan.annualPrice!) * 12}/yr
                       </p>

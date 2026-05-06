@@ -29,7 +29,7 @@
  *   4. NewAutomationPage main component
  *
  * Author:      AmanVatsSharma
- * Last-updated: 2026-05-03
+ * Last-updated: 2026-05-07
  */
 
 'use client';
@@ -55,6 +55,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/components/ui/use-toast';
 import { CREATE_AUTOMATION } from '@/lib/apollo/queries/automations';
+import { UpgradePlanModal } from '@/components/billing/UpgradePlanModal';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -232,6 +233,7 @@ export default function NewAutomationPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -252,7 +254,14 @@ export default function NewAutomationPage() {
       router.push(`/automations/${id}`);
     },
     onError: (err) => {
-      toast({ title: 'Failed to create', description: err.message, variant: 'destructive' });
+      const isForbidden =
+        err.graphQLErrors?.[0]?.extensions?.['code'] === 'FORBIDDEN' ||
+        err.message.includes('Pro or Business');
+      if (isForbidden) {
+        setUpgradeModalOpen(true);
+      } else {
+        toast({ title: 'Failed to create', description: err.message, variant: 'destructive' });
+      }
     },
   });
 
@@ -315,6 +324,8 @@ export default function NewAutomationPage() {
   const selectedTrigger = TRIGGER_OPTIONS.find((t) => t.value === triggerType);
 
   return (
+    <>
+    <UpgradePlanModal open={upgradeModalOpen} onClose={() => setUpgradeModalOpen(false)} />
     <DashboardPageShell
       title="New Automation"
       description="Define a trigger, optional conditions, and the actions to run."
@@ -484,5 +495,6 @@ export default function NewAutomationPage() {
         </div>
       </form>
     </DashboardPageShell>
+    </>
   );
 }

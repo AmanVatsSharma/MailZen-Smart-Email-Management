@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useLazyQuery, useMutation, useQuery } from '@apollo/client';
 import {
   CheckCircle,
@@ -70,8 +71,8 @@ type PaymentGateway = 'stripe' | 'razorpay';
 
 const PLAN_FEATURES: Record<string, string[]> = {
   FREE: ['1 email provider', '1 mailbox', '50 AI credits/month', '1 workspace', '3 team members'],
-  PRO: ['5 email providers', '5 mailboxes', '500 AI credits/month', '5 workspaces', '25 team members', 'Smart replies', 'Priority support'],
-  BUSINESS: ['25 email providers', '25 mailboxes', '5,000 AI credits/month', '25 workspaces', '200 team members', 'Smart replies', 'Email warmup', 'Analytics', 'Dedicated support'],
+  PRO: ['5 email providers', '5 mailboxes', '500 AI credits/month', '5 workspaces', '25 team members', 'Automation Engine (unlimited)', 'Slack + webhook actions', 'Smart replies', 'Priority support'],
+  BUSINESS: ['25 email providers', '25 mailboxes', '5,000 AI credits/month', '25 workspaces', '200 team members', 'Automation Engine (unlimited)', 'Slack + webhook actions', 'Smart replies', 'Email warmup', 'Analytics', 'Dedicated support'],
 };
 
 const GatewayButton = ({
@@ -116,9 +117,27 @@ const RazorpayLogo = () => (
 
 const BillingSettingsPage = () => {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   const [upgradeNote, setUpgradeNote] = useState('');
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [selectedGateway, setSelectedGateway] = useState<PaymentGateway>('stripe');
+  const proCardRef = useRef<HTMLDivElement>(null);
+  const successToastShown = useRef(false);
+
+  useEffect(() => {
+    const checkout = searchParams.get('checkout');
+    const upgrade = searchParams.get('upgrade');
+    if (checkout === 'success' && !successToastShown.current) {
+      successToastShown.current = true;
+      toast({
+        title: 'Welcome to Pro!',
+        description: 'Your automations are now active. Head to the Automations page to build your first workflow.',
+      });
+    }
+    if (upgrade === 'pro') {
+      setTimeout(() => proCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+    }
+  }, [searchParams, toast]);
 
   const { data, loading, error, refetch } = useQuery(GET_BILLING_SNAPSHOT, {
     fetchPolicy: 'network-only',
@@ -460,6 +479,7 @@ const BillingSettingsPage = () => {
           return (
             <Card
               key={plan.code}
+              ref={plan.code === 'PRO' ? proCardRef : undefined}
               className={isCurrent ? 'border-primary ring-1 ring-primary/20' : undefined}
             >
               <CardHeader>

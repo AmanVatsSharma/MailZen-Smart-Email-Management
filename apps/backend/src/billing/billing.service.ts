@@ -538,6 +538,7 @@ export class BillingService {
     aiCreditsPerMonth: number;
     aiCreditsUsed: number;
     aiCreditsRemaining: number;
+    automationsEnabled: boolean;
     periodStart: string;
     evaluatedAtIso: string;
   }> {
@@ -607,6 +608,7 @@ export class BillingService {
       aiCreditsPerMonth: entitlements.aiCreditsPerMonth,
       aiCreditsUsed: aiCreditBalance.usedCredits,
       aiCreditsRemaining: aiCreditBalance.remainingCredits,
+      automationsEnabled: entitlements.automationsEnabled ?? false,
       periodStart: aiCreditBalance.periodStart,
       evaluatedAtIso: new Date().toISOString(),
     };

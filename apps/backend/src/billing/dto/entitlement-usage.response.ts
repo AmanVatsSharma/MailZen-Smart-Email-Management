@@ -60,6 +60,9 @@ export class EntitlementUsageResponse {
   aiCreditsRemaining: number;
 
   @Field()
+  automationsEnabled: boolean;
+
+  @Field()
   periodStart: string;
 
   @Field()

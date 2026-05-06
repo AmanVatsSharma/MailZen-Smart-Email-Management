@@ -118,6 +118,12 @@ AI_AGENT_PLATFORM_REQUIRED=false
 GOOGLE_CLOUD_STORAGE_BUCKET=
 GOOGLE_CLOUD_PROJECT_ID=
 GOOGLE_CLOUD_KEYFILE=
+
+# Stripe (leave blank; fill in to enable real payments)
+STRIPE_SECRET_KEY=          # sk_test_... for dev, sk_live_... for prod
+STRIPE_PRICE_ID_PRO=        # price_... for the PRO plan
+STRIPE_PRICE_ID_BUSINESS=   # price_... for the BUSINESS plan
+STRIPE_WEBHOOK_SECRET=      # whsec_... webhook signing secret
 `;
 }
 

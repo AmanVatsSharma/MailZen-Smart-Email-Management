@@ -16,6 +16,7 @@ export const GET_BILLING_SNAPSHOT = gql`
       mailboxLimit
       workspaceLimit
       aiCreditsPerMonth
+      automationsEnabled
       isActive
     }
     myWorkspaces {
@@ -96,6 +97,7 @@ export const GET_ENTITLEMENT_USAGE = gql`
       aiCreditsPerMonth
       aiCreditsUsed
       aiCreditsRemaining
+      automationsEnabled
       periodStart
     }
   }
