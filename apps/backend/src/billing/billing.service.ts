@@ -36,6 +36,8 @@ export type BillingEntitlements = {
   workspaceMemberLimit: number;
   aiCreditsPerMonth: number;
   mailboxStorageLimitMb: number;
+  /** Automation Engine access — true for PRO+ plans */
+  automationsEnabled: boolean;
 };
 
 @Injectable()
@@ -237,7 +239,7 @@ export class BillingService {
       {
         code: 'PRO',
         name: 'Pro',
-        priceMonthlyCents: 1900,
+        priceMonthlyCents: 2500, // $25/seat/mo (automation engine included)
         currency: 'USD',
         providerLimit: 5,
         mailboxLimit: 5,
@@ -245,6 +247,7 @@ export class BillingService {
         workspaceMemberLimit: 25,
         aiCreditsPerMonth: 500,
         mailboxStorageLimitMb: 10240,
+        automationsEnabled: true,
         isActive: true,
       },
       {
@@ -258,6 +261,7 @@ export class BillingService {
         workspaceMemberLimit: 200,
         aiCreditsPerMonth: 5000,
         mailboxStorageLimitMb: 51200,
+        automationsEnabled: true,
         isActive: true,
       },
     ];
@@ -401,6 +405,7 @@ export class BillingService {
       workspaceMemberLimit: plan.workspaceMemberLimit,
       aiCreditsPerMonth: plan.aiCreditsPerMonth,
       mailboxStorageLimitMb: plan.mailboxStorageLimitMb,
+      automationsEnabled: plan.automationsEnabled ?? false,
     };
   }
 

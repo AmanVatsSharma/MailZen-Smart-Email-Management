@@ -56,6 +56,11 @@ export class BillingPlan {
   @Column({ default: 2048 })
   mailboxStorageLimitMb: number;
 
+  /** Automation engine access — enabled for PRO+ plans */
+  @Field()
+  @Column({ default: false })
+  automationsEnabled: boolean;
+
   @Field()
   @Column({ default: true })
   isActive: boolean;

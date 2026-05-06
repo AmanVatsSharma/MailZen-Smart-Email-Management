@@ -54,6 +54,7 @@ describe('WorkspaceService', () => {
         workspaceMemberLimit: 25,
         aiCreditsPerMonth: 500,
         mailboxStorageLimitMb: 10240,
+        automationsEnabled: true,
       }),
     };
     workspaceRepo.count.mockResolvedValue(1);
@@ -145,6 +146,7 @@ describe('WorkspaceService', () => {
       workspaceMemberLimit: 2,
       aiCreditsPerMonth: 50,
       mailboxStorageLimitMb: 2048,
+      automationsEnabled: false,
     });
     workspaceMemberRepo.findOne
       .mockResolvedValueOnce({
@@ -188,6 +190,7 @@ describe('WorkspaceService', () => {
       workspaceMemberLimit: 25,
       aiCreditsPerMonth: 500,
       mailboxStorageLimitMb: 10240,
+      automationsEnabled: true,
     });
     userRepo.findOne.mockResolvedValue({
       id: 'user-1',
@@ -314,6 +317,7 @@ describe('WorkspaceService', () => {
       workspaceMemberLimit: 2,
       aiCreditsPerMonth: 50,
       mailboxStorageLimitMb: 2048,
+      automationsEnabled: false,
     });
     userRepo.findOne.mockResolvedValue({
       id: 'user-1',

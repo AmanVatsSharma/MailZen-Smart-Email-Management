@@ -59,6 +59,7 @@ describe('MailboxInboundService', () => {
         workspaceMemberLimit: 25,
         aiCreditsPerMonth: 500,
         mailboxStorageLimitMb: 51200,
+        automationsEnabled: true,
       }),
     };
 
@@ -355,6 +356,7 @@ describe('MailboxInboundService', () => {
       workspaceMemberLimit: 3,
       aiCreditsPerMonth: 50,
       mailboxStorageLimitMb: 1,
+      automationsEnabled: false,
     });
     mailboxRepo.findOne.mockResolvedValue({
       id: 'mailbox-1',

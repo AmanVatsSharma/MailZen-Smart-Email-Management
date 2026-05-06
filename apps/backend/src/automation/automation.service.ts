@@ -11,6 +11,7 @@
  *   - Automation, AutomationVersion, AutomationRun repositories (TypeORM)
  *   - AutomationEventBus  — for runAutomationManually
  *   - AuditLog repository — every state-changing write logs an AuditLog row
+ *   - BillingService      — plan entitlement gate on createAutomation + enableAutomation
  *
  * Side-effects:
  *   - DB reads/writes on automation tables
@@ -28,7 +29,7 @@
  *   2. Mutation methods (create, update, enable, disable, archive, manualRun, retry, cancel)
  *
  * Author:      AmanVatsSharma
- * Last-updated: 2026-05-03
+ * Last-updated: 2026-05-06
  */
 
 import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
@@ -42,6 +43,7 @@ import { AutomationEventBus } from './automation-event.bus';
 import { AuditLog } from '../auth/entities/audit-log.entity';
 import { AutomationConnection, AutomationRunConnection } from './dto/automation.connection';
 import { serializeStructuredLog, resolveCorrelationId } from '../common/logging/structured-log.util';
+import { BillingService } from '../billing/billing.service';
 
 function encodeCursor(date: Date): string {
   return Buffer.from(date.toISOString()).toString('base64');
@@ -67,6 +69,7 @@ export class AutomationService {
     @InjectRepository(AuditLog)
     private readonly auditLogRepo: Repository<AuditLog>,
     private readonly eventBus: AutomationEventBus,
+    private readonly billingService: BillingService,
   ) {}
 
   // ─── Queries ──────────────────────────────────────────────────────────────
@@ -169,6 +172,11 @@ export class AutomationService {
     steps: Record<string, unknown>[];
     createdByUserId: string;
   }): Promise<Automation> {
+    const entitlements = await this.billingService.getEntitlements(input.createdByUserId);
+    if (!entitlements.automationsEnabled) {
+      throw new ForbiddenException('Automation engine requires a Pro or Business plan');
+    }
+
     const automation = await this.automationRepo.save(
       this.automationRepo.create({
         workspaceId: input.workspaceId,
@@ -253,6 +261,11 @@ export class AutomationService {
   }
 
   async enableAutomation(id: string, workspaceId: string, userId: string): Promise<Automation> {
+    const entitlements = await this.billingService.getEntitlements(userId);
+    if (!entitlements.automationsEnabled) {
+      throw new ForbiddenException('Automation engine requires a Pro or Business plan');
+    }
+
     const automation = await this.getAutomation(id, workspaceId);
     if (automation.status === AutomationStatus.ARCHIVED) {
       throw new ForbiddenException('Cannot enable an archived automation');
