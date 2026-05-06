@@ -3,6 +3,7 @@ import { Footer } from '@/components/layout/Footer';
 import { Hero } from '@/components/home/Hero';
 import { SocialProof } from '@/components/home/SocialProof';
 import { Features } from '@/components/home/Features';
+import { AutomationsSection } from '@/components/home/AutomationsSection';
 import { HowItWorks } from '@/components/home/HowItWorks';
 import { Testimonials } from '@/components/home/Testimonials';
 import { PricingPreview } from '@/components/home/PricingPreview';
@@ -17,6 +18,7 @@ export default function HomePage() {
         <Hero />
         <SocialProof />
         <Features />
+        <AutomationsSection />
         <HowItWorks />
         <Testimonials />
         <PricingPreview />
