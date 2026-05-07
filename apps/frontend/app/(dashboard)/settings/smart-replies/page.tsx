@@ -273,7 +273,7 @@ const SmartRepliesSettingsPage = () => {
   return (
     <DashboardPageShell
       title="Smart Replies Settings"
-      description="Configure AI reply behavior and persist preferences in backend."
+      description="Tune how MailZen drafts AI replies — tone, length, and auto-send threshold."
       actions={(
         <Button onClick={handleSave} className="gap-1" disabled={saving || loading}>
           {saving ? (

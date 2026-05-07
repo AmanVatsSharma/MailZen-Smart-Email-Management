@@ -1,3 +1,31 @@
+/**
+ * File:        apps/frontend/app/(dashboard)/filters/page.tsx
+ * Module:      Filters · Email Rule Management
+ * Purpose:     Legacy rule-based inbox automation — create "when X, do Y" filters
+ *              that run on incoming email server-side.
+ *
+ * Exports:
+ *   - FiltersPage (default) — list + create dialog for email filter rules
+ *
+ * Depends on:
+ *   - GET_EMAIL_FILTERS, CREATE_EMAIL_FILTER, DELETE_EMAIL_FILTER — from filters.ts
+ *   - AlertDialog — delete confirmation (no window.confirm)
+ *
+ * Side-effects:
+ *   - Apollo: reads filter list, writes via create/delete mutations
+ *
+ * Key invariants:
+ *   - Filters are returned as JSON strings from the backend (parsed in-component)
+ *   - Delete uses AlertDialog, not window.confirm — consistent with rest of app
+ *
+ * Read order:
+ *   1. ACTION_LABELS / CONDITION_LABELS — display-name maps
+ *   2. FiltersPage — query/mutation wiring and UI
+ *
+ * Author:      AmanVatsSharma
+ * Last-updated: 2026-05-07
+ */
+
 'use client';
 
 import React, { useMemo, useState } from 'react';
@@ -21,6 +49,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Select,
   SelectContent,
@@ -79,10 +117,26 @@ const ACTIONS_REQUIRING_VALUE: BackendRule['action'][] = [
   'FORWARD_TO',
 ];
 
+const ACTION_LABELS: Record<string, string> = {
+  MARK_READ: 'Mark as read',
+  MARK_IMPORTANT: 'Mark important',
+  MOVE_TO_FOLDER: 'Move to folder',
+  APPLY_LABEL: 'Apply label',
+  FORWARD_TO: 'Forward to',
+};
+
+const CONDITION_LABELS: Record<string, string> = {
+  CONTAINS: 'contains',
+  EQUALS: 'equals',
+  STARTS_WITH: 'starts with',
+  ENDS_WITH: 'ends with',
+};
+
 const FiltersPage = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<BackendFilter | null>(null);
   const [form, setForm] = useState<FilterForm>(DEFAULT_FORM);
 
   const { data, loading, error, refetch } = useQuery(GET_EMAIL_FILTERS, {
@@ -180,18 +234,15 @@ const FiltersPage = () => {
     setForm(DEFAULT_FORM);
   };
 
-  const handleDeleteFilter = async (id: string, name: string) => {
-    const confirmed = window.confirm(
-      `Delete filter "${name}"? This action cannot be undone.`,
-    );
-    if (!confirmed) return;
+  const handleDeleteFilter = async (id: string) => {
     await deleteFilter({ variables: { id } });
+    setDeleteTarget(null);
   };
 
   return (
     <DashboardPageShell
       title="Email Filters"
-      description="Build automation rules backed by live backend resolvers."
+      description="Rules that automatically act on incoming mail — mark, move, label, or forward."
       actions={(
         <Button onClick={() => setCreateDialogOpen(true)} className="gap-1">
           <Plus className="h-4 w-4" />
@@ -236,23 +287,28 @@ const FiltersPage = () => {
           ) : (
             <div className="divide-y rounded-md border">
               {filteredFilters.map((item) => (
-                <div key={item.id} className="px-4 py-3 space-y-2">
+                <div key={item.id} className="px-4 py-3 space-y-2 hover:bg-muted/40 transition-colors group">
                   <div className="flex items-center justify-between gap-3">
-                    <h3 className="font-medium">{item.name}</h3>
+                    <h3 className="text-sm font-medium">{item.name}</h3>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-destructive"
-                      onClick={() => handleDeleteFilter(item.id, item.name)}
+                      className="h-7 w-7 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Delete filter"
+                      onClick={() => setDeleteTarget(item)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {item.rules.map((rule, index) => (
-                      <Badge key={`${item.id}-${index}`} variant="outline">
-                        {rule.field} {rule.condition} {rule.value} {'->'} {rule.action}
-                        {rule.actionValue ? ` (${rule.actionValue})` : ''}
+                      <Badge key={`${item.id}-${index}`} variant="outline" className="text-xs font-normal">
+                        <span className="text-muted-foreground">{rule.field}</span>
+                        &nbsp;{CONDITION_LABELS[rule.condition] ?? rule.condition}&nbsp;
+                        <span className="font-medium">{rule.value}</span>
+                        &nbsp;→&nbsp;
+                        <span className="text-foreground">{ACTION_LABELS[rule.action] ?? rule.action}</span>
+                        {rule.actionValue ? <span className="text-muted-foreground"> ({rule.actionValue})</span> : ''}
                       </Badge>
                     ))}
                   </div>
@@ -381,11 +437,32 @@ const FiltersPage = () => {
               Cancel
             </Button>
             <Button onClick={handleCreateFilter} disabled={creating}>
-              {creating ? 'Creating...' : 'Create Filter'}
+              {creating ? 'Creating…' : 'Create Filter'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete filter?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{deleteTarget?.name}</strong> will be permanently deleted. Emails that matched
+              this filter will no longer be processed by it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && handleDeleteFilter(deleteTarget.id)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardPageShell>
   );
 };

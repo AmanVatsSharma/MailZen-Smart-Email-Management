@@ -193,7 +193,7 @@ export function ComposeCopilot({
 
             <div className="px-3 py-1.5 border-t">
               <p className="text-[10px] text-muted-foreground/60">
-                Type <kbd className="text-[9px] bg-muted px-1 rounded">//</kbd> in the body for quick AI actions
+                Type <kbd className="text-[9px] bg-muted px-1 rounded">{'//'}</kbd> in the body for quick AI actions
               </p>
             </div>
           </motion.div>

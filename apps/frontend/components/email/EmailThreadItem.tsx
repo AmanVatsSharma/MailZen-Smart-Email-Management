@@ -144,8 +144,8 @@ export function EmailThreadItem({
   const fromEmail = lastMessage.from.email ?? '';
 
   // AI metadata (populated after Phase 5 migration)
-  const aiPriority = (thread as any).aiPriority as string | undefined;
-  const aiCategory = (thread as any).aiCategory as string | undefined;
+  const aiPriority = thread.aiPriority;
+  const aiCategory = thread.aiCategory;
 
   const threadLabels = thread.labelIds
     ? (thread.labelIds

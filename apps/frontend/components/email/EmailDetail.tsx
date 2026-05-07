@@ -369,7 +369,7 @@ export function EmailDetail({
   // Show jump-to-unread pill when thread has unread messages not in view
   useEffect(() => {
     if (!effectiveThread) return;
-    const hasUnread = effectiveThread.messages.some((m) => !(m as any).isRead);
+    const hasUnread = effectiveThread.messages.some((m) => m.status === 'unread');
     setShowJumpToUnread(hasUnread && (effectiveThread.messages.length ?? 0) > 3);
   }, [effectiveThread]);
 
@@ -408,9 +408,9 @@ export function EmailDetail({
 
   const lastMessage = effectiveThread.messages[effectiveThread.messages.length - 1];
   const isStarred = lastMessage.isStarred;
-  const aiPriority = (effectiveThread as any).aiPriority as string | undefined;
-  const aiCategory = (effectiveThread as any).aiCategory as string | undefined;
-  const aiSummary = (effectiveThread as any).aiSummary as string | undefined;
+  const aiPriority = effectiveThread.aiPriority;
+  const aiCategory = effectiveThread.aiCategory;
+  const aiSummary = effectiveThread.aiSummary;
   const isMultiMessage = effectiveThread.messages.length > 1;
 
   const threadLabels = effectiveThread.labelIds

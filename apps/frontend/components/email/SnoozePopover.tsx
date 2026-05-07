@@ -12,6 +12,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useToast } from '@/components/ui/use-toast';
+import type { ToastActionElement } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 
 interface SnoozePopoverProps {
@@ -55,7 +56,7 @@ export function SnoozePopover({
         >
           Undo
         </button>
-      ) as any,
+      ) as ToastActionElement,
     });
     if (process.env.NODE_ENV !== 'production') {
       console.info('[SnoozePopover] snoozed', { emailId, until: until.toISOString() });

@@ -171,7 +171,7 @@ const WarmupPage = () => {
   return (
     <DashboardPageShell
       title="Email Warmup"
-      description="Monitor deliverability warmup progress using live backend data."
+      description="Track sender reputation warmup — improve deliverability before sending at scale."
       actions={(
         <>
           <Select value={selectedProviderId} onValueChange={setSelectedProviderId}>

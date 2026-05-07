@@ -28,6 +28,13 @@ export interface EmailThread {
   labelIds?: string[];
   providerId: string;
   providerThreadId?: string;
+  /** Populated for MAILBOX-sourced threads from inbox-triage */
+  aiPriority?: string;
+  aiCategory?: string;
+  aiSummary?: string;
+  /** Assignment fields from team inbox */
+  assignedToUserId?: string;
+  workspaceId?: string;
 }
 
 export interface Email {
@@ -49,6 +56,9 @@ export interface Email {
   labelIds?: string[];
   providerId: string;
   providerEmailId?: string;
+  /** Backend fields present on MAILBOX-sourced messages */
+  receivedAt?: string;
+  createdAt?: string;
 }
 
 export type EmailMessage = Email;

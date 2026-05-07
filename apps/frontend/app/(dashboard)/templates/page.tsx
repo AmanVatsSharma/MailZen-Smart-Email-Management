@@ -257,7 +257,7 @@ export default function TemplatesPage() {
           <SheetHeader>
             <SheetTitle>{editingTemplate ? 'Edit Template' : 'New Template'}</SheetTitle>
             <SheetDescription>
-              Use {'{{'}'variable_name'{'}}'}  syntax for dynamic content substitution.
+              Use {'{{variable_name}}'} syntax for dynamic content substitution.
             </SheetDescription>
           </SheetHeader>
 

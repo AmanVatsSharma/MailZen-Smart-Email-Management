@@ -166,7 +166,7 @@ const getConversation = (thread: EmailThread | null) => {
 const daysSinceLastMessage = (thread: EmailThread | null): number => {
   if (!thread || thread.messages.length === 0) return 0;
   const last = thread.messages[thread.messages.length - 1];
-  const dateVal = (last as any).receivedAt || (last as any).createdAt;
+  const dateVal = last.receivedAt ?? last.createdAt;
   if (!dateVal) return 0;
   const diff = Date.now() - new Date(dateVal as string).getTime();
   return Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -505,9 +505,9 @@ export function InboxAiWorkspace({
   const isSmartReplyEnabled = settingsData?.smartReplySettings?.enabled ?? true;
   const maxSuggestions = settingsData?.smartReplySettings?.maxSuggestions ?? 3;
 
-  const aiPriority = (selectedThread as any)?.aiPriority as string | undefined;
-  const aiCategory = (selectedThread as any)?.aiCategory as string | undefined;
-  const aiSummary = (selectedThread as any)?.aiSummary as string | undefined;
+  const aiPriority = selectedThread?.aiPriority;
+  const aiCategory = selectedThread?.aiCategory;
+  const aiSummary = selectedThread?.aiSummary;
 
   const applyDraft = (text: string, source: string, skill = 'inbox') => {
     if (!text) return;
