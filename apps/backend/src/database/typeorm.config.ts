@@ -2,11 +2,30 @@
  * File: apps/backend/src/database/typeorm.config.ts
  * Module: database
  * Purpose: Centralized TypeORM runtime and CLI configuration helpers.
+ *
+ * Exports:
+ *   - buildDataSourceOptionsFromEnv(env) → DataSourceOptions — returns postgres or SQLite config based on DATABASE_URL
+ *   - buildTypeOrmModuleOptions(configService) → TypeOrmModuleOptions — Nest module wrapper
+ *   - isLocalDevelopmentEnvironment(env) → boolean
+ *   - shouldSynchronizeSchema(env) → boolean
+ *
+ * Depends on:
+ *   - typeorm — DataSourceOptions, TypeOrmModuleOptions
+ *
+ * Side-effects:
+ *   - none (pure config builders)
+ *
+ * Key invariants:
+ *   - DATABASE_URL starting with "sqlite:" → better-sqlite3 driver, no connection pool
+ *   - All other DATABASE_URL values → postgres driver with pool options
+ *   - SQLite path is extracted from "sqlite:./path" by stripping the "sqlite:" prefix
+ *
+ * Read order:
+ *   1. buildDataSourceOptionsFromEnv — core branching logic
+ *   2. buildTypeOrmModuleOptions — Nest module entry point
+ *
  * Author: Aman Sharma / Novologic/ Codex
- * Last-updated: 2026-02-14
- * Notes:
- * - Enforces local-development-only schema synchronization
- * - Shared by Nest runtime module config and TypeORM CLI DataSource
+ * Last-updated: 2026-05-07
  */
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
@@ -82,6 +101,12 @@ const resolveEnvironmentForTypeOrm = (
   };
 };
 
+const isSqliteUrl = (url: string): boolean => url.startsWith('sqlite:');
+
+const sqliteDatabasePath = (url: string): string =>
+  // Strip "sqlite:" prefix, leaving "./mailzen.dev.sqlite" or an absolute path
+  url.slice('sqlite:'.length);
+
 export const buildDataSourceOptionsFromEnv = (
   env: NodeJS.ProcessEnv,
 ): DataSourceOptions => {
@@ -96,16 +121,28 @@ export const buildDataSourceOptionsFromEnv = (
   );
   const { entities, migrations } = resolveTypeOrmPaths();
 
-  return {
-    type: 'postgres',
-    url: env.DATABASE_URL,
+  const common = {
     synchronize,
-    logging: ['error'],
+    logging: ['error'] as ['error'],
     entities,
     migrations,
     migrationsTableName: 'typeorm_migrations',
     migrationsRun,
-    migrationsTransactionMode: 'each',
+    migrationsTransactionMode: 'each' as const,
+  };
+
+  if (isSqliteUrl(env.DATABASE_URL)) {
+    return {
+      ...common,
+      type: 'better-sqlite3',
+      database: sqliteDatabasePath(env.DATABASE_URL),
+    };
+  }
+
+  return {
+    ...common,
+    type: 'postgres',
+    url: env.DATABASE_URL,
     extra: {
       max: parsePositiveInt(env.TYPEORM_POOL_MAX, 10),
       idleTimeoutMillis: parsePositiveInt(env.TYPEORM_IDLE_TIMEOUT_MS, 30000),

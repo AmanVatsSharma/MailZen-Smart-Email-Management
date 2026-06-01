@@ -78,11 +78,13 @@ function ensureFile(filePath, content) {
 function buildBackendEnvTemplate() {
   const generatedJwtSecret = crypto.randomBytes(48).toString('hex'); // 96 chars
   return `# Database
-# - Fedora/Ubuntu local Postgres often uses peer auth via unix socket:
+# - Local dev (default): SQLite file — zero setup required
+#     sqlite:./mailzen.dev.sqlite
+# - Fedora/Ubuntu local Postgres via unix socket:
 #     postgresql:///mailzen?host=/var/run/postgresql
-# - Docker/local password auth often uses TCP:
+# - Docker/local password auth:
 #     postgresql://postgres:postgres@localhost:5432/mailzen
-DATABASE_URL=postgresql:///mailzen?host=/var/run/postgresql
+DATABASE_URL=sqlite:./mailzen.dev.sqlite
 
 # Server Configuration
 PORT=4000

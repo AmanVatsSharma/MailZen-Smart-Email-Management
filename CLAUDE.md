@@ -68,6 +68,21 @@ npm run check:migration:contracts
 npm run check:schema:contracts
 npm run check:no-console-usage       # enforces structured logger usage
 npm run check:structured-logger-usage
+npm run check:doc:flowcharts
+```
+
+### Database seeding (from `apps/backend/`)
+
+```bash
+npm run seed:demo          # seed demo data (idempotent)
+npm run seed:demo:fresh    # drop and re-seed demo data
+```
+
+### Workspace backfill (from `apps/backend/`)
+
+```bash
+npm run backfill:workspace-scopes           # dry-run preview
+npm run backfill:workspace-scopes:apply     # apply scope backfill
 ```
 
 ## Architecture
@@ -98,12 +113,21 @@ Code-first GraphQL schema (`schema.gql` is auto-generated). Key modules:
 | `feature/` | Feature flags |
 | `health/` | Health check endpoint |
 | `common/` | Guards (`JwtAuthGuard`, `AdminGuard`), structured logging util, decorators, rate limiting |
+| `automation/` | Workspace-scoped "when X → do Y" engine: event bus (RxJS), dispatcher, Bull queue worker, condition evaluator |
+| `email-integration/` | Email provider management (Gmail/Outlook/SMTP), credential encryption at rest, OAuth token refresh, sync lease coordination |
+| `scheduled-email/` | Deferred/scheduled email send management |
+| `template/` | Email template CRUD |
+| `phone/` | Phone OTP verification for authenticated users and phone-first signup |
 
 **Auth model**: HttpOnly `token` cookie for session; refresh token passed as body parameter (stored in localStorage on frontend until backend supports cookie refresh).
 
 **Database**: PostgreSQL via TypeORM. `synchronize: true` in local dev only; production uses explicit migrations. Connection pool configured via `TYPEORM_POOL_MAX` / `TYPEORM_IDLE_TIMEOUT_MS`.
 
 **Schema synchronization**: `TYPEORM_SYNCHRONIZE=false` or setting `CI=true` disables auto-sync.
+
+**Queue infrastructure**: The automation engine uses **Bull + Redis**. Required in any environment running automations: `REDIS_HOST` (default `localhost`), `REDIS_PORT` (default `6379`). Loop-detection threshold: `AUTOMATION_LOOP_THRESHOLD` (default `10` runs/60 s).
+
+**Automation engine**: `AutomationEventBus` (RxJS Subject) is the in-process pub/sub backbone. Email sync modules publish events; `AutomationDispatcher` evaluates conditions and enqueues Bull jobs; `AutomationWorker` executes steps. `AutomationVersion` is **immutable** — `updateAutomation` always creates a new version row, never mutates a published one.
 
 ### Frontend (Next.js 15, `apps/frontend/`)
 
@@ -137,8 +161,15 @@ Environment files are auto-created by `tools/ensure-env.js` on first `nx serve`.
 DATABASE_URL=postgresql:///mailzen?host=/var/run/postgresql
 PORT=4000
 JWT_SECRET=<generated>
-GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI  # optional: enables Google OAuth
+GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI      # login OAuth
+GOOGLE_PROVIDER_REDIRECT_URI=http://localhost:4000/email-integration/google/callback
+OUTLOOK_PROVIDER_REDIRECT_URI=http://localhost:4000/email-integration/microsoft/callback
+PROVIDER_SECRETS_KEYRING / PROVIDER_SECRETS_ACTIVE_KEY_ID           # credential encryption at rest
+REDIS_HOST=localhost / REDIS_PORT=6379                              # automation Bull queue
+MAILZEN_SMS_PROVIDER=CONSOLE                                        # CONSOLE|WEBHOOK|TWILIO|DISABLED
 ```
+
+**Note**: Login OAuth (`GOOGLE_REDIRECT_URI`) and provider-linking OAuth (`GOOGLE_PROVIDER_REDIRECT_URI`) use **separate redirect URIs** pointing to different backend controllers (`/auth/google/callback` vs `/email-integration/google/callback`).
 
 **Frontend** (`apps/frontend/.env.local`) — key vars:
 ```
@@ -150,6 +181,17 @@ PostgreSQL database must exist: `createdb mailzen`. The default `DATABASE_URL` u
 ## GraphQL schema
 
 Auto-generated at `apps/backend/src/schema.gql`. Do not edit it manually — it is regenerated on each `nx serve backend` / `nest build`. Add/modify resolvers and entity decorators instead.
+
+## Shell commands in scripts/agents
+
+Always use non-interactive flags to avoid hanging on confirmation prompts (some systems alias `cp`/`mv`/`rm` to interactive mode):
+
+```bash
+cp -f source dest    # NOT: cp source dest
+mv -f source dest    # NOT: mv source dest
+rm -f file           # NOT: rm file
+rm -rf dir           # NOT: rm -r dir
+```
 
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->

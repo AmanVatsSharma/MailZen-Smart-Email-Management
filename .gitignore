@@ -77,6 +77,13 @@ Thumbs.db
 # Git worktrees
 .worktrees/
 
+# ------------------------------
+# Local SQLite dev database
+# ------------------------------
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
 # Beads / Dolt files (added by bd init)
 .dolt/
 *.db
