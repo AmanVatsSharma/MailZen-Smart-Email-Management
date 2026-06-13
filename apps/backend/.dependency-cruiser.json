@@ -1,0 +1,31 @@
+{
+  "forbidden": [
+    {
+      "name": "no-domain-to-outer",
+      "from": { "path": "^src/core/domain" },
+      "to": {
+        "path": "^(?!src/core/domain)",
+        "except": [
+          "src/core/domain/shared/result.ts",
+          "src/core/domain/shared/aggregate-root.ts",
+          "src/core/domain/shared/domain-event.ts",
+          "src/core/domain/shared/value-objects/ids.ts",
+          "src/core/domain/shared/value-objects/email-address.ts"
+        ]
+      }
+    },
+    {
+      "name": "no-app-to-infra-or-iface",
+      "from": { "path": "^src/core/application" },
+      "to": {
+        "path": "^src/(core/infrastructure|interfaces|composition)"
+      }
+    },
+    {
+      "name": "no-infra-to-iface",
+      "from": { "path": "^src/core/infrastructure" },
+      "to": { "path": "^src/interfaces" }
+    }
+  ],
+  "ignore": ["**/*.spec.ts", "**/node_modules/**", "**/*.d.ts"]
+}
