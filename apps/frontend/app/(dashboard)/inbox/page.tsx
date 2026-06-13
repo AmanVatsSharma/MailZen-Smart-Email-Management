@@ -7,7 +7,7 @@ import { EmailDetail } from '@/components/email/EmailDetail';
 import { EmailComposer } from '@/components/email/EmailComposer';
 import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
 import { InboxAiWorkspace } from '@/components/email/InboxAiWorkspace';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { EmptyState } from '@/components/patterns/empty-state';
 import { EmailFolder, EmailThread, EmailLabel } from '@/lib/email/email-types';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Filter, MoreVertical, Plus, Keyboard, Sparkles, X, PlugZap, Users, User, Loader2 } from 'lucide-react';
@@ -499,6 +499,7 @@ export default function InboxPage() {
             {!isRefreshing && providers.length === 0 && (
               <div className="flex-1 flex items-center justify-center">
                 <EmptyState
+                  variant="no-data"
                   icon={<PlugZap className="h-7 w-7" />}
                   title="No email provider connected"
                   description="Connect your Gmail or Outlook account to start reading and sending emails from MailZen."
