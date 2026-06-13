@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { X, Paperclip, FileText, Image as ImageIcon, FileArchive, Film, Music, Code, File } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 import { 
   Tooltip,
   TooltipContent,

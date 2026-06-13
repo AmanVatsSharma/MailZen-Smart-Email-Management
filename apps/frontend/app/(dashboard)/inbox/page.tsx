@@ -27,7 +27,7 @@ import {
   DialogClose
 } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 const GET_PROVIDERS_FOR_INBOX = gql`
   query InboxProviders {

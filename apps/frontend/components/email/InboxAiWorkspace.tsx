@@ -96,7 +96,7 @@ import { formatDistanceToNow } from 'date-fns';
 import type { EmailThread } from '@/lib/email/email-types';
 import { InboxAssistantAdapter } from '@/components/email/InboxAssistantAdapter';
 import { PriorityBadge, CategoryChip } from '@/components/ui/priority-badge';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 function getLastMessageText(thread: EmailThread | null): string {
   if (!thread?.messages?.length) return '';

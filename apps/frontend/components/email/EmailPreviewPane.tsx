@@ -16,7 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { EmailThread, EmailLabel } from '@/lib/email/email-types';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 import { EmailAttachmentList } from './EmailAttachment';
 
 interface EmailPreviewPaneProps {

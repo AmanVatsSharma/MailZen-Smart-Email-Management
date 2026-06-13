@@ -28,7 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 export type CopilotTone = 'professional' | 'friendly' | 'concise' | 'formal';
 

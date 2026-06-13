@@ -17,7 +17,7 @@ import {
   GET_VIP_SENDERS,
   SET_SENDER_VIP,
 } from '@/lib/apollo/queries/sender-intelligence';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 import { formatDistanceToNow } from 'date-fns';
 
 type SenderProfile = {

@@ -11,7 +11,7 @@ import {
   Sparkles,
   Users,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface ActionItem {

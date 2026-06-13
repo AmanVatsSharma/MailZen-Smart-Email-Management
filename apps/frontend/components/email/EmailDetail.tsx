@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { formatDistanceToNow } from 'date-fns';
 import { AnimatePresence, motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 import { Badge } from '@/components/ui/badge';
 import { EmailThread, EmailLabel, EmailMessage } from '@/lib/email/email-types';
 import { useQuery, useMutation } from '@apollo/client';

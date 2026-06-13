@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { IconButton } from '@/components/ui/icon-button';
 import { PriorityStrip, PriorityBadge, CategoryChip } from '@/components/ui/priority-badge';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 // ─── AI label helpers ────────────────────────────────────────────────────────
 

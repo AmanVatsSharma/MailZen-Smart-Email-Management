@@ -73,7 +73,7 @@ import {
   GET_MY_MAILBOX_INBOUND_EVENT_STATS,
 } from '@/lib/apollo/queries/mailbox-observability';
 import { useDataExport } from '@/lib/hooks/useDataExport';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 const TIME_WINDOWS = [
   { value: '24', label: 'Last 24 hours' },

@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 import { GET_EMAIL_TRACKING_STATS } from '@/lib/apollo/queries/analytics';
 import { formatDistanceToNow } from 'date-fns';
 

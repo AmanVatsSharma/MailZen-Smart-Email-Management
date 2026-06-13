@@ -15,7 +15,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/components/ui/use-toast';
 import { GET_MY_INBOXES, SET_ACTIVE_INBOX } from '@/lib/apollo/queries/inboxes';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 type InboxType = 'MAILBOX' | 'PROVIDER';
 

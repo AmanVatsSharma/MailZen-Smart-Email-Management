@@ -121,7 +121,7 @@ import { EmailAttachmentList } from './EmailAttachment';
 import { SmartReplySelector } from './SmartReplySelector';
 import { ComposeCopilot } from './ComposeCopilot';
 import { getUserData } from '@/lib/auth/auth-utils';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 import { RichTextEditor, type RichTextEditorHandle } from './RichTextEditor';
 
 // ── Recipient chip input ──────────────────────────────────────────────────────

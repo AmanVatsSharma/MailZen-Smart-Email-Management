@@ -31,7 +31,7 @@ import {
   type WorkspaceForContext,
 } from '@/lib/notifications/notification-context-formatter';
 import { formatDistanceToNow } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 const NOTIFICATION_TYPES = [
   { value: 'ALL', label: 'All types' },

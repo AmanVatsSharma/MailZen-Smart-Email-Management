@@ -3,7 +3,7 @@ import { Search, X, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 interface EmailSearchProps {
   onSearch: (query: string) => void;

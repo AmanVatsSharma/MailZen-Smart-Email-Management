@@ -4,7 +4,7 @@ import * as React from 'react';
 import * as ProgressPrimitive from '@radix-ui/react-progress';
 import { motion } from 'framer-motion';
 
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 const Progress = React.forwardRef<
   React.ElementRef<typeof ProgressPrimitive.Root>,

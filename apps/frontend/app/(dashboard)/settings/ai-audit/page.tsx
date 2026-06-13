@@ -29,7 +29,7 @@ import {
 } from '@/lib/apollo/queries/agent-audit';
 import { useDataExport } from '@/lib/hooks/useDataExport';
 import { format, parseISO, subHours } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 const SKILL_OPTIONS = [
   { value: 'ALL', label: 'All skills' },

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Loader2, AlertTriangle, WifiOff } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 export type SyncState = 'syncing' | 'idle' | 'degraded' | 'offline';
 

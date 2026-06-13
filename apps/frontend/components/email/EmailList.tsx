@@ -28,7 +28,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 import { EmailThread, EmailFolder, EmailFilter, EmailSortOption } from '@/lib/email/email-types';
 import { EmailThreadItem } from './EmailThreadItem';
 import { EmailSearch } from './EmailSearch';

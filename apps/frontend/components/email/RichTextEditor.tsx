@@ -44,7 +44,7 @@ import React, {
   useImperativeHandle,
 } from 'react';
 import { EditorContent, type Editor } from '@tiptap/react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 // ── Public ref handle ─────────────────────────────────────────────────────────
 

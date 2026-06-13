@@ -31,7 +31,7 @@ import {
   Trash2,
   Zap,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@apollo/client';
 import { GET_AGENT_PLATFORM_HEALTH } from '@/lib/apollo/queries/agent-assistant';

@@ -5,7 +5,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 interface AuthLayoutProps {
   children: React.ReactNode;

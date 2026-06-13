@@ -68,7 +68,7 @@ import {
   UPDATE_CONTACT,
 } from '@/lib/apollo/queries/contacts';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 type Contact = {
   id: string;

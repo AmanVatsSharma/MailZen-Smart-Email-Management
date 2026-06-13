@@ -55,7 +55,7 @@ import {
 import { GET_MY_MAILBOX_INBOUND_EVENT_STATS } from '@/lib/apollo/queries/mailbox-observability';
 import { SEMANTIC_SEARCH_QUERY } from '@/lib/apollo/queries/semantic-search';
 import { SyncStatus, type SyncState } from '@/components/ui/sync-status';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 import { formatNotificationContext as sharedFormatNotificationContext } from '@/lib/notifications/notification-context-formatter';
 
 interface HeaderProps {

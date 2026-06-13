@@ -2,7 +2,7 @@
 
 import React, { ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 import { Button } from '@/components/ui/button';
 
 interface EmptyStateProps {

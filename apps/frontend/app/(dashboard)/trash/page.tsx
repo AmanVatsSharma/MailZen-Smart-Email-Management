@@ -12,7 +12,7 @@ import type { EmailThread, EmailLabel } from '@/lib/email/email-types';
 import { useToast } from '@/components/ui/use-toast';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Surface } from '@/components/ui/surface';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 const TrashPage = () => {
   const [selectedThread, setSelectedThread] = useState<EmailThread | null>(null);

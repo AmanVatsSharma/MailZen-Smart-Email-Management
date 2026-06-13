@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/popover';
 import { useToast } from '@/components/ui/use-toast';
 import type { ToastActionElement } from '@/components/ui/toast';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 
 interface SnoozePopoverProps {
   emailId: string;

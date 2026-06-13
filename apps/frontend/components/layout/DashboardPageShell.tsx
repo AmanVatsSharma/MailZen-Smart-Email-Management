@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/tokens/cn';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 interface DashboardPageShellProps {
