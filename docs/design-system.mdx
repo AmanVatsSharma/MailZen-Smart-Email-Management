@@ -1,0 +1,487 @@
+---
+title: MailZen Foundation UI System
+description: Production-grade component library for MailZen
+---
+
+# MailZen Foundation UI System
+
+> Source of truth for the design system. Versioned with the code. If this drifts from reality, fix the code, not this document.
+
+---
+
+## 1. Principles
+
+1. **Accessibility-first.** Every component ships with `jest-axe` coverage. Keyboard navigation is not a stretch goal — it's the default. Reduced motion is respected everywhere.
+2. **State-aware.** A component should know if it's loading, empty, erroring, or ready. We treat those as first-class states, not edge cases.
+3. **Composable.** Primitives don't know about features. Patterns compose primitives. Composites know about features. Pick the right layer.
+4. **Predictable.** No magic globals, no `useEffect` surprises, no `useContext` chains. Props in, events out.
+5. **Typed end-to-end.** Generics flow from `AsyncState<T>` through `DataView<T>` into `renderItem`. The compiler catches the mistakes.
+
+---
+
+## 2. Tokens
+
+### Colors (OKLCH)
+
+```
+--color-brand-50   oklch(0.97 0.02 290)
+--color-brand-500  oklch(0.62 0.24 290)   /* default primary */
+--color-brand-900  oklch(0.30 0.13 290)
+
+--color-surface-0  oklch(0.99 0.005 250)  /* page bg */
+--color-surface-1  oklch(1 0 0)           /* card bg */
+--color-surface-2  oklch(0.97 0.008 250)  /* nested */
+--color-surface-3  oklch(0.95 0.01 250)   /* hover */
+
+--color-success-500  oklch(0.62 0.18 145)
+--color-warning-500  oklch(0.74 0.16 75)
+--color-danger-500   oklch(0.62 0.22 25)
+--color-info-500     oklch(0.62 0.16 230)
+
+--color-border-subtle  oklch(0.92 0.005 250)
+--color-border-default oklch(0.86 0.008 250)
+--color-border-strong  oklch(0.74 0.01 250)
+```
+
+The TypeScript API mirrors this — `import { brand, surface, status, border } from '@/lib/tokens/colors'` returns the literal `var(--color-…)` strings, safe for `style={{}}` and chart libraries.
+
+### Type scale (fluid, `clamp(min, vw-based, max)`)
+
+```
+fs-xs   0.75rem → 0.81rem
+fs-sm   0.875rem → 0.94rem
+fs-base 1rem → 1.06rem
+fs-lg   1.125rem → 1.22rem
+fs-xl   1.25rem → 1.41rem
+fs-2xl  1.5rem → 1.76rem
+fs-3xl  1.875rem → 2.28rem
+fs-4xl  2.25rem → 2.94rem
+```
+
+### Motion
+
+```ts
+import { motion } from '@/lib/tokens/motion';
+motion.duration.base     // 0.3s
+motion.easing.out        // [0, 0, 0.2, 1] — default enter
+motion.spring.stiffness  // 400
+```
+
+Always check `useReducedMotion()` before applying non-trivial animations. The motion primitives already do this for you.
+
+### Z-index scale (single source of truth)
+
+```
+z-base      0
+z-raised    10
+z-sticky    100
+z-dropdown  1000
+z-overlay   2000
+z-modal     3000
+z-popover   4000
+z-toast     5000
+z-tooltip   6000
+```
+
+Use these Tailwind classes: `z-toast`, `z-modal`, `z-dropdown`. Never hardcode a z-index.
+
+---
+
+## 3. Primitives
+
+Atoms. Pure, dumb, composable. State-agnostic.
+
+### `<StatusDot>`
+
+8px colored dot. `status: 'online' | 'offline' | 'busy' | 'syncing'`. The `syncing` variant pulses (respects `prefers-reduced-motion`).
+
+```tsx
+<StatusDot status="online" />
+<StatusDot status="syncing" pulse />
+```
+
+### `<StatusBadge>`
+
+A pill that combines a dot, a label, and a variant color.
+
+```tsx
+<StatusBadge status="success" label="Sent" />
+<StatusBadge status="error" label="Failed" />
+```
+
+### `<Spinner>`
+
+Inline loader. Use inside buttons or beside text.
+
+```tsx
+<Spinner size="sm" />
+<Button loading><Spinner /> Sending…</Button>
+```
+
+### `<LoadingState>`
+
+Full-area branded loader. Use for page-level loading only.
+
+```tsx
+<LoadingState label="Loading inbox…" />
+```
+
+### `<InlineError>`
+
+Form-field-level error message. Has `role="alert"`.
+
+```tsx
+<InlineError error={error} onRetry={refetch} compact />
+```
+
+### `<Skeleton>`
+
+Base + composites. Base is just a `div` with `animate-pulse`. Composites are pre-shaped:
+
+```tsx
+<Skeleton className="h-4 w-32" />        {/* base */}
+<Skeleton.EmailList count={8} />         {/* composite */}
+<Skeleton.EmailDetail />
+<Skeleton.Table rows={5} cols={4} />
+<Skeleton.Card />
+<Skeleton.Avatar size="lg" />
+<Skeleton.StatCard />
+```
+
+---
+
+## 4. Patterns
+
+Composition patterns. State-aware. Feature-agnostic.
+
+### `<DataView<T>>`
+
+**The keystone of the system.** A single component that handles every async state correctly.
+
+```tsx
+type AsyncState<T> =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; data: T[] }
+  | { status: 'empty'; reason?: EmptyReason }
+  | { status: 'error'; error: Error };
+
+<DataView<Email>
+  state={emailsState}
+  renderItem={(email) => <EmailRow key={email.id} email={email} />}
+  renderSkeleton={() => <Skeleton.EmailList count={6} />}
+  keyExtractor={(email) => email.id}
+  onRetry={refetch}
+  flashThresholdMs={150}  // skip skeleton if loading resolves in <150ms
+/>
+```
+
+State transitions are exhaustive — TypeScript narrows the union so `state.data` only exists when `state.status === 'success'`.
+
+### `<EmptyState>`
+
+5 semantic variants drive default copy and icon:
+
+```tsx
+<EmptyState variant="no-data" title="No emails yet" />
+<EmptyState variant="no-results" title="Nothing matches" description="Try a different search" />
+<EmptyState variant="no-access" title="Restricted" />
+<EmptyState variant="coming-soon" title="Coming soon" />
+```
+
+Add an action for recoverability:
+
+```tsx
+<EmptyState
+  variant="no-data"
+  title="No contacts"
+  action={{ label: 'Add contact', onClick: openNewContactModal }}
+/>
+```
+
+### `<Field>` and `<FormSection>`
+
+The form atoms. `Field` owns label + help + error + required + a11y wiring (`aria-describedby`, `aria-invalid`).
+
+```tsx
+<FormSection
+  title="Workspace details"
+  description="How your team appears in MailZen."
+  footer={
+    <>
+      <Button variant="ghost">Cancel</Button>
+      <Button type="submit" loading={isSubmitting}>Save</Button>
+    </>
+  }
+>
+  <Field label="Workspace name" required error={errors.name}>
+    <Input {...register('name')} />
+  </Field>
+  <Field label="Slug" help="Used in your workspace URL" error={errors.slug}>
+    <Input {...register('slug')} />
+  </Field>
+</FormSection>
+```
+
+Every form input in the app should be wrapped in `Field`. It's not optional.
+
+---
+
+## 5. Composites
+
+Feature-aware. Higher churn. Built from patterns + primitives.
+
+### `<DataTable<T>>`
+
+TanStack-powered. Owns the JSX, delegates state to `DataView`.
+
+```tsx
+<DataTable<Contact>
+  data={contacts}
+  columns={columns}
+  state={contactsState}
+  getRowId={(c) => c.id}
+  selection="multi"
+  selectedIds={selectedIds}
+  onSelectionChange={setSelectedIds}
+  sorting={sorting}
+  onSortingChange={setSorting}
+  pagination={{ page, pageSize: 20, onPageChange: setPage }}
+  bulkActions={[
+    { label: 'Delete', variant: 'destructive', onClick: (rows) => bulkDelete(rows) },
+  ]}
+  toolbar={{
+    search: { value: query, onChange: setQuery, placeholder: 'Find contact' },
+    filters: [{ id: 'active', label: 'Active', active: showActive, onToggle: () => setShowActive(!showActive) }],
+    actions: <Button onClick={openNew}>New contact</Button>,
+  }}
+  emptyState={{ variant: 'no-data', title: 'No contacts' }}
+  onRowClick={(c) => router.push(`/contacts/${c.id}`)}
+  density="comfortable"
+  stickyHeader
+/>
+```
+
+### `<CommandPalette>`
+
+`Cmd+K` everywhere. Groups, async search, keyboard nav.
+
+```tsx
+<CommandPalette
+  open={open}
+  onOpenChange={setOpen}
+  groups={[
+    { id: 'nav', label: 'Navigation', items: navigationItems },
+    { id: 'ai', label: 'AI', items: aiItems },
+  ]}
+  hotkey="mod+k"
+  asyncSearch={{
+    query,
+    onQuery: async (q) => searchApi(q),
+    debounceMs: 200,
+  }}
+/>
+```
+
+### `<StatCard>`, `<MetricTile>`, `<ProgressRing>`
+
+Dashboard surfaces.
+
+```tsx
+<StatCard
+  label="Inbox Zero Days"
+  value="12"
+  delta={{ value: 8, trend: 'up', period: 'vs last week' }}
+  icon={<InboxIcon />}
+  onClick={() => navigate('/analytics/inbox')}
+/>
+
+<MetricTile
+  label="Storage Used"
+  value="4.2 GB"
+  total="15 GB"
+  progress={0.28}
+  trend="up"
+  icon={<HardDrive className="h-3 w-3" />}
+/>
+
+<ProgressRing value={0.75} size={64} strokeWidth={6} label="75%" />
+```
+
+### `<ConfirmDialog>`
+
+Destructive actions. Type-to-confirm for high stakes.
+
+```tsx
+<ConfirmDialog
+  open={open}
+  onOpenChange={setOpen}
+  title="Delete automation?"
+  description="This will stop running on 14 active inboxes."
+  body="Once deleted, automations cannot be recovered."
+  confirmLabel="Delete automation"
+  confirmVariant="destructive"
+  requireTextMatch="delete"
+  onConfirm={handleDelete}
+  isLoading={isDeleting}
+/>
+```
+
+### `<Toast>` (via `useToast()`)
+
+```tsx
+const toast = useToast();
+
+toast.success('Email sent', {
+  description: 'Delivered to 3 recipients',
+  action: { label: 'Undo', onClick: undo },
+});
+
+toast.error('Sync failed', { duration: 0 /* sticky */ });
+
+await toast.promise(sendEmail(), {
+  loading: 'Sending…',
+  success: 'Sent!',
+  error: (err) => `Failed: ${err.message}`,
+});
+```
+
+Max 5 visible, oldest dismisses first. Pause on hover. Respects `prefers-reduced-motion`.
+
+---
+
+## 6. Recipes
+
+### Build a settings page
+
+```tsx
+function SettingsPage() {
+  return (
+    <div className="max-w-2xl mx-auto p-8 space-y-6">
+      <FormSection title="Profile" description="Your public info">
+        <Field label="Display name" required>
+          <Input defaultValue={user.name} />
+        </Field>
+        <Field label="Email" help="Notifications go here">
+          <Input type="email" defaultValue={user.email} />
+        </Field>
+      </FormSection>
+
+      <FormSection title="Notifications" footer={<Button type="submit">Save</Button>}>
+        <Field label="Inbox digest">
+          <Select defaultValue="daily">…</Select>
+        </Field>
+      </FormSection>
+    </div>
+  );
+}
+```
+
+### Build a billing summary
+
+```tsx
+<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  <StatCard label="Plan" value="Pro" helper="Renews Aug 14" />
+  <StatCard label="AI credits" value="8,420 / 10k" delta={{ value: '1,580 used', trend: 'flat', period: 'this month' }} />
+  <MetricTile label="Storage" value="4.2 GB" total="15 GB" progress={0.28} trend="up" icon={<HardDrive />} />
+</div>
+```
+
+### Build an empty inbox
+
+```tsx
+<DataView<Email>
+  state={inboxState}
+  renderItem={(e) => <EmailRow email={e} />}
+  renderSkeleton={() => <Skeleton.EmailList count={6} />}
+  keyExtractor={(e) => e.id}
+  onRetry={refetch}
+/>
+```
+
+If `inboxState.status === 'empty'`, `DataView` renders the appropriate `EmptyState` automatically. No extra wiring.
+
+### Build a destructive action
+
+```tsx
+function DeleteAutomationButton({ id }: { id: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="destructive" onClick={() => setOpen(true)}>Delete</Button>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Delete this automation?"
+        body="This action cannot be undone."
+        confirmLabel="Delete"
+        confirmVariant="destructive"
+        requireTextMatch="delete"
+        onConfirm={() => api.deleteAutomation(id)}
+      />
+    </>
+  );
+}
+```
+
+---
+
+## 7. Accessibility
+
+### Focus order
+
+The DOM order is the focus order. Don't use `tabindex` > 0. If a visual reorder is required, use CSS `order` instead of rearranging the markup.
+
+### Screen reader notes
+
+- **Toasts** use `role="status"` (polite) for info/success, `role="alert"` (assertive) for errors.
+- **Loading states** announce via `aria-busy="true"` on the region. The `LoadingState` component sets this.
+- **Empty states** include `aria-live="polite"` so screen reader users know the data isn't just slow.
+- **Form errors** are wired with `aria-describedby` from the `Field` component. Manual wiring is a code smell.
+
+### Keyboard map
+
+| Component | Keys |
+|-----------|------|
+| `CommandPalette` | `Cmd+K` open, `↑↓` navigate, `Enter` select, `Esc` close |
+| `DataTable` | `Tab` between cells, `Space` to select row (when `selection` is set) |
+| `ConfirmDialog` | `Esc` cancel, `Enter` confirm (when no `requireTextMatch`) |
+| `Toast` | `Tab` to focus dismiss, `Space`/`Enter` to dismiss |
+| `Field` | Standard form keys; error auto-focuses on submit failure |
+
+### Reduced motion
+
+`useReducedMotion()` returns `true` when the user has set `prefers-reduced-motion: reduce`. All animated components check this and disable non-essential animation. **Never** use motion that conveys meaning — color, text, or position changes must be the primary signal.
+
+---
+
+## 8. Do / Don't
+
+### ✅ Do
+
+- Wrap every form input in `<Field>`. Always.
+- Use `DataView` for any list/grid that fetches data. Don't roll your own loading/empty/error.
+- Use tokens (`var(--color-brand-500)`, `text-fs-base`) instead of raw values.
+- Type-narrow on `AsyncState<T>` — the union is your friend.
+- Test with `jest-axe`. Add the test in the same file as the component.
+- Default to reduced motion. Animate up, not down.
+
+### ❌ Don't
+
+- Don't put `useState` inside a primitive. Primitives are pure.
+- Don't use `useContext` for cross-component state. Lift to a feature hook, or use the global event bus (toasts).
+- Don't hardcode colors. Use tokens. If you need a new color, add a token first.
+- Don't ship the `/dev/playground` to production. The gate is at the page level; the bundler doesn't know.
+- Don't write `if (state.status === 'loading') return <Skeleton />` yourself. `DataView` does this.
+- Don't `setTimeout` for "let users read the toast." Use `duration`. Use `duration: 0` for sticky.
+- Don't add new animation libraries. Framer Motion is enough.
+- Don't break the layer rule. `ui/` (vendored) ← `primitives/` (atoms) ← `patterns/` (composition) ← `composites/` (feature-aware). A primitive never imports a composite. A composite imports everything.
+
+---
+
+## Where to go next
+
+- **Browse all components live:** `npm run dev:frontend` then visit `http://localhost:3000/dev/playground`
+- **Read the spec:** `docs/superpowers/specs/2026-06-13-foundation-ui-system-design.md`
+- **Read the plan:** `docs/superpowers/plans/2026-06-13-foundation-ui-system.md`
+- **Beads issues:** run `bd ready` to see open work
