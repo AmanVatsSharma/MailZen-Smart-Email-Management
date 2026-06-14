@@ -17,6 +17,8 @@ import { BillingModule } from './modules/billing.module';
 import { AiModule } from './modules/ai.module';
 import { AutomationModule } from './modules/automation.module';
 import { NotificationsModule } from './modules/notifications.module';
+import { PlatformModule } from './modules/platform.module';
+import { HealthModule } from './modules/health.module';
 import { ObservabilityModule } from './modules/observability.module';
 
 @Module({
@@ -39,6 +41,8 @@ import { ObservabilityModule } from './modules/observability.module';
     AiModule,
     AutomationModule,
     NotificationsModule,
+    PlatformModule,
+    HealthModule,
     ObservabilityModule,
   ],
 })

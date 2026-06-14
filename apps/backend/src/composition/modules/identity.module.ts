@@ -9,7 +9,9 @@ import { JwtModule } from '@nestjs/jwt';
 import { UserOrmEntity } from '../../core/infrastructure/persistence/typeorm/entities/user.orm-entity';
 import { SessionOrmEntity } from '../../core/infrastructure/persistence/typeorm/entities/session.orm-entity';
 import { TypeOrmUserRepository } from '../../core/infrastructure/persistence/typeorm/repositories/typeorm-user.repository';
+import { TypeOrmSessionRepository } from '../../core/infrastructure/persistence/typeorm/repositories/typeorm-session.repository';
 import { USER_REPOSITORY } from '../../core/application/ports/repositories/user.repository';
+import { SESSION_REPOSITORY } from '../../core/application/ports/repositories/session.repository';
 import { EVENT_BUS } from '../../core/application/ports/event-bus/event-bus';
 import { UNIT_OF_WORK } from '../../core/application/ports/persistence/unit-of-work';
 import { JWT_GATEWAY } from '../../core/application/ports/gateways/jwt.gateway';
@@ -31,6 +33,7 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
   providers: [
     // Port -> Adapter bindings
     { provide: USER_REPOSITORY, useClass: TypeOrmUserRepository },
+    { provide: SESSION_REPOSITORY, useClass: TypeOrmSessionRepository },
     { provide: EVENT_BUS, useClass: InProcessEventBus },
     { provide: UNIT_OF_WORK, useClass: TypeOrmUnitOfWork },
     { provide: JWT_GATEWAY, useClass: JwtTokenService },
@@ -40,6 +43,6 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
     // Global JWT guard
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
-  exports: [USER_REPOSITORY, EVENT_BUS, UNIT_OF_WORK, JWT_GATEWAY, PASSWORD_HASHER, OAUTH_GATEWAY],
+  exports: [USER_REPOSITORY, SESSION_REPOSITORY, EVENT_BUS, UNIT_OF_WORK, JWT_GATEWAY, PASSWORD_HASHER, OAUTH_GATEWAY],
 })
 export class IdentityModule {}
