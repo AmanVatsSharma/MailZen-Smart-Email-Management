@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { cn } from '@/lib/tokens/cn';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 
-export type ToastVariant = 'default' | 'success' | 'error' | 'warning' | 'info';
+export type ToastVariant = 'default' | 'success' | 'error' | 'warning' | 'info' | 'destructive';
 
 export type ToastAction = {
   label: string;
@@ -29,6 +29,7 @@ const VARIANT_META: Record<ToastVariant, { Icon: React.ComponentType<{ className
   error:   { Icon: AlertCircle,  className: 'text-danger-600',  barClass: 'bg-danger-500' },
   warning: { Icon: AlertTriangle,className: 'text-warning-600', barClass: 'bg-warning-500' },
   info:    { Icon: Info,         className: 'text-info-600',    barClass: 'bg-info-500' },
+  destructive: { Icon: AlertCircle, className: 'text-danger-600', barClass: 'bg-danger-500' },
 };
 
 function ToastCard({ toast, onDismiss }: { toast: ToastData; onDismiss: (id: string) => void }) {

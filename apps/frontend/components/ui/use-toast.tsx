@@ -1,180 +1,91 @@
-"use client"
+'use client';
 
-import * as React from "react"
+// Backward-compat shim: the original shadcn useToast used a React reducer
+// + listener-array pattern. The new foundation toast system uses a
+// global CustomEvent bus (see @/components/composites/toast). To avoid
+// touching all 20+ feature pages in one migration, this shim re-exports
+// a `useToast` whose returned `toast` function emits events the new
+// <Toaster /> listens for. New code should import from
+// `@/components/composites/toast` directly.
 
-import type {
-  ToastActionElement,
-  ToastProps,
-} from "@/components/ui/toast"
+import * as React from 'react';
 
-const TOAST_LIMIT = 5
+type Variant = 'default' | 'success' | 'error' | 'warning' | 'info' | 'destructive';
 
-type ToasterToast = ToastProps & {
-  id: string
-  title?: React.ReactNode
-  description?: React.ReactNode
-  action?: ToastActionElement
+type LegacyToastProps = {
+  title?: React.ReactNode;
+  description?: React.ReactNode;
+  variant?: Variant;
+  duration?: number;
+  action?:
+    | React.ReactNode
+    | {
+        label: string;
+        onClick: () => void;
+      };
+};
+
+let counter = 0;
+function nextId() {
+  counter = (counter + 1) % Number.MAX_SAFE_INTEGER;
+  return `toast-${Date.now()}-${counter}`;
 }
 
-const actionTypes = {
-  ADD_TOAST: "ADD_TOAST",
-  UPDATE_TOAST: "UPDATE_TOAST",
-  DISMISS_TOAST: "DISMISS_TOAST",
-  REMOVE_TOAST: "REMOVE_TOAST",
-} as const
-
-let count = 0
-
-function genId() {
-  count = (count + 1) % Number.MAX_VALUE
-  return count.toString()
-}
-
-type ActionType = typeof actionTypes
-
-type Action =
-  | {
-      type: ActionType["ADD_TOAST"]
-      toast: ToasterToast
-    }
-  | {
-      type: ActionType["UPDATE_TOAST"]
-      toast: Partial<ToasterToast>
-    }
-  | {
-      type: ActionType["DISMISS_TOAST"]
-      toastId?: ToasterToast["id"]
-    }
-  | {
-      type: ActionType["REMOVE_TOAST"]
-      toastId?: ToasterToast["id"]
-    }
-
-interface State {
-  toasts: ToasterToast[]
-}
-
-const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
-
-const reducer = (state: State, action: Action): State => {
-  switch (action.type) {
-    case actionTypes.ADD_TOAST:
-      return {
-        ...state,
-        toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
-      }
-
-    case actionTypes.UPDATE_TOAST:
-      return {
-        ...state,
-        toasts: state.toasts.map((t) =>
-          t.id === action.toast.id ? { ...t, ...action.toast } : t
-        ),
-      }
-
-    case actionTypes.DISMISS_TOAST: {
-      const { toastId } = action
-
-      if (toastId) {
-        toastTimeouts.forEach((_, key) => {
-          if (key === toastId) {
-            toastTimeouts.delete(key)
-          }
-        })
-      } else {
-        toastTimeouts.forEach((_, key) => {
-          toastTimeouts.delete(key)
-        })
-      }
-
-      return {
-        ...state,
-        toasts: state.toasts.map((t) =>
-          t.id === toastId || toastId === undefined
-            ? {
-                ...t,
-                open: false,
-              }
-            : t
-        ),
-      }
-    }
-    case actionTypes.REMOVE_TOAST:
-      if (action.toastId === undefined) {
-        return {
-          ...state,
-          toasts: [],
-        }
-      }
-      return {
-        ...state,
-        toasts: state.toasts.filter((t) => t.id !== action.toastId),
-      }
-  }
-}
-
-type Listener = (state: State) => void
-
-const listeners: Listener[] = []
-
-let memoryState: State = { toasts: [] }
-
-function dispatch(action: Action) {
-  memoryState = reducer(memoryState, action)
-  listeners.forEach((listener) => {
-    listener(memoryState)
-  })
-}
-
-type Toast = Omit<ToasterToast, "id">
-
-function toast({ ...props }: Toast) {
-  const id = genId()
-
-  const update = (props: ToasterToast) =>
-    dispatch({
-      type: actionTypes.UPDATE_TOAST,
-      toast: { ...props, id },
-    })
-  const dismiss = () => dispatch({ type: actionTypes.DISMISS_TOAST, toastId: id })
-
-  dispatch({
-    type: actionTypes.ADD_TOAST,
-    toast: {
-      ...props,
+function emit(props: LegacyToastProps): {
+  id: string;
+  dismiss: () => void;
+  update: (next: LegacyToastProps) => void;
+} {
+  const id = nextId();
+  if (typeof window !== 'undefined') {
+    const detail = {
       id,
-      open: true,
-      onOpenChange: (open: boolean) => {
-        if (!open) dismiss()
-      },
-    },
-  })
-
+      title: typeof props.title === 'string' ? props.title : undefined,
+      description:
+        typeof props.description === 'string' ? props.description : undefined,
+      variant: props.variant ?? 'default',
+      duration: props.duration,
+      action:
+        props.action && typeof props.action === 'object' && 'label' in props.action
+          ? { label: props.action.label, onClick: props.action.onClick }
+          : undefined,
+    };
+    window.dispatchEvent(new CustomEvent('mailzen:toast', { detail }));
+  }
   return {
     id,
-    dismiss,
-    update,
-  }
+    dismiss: () => {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('mailzen:toast:remove', { detail: { id } })
+        );
+      }
+    },
+    update: (next: LegacyToastProps) => {
+      // Updates in the legacy API replaced an existing toast. The new
+      // system doesn't have stable IDs externally; the closest match
+      // is dismissing the old + emitting a new one. We emit a fresh
+      // toast with a new id; visual swap is the user-facing effect.
+      emit(next);
+    },
+  };
 }
 
 function useToast() {
-  const [state, setState] = React.useState<State>(memoryState)
-
-  React.useEffect(() => {
-    listeners.push(setState)
-    return () => {
-      const index = listeners.indexOf(setState)
-      if (index > -1) {
-        listeners.splice(index, 1)
-      }
-    }
-  }, [])
-
+  // No need to subscribe to state — the new Toaster renders itself.
   return {
-    ...state,
-    toast,
-    dismiss: (toastId?: string) => dispatch({ type: actionTypes.DISMISS_TOAST, toastId }),
-  }
+    toasts: [] as Array<{ id: string }>,
+    toast: (props: LegacyToastProps) => emit(props),
+    dismiss: (toastId?: string) => {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('mailzen:toast:remove', { detail: { id: toastId } })
+        );
+      }
+    },
+  };
 }
 
-export { useToast, toast } 
+export { useToast, toast as toastFn };
+const toast = (props: LegacyToastProps) => emit(props);
+export { toast };

@@ -3,7 +3,7 @@ import { Plus_Jakarta_Sans, Sora } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/providers/theme-provider';
 import { ApolloProvider } from '@/providers/ApolloProvider';
-import { Toaster } from '@/components/ui/toaster';
+import { Toaster } from '@/components/composites/toast';
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
