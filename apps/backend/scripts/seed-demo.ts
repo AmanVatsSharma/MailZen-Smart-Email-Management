@@ -53,47 +53,74 @@ function bodyFromSnippet(subject: string, snippet: string): string {
   return `${subject}\n\n${snippet}\n\n—\nThis is demo message body text for MailZen local development.`;
 }
 
+// DELETE wrapper that ignores "relation does not exist" errors. Some demo
+// tables (external_email_messages, audit_logs, user_notifications, etc.)
+// were removed when entities were consolidated — wipe is a no-op for them.
+// Uses a savepoint so a missing table does not abort the outer transaction.
+async function safeDelete(
+  client: Client,
+  sql: string,
+  params: unknown[] = [],
+): Promise<void> {
+  const sp = `sp_${Math.random().toString(36).slice(2, 10)}`;
+  try {
+    await client.query(`SAVEPOINT ${sp}`);
+    await client.query(sql, params);
+    await client.query(`RELEASE SAVEPOINT ${sp}`);
+  } catch (err: any) {
+    if (err && err.code === '42P01') {
+      // Table missing — roll back just this savepoint and continue
+      await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+      return;
+    }
+    await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+    throw err;
+  }
+}
+
 async function wipeDemoAccount(client: Client, demoEmail: string) {
   console.log('🧹  Removing existing demo account data (--fresh)…');
   await client.query('BEGIN');
   try {
-    await client.query(`DELETE FROM external_email_messages WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM external_email_messages WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM smart_reply_history WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM smart_reply_history WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM agent_action_audits WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM agent_action_audits WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM audit_logs WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM audit_logs WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM user_ai_credit_usages WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM user_ai_credit_usages WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM billing_invoices WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM billing_invoices WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM mailbox_inbound_events WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM mailbox_inbound_events WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM mailbox_sync_runs WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM mailbox_sync_runs WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM notification_push_subscriptions WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM notification_push_subscriptions WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM user_notifications WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM user_notifications WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(
+    await safeDelete(
+      client,
       `DELETE FROM email_analytics WHERE "emailId" IN (
         SELECT id FROM emails WHERE "userId" = $1
       )`,
       [DEMO_USER_ID],
     );
-    await client.query(
+    await safeDelete(
+      client,
       `DELETE FROM email_label_assignments WHERE "emailId" IN (
         SELECT id FROM emails WHERE "userId" = $1
       )`,
@@ -109,29 +136,29 @@ async function wipeDemoAccount(client: Client, demoEmail: string) {
     await client.query(`DELETE FROM contacts WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM email_labels WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM labels WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM external_email_labels WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM external_email_labels WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
     await client.query(
       `DELETE FROM workspace_members WHERE "workspaceId" = $1 OR "userId" = $2`,
       [DEMO_WORKSPACE_ID, DEMO_USER_ID],
     );
-    await client.query(`DELETE FROM user_subscriptions WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM user_subscriptions WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM user_notification_preferences WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM user_notification_preferences WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM smart_reply_settings WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM smart_reply_settings WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM user_sessions WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM user_sessions WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM verification_tokens WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM verification_tokens WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
     await client.query(
@@ -149,10 +176,10 @@ async function wipeDemoAccount(client: Client, demoEmail: string) {
     await client.query(`DELETE FROM email_filters WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM email_folders WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM email_folders WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
-    await client.query(`DELETE FROM templates WHERE "userId" = $1`, [
+    await safeDelete(client,`DELETE FROM templates WHERE "userId" = $1`, [
       DEMO_USER_ID,
     ]);
     await client.query(`DELETE FROM phone_verifications WHERE "userId" = $1`, [
@@ -196,7 +223,7 @@ async function seed() {
     // -----------------------------------------------------------------------
     console.log('📋  Seeding billing plans…');
     await client.query(`
-      INSERT INTO billing_plans (id, code, name, "priceMonthlyCents", currency,
+      INSERT INTO plans (id, code, name, "priceMonthlyCents", currency,
         "providerLimit", "mailboxLimit", "workspaceLimit", "workspaceMemberLimit",
         "aiCreditsPerMonth", "mailboxStorageLimitMb", "isActive")
       VALUES
@@ -316,7 +343,7 @@ async function seed() {
     ];
     for (const lbl of labels) {
       await client.query(`
-        INSERT INTO email_labels (id, name, color, "userId")
+        INSERT INTO labels (id, name, color, "userId")
         VALUES ($1, $2, $3, $4)
         ON CONFLICT (id) DO NOTHING
       `, [lbl.id, lbl.name, lbl.color, userId]);
