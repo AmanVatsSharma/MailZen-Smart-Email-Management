@@ -2,18 +2,10 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  CardFooter,
-} from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/primitives/status-badge';
+import { InlineError } from '@/components/primitives/inline-error';
 import {
   ArrowUpRight,
   Mail,
@@ -30,7 +22,6 @@ import {
   Newspaper,
   Timer,
 } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { motion, Variants } from 'framer-motion';
 import { TiltCard } from '@/components/ui/TiltCard';
 import { OverviewChart } from '@/components/ui/charts/OverviewChart';
@@ -376,7 +367,7 @@ export default function DashboardPage() {
           return (
             <motion.div key={card.key} variants={item}>
               <TiltCard>
-                <Card className="relative overflow-hidden border-border/60 h-full transition-all duration-300 hover:border-border hover:shadow-lg">
+                <div className="relative overflow-hidden rounded-xl border border-border/60 bg-card text-card-foreground h-full transition-all duration-300 hover:border-border hover:shadow-lg">
                   {/* Gradient background glow */}
                   <div
                     className="pointer-events-none absolute inset-0 opacity-[0.04] rounded-xl"
@@ -384,20 +375,20 @@ export default function DashboardPage() {
                       background: `radial-gradient(circle at 80% 20%, ${card.glow} 0%, transparent 60%)`,
                     }}
                   />
-                  <CardHeader className="pb-3 pt-5 px-5">
+                  <div className="pb-3 pt-5 px-5">
                     <div className="flex items-start justify-between">
                       <div>
-                        <CardDescription className="text-xs font-medium uppercase tracking-wide">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                           {card.subtitle}
-                        </CardDescription>
-                        <CardTitle className="mt-0.5 text-base font-semibold">{card.title}</CardTitle>
+                        </p>
+                        <h3 className="mt-0.5 text-base font-semibold leading-none tracking-tight">{card.title}</h3>
                       </div>
                       <div className={`flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br ${card.gradient} shadow-md`}>
                         <Icon className="h-4 w-4 text-white" />
                       </div>
                     </div>
-                  </CardHeader>
-                  <CardContent className="px-5 pb-5">
+                  </div>
+                  <div className="px-5 pb-5">
                     <div
                       className="text-3xl font-bold tracking-tight"
                       style={{ fontFamily: 'var(--font-sora)' }}
@@ -406,10 +397,18 @@ export default function DashboardPage() {
                     </div>
                     <div className="mt-1 text-xs text-muted-foreground">{kpi.meta}</div>
                     <div className="mt-4">
-                      <Progress value={card.progressValue} className="h-1.5 rounded-full" indicatorColor={card.progressColor} />
+                      <div
+                        className="h-1.5 w-full rounded-full bg-surface-3 overflow-hidden"
+                        role="progressbar"
+                        aria-valuenow={card.progressValue}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                      >
+                        <div className={`h-full ${card.progressColor}`} style={{ width: `${card.progressValue}%` }} />
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               </TiltCard>
             </motion.div>
           );
@@ -424,19 +423,25 @@ export default function DashboardPage() {
         className="space-y-3"
       >
         {error && (
-          <Alert variant="destructive" className="rounded-xl">
-            <AlertTitle>Analytics sync issue</AlertTitle>
-            <AlertDescription>{error.message}</AlertDescription>
-          </Alert>
+          <InlineError
+            error={error instanceof Error ? error : new Error(String(error))}
+            title="Analytics sync issue"
+            description={error.message}
+          />
         )}
-        <Alert className="rounded-xl border-primary/20 bg-primary/5">
+        <div
+          role="alert"
+          className="relative w-full rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground [&>svg~*]:pl-7 flex items-start gap-2 rounded-xl"
+        >
           <Zap className="h-4 w-4 text-primary" />
-          <AlertTitle className="text-primary font-semibold">Smart Replies Active</AlertTitle>
-          <AlertDescription className="text-muted-foreground">
-            Live analytics connected. Current tracked open success rate is{' '}
-            <span className="font-semibold text-foreground">{successRate}%</span>.
-          </AlertDescription>
-        </Alert>
+          <div className="flex-1">
+            <h5 className="mb-1 font-medium leading-none tracking-tight text-primary font-semibold">Smart Replies Active</h5>
+            <div className="text-muted-foreground [&_p]:leading-relaxed">
+              Live analytics connected. Current tracked open success rate is{' '}
+              <span className="font-semibold text-foreground">{successRate}%</span>.
+            </div>
+          </div>
+        </div>
       </motion.div>
 
       {/* ── Inbound health card ──────────────────────────── */}
@@ -445,36 +450,29 @@ export default function DashboardPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.45, duration: 0.4 }}
       >
-        <Card className="rounded-2xl border-border/60 overflow-hidden">
+        <div className="rounded-2xl border border-border/60 bg-card text-card-foreground overflow-hidden">
           {/* Accent top line */}
           <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, hsl(262 83% 58% / 0.6), hsl(160 84% 39% / 0.4), transparent)' }} />
-          <CardHeader className="pb-2 pt-5">
+          <div className="pb-2 pt-5 px-6">
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base font-semibold">Mailbox Inbound Health</CardTitle>
-              <Badge
-                variant="outline"
-                className={
-                  inboundSlaStatus === 'CRITICAL'
-                    ? 'border-destructive/30 bg-destructive/10 text-destructive'
-                    : inboundSlaStatus === 'WARNING'
-                      ? 'border-amber-300/50 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300'
-                      : 'border-emerald-300/50 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
-                }
-              >
-                {inboundSlaStatus}
-              </Badge>
+              <h3 className="text-base font-semibold leading-none tracking-tight">Mailbox Inbound Health</h3>
+              <StatusBadge
+                status={inboundSlaStatus === 'CRITICAL' ? 'error' : inboundSlaStatus === 'WARNING' ? 'warning' : 'success'}
+                label={inboundSlaStatus}
+              />
             </div>
-            <CardDescription>
+            <p className="text-sm text-muted-foreground mt-1.5">
               24-hour operational snapshot from mailbox inbound observability telemetry.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            </p>
+          </div>
+          <div className="px-6 pb-6 space-y-4">
             {mailboxInboundError && (
-              <Alert variant="destructive" className="rounded-xl">
-                <AlertTitle>Inbound telemetry unavailable</AlertTitle>
-                <AlertDescription>{mailboxInboundError.message}</AlertDescription>
-              </Alert>
+              <InlineError
+                error={mailboxInboundError instanceof Error ? mailboxInboundError : new Error(String(mailboxInboundError))}
+                title="Inbound telemetry unavailable"
+                description={mailboxInboundError.message}
+              />
             )}
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
               <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5 text-center">
@@ -495,11 +493,18 @@ export default function DashboardPage() {
               </div>
             </div>
             <div>
-              <Progress
-                value={inboundHealthRate}
-                className="h-2 rounded-full"
-                indicatorColor={inboundRejected > 0 ? 'bg-gradient-to-r from-amber-500 to-red-500' : 'bg-gradient-to-r from-emerald-500 to-teal-400'}
-              />
+              <div
+                className="h-2 w-full rounded-full bg-surface-3 overflow-hidden"
+                role="progressbar"
+                aria-valuenow={inboundHealthRate}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <div
+                  className={`h-full ${inboundRejected > 0 ? 'bg-gradient-to-r from-amber-500 to-red-500' : 'bg-gradient-to-r from-emerald-500 to-teal-400'}`}
+                  style={{ width: `${inboundHealthRate}%` }}
+                />
+              </div>
               <p className="mt-2 text-xs text-muted-foreground">
                 {mailboxInboundLoading
                   ? 'Refreshing...'
@@ -539,16 +544,16 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
-          </CardContent>
-          <CardFooter className="pt-0">
+          </div>
+          <div className="flex items-center px-6 pb-6 pt-0">
             <Button asChild variant="outline" className="w-full rounded-xl border-border/60">
               <Link href="/email-providers">
                 Open mailbox observability panel
                 <ArrowUpRight className="ml-2 h-3.5 w-3.5" />
               </Link>
             </Button>
-          </CardFooter>
-        </Card>
+          </div>
+        </div>
       </motion.div>
 
       {/* ── SLA incidents ────────────────────────────────── */}
@@ -557,21 +562,22 @@ export default function DashboardPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5, duration: 0.4 }}
       >
-        <Card className="rounded-2xl border-border/60 overflow-hidden">
+        <div className="rounded-2xl border border-border/60 bg-card text-card-foreground overflow-hidden">
           <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, hsl(38 92% 50% / 0.5), hsl(0 84% 60% / 0.3), transparent)' }} />
-          <CardHeader className="pb-2 pt-5">
+          <div className="pb-2 pt-5 px-6">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-500" />
-              <CardTitle className="text-base font-semibold">SLA Incidents (24h)</CardTitle>
+              <h3 className="text-base font-semibold leading-none tracking-tight">SLA Incidents (24h)</h3>
             </div>
-            <CardDescription>Scheduler-generated warning/critical incidents for inbound SLA breaches.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground mt-1.5">Scheduler-generated warning/critical incidents for inbound SLA breaches.</p>
+          </div>
+          <div className="px-6 pb-6 space-y-3">
             {slaAlertsError && (
-              <Alert variant="destructive" className="rounded-xl">
-                <AlertTitle>SLA incidents unavailable</AlertTitle>
-                <AlertDescription>{slaAlertsError.message}</AlertDescription>
-              </Alert>
+              <InlineError
+                error={slaAlertsError instanceof Error ? slaAlertsError : new Error(String(slaAlertsError))}
+                title="SLA incidents unavailable"
+                description={slaAlertsError.message}
+              />
             )}
             <div className="grid grid-cols-3 gap-2">
               <div className="rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5 text-center">
@@ -617,8 +623,8 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
-          </CardContent>
-          <CardFooter>
+          </div>
+          <div className="flex items-center px-6 pb-6">
             <div className="grid w-full grid-cols-1 gap-2 md:grid-cols-2">
               <Button
                 variant="outline"
@@ -632,8 +638,8 @@ export default function DashboardPage() {
                 <Link href="/settings/notifications">Manage alerting preferences</Link>
               </Button>
             </div>
-          </CardFooter>
-        </Card>
+          </div>
+        </div>
       </motion.div>
 
       {/* ── Analytics tabs ───────────────────────────────── */}
@@ -656,15 +662,15 @@ export default function DashboardPage() {
           </TabsList>
 
           <TabsContent value="activity" className="space-y-4">
-            <Card className="rounded-2xl border-border/60">
-              <CardHeader>
-                <CardTitle className="text-base font-semibold">Email Activity</CardTitle>
-                <CardDescription>Your email activity over the last 30 days.</CardDescription>
-              </CardHeader>
-              <CardContent className="pl-2">
+            <div className="rounded-2xl border border-border/60 bg-card text-card-foreground">
+              <div className="pb-2 pt-5 px-6">
+                <h3 className="text-base font-semibold leading-none tracking-tight">Email Activity</h3>
+                <p className="text-sm text-muted-foreground mt-1.5">Your email activity over the last 30 days.</p>
+              </div>
+              <div className="pl-2 pb-6">
                 <OverviewChart data={overviewChartData} />
-              </CardContent>
-              <CardFooter className="flex justify-between">
+              </div>
+              <div className="flex items-center justify-between px-6 pb-6">
                 <div className="flex gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1.5">
                     <div className="h-2.5 w-2.5 rounded-full bg-primary" />
@@ -678,17 +684,17 @@ export default function DashboardPage() {
                 <Button variant="outline" size="sm" className="rounded-lg border-border/60">
                   View detailed report
                 </Button>
-              </CardFooter>
-            </Card>
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="storage" className="space-y-4">
-            <Card className="rounded-2xl border-border/60">
-              <CardHeader>
-                <CardTitle className="text-base font-semibold">Storage Usage</CardTitle>
-                <CardDescription>Your account storage usage breakdown.</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <div className="rounded-2xl border border-border/60 bg-card text-card-foreground">
+              <div className="pb-2 pt-5 px-6">
+                <h3 className="text-base font-semibold leading-none tracking-tight">Storage Usage</h3>
+                <p className="text-sm text-muted-foreground mt-1.5">Your account storage usage breakdown.</p>
+              </div>
+              <div className="px-6 pb-6">
                 <div className="grid md:grid-cols-2 gap-8 items-center">
                   <StorageChart usedMb={storageUsedMb} totalMb={storageTotalMb} />
                   <div className="space-y-4">
@@ -702,7 +708,15 @@ export default function DashboardPage() {
                         <p className="text-2xl font-bold" style={{ fontFamily: 'var(--font-sora)' }}>{storageTotalLabel}</p>
                       </div>
                     </div>
-                    <Progress value={storagePercent} className="h-2.5 rounded-full" indicatorColor="bg-gradient-to-r from-primary to-violet-400" />
+                    <div
+                      className="h-2.5 w-full rounded-full bg-surface-3 overflow-hidden"
+                      role="progressbar"
+                      aria-valuenow={storagePercent}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    >
+                      <div className="h-full bg-gradient-to-r from-primary to-violet-400" style={{ width: `${storagePercent}%` }} />
+                    </div>
                     <div className="grid grid-cols-3 gap-3 text-sm text-center">
                       {[
                         { label: 'Emails', value: '2.8 GB' },
@@ -717,20 +731,20 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-              </CardContent>
-              <CardFooter>
+              </div>
+              <div className="flex items-center px-6 pb-6">
                 <Button variant="outline" className="w-full rounded-xl border-border/60">Manage Storage</Button>
-              </CardFooter>
-            </Card>
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="insights" className="space-y-4">
-            <Card className="rounded-2xl border-border/60">
-              <CardHeader>
-                <CardTitle className="text-base font-semibold">Email Insights</CardTitle>
-                <CardDescription>Analytics and patterns from your email usage.</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <div className="rounded-2xl border border-border/60 bg-card text-card-foreground">
+              <div className="pb-2 pt-5 px-6">
+                <h3 className="text-base font-semibold leading-none tracking-tight">Email Insights</h3>
+                <p className="text-sm text-muted-foreground mt-1.5">Analytics and patterns from your email usage.</p>
+              </div>
+              <div className="px-6 pb-6">
                 <div className="grid md:grid-cols-2 gap-8">
                   <div className="space-y-3">
                     <h3 className="text-sm font-semibold">Response Time Trends</h3>
@@ -751,22 +765,22 @@ export default function DashboardPage() {
                     ))}
                   </div>
                 </div>
-              </CardContent>
-              <CardFooter>
+              </div>
+              <div className="flex items-center px-6 pb-6">
                 <Button variant="outline" className="w-full rounded-xl border-border/60">View All Insights</Button>
-              </CardFooter>
-            </Card>
+              </div>
+            </div>
 
             {/* AI Insights Cards */}
-            <Card className="rounded-2xl border-border/60">
-              <CardHeader className="pb-3">
+            <div className="rounded-2xl border border-border/60 bg-card text-card-foreground">
+              <div className="pb-3 pt-5 px-6">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
-                  <CardTitle className="text-base font-semibold">AI Insights</CardTitle>
+                  <h3 className="text-base font-semibold leading-none tracking-tight">AI Insights</h3>
                 </div>
-                <CardDescription>Personalized observations from your email patterns.</CardDescription>
-              </CardHeader>
-              <CardContent>
+                <p className="text-sm text-muted-foreground mt-1.5">Personalized observations from your email patterns.</p>
+              </div>
+              <div className="px-6 pb-6">
                 <div className="space-y-3">
                   {/* Busiest sender insight */}
                   {(topSendersData?.topSenders ?? []).length > 0 && (() => {
@@ -812,8 +826,8 @@ export default function DashboardPage() {
                     color="emerald"
                   />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </motion.div>
@@ -825,19 +839,19 @@ export default function DashboardPage() {
         transition={{ delay: 0.65, duration: 0.4 }}
         className="grid gap-4 md:grid-cols-2 lg:grid-cols-7"
       >
-        <Card className="col-span-4 rounded-2xl border-border/60">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
-            <CardDescription>Your latest email interactions.</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <div className="col-span-4 rounded-2xl border border-border/60 bg-card text-card-foreground">
+          <div className="pb-2 pt-5 px-6">
+            <h3 className="text-base font-semibold leading-none tracking-tight">Recent Activity</h3>
+            <p className="text-sm text-muted-foreground mt-1.5">Your latest email interactions.</p>
+          </div>
+          <div className="px-6 pb-6">
             <div className="space-y-2">
-              {[
-                { id: 1, title: 'New lead from website inquiry', sub: 'John Smith requested information about our services', time: '10 min ago', badge: 'New', badgeColor: 'bg-primary/10 text-primary border-primary/20' },
-                { id: 2, title: 'Meeting scheduled with marketing team', sub: 'Weekly sync scheduled for Thursday at 2pm', time: '1 hour ago', badge: 'Calendar', badgeColor: 'bg-blue-50 text-blue-700 border-blue-200/60 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-900/40' },
-                { id: 3, title: 'Project proposal approved', sub: 'Client approved the project proposal and timeline', time: '3 hours ago', badge: 'Project', badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/60 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/40' },
-                { id: 4, title: 'New comment on shared document', sub: 'Sarah left a comment on the Q3 planning document', time: 'Yesterday', badge: 'Document', badgeColor: 'bg-muted/60 text-muted-foreground border-border/50' },
-              ].map((activity) => (
+              {([
+                { id: 1, title: 'New lead from website inquiry', sub: 'John Smith requested information about our services', time: '10 min ago', badgeStatus: 'info' as const, badgeLabel: 'New' },
+                { id: 2, title: 'Meeting scheduled with marketing team', sub: 'Weekly sync scheduled for Thursday at 2pm', time: '1 hour ago', badgeStatus: 'info' as const, badgeLabel: 'Calendar' },
+                { id: 3, title: 'Project proposal approved', sub: 'Client approved the project proposal and timeline', time: '3 hours ago', badgeStatus: 'success' as const, badgeLabel: 'Project' },
+                { id: 4, title: 'New comment on shared document', sub: 'Sarah left a comment on the Q3 planning document', time: 'Yesterday', badgeStatus: 'info' as const, badgeLabel: 'Document' },
+              ]).map((activity) => (
                 <div
                   key={activity.id}
                   className="group flex items-center gap-3 rounded-xl border border-border/40 p-3 transition-all duration-200 hover:border-border/70 hover:bg-muted/30"
@@ -848,9 +862,7 @@ export default function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="truncate text-sm font-medium">{activity.title}</p>
-                      <Badge variant="outline" className={`ml-auto shrink-0 text-[10px] px-2 py-0 ${activity.badgeColor}`}>
-                        {activity.badge}
-                      </Badge>
+                      <StatusBadge status={activity.badgeStatus} label={activity.badgeLabel} className="ml-auto shrink-0 text-[10px]" />
                     </div>
                     <p className="mt-0.5 truncate text-xs text-muted-foreground">{activity.sub}</p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground/60">{activity.time}</p>
@@ -861,24 +873,24 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-          </CardContent>
-          <CardFooter>
+          </div>
+          <div className="flex items-center px-6 pb-6">
             <Button variant="outline" className="w-full rounded-xl border-border/60">
               View All Activity
               <ArrowUpRight className="ml-2 h-3.5 w-3.5" />
             </Button>
-          </CardFooter>
-        </Card>
+          </div>
+        </div>
 
-        <Card className="col-span-3 rounded-2xl border-border/60">
-          <CardHeader>
+        <div className="col-span-3 rounded-2xl border border-border/60 bg-card text-card-foreground">
+          <div className="pb-2 pt-5 px-6">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base font-semibold">Smart Reply Performance</CardTitle>
+              <h3 className="text-base font-semibold leading-none tracking-tight">Smart Reply Performance</h3>
             </div>
-            <CardDescription>AI-powered reply effectiveness.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
+            <p className="text-sm text-muted-foreground mt-1.5">AI-powered reply effectiveness.</p>
+          </div>
+          <div className="px-6 pb-6 space-y-5">
             {/* Circular progress */}
             <div className="flex items-center justify-center py-2">
               <div className="relative h-36 w-36">
@@ -926,13 +938,13 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-          </CardContent>
-          <CardFooter>
+          </div>
+          <div className="flex items-center px-6 pb-6">
             <Button variant="outline" className="w-full rounded-xl border-border/60">
               Customize Smart Replies
             </Button>
-          </CardFooter>
-        </Card>
+          </div>
+        </div>
       </motion.div>
     </DashboardPageShell>
   );
