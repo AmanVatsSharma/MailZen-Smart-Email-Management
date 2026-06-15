@@ -54,10 +54,9 @@ import {
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/primitives/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
@@ -116,16 +115,16 @@ type AutomationDetail = {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-const STATUS_BADGE: Record<AutomationStatus, { label: string; className: string }> = {
-  ENABLED:  { label: 'Enabled',  className: 'bg-green-500/15 text-green-700 border-green-200 dark:text-green-400' },
-  DISABLED: { label: 'Disabled', className: 'text-muted-foreground' },
-  DRAFT:    { label: 'Draft',    className: 'bg-yellow-500/15 text-yellow-700 border-yellow-200 dark:text-yellow-400' },
-  ARCHIVED: { label: 'Archived', className: 'bg-muted text-muted-foreground' },
+const STATUS_BADGE: Record<AutomationStatus, { label: string; status: 'success' | 'info' | 'warning' | 'error' | 'pending' | 'online' | 'offline' | 'syncing' }> = {
+  ENABLED:  { label: 'Enabled',  status: 'success' },
+  DISABLED: { label: 'Disabled', status: 'offline' },
+  DRAFT:    { label: 'Draft',    status: 'warning' },
+  ARCHIVED: { label: 'Archived', status: 'error' },
 };
 
-function StatusBadge({ status }: { status: AutomationStatus }) {
+function AutomationStatusBadge({ status }: { status: AutomationStatus }) {
   const cfg = STATUS_BADGE[status] ?? STATUS_BADGE.DISABLED;
-  return <Badge variant="outline" className={`text-xs font-medium ${cfg.className}`}>{cfg.label}</Badge>;
+  return <StatusBadge status={cfg.status} label={cfg.label} className="text-xs font-medium" />;
 }
 
 const RUN_STATUS_ICON: Record<RunStatus, React.ReactNode> = {
@@ -156,8 +155,8 @@ function VersionCard({ version, isCurrent }: { version: AutomationVersion; isCur
   const [open, setOpen] = useState(isCurrent);
 
   return (
-    <Card className={isCurrent ? 'border-purple-200 dark:border-purple-800' : ''}>
-      <CardHeader className="py-3 px-4">
+    <div className={`rounded-lg border border-border-subtle bg-surface-1 ${isCurrent ? 'border-purple-200 dark:border-purple-800' : ''}`}>
+      <div className="flex flex-col gap-1.5 p-6 py-3 px-4 relative z-10">
         <button
           type="button"
           className="flex items-center justify-between w-full text-left"
@@ -166,7 +165,7 @@ function VersionCard({ version, isCurrent }: { version: AutomationVersion; isCur
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">Version {version.version}</span>
             {isCurrent && (
-              <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-700 border-purple-200 dark:text-purple-400">Current</Badge>
+              <StatusBadge status="info" label="Current" className="text-xs bg-purple-500/10 text-purple-700 border-purple-200 dark:text-purple-400" />
             )}
           </div>
           <div className="flex items-center gap-3">
@@ -176,9 +175,9 @@ function VersionCard({ version, isCurrent }: { version: AutomationVersion; isCur
             <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`} />
           </div>
         </button>
-      </CardHeader>
+      </div>
       {open && (
-        <CardContent className="pt-0 pb-4 space-y-3">
+        <div className="p-6 pt-0 pb-4 space-y-3">
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1.5">Trigger</p>
             <JsonBlock value={version.trigger} />
@@ -193,9 +192,9 @@ function VersionCard({ version, isCurrent }: { version: AutomationVersion; isCur
             <p className="text-xs font-medium text-muted-foreground mb-1.5">Steps ({version.steps.length})</p>
             <JsonBlock value={version.steps} />
           </div>
-        </CardContent>
+        </div>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -405,7 +404,7 @@ export default function AutomationDetailPage() {
       <div className="space-y-6 max-w-3xl">
         {/* Meta */}
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <StatusBadge status={automation.status} />
+          <AutomationStatusBadge status={automation.status} />
           <span>·</span>
           <span>Created {formatDistanceToNow(parseISO(automation.createdAt), { addSuffix: true })}</span>
           <span>·</span>
@@ -450,13 +449,11 @@ export default function AutomationDetailPage() {
               <p className="text-xs text-muted-foreground">Enable the automation and wait for a trigger, or click &quot;Run now&quot;.</p>
             </div>
           ) : (
-            <Card>
-              <CardContent className="p-2 divide-y divide-border">
-                {automation.recentRuns.map((run) => (
-                  <RunRow key={run.id} run={run} automationId={id} />
-                ))}
-              </CardContent>
-            </Card>
+            <div className="rounded-lg border border-border-subtle bg-surface-1 p-2 divide-y divide-border">
+              {automation.recentRuns.map((run) => (
+                <RunRow key={run.id} run={run} automationId={id} />
+              ))}
+            </div>
           )}
         </div>
       </div>

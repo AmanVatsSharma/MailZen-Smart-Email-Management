@@ -14,20 +14,15 @@ import {
   Zap,
 } from 'lucide-react';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  InlineError,
+} from '@/components/primitives/inline-error';
+import { StatusBadge } from '@/components/primitives/status-badge';
+import { StatCard } from '@/components/composites/stat-card';
+import { MetricTile } from '@/components/composites/metric-tile';
 import {
   CREATE_RAZORPAY_CHECKOUT_SESSION,
   CREATE_STRIPE_CHECKOUT_SESSION,
@@ -105,7 +100,7 @@ const GatewayButton = ({
 
 const StripeLogo = () => (
   <svg viewBox="0 0 60 25" className="h-4 w-auto" aria-hidden="true" fill="currentColor">
-    <path d="M59.6 14.3c0-3.9-1.9-7-5.5-7-3.7 0-5.9 3.1-5.9 7s2 7 5.9 7c1.7 0 3-.4 3.9-1v-2.6c-.9.7-1.9 1.1-3.2 1.1-1.3 0-2.4-.5-2.6-2.1h6.4v-.4zm-6.4-1.4c0-1.5.9-2.2 1.9-2.2s1.8.7 1.8 2.2h-3.7zm-8.2-6.4c-1.2 0-2 .5-2.5 1l-.1-.9h-3v16.5l3.4-.7v-4c.5.4 1.2.9 2.2.9 2.2 0 4.2-1.7 4.2-5.5-.1-3.5-2.1-5.3-4.2-5.3zm-.7 8.1c-.7 0-1.2-.3-1.5-.6V12c.3-.4.8-.6 1.5-.6 1.2 0 2 1.3 2 2.6s-.8 2.6-2 2.6zm-8.3-9.4l-3.4.7v12.4h3.4V5.2zM30.3 4l-3.3.7V8l3.3-.7V4zM23 8.7l-.2-1h-2.9v12.6h3.3V12c.8-1 2.1-.8 2.5-.7V7.8c-.5-.2-2.3-.5-3.7.9zm-9.1-2.2l-3.3.7-.1 9.8c0 1.8 1.3 3.1 3.1 3.1 1 0 1.7-.2 2.1-.4v-2.7c-.4.1-2.3.7-2.3-1v-5h2.3V7.8h-2.3l.5-1.3zM4.3 11.3c0-.5.5-.7 1.2-.7 1.1 0 2.4.3 3.5.9V8.3c-1.2-.5-2.4-.7-3.5-.7C2.3 7.6 0 9 0 11.4c0 3.8 5.2 3.2 5.2 4.8 0 .6-.5.8-1.3.8-1.1 0-2.6-.5-3.7-1.1v3.2c1.3.6 2.5.8 3.7.8 2.8 0 4.8-1.4 4.8-3.8-.1-4-5.4-3.3-5.4-4.8z" />
+    <path d="M59.6 14.3c0-3.9-1.9-7-5.5-7-3.7 0-5.9 3.1-5.9 7s2 7 5.9 7c1.7 0 3-.4 3.9-1v-2.6c-.9.7-1.9 1.1-3.2 1.1-1.3 0-2.4-.5-2.6-2.1h6.4v-.4zm-6.4-1.4c0-1.5.9-2.2 1.9-2.2s1.8.7 1.8 2.2h-3.7zm-8.2-6.4c-1.2 0-2 .5-2.5 1l-.1-.9h-3v16.5l3.4-.7v-4c.5.4 1.2.9 2.2.9 2.2 0 4.2-1.7 4.2-5.5-.1-3.5-2.1-5.3-4.2-5.3zm-.7 8.1c-.7 0-1.2-.3-1.5-.6V12c.3-.4.8-.6 1.5-.6 1.2 0 2 1.3 2 2.6s-.8 2.6-2 2.6zm-8.3-9.4l-3.4.7V8l3.3-.7V4zM30.3 4l-3.3.7V8l3.3-.7V4zM23 8.7l-.2-1h-2.9v12.6h3.3V12c.8-1 2.1-.8 2.5-.7V7.8c-.5-.2-2.3-.5-3.7.9zm-9.1-2.2l-3.3.7-.1 9.8c0 1.8 1.3 3.1 3.1 3.1 1 0 1.7-.2 2.1-.4v-2.7c-.4.1-2.3.7-2.3-1v-5h2.3V7.8h-2.3l.5-1.3zM4.3 11.3c0-.5.5-.7 1.2-.7 1.1 0 2.4.3 3.5.9V8.3c-1.2-.5-2.4-.7-3.5-.7C2.3 7.6 0 9 0 11.4c0 3.8 5.2 3.2 5.2 4.8 0 .6-.5.8-1.3.8-1.1 0-2.6-.5-3.7-1.1v3.2c1.3.6 2.5.8 3.7.8 2.8 0 4.8-1.4 4.8-3.8-.1-4-5.4-3.3-5.4-4.8z" />
   </svg>
 );
 
@@ -317,52 +312,53 @@ const BillingSettingsPage = () => {
       contentClassName="max-w-5xl space-y-6"
     >
       {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Failed to load billing data</AlertTitle>
-          <AlertDescription>{error.message}</AlertDescription>
-        </Alert>
+        <InlineError error={new Error(error.message)} />
       )}
 
       {currentPlan && (
-        <Card>
-          <CardHeader>
+        <div className="rounded-lg border border-border-subtle bg-surface-1">
+          <div className="flex flex-col gap-1.5 p-6 relative z-10">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <CardTitle>Current plan: {currentPlan.name}</CardTitle>
-                <CardDescription>
+                <h3 className="leading-none font-semibold">Current plan: {currentPlan.name}</h3>
+                <p className="text-sm text-muted-foreground">
                   {currentPlan.priceMonthlyCents > 0
                     ? `$${(currentPlan.priceMonthlyCents / 100).toFixed(2)} / month`
                     : 'Free forever'}
-                </CardDescription>
+                </p>
               </div>
-              <Badge variant="secondary" className="text-sm px-3 py-1">
-                {currentPlanCode}
-              </Badge>
+              <StatusBadge status="info" label={currentPlanCode} className="text-sm px-3 py-1" />
             </div>
-          </CardHeader>
+          </div>
           {usage && (
-            <CardContent className="space-y-4">
+            <div className="p-6 space-y-4">
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Providers</span>
                     <span className="font-medium">{usage.providerUsed} / {usage.providerLimit}</span>
                   </div>
-                  <Progress value={(usage.providerUsed / Math.max(usage.providerLimit, 1)) * 100} className="h-2" />
+                  <div role="progressbar" aria-valuenow={(usage.providerUsed / Math.max(usage.providerLimit, 1)) * 100} aria-valuemin={0} aria-valuemax={100} className="h-1.5 w-full rounded-full bg-surface-3 overflow-hidden">
+                    <div className="h-full bg-brand-500" style={{ width: `${(usage.providerUsed / Math.max(usage.providerLimit, 1)) * 100}%` }} />
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Mailboxes</span>
                     <span className="font-medium">{usage.mailboxUsed} / {usage.mailboxLimit}</span>
                   </div>
-                  <Progress value={(usage.mailboxUsed / Math.max(usage.mailboxLimit, 1)) * 100} className="h-2" />
+                  <div role="progressbar" aria-valuenow={(usage.mailboxUsed / Math.max(usage.mailboxLimit, 1)) * 100} aria-valuemin={0} aria-valuemax={100} className="h-1.5 w-full rounded-full bg-surface-3 overflow-hidden">
+                    <div className="h-full bg-brand-500" style={{ width: `${(usage.mailboxUsed / Math.max(usage.mailboxLimit, 1)) * 100}%` }} />
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">AI Credits ({usage.periodStart})</span>
                     <span className="font-medium">{usage.aiCreditsUsed} / {usage.aiCreditsPerMonth}</span>
                   </div>
-                  <Progress value={(usage.aiCreditsUsed / Math.max(usage.aiCreditsPerMonth, 1)) * 100} className="h-2" />
+                  <div role="progressbar" aria-valuenow={(usage.aiCreditsUsed / Math.max(usage.aiCreditsPerMonth, 1)) * 100} aria-valuemin={0} aria-valuemax={100} className="h-1.5 w-full rounded-full bg-surface-3 overflow-hidden">
+                    <div className="h-full bg-brand-500" style={{ width: `${(usage.aiCreditsUsed / Math.max(usage.aiCreditsPerMonth, 1)) * 100}%` }} />
+                  </div>
                 </div>
               </div>
               {aiCreditBalanceData?.myAiCreditBalance?.lastConsumedAtIso ? (
@@ -371,19 +367,19 @@ const BillingSettingsPage = () => {
                   {new Date(aiCreditBalanceData.myAiCreditBalance.lastConsumedAtIso).toLocaleString()}
                 </p>
               ) : null}
-            </CardContent>
+            </div>
           )}
-        </Card>
+        </div>
       )}
 
-      <Card>
-        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="rounded-lg border border-border-subtle bg-surface-1">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-6 relative z-10">
           <div>
-            <CardTitle className="flex items-center gap-2 text-lg">
+            <h3 className="flex items-center gap-2 text-lg font-semibold leading-none">
               <FileText className="h-5 w-5 text-primary" />
               Invoices & data export
-            </CardTitle>
-            <CardDescription>Recent invoices and a JSON export of your billing record.</CardDescription>
+            </h3>
+            <p className="text-sm text-muted-foreground">Recent invoices and a JSON export of your billing record.</p>
           </div>
           <Button
             type="button"
@@ -400,8 +396,8 @@ const BillingSettingsPage = () => {
             )}
             Export billing JSON
           </Button>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div className="p-6">
           {invoicesLoading ? (
             <p className="text-sm text-muted-foreground">Loading invoices…</p>
           ) : (invoicesData?.myBillingInvoices ?? []).length === 0 ? (
@@ -438,8 +434,8 @@ const BillingSettingsPage = () => {
               </table>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {hasPaidPlans && (
         <div className="flex flex-col gap-2">
@@ -477,27 +473,33 @@ const BillingSettingsPage = () => {
           const isLoadingThis = checkoutLoading === plan.code || (selectingPlan && !isPaid);
 
           return (
-            <Card
+            <div
               key={plan.code}
               ref={plan.code === 'PRO' ? proCardRef : undefined}
-              className={isCurrent ? 'border-primary ring-1 ring-primary/20' : undefined}
+              data-plan-code={plan.code}
+              className={`flex flex-col gap-2 rounded-lg border overflow-hidden ${
+                isCurrent ? 'border-primary ring-1 ring-primary/20' : 'border-border-subtle bg-surface-1'
+              }`}
+              style={{
+                background: 'bg-card/80 backdrop-blur-sm',
+                boxShadow: 'shadow-lg',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
             >
-              <CardHeader>
+              <div className="p-6 relative z-10">
                 <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-lg">{plan.name}</CardTitle>
+                  <h3 className="text-lg font-semibold leading-none">{plan.name}</h3>
                   {isCurrent && (
-                    <Badge className="gap-1">
-                      <CheckCircle className="h-3 w-3" />
-                      Active
-                    </Badge>
+                    <StatusBadge status="success" label="Active" />
                   )}
                 </div>
-                <CardDescription className="text-xl font-semibold text-foreground">
+                <p className="text-xl font-semibold text-foreground">
                   {isPaid ? `$${monthlyPrice}` : 'Free'}
                   {isPaid && <span className="text-sm font-normal text-muted-foreground"> / month</span>}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+                </p>
+              </div>
+              <div className="p-6 flex-1">
                 <ul className="space-y-2">
                   {features.map((feature) => (
                     <li key={feature} className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -506,8 +508,8 @@ const BillingSettingsPage = () => {
                     </li>
                   ))}
                 </ul>
-              </CardContent>
-              <CardFooter className="flex flex-col gap-2">
+              </div>
+              <div className="p-6 flex flex-col gap-2">
                 {isCurrent ? (
                   <Button className="w-full" variant="outline" disabled>
                     {isTrialing ? '✓ Trial active' : 'Current plan'}
@@ -563,55 +565,52 @@ const BillingSettingsPage = () => {
                     Downgrade to Free
                   </Button>
                 )}
-              </CardFooter>
-            </Card>
+              </div>
+            </div>
           );
         })}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+      <div className="rounded-lg border border-border-subtle bg-surface-1">
+        <div className="p-6">
+          <h3 className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-primary" />
             Need a custom or managed upgrade?
-          </CardTitle>
-          <CardDescription>
-            Submit a request and our team will reach out with a tailored plan.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Input
-            value={upgradeNote}
-            onChange={(event) => setUpgradeNote(event.target.value)}
-            placeholder="Optional note — team size, support needs, timeline..."
-          />
-          <Button
-            disabled={requestingUpgrade || loading}
-            onClick={() => handleUpgradeIntent('BUSINESS')}
-          >
-            {requestingUpgrade ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              'Request Business plan assistance'
-            )}
-          </Button>
-        </CardContent>
-      </Card>
+          </h3>
+          <p className="mb-3">Submit a request and our team will reach out with a tailored plan.</p>
+          <div className="space-y-3">
+            <Input
+              value={upgradeNote}
+              onChange={(event) => setUpgradeNote(event.target.value)}
+              placeholder="Optional note — team size, support needs, timeline..."
+            />
+            <Button
+              disabled={requestingUpgrade || loading}
+              onClick={() => handleUpgradeIntent('BUSINESS')}
+            >
+              {requestingUpgrade ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                'Request Business plan assistance'
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
 
-      <Alert className="border-primary/20 bg-primary/5">
-        <Sparkles className="h-4 w-4 text-primary" />
-        <AlertTitle>Secure, hosted checkout</AlertTitle>
-        <AlertDescription>
+      <div role="alert" className="rounded-lg border border-primary/20 bg-primary/5">
+        <h4 className="font-medium mb-1">Secure, hosted checkout</h4>
+        <p className="text-sm">
           Paid plans redirect to a secure{' '}
           <span className="font-medium">Stripe</span> or{' '}
           <span className="font-medium">Razorpay</span> checkout page.
           Your card details are never stored on MailZen servers.
           Subscription state updates instantly via webhooks.
-        </AlertDescription>
-      </Alert>
+        </p>
+      </div>
     </DashboardPageShell>
   );
 };

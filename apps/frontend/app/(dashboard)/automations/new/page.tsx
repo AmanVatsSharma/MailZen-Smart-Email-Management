@@ -51,7 +51,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/components/ui/use-toast';
 import { CREATE_AUTOMATION } from '@/lib/apollo/queries/automations';
@@ -341,14 +340,14 @@ export default function NewAutomationPage() {
       <form onSubmit={(e) => void handleSubmit(e)} className="max-w-2xl space-y-6">
 
         {/* Name + Description */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+        <div className="rounded-lg border border-border-subtle bg-surface-1">
+          <div className="flex flex-col gap-1.5 p-6 pb-3 relative z-10">
+            <div className="text-sm font-medium flex items-center gap-2">
               <Zap className="h-4 w-4 text-purple-500" />
               Automation details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+            </div>
+          </div>
+          <div className="p-6 pt-0 space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="name" className="text-xs">Name *</Label>
               <Input
@@ -370,15 +369,15 @@ export default function NewAutomationPage() {
                 className="resize-none text-sm"
               />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Trigger */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">1. Trigger</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <div className="rounded-lg border border-border-subtle bg-surface-1">
+          <div className="flex flex-col gap-1.5 p-6 pb-3 relative z-10">
+            <div className="text-sm font-medium">1. Trigger</div>
+          </div>
+          <div className="p-6 pt-0 space-y-3">
             <Select value={triggerType} onValueChange={(v) => setTriggerType(v as TriggerType)}>
               <SelectTrigger>
                 <SelectValue />
@@ -411,22 +410,22 @@ export default function NewAutomationPage() {
                 </p>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Conditions */}
-        <Card>
-          <CardHeader className="pb-3">
+        <div className="rounded-lg border border-border-subtle bg-surface-1">
+          <div className="flex flex-col gap-1.5 p-6 pb-3 relative z-10">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">2. Conditions <span className="text-muted-foreground font-normal">(optional)</span></CardTitle>
+              <div className="text-sm font-medium">2. Conditions <span className="text-muted-foreground font-normal">(optional)</span></div>
               <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={addCondition}>
                 <Plus className="h-3.5 w-3.5 mr-1" />
                 Add condition
               </Button>
             </div>
-          </CardHeader>
+          </div>
           {conditions.length > 0 && (
-            <CardContent className="pt-0 space-y-2">
+            <div className="p-6 pt-0 space-y-2">
               {conditions.map((row, i) => (
                 <React.Fragment key={row.id}>
                   {i > 0 && <p className="text-xs text-muted-foreground font-medium px-1">AND</p>}
@@ -442,23 +441,23 @@ export default function NewAutomationPage() {
                   All conditions must match (AND logic). OR logic coming in v1.1.
                 </p>
               )}
-            </CardContent>
+            </div>
           )}
-        </Card>
+        </div>
 
         {/* Steps */}
-        <Card>
-          <CardHeader className="pb-3">
+        <div className="rounded-lg border border-border-subtle bg-surface-1">
+          <div className="flex flex-col gap-1.5 p-6 pb-3 relative z-10">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">3. Actions <span className="text-muted-foreground font-normal text-xs">(run in order)</span></CardTitle>
+              <div className="text-sm font-medium">3. Actions <span className="text-muted-foreground font-normal text-xs">(run in order)</span></div>
               <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={addStep}>
                 <Plus className="h-3.5 w-3.5 mr-1" />
                 Add action
               </Button>
             </div>
-          </CardHeader>
+          </div>
           {steps.length > 0 && (
-            <CardContent className="pt-0 space-y-2">
+            <div className="p-6 pt-0 space-y-2">
               {steps.map((step, i) => (
                 <StepRowEditor
                   key={step.id}
@@ -468,14 +467,14 @@ export default function NewAutomationPage() {
                   onRemove={() => removeStep(step.id)}
                 />
               ))}
-            </CardContent>
+            </div>
           )}
           {steps.length === 0 && (
-            <CardContent className="pt-0">
+            <div className="p-6 pt-0">
               <p className="text-xs text-muted-foreground">No actions yet — add at least one.</p>
-            </CardContent>
+            </div>
           )}
-        </Card>
+        </div>
 
         <Separator />
 

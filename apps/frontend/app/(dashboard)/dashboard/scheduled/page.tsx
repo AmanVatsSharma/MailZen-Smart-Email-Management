@@ -5,7 +5,7 @@ import { useQuery } from '@apollo/client';
 import { Clock, Plus, RefreshCw } from 'lucide-react';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/primitives/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
@@ -28,25 +28,19 @@ type ScheduledEmail = {
   status: string;
 };
 
-function StatusBadge({ status }: { status: string }) {
+function ScheduledStatusBadge({ status }: { status: string }) {
   if (status === 'SENT') {
     return (
-      <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/20">
-        Sent
-      </Badge>
+      <StatusBadge status="success" label="Sent" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/20" />
     );
   }
   if (status === 'FAILED') {
     return (
-      <Badge className="bg-red-500/10 text-red-600 border-red-500/20 hover:bg-red-500/20">
-        Failed
-      </Badge>
+      <StatusBadge status="error" label="Failed" className="bg-red-500/10 text-red-600 border-red-500/20 hover:bg-red-500/20" />
     );
   }
   return (
-    <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20">
-      Pending
-    </Badge>
+    <StatusBadge status="warning" label="Pending" className="bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20" />
   );
 }
 
@@ -108,7 +102,7 @@ function ScheduledEmailsTable({ emails }: { emails: ScheduledEmail[] }) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <StatusBadge status={email.status} />
+                  <ScheduledStatusBadge status={email.status} />
                 </TableCell>
               </TableRow>
             );

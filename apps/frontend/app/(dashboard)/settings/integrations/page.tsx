@@ -46,14 +46,7 @@ import {
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { StatusBadge } from '@/components/primitives/status-badge';
 import {
   Dialog,
   DialogContent,
@@ -68,7 +61,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
@@ -96,16 +88,6 @@ type SlackChannel = {
   name: string;
   isPrivate: boolean;
 };
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; className: string }> = {
-    ACTIVE: { label: 'Active', className: 'bg-green-100 text-green-700 border-green-200' },
-    REVOKED: { label: 'Revoked', className: 'bg-red-100 text-red-700 border-red-200' },
-    ERROR: { label: 'Error', className: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-  };
-  const { label, className } = map[status] ?? { label: status, className: '' };
-  return <Badge className={className}>{label}</Badge>;
-}
 
 const apiBase =
   (process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT ?? 'http://localhost:4000/graphql').replace(
@@ -264,10 +246,9 @@ export default function IntegrationsPage() {
 
         {/* One-time webhook secret reveal */}
         {plaintextSecret && (
-          <Alert className="border-amber-200 bg-amber-50">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <AlertTitle className="text-amber-800">Save your signing secret now</AlertTitle>
-            <AlertDescription className="space-y-3">
+          <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+            <h4 className="font-medium mb-1 text-amber-800">Save your signing secret now</h4>
+            <div className="space-y-3">
               <p className="text-amber-700 text-sm">
                 This secret will never be shown again. Use it to verify the{' '}
                 <code>X-MailZen-Signature</code> header on incoming webhooks.
@@ -287,29 +268,39 @@ export default function IntegrationsPage() {
               <Button size="sm" variant="ghost" onClick={() => setPlaintextSecret(null)}>
                 I&apos;ve saved it — dismiss
               </Button>
-            </AlertDescription>
-          </Alert>
+            </div>
+          </div>
         )}
 
         {/* Webhook card */}
-        <Card>
-          <CardHeader>
+        <div className="rounded-lg border border-border-subtle bg-surface-1">
+          <div className="flex flex-col gap-1.5 p-6 relative z-10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-slate-100 p-2">
                   <Webhook className="h-5 w-5 text-slate-600" />
                 </div>
                 <div>
-                  <CardTitle className="text-base">Generic Webhook</CardTitle>
-                  <CardDescription className="text-sm">
+                  <h3 className="leading-none font-semibold text-base">Generic Webhook</h3>
+                  <p className="text-sm text-muted-foreground">
                     Send automation events to any HTTPS endpoint. Signed with HMAC-SHA256.
-                  </CardDescription>
+                  </p>
                 </div>
               </div>
-              {webhookIntegration && <StatusBadge status={webhookIntegration.status} />}
+              {webhookIntegration && (
+                webhookIntegration.status === 'ACTIVE' ? (
+                  <StatusBadge status="success" label="Active" />
+                ) : webhookIntegration.status === 'REVOKED' ? (
+                  <StatusBadge status="error" label="Revoked" />
+                ) : webhookIntegration.status === 'ERROR' ? (
+                  <StatusBadge status="warning" label="Error" />
+                ) : (
+                  <StatusBadge status="info" label={webhookIntegration.status} />
+                )
+              )}
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          </div>
+          <div className="p-6 space-y-4">
             {webhookLoading ? (
               <Skeleton className="h-8 w-full" />
             ) : webhookIntegration?.status === 'ACTIVE' ? (
@@ -351,28 +342,38 @@ export default function IntegrationsPage() {
                 </Button>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Slack card */}
-        <Card>
-          <CardHeader>
+        <div className="rounded-lg border border-border-subtle bg-surface-1">
+          <div className="flex flex-col gap-1.5 p-6 relative z-10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-slate-100 p-2">
                   <Slack className="h-5 w-5 text-slate-600" />
                 </div>
                 <div>
-                  <CardTitle className="text-base">Slack</CardTitle>
-                  <CardDescription className="text-sm">
+                  <h3 className="leading-none font-semibold text-base">Slack</h3>
+                  <p className="text-sm text-muted-foreground">
                     Post messages to channels or DMs from automation actions.
-                  </CardDescription>
+                  </p>
                 </div>
               </div>
-              {slackIntegration && <StatusBadge status={slackIntegration.status} />}
+              {slackIntegration && (
+                slackIntegration.status === 'ACTIVE' ? (
+                  <StatusBadge status="success" label="Active" />
+                ) : slackIntegration.status === 'REVOKED' ? (
+                  <StatusBadge status="error" label="Revoked" />
+                ) : slackIntegration.status === 'ERROR' ? (
+                  <StatusBadge status="warning" label="Error" />
+                ) : (
+                  <StatusBadge status="info" label={slackIntegration.status} />
+                )
+              )}
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          </div>
+          <div className="p-6 space-y-4">
             {slackLoading ? (
               <Skeleton className="h-8 w-full" />
             ) : slackActive ? (
@@ -480,8 +481,8 @@ export default function IntegrationsPage() {
                 </Button>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
       </div>
 
