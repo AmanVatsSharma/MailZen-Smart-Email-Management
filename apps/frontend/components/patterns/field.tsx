@@ -48,7 +48,7 @@ export function Field({
         <label htmlFor={id} className="text-sm font-medium">
           {label}
           {required && (
-            <span aria-label="required" className="text-destructive ml-0.5">
+            <span aria-label="required" className="text-destructive ms-0.5">
               *
             </span>
           )}

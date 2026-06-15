@@ -150,7 +150,7 @@ export function DataTable<T>({
                   <th
                     key={header.id}
                     className={cn(
-                      'text-left font-medium text-muted-foreground',
+                      'text-start font-medium text-muted-foreground',
                       density === 'compact' ? 'h-8 px-2' : 'h-10 px-3'
                     )}
                   >

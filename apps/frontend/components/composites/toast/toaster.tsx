@@ -58,11 +58,11 @@ function ToastCard({ toast, onDismiss }: { toast: ToastData; onDismiss: (id: str
       aria-live={toast.variant === 'error' ? 'assertive' : 'polite'}
       className={cn(
         'group relative w-[360px] max-w-[calc(100vw-2rem)] rounded-lg border border-border-subtle bg-surface-1 shadow-lg overflow-hidden',
-        'flex items-start gap-3 p-3 pr-8'
+        'flex items-start gap-3 p-3 pe-8'
       )}
     >
       {/* Variant accent bar */}
-      <div className={cn('absolute left-0 top-0 bottom-0 w-1', meta.barClass)} aria-hidden />
+      <div className={cn('absolute inset-y-0 start-0 w-1', meta.barClass)} aria-hidden />
       <meta.Icon className={cn('h-5 w-5 flex-shrink-0 mt-0.5', meta.className)} aria-hidden />
       <div className="flex-1 min-w-0">
         {toast.title && <p className="text-sm font-medium leading-snug">{toast.title}</p>}
@@ -84,7 +84,7 @@ function ToastCard({ toast, onDismiss }: { toast: ToastData; onDismiss: (id: str
       <button
         onClick={() => onDismiss(toast.id)}
         aria-label="Dismiss"
-        className="absolute top-2 right-2 h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-surface-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
+        className="absolute top-2 end-2 h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-surface-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
       >
         <X className="h-3.5 w-3.5" />
       </button>
@@ -129,7 +129,7 @@ export function Toaster() {
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-toast flex flex-col-reverse gap-2 pointer-events-none"
+      className="fixed bottom-4 end-4 z-toast flex flex-col-reverse gap-2 pointer-events-none"
       aria-label="Notifications"
     >
       <AnimatePresence>

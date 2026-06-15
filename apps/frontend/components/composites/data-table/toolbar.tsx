@@ -18,12 +18,12 @@ export function DataTableToolbar({ toolbar }: DataTableToolbarProps) {
     <div className="flex items-center gap-2 flex-wrap flex-1">
       {toolbar.search && (
         <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
             value={toolbar.search.value}
             onChange={(e) => toolbar.search?.onChange(e.target.value)}
             placeholder={toolbar.search.placeholder ?? 'Search…'}
-            className="pl-9"
+            className="ps-9"
             aria-label="Search"
           />
         </div>
@@ -47,7 +47,7 @@ export function DataTableToolbar({ toolbar }: DataTableToolbarProps) {
           ))}
         </div>
       )}
-      {toolbar.actions && <div className="ml-auto">{toolbar.actions}</div>}
+      {toolbar.actions && <div className="ms-auto">{toolbar.actions}</div>}
     </div>
   );
 }

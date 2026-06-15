@@ -168,7 +168,7 @@ export function CommandPalette({
           Search and run commands across MailZen.
         </DialogDescription>
         <div className="flex items-center border-b px-3">
-          <Search className="h-4 w-4 text-muted-foreground mr-2" />
+          <Search className="h-4 w-4 text-muted-foreground me-2" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -178,7 +178,7 @@ export function CommandPalette({
             autoFocus
             aria-label="Command search"
           />
-          {isSearching && <Spinner size="sm" className="ml-2" />}
+          {isSearching && <Spinner size="sm" className="ms-2" />}
         </div>
 
         <div className="max-h-96 overflow-y-auto p-2">
@@ -203,7 +203,7 @@ export function CommandPalette({
                       onMouseEnter={() => setActiveIndex(flatIndex)}
                       disabled={item.disabled}
                       className={cn(
-                        'w-full flex items-center gap-3 px-2 py-2 rounded text-left text-sm',
+                        'w-full flex items-center gap-3 px-2 py-2 rounded text-start text-sm',
                         isActive && 'bg-brand-50 text-brand-900',
                         item.disabled && 'opacity-50 cursor-not-allowed'
                       )}

@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DirectionalIcon } from '@/components/primitives/directional-icon';
 
 type DataTablePaginationProps = {
   page: number;
@@ -35,7 +36,7 @@ export function DataTablePagination({
           disabled={page === 1}
           aria-label="Previous page"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <DirectionalIcon Icon={ChevronLeft} className="h-4 w-4" />
         </Button>
         <span className="px-3 text-muted-foreground">
           Page {page} of {totalPages || 1}
@@ -47,7 +48,7 @@ export function DataTablePagination({
           disabled={page >= totalPages}
           aria-label="Next page"
         >
-          <ChevronRight className="h-4 w-4" />
+          <DirectionalIcon Icon={ChevronRight} className="h-4 w-4" />
         </Button>
       </div>
     </div>

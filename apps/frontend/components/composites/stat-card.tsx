@@ -63,7 +63,7 @@ export function StatCard({
     <Tag
       {...tagProps}
       className={cn(
-        'block w-full text-left rounded-lg border border-border-subtle bg-surface-1 p-4',
+        'block w-full text-start rounded-lg border border-border-subtle bg-surface-1 p-4',
         'transition-colors',
         interactive && 'hover:bg-surface-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
         className
