@@ -9,14 +9,14 @@
  *
  * Depends on:
  *   - GET_EMAIL_FILTERS, CREATE_EMAIL_FILTER, DELETE_EMAIL_FILTER — from filters.ts
- *   - AlertDialog — delete confirmation (no window.confirm)
+ *   - ConfirmDialog — delete confirmation (no window.confirm)
  *
  * Side-effects:
  *   - Apollo: reads filter list, writes via create/delete mutations
  *
  * Key invariants:
  *   - Filters are returned as JSON strings from the backend (parsed in-component)
- *   - Delete uses AlertDialog, not window.confirm — consistent with rest of app
+ *   - Delete uses ConfirmDialog, not window.confirm — consistent with rest of app
  *
  * Read order:
  *   1. ACTION_LABELS / CONDITION_LABELS — display-name maps
@@ -42,16 +42,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { ConfirmDialog } from '@/components/composites/confirm-dialog';
 import {
   Select,
   SelectContent,
@@ -437,26 +428,20 @@ const FiltersPage = () => {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete filter?</AlertDialogTitle>
-            <AlertDialogDescription>
-              <strong>{deleteTarget?.name}</strong> will be permanently deleted. Emails that matched
-              this filter will no longer be processed by it.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => deleteTarget && handleDeleteFilter(deleteTarget.id)}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete filter?"
+        description={
+          <>
+            <strong>{deleteTarget?.name}</strong> will be permanently deleted. Emails that matched
+            this filter will no longer be processed by it.
+          </>
+        }
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={() => deleteTarget && handleDeleteFilter(deleteTarget.id)}
+      />
     </DashboardPageShell>
   );
 };

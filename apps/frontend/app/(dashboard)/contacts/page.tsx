@@ -10,13 +10,13 @@
  * Depends on:
  *   - GET_ALL_CONTACTS, CREATE_CONTACT, UPDATE_CONTACT, DELETE_CONTACT
  *   - DashboardPageShell — standard page wrapper
- *   - AlertDialog — confirmation on destructive delete action
+ *   - ConfirmDialog — confirmation on destructive delete action
  *
  * Side-effects:
  *   - Apollo: reads contacts list, writes via create/update/delete mutations
  *
  * Key invariants:
- *   - Delete confirmation uses AlertDialog (never window.confirm — no styling control)
+ *   - Delete confirmation uses ConfirmDialog (never window.confirm — no styling control)
  *   - Avatar color is deterministic: same name always hashes to the same accent
  *
  * Read order:
@@ -45,16 +45,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { ConfirmDialog } from '@/components/composites/confirm-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import {
   CREATE_CONTACT,
@@ -367,27 +358,21 @@ const ContactsPage = () => {
       </Dialog>
 
       {/* Delete confirmation */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete contact?</AlertDialogTitle>
-            <AlertDialogDescription>
-              <strong>{deleteTarget?.name}</strong> ({deleteTarget?.email}) will be permanently
-              removed from your address book. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => deleteContact({ variables: { id: deleteTarget!.id } })}
-              disabled={deleteLoading}
-            >
-              {deleteLoading ? 'Deleting…' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete contact?"
+        description={
+          <>
+            <strong>{deleteTarget?.name}</strong> ({deleteTarget?.email}) will be permanently
+            removed from your address book. This cannot be undone.
+          </>
+        }
+        confirmLabel={deleteLoading ? 'Deleting…' : 'Delete'}
+        variant="destructive"
+        loading={deleteLoading}
+        onConfirm={() => deleteContact({ variables: { id: deleteTarget!.id } })}
+      />
     </DashboardPageShell>
   );
 };

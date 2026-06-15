@@ -57,4 +57,22 @@ describe('ConfirmDialog', () => {
     await user.type(input, 'delete');
     expect(confirmBtn).toBeEnabled();
   });
+
+  it('accepts ReactNode description (JSX with formatting)', () => {
+    render(
+      <ConfirmDialog
+        open={true}
+        onOpenChange={() => {}}
+        title="Delete contact?"
+        description={
+          <>
+            <strong>Alice</strong> (alice@example.com) will be permanently removed.
+          </>
+        }
+        onConfirm={() => {}}
+      />
+    );
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.getByText('(alice@example.com) will be permanently removed.')).toBeInTheDocument();
+  });
 });
