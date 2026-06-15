@@ -6,7 +6,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { ISenderProfileRepository } from 'application/ports/repositories/sender-profile.repository';
+import { ISenderProfileRepository } from '../application/ports/repositories/sender-profile.repository';
 import { SenderProfile } from '../domain/bounded-contexts/ai/sender-intelligence.aggregate';
 
 export class InMemorySenderProfileRepository implements ISenderProfileRepository {

@@ -11,7 +11,7 @@ import {
   EmailListFilter,
   EmailListResult,
   IEmailRepository,
-} from 'application/ports/repositories/email.repository';
+} from '../application/ports/repositories/email.repository';
 import { Email } from '../domain/bounded-contexts/messaging/email.aggregate';
 import { EmailId } from '../domain/shared/value-objects/ids';
 

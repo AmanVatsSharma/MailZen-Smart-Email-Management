@@ -8,7 +8,7 @@
 
 import { Result } from '../domain/shared/result';
 import { Subscription } from '../domain/bounded-contexts/billing/subscription.aggregate';
-import { ISubscriptionRepository } from 'application/ports/repositories/subscription.repository';
+import { ISubscriptionRepository } from '../application/ports/repositories/subscription.repository';
 
 export class InMemorySubscriptionRepository implements ISubscriptionRepository {
   public readonly items: Subscription[] = [];

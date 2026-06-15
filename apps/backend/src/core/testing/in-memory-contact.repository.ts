@@ -8,7 +8,7 @@
 
 import { Result } from '../domain/shared/result';
 import { Contact } from '../domain/bounded-contexts/contacts/contact.aggregate';
-import { IContactRepository, ContactQueryFilter } from 'application/ports/repositories/contact.repository';
+import { IContactRepository, ContactQueryFilter } from '../application/ports/repositories/contact.repository';
 
 export class InMemoryContactRepository implements IContactRepository {
   public readonly items: Contact[] = [];

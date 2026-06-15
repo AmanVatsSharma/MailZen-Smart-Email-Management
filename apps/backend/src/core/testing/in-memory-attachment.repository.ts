@@ -5,7 +5,7 @@
  * Author:      AmanVatsSharma
  * Last-updated: 2026-06-13
  */
-import { IAttachmentRepository } from 'application/ports/repositories/attachment.repository';
+import { IAttachmentRepository } from '../application/ports/repositories/attachment.repository';
 import { Attachment } from '../domain/bounded-contexts/messaging/attachment.entity';
 import { EmailId } from '../domain/shared/value-objects/ids';
 

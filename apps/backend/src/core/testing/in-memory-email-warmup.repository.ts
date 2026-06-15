@@ -5,7 +5,7 @@
  * Author:      AmanVatsSharma
  * Last-updated: 2026-06-13
  */
-import { IEmailWarmupRepository } from 'application/ports/repositories/email-warmup.repository';
+import { IEmailWarmupRepository } from '../application/ports/repositories/email-warmup.repository';
 import { EmailWarmup } from '../domain/bounded-contexts/messaging/warmup.aggregate';
 
 export class InMemoryEmailWarmupRepository implements IEmailWarmupRepository {

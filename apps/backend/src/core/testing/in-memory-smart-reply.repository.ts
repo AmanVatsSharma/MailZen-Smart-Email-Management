@@ -6,7 +6,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { ISmartReplyRepository } from 'application/ports/repositories/smart-reply.repository';
+import { ISmartReplyRepository } from '../application/ports/repositories/smart-reply.repository';
 import { SmartReply } from '../domain/bounded-contexts/ai/smart-reply.aggregate';
 
 export class InMemorySmartReplyRepository implements ISmartReplyRepository {

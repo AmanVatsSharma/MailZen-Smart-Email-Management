@@ -5,7 +5,7 @@
  * Author:      AmanVatsSharma
  * Last-updated: 2026-06-13
  */
-import { IThreadRepository } from 'application/ports/repositories/thread.repository';
+import { IThreadRepository } from '../application/ports/repositories/thread.repository';
 import { Thread } from '../domain/bounded-contexts/messaging/thread.aggregate';
 import { ThreadId, WorkspaceId } from '../domain/shared/value-objects/ids';
 

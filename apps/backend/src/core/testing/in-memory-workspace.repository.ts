@@ -8,7 +8,7 @@
 
 import { Result } from '../domain/shared/result';
 import { Workspace } from '../domain/bounded-contexts/workspaces/workspace.aggregate';
-import { IWorkspaceRepository } from 'application/ports/repositories/workspace.repository';
+import { IWorkspaceRepository } from '../application/ports/repositories/workspace.repository';
 
 export class InMemoryWorkspaceRepository implements IWorkspaceRepository {
   public readonly items: Workspace[] = [];

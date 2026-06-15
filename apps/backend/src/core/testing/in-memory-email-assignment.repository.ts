@@ -5,7 +5,7 @@
  * Author:      AmanVatsSharma
  * Last-updated: 2026-06-13
  */
-import { IEmailAssignmentRepository } from 'application/ports/repositories/email-assignment.repository';
+import { IEmailAssignmentRepository } from '../application/ports/repositories/email-assignment.repository';
 import { EmailAssignment, EmailAssignmentStatus } from '../domain/bounded-contexts/messaging/email-assignment.aggregate';
 import { EmailId, UserId, WorkspaceId } from '../domain/shared/value-objects/ids';
 

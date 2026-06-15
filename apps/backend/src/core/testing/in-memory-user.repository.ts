@@ -6,7 +6,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { IUserRepository } from 'application/ports/repositories/user.repository';
+import { IUserRepository } from '../application/ports/repositories/user.repository';
 import { User, UserRole } from '../domain/bounded-contexts/identity/user.aggregate';
 import { Result } from '../domain/shared/result';
 import { UserId } from '../domain/shared/value-objects/ids';

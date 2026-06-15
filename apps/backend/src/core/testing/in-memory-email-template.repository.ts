@@ -5,7 +5,7 @@
  * Author:      AmanVatsSharma
  * Last-updated: 2026-06-13
  */
-import { IEmailTemplateRepository } from 'application/ports/repositories/email-template.repository';
+import { IEmailTemplateRepository } from '../application/ports/repositories/email-template.repository';
 import { EmailTemplate } from '../domain/bounded-contexts/messaging/email-template.aggregate';
 import { UserId } from '../domain/shared/value-objects/ids';
 

@@ -7,7 +7,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { IMailboxRepository } from 'application/ports/repositories/mailbox.repository';
+import { IMailboxRepository } from '../application/ports/repositories/mailbox.repository';
 import { Mailbox } from '../domain/bounded-contexts/mailbox/mailbox.aggregate';
 import { ProviderType } from '../domain/bounded-contexts/mailbox/value-objects/provider-type';
 

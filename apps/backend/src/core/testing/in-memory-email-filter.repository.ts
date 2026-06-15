@@ -8,7 +8,7 @@
 import {
   EmailFilterRecord,
   IEmailFilterRepository,
-} from 'application/ports/repositories/email-filter.repository';
+} from '../application/ports/repositories/email-filter.repository';
 import { UserId } from '../domain/shared/value-objects/ids';
 
 export class InMemoryEmailFilterRepository implements IEmailFilterRepository {

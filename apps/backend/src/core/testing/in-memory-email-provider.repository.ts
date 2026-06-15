@@ -6,7 +6,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { IEmailProviderRepository } from 'application/ports/repositories/email-provider.repository';
+import { IEmailProviderRepository } from '../application/ports/repositories/email-provider.repository';
 import { EmailProvider } from '../domain/bounded-contexts/mailbox/email-provider.aggregate';
 
 export class InMemoryEmailProviderRepository implements IEmailProviderRepository {

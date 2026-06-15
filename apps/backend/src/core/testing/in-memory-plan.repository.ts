@@ -8,7 +8,7 @@
 
 import { Result } from '../domain/shared/result';
 import { Plan } from '../domain/bounded-contexts/billing/plan.aggregate';
-import { IPlanRepository } from 'application/ports/repositories/plan.repository';
+import { IPlanRepository } from '../application/ports/repositories/plan.repository';
 
 export class InMemoryPlanRepository implements IPlanRepository {
   public readonly items: Plan[] = [];

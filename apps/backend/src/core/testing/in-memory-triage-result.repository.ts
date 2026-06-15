@@ -6,7 +6,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { ITriageResultRepository, TriageResultFilters } from 'application/ports/repositories/triage-result.repository';
+import { ITriageResultRepository, TriageResultFilters } from '../application/ports/repositories/triage-result.repository';
 import { TriageResult, TriagePriority, TriageCategory } from '../domain/bounded-contexts/ai/triage-result.aggregate';
 
 export class InMemoryTriageResultRepository implements ITriageResultRepository {

@@ -6,7 +6,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { ISessionRepository } from 'application/ports/repositories/session.repository';
+import { ISessionRepository } from '../application/ports/repositories/session.repository';
 import { Session } from '../domain/bounded-contexts/identity/session.aggregate';
 import { Result } from '../domain/shared/result';
 import { UserId } from '../domain/shared/value-objects/ids';

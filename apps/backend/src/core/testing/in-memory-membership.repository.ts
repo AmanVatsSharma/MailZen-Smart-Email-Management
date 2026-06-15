@@ -8,7 +8,7 @@
 
 import { Result } from '../domain/shared/result';
 import { Membership } from '../domain/bounded-contexts/workspaces/membership.aggregate';
-import { IMembershipRepository } from 'application/ports/repositories/membership.repository';
+import { IMembershipRepository } from '../application/ports/repositories/membership.repository';
 
 export class InMemoryMembershipRepository implements IMembershipRepository {
   public readonly items: Membership[] = [];
