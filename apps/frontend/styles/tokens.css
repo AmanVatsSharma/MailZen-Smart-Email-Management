@@ -75,3 +75,32 @@
   --color-brand-400: oklch(0.75 0.20 290);
   --color-brand-500: oklch(0.68 0.24 290);
 }
+
+/* ============================================================================
+   Reduced-motion handling
+   ----------------------------------------------------------------------------
+   - The OS-level media query covers pre-hydration (no JS yet).
+   - The data-reduced-motion attribute is set by MotionProvider after
+     hydration and stays in sync as the user toggles the OS setting.
+   - Both selectors collapse all transitions/animations to near-instant
+     while keeping the final state correct.
+   ============================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body[data-reduced-motion='true'] *,
+body[data-reduced-motion='true'] *::before,
+body[data-reduced-motion='true'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

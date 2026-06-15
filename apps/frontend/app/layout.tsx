@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Plus_Jakarta_Sans, Sora } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/providers/theme-provider';
+import { MotionProvider } from '@/providers/motion-provider';
 import { ApolloProvider } from '@/providers/ApolloProvider';
 import { Toaster } from '@/components/composites/toast';
 
@@ -40,8 +41,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <ApolloProvider>
-            <div className="w-full h-full">{children}</div>
-            <Toaster />
+            <MotionProvider>
+              <div className="w-full h-full">{children}</div>
+              <Toaster />
+            </MotionProvider>
           </ApolloProvider>
         </ThemeProvider>
       </body>
