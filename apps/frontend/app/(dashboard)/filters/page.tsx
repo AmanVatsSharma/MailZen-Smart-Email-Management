@@ -33,7 +33,7 @@ import { useMutation, useQuery } from '@apollo/client';
 import { Plus, Search, Trash2, Filter as FilterIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/primitives/status-badge';
 import {
   Dialog,
   DialogContent,
@@ -293,14 +293,17 @@ const FiltersPage = () => {
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {item.rules.map((rule, index) => (
-                      <Badge key={`${item.id}-${index}`} variant="outline" className="text-xs font-normal">
+                      <span
+                        key={`${item.id}-${index}`}
+                        className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-normal"
+                      >
                         <span className="text-muted-foreground">{rule.field}</span>
                         &nbsp;{CONDITION_LABELS[rule.condition] ?? rule.condition}&nbsp;
                         <span className="font-medium">{rule.value}</span>
                         &nbsp;→&nbsp;
                         <span className="text-foreground">{ACTION_LABELS[rule.action] ?? rule.action}</span>
                         {rule.actionValue ? <span className="text-muted-foreground"> ({rule.actionValue})</span> : ''}
-                      </Badge>
+                      </span>
                     ))}
                   </div>
                 </div>

@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { Play, Pause, Mail, Activity, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/primitives/status-badge';
 import {
   Select,
   SelectContent,
@@ -239,9 +239,10 @@ const WarmupPage = () => {
                 <h3 className="text-sm font-medium">Warmup Status</h3>
               </div>
               <div className="space-y-2">
-                <Badge variant={warmup.status === 'ACTIVE' ? 'default' : 'secondary'}>
-                  {warmup.status}
-                </Badge>
+                <StatusBadge
+                  status={warmup.status === 'ACTIVE' ? 'success' : 'info'}
+                  label={warmup.status}
+                />
                 <p className="text-xs text-muted-foreground">{selectedProvider.email}</p>
               </div>
             </div>

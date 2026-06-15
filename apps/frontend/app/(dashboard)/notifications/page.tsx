@@ -5,7 +5,6 @@ import { useMutation, useQuery } from '@apollo/client';
 import { Bell, CheckCircle, CheckCheck } from 'lucide-react';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -87,9 +86,14 @@ function NotificationCard({
             <span className="text-sm font-medium text-foreground leading-tight">
               {notification.title}
             </span>
-            <Badge className={cn('text-[10px] h-4 px-1.5 font-medium border', badgeColor)}>
+            <span
+              className={cn(
+                'inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] h-4 font-medium',
+                badgeColor,
+              )}
+            >
               {typeLabel}
-            </Badge>
+            </span>
           </div>
           <span className="shrink-0 text-[11px] text-muted-foreground/70 whitespace-nowrap">
             {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}

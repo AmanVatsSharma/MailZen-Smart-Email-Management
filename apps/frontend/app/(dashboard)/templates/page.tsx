@@ -5,7 +5,7 @@ import { useMutation, useQuery } from '@apollo/client';
 import { Edit2, Eye, FileText, Plus, Trash2 } from 'lucide-react';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/primitives/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -205,9 +205,11 @@ export default function TemplatesPage() {
               <div className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-semibold leading-tight">{t.name}</p>
-                  <Badge variant="secondary" className="shrink-0 text-xs">
-                    {formatDistanceToNow(parseISO(t.updatedAt), { addSuffix: true })}
-                  </Badge>
+                  <StatusBadge
+                    status="info"
+                    label={formatDistanceToNow(parseISO(t.updatedAt), { addSuffix: true })}
+                    className="shrink-0"
+                  />
                 </div>
                 <p className="text-sm text-muted-foreground truncate">Subject: {t.subject}</p>
               </div>

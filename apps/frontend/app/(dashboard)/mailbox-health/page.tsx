@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/primitives/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
@@ -449,12 +449,10 @@ export default function MailboxHealthPage() {
                         {alert.incidentRuns}/{alert.totalRuns}
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={alert.status === 'CRITICAL' ? 'destructive' : 'secondary'}
-                          className="text-xs"
-                        >
-                          {alert.status}
-                        </Badge>
+                        <StatusBadge
+                          status={alert.status === 'CRITICAL' ? 'error' : 'info'}
+                          label={alert.status}
+                        />
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {format(parseISO(alert.createdAt), 'MMM d, HH:mm')}
