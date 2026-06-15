@@ -32,6 +32,10 @@ export interface PlanProps {
 }
 
 export class Plan extends AggregateRoot<PlanProps> {
+  static reconstitute(props: PlanProps): Plan {
+    return new Plan(props);
+  }
+
   static create(props: Omit<PlanProps, 'id' | 'createdAt' | 'updatedAt'>): Result<Plan> {
     if (!props.code || props.code.trim().length === 0) {
       return Result.err(new Error('Plan code is required'));

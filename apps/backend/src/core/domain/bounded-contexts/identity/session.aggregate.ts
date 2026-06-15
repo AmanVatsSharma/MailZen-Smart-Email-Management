@@ -28,6 +28,10 @@ export class Session extends AggregateRoot<SessionProps> {
     super(props);
   }
 
+  static reconstitute(props: SessionProps): Session {
+    return new Session(props);
+  }
+
   static create(
     userId: UserId,
     refreshTokenHash: PasswordHash,

@@ -129,7 +129,8 @@ export class Email extends AggregateRoot<EmailProps> {
     return makeResult(Result.ok(email));
   }
 
-  static rehydrate(props: EmailProps): Email {
+static reconstitute(props: EmailProps): Email { return Email.rehydrate(props); }
+  static rehydrate(emailprops: EmailProps): Email {
     return new Email(props);
   }
 

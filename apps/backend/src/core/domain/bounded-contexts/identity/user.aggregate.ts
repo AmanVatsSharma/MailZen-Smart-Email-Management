@@ -27,6 +27,10 @@ export class User extends AggregateRoot<UserProps> {
     super(props);
   }
 
+  static reconstitute(props: UserProps): User {
+    return new User(props);
+  }
+
   static register(
     email: EmailAddress,
     role: UserRole = UserRole.User,

@@ -23,6 +23,10 @@ export interface ContactProps {
 }
 
 export class Contact extends AggregateRoot<ContactProps> {
+  static reconstitute(props: ContactProps): Contact {
+    return new Contact(props);
+  }
+
   static create(props: Omit<ContactProps, 'id' | 'createdAt' | 'updatedAt'>): Result<Contact> {
     if (!props.email || !this.isValidEmail(props.email)) {
       return Result.err(new Error('Valid email is required'));

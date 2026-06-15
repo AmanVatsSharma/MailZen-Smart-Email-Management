@@ -24,6 +24,10 @@ export interface WorkspaceProps {
 }
 
 export class Workspace extends AggregateRoot<WorkspaceProps> {
+  static reconstitute(props: WorkspaceProps): Workspace {
+    return new Workspace(props);
+  }
+
   static create(props: Omit<WorkspaceProps, 'id' | 'createdAt' | 'updatedAt'>): Result<Workspace> {
     return Result.ok(
       new Workspace({

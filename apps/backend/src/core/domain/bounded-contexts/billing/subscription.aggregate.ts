@@ -31,6 +31,10 @@ export interface SubscriptionProps {
 }
 
 export class Subscription extends AggregateRoot<SubscriptionProps> {
+  static reconstitute(props: SubscriptionProps): Subscription {
+    return new Subscription(props);
+  }
+
   static create(props: Omit<SubscriptionProps, 'id' | 'createdAt' | 'updatedAt'>): Result<Subscription> {
     if (props.currentPeriodEnd <= props.currentPeriodStart) {
       return Result.err(new Error('Period end must be after period start'));

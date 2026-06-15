@@ -46,7 +46,8 @@ export class EmailTemplate extends AggregateRoot<EmailTemplateProps> {
     })));
   }
 
-  static rehydrate(props: EmailTemplateProps): EmailTemplate {
+static reconstitute(props: EmailTemplateProps): EmailTemplate { return EmailTemplate.rehydrate(props); }
+  static rehydrate(emailtemplateprops: EmailTemplateProps): EmailTemplate {
     return new EmailTemplate(props);
   }
 

@@ -49,7 +49,8 @@ export class Thread extends AggregateRoot<ThreadProps> {
     return makeResult(Result.ok(thread));
   }
 
-  static rehydrate(props: ThreadProps): Thread {
+static reconstitute(props: ThreadProps): Thread { return Thread.rehydrate(props); }
+  static rehydrate(threadprops: ThreadProps): Thread {
     return new Thread(props);
   }
 

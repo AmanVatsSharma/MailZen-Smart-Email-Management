@@ -67,7 +67,8 @@ export class EmailWarmup extends AggregateRoot<EmailWarmupProps> {
     })));
   }
 
-  static rehydrate(props: EmailWarmupProps): EmailWarmup {
+static reconstitute(props: EmailWarmupProps): EmailWarmup { return EmailWarmup.rehydrate(props); }
+  static rehydrate(emailwarmupprops: EmailWarmupProps): EmailWarmup {
     return new EmailWarmup(props);
   }
 

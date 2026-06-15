@@ -26,6 +26,10 @@ export interface MembershipProps {
 }
 
 export class Membership extends AggregateRoot<MembershipProps> {
+  static reconstitute(props: MembershipProps): Membership {
+    return new Membership(props);
+  }
+
   static create(props: Omit<MembershipProps, 'id' | 'createdAt' | 'updatedAt'>): Result<Membership> {
     return Result.ok(
       new Membership({

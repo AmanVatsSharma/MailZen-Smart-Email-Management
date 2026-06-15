@@ -60,7 +60,8 @@ export class EmailAssignment extends AggregateRoot<EmailAssignmentProps> {
     })));
   }
 
-  static rehydrate(props: EmailAssignmentProps): EmailAssignment {
+static reconstitute(props: EmailAssignmentProps): EmailAssignment { return EmailAssignment.rehydrate(props); }
+  static rehydrate(emailassignmentprops: EmailAssignmentProps): EmailAssignment {
     return new EmailAssignment(props);
   }
 
