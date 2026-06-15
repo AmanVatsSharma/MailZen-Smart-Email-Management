@@ -6,8 +6,8 @@
  * Last-updated: 2026-06-13
  */
 import { ListFiltersHandler } from './list-filters.handler';
-import { InMemoryEmailFilterRepository } from '../../../../../testing/in-memory-email-filter.repository';
-import { UserId } from '../../../../../domain/shared/value-objects/ids';
+import { InMemoryEmailFilterRepository } from '../../../../testing/in-memory-email-filter.repository';
+import { UserId } from '../../../../domain/shared/value-objects/ids';
 
 describe('ListFiltersHandler', () => {
   it('returns all filters owned by a user', async () => {

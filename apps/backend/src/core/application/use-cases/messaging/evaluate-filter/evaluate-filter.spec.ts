@@ -6,12 +6,12 @@
  * Last-updated: 2026-06-13
  */
 import { EvaluateFilterHandler } from './evaluate-filter.handler';
-import { InMemoryEmailFilterRepository } from '../../../../../testing/in-memory-email-filter.repository';
-import { InMemoryEmailRepository } from '../../../../../testing/in-memory-email.repository';
-import { UserId } from '../../../../../domain/shared/value-objects/ids';
-import { EmailAddress } from '../../../../../domain/shared/value-objects/email-address';
-import { EmailId, WorkspaceId } from '../../../../../domain/shared/value-objects/ids';
-import { Email } from '../../../../../domain/bounded-contexts/messaging/email.aggregate';
+import { InMemoryEmailFilterRepository } from '../../../../testing/in-memory-email-filter.repository';
+import { InMemoryEmailRepository } from '../../../../testing/in-memory-email.repository';
+import { UserId } from '../../../../domain/shared/value-objects/ids';
+import { EmailAddress } from '../../../../domain/shared/value-objects/email-address';
+import { EmailId, WorkspaceId } from '../../../../domain/shared/value-objects/ids';
+import { Email } from '../../../../domain/bounded-contexts/messaging/email.aggregate';
 
 async function seedEmail(): Promise<string> {
   const repo = new InMemoryEmailRepository();

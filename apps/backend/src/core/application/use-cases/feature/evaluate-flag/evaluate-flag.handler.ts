@@ -7,9 +7,9 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { FEATURE_FLAG_REPOSITORY, IFeatureFlagRepository } from '../../ports/repositories/feature-flag.repository';
+import { FEATURE_FLAG_REPOSITORY, IFeatureFlagRepository } from '../../../ports/repositories/feature-flag.repository';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { EvaluateFlagCommand } from './evaluate-flag.command';
 
 @Injectable()

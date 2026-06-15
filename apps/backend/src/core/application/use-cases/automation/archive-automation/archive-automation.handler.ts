@@ -7,10 +7,10 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { AUTOMATION_REPOSITORY, IAutomationRepository } from '../../ports/repositories/automation.repository';
-import { IEventBus, EVENT_BUS } from '../../ports/event-bus/event-bus';
+import { AUTOMATION_REPOSITORY, IAutomationRepository } from '../../../ports/repositories/automation.repository';
+import { IEventBus, EVENT_BUS } from '../../../ports/event-bus/event-bus';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { Automation } from '../../../../domain/bounded-contexts/automation/automation.aggregate';
 import { ArchiveAutomationCommand } from './archive-automation.command';
 

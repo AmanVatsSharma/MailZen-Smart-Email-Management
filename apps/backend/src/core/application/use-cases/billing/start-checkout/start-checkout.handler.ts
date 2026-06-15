@@ -7,9 +7,9 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { PAYMENT_GATEWAY, PaymentGateway } from '../../ports/gateways/payment.gateway';
+import { PAYMENT_GATEWAY, PaymentGateway } from '../../../ports/gateways/payment.gateway';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { StartCheckoutCommand } from './start-checkout.command';
 
 @Injectable()

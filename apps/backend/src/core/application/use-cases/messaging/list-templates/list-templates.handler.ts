@@ -9,8 +9,8 @@ import {
   IEmailTemplateRepository,
   EMAIL_TEMPLATE_REPOSITORY,
 } from '../../../ports/repositories/email-template.repository';
-import { UserId } from '../../../../../domain/shared/value-objects/ids';
-import { Result, makeResult } from '../../../../../domain/shared/result';
+import { UserId } from '../../../../domain/shared/value-objects/ids';
+import { Result, makeResult } from '../../../../domain/shared/result';
 import { ListTemplatesInput, ListTemplatesOutput } from './list-templates.dto';
 
 export const LIST_TEMPLATES_HANDLER = Symbol('ListTemplatesHandler');

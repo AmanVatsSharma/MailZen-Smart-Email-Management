@@ -7,9 +7,9 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { CONTACT_REPOSITORY, IContactRepository } from '../../ports/repositories/contact.repository';
+import { CONTACT_REPOSITORY, IContactRepository } from '../../../ports/repositories/contact.repository';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { UpdateContactCommand } from './update-contact.command';
 
 @Injectable()

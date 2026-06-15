@@ -7,9 +7,9 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { SUBSCRIPTION_REPOSITORY, ISubscriptionRepository } from '../../ports/repositories/subscription.repository';
+import { SUBSCRIPTION_REPOSITORY, ISubscriptionRepository } from '../../../ports/repositories/subscription.repository';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { CancelSubscriptionCommand } from './cancel-subscription.command';
 
 @Injectable()

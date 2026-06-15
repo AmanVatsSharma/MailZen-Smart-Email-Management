@@ -7,10 +7,10 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { PAYMENT_GATEWAY, PaymentGateway } from '../../ports/gateways/payment.gateway';
-import { SUBSCRIPTION_REPOSITORY, ISubscriptionRepository } from '../../ports/repositories/subscription.repository';
+import { PAYMENT_GATEWAY, PaymentGateway } from '../../../ports/gateways/payment.gateway';
+import { SUBSCRIPTION_REPOSITORY, ISubscriptionRepository } from '../../../ports/repositories/subscription.repository';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { HandleBillingWebhookCommand } from './handle-billing-webhook.command';
 
 @Injectable()

@@ -6,9 +6,9 @@
  * Last-updated: 2026-06-13
  */
 import { ListAssignmentsHandler } from './list-assignments.handler';
-import { InMemoryEmailAssignmentRepository } from '../../../../../testing/in-memory-email-assignment.repository';
-import { EmailAssignment } from '../../../../../domain/bounded-contexts/messaging/email-assignment.aggregate';
-import { EmailId, UserId, WorkspaceId } from '../../../../../domain/shared/value-objects/ids';
+import { InMemoryEmailAssignmentRepository } from '../../../../testing/in-memory-email-assignment.repository';
+import { EmailAssignment } from '../../../../domain/bounded-contexts/messaging/email-assignment.aggregate';
+import { EmailId, UserId, WorkspaceId } from '../../../../domain/shared/value-objects/ids';
 
 describe('ListAssignmentsHandler', () => {
   it('returns workspace assignments', async () => {

@@ -11,9 +11,9 @@ import {
   IEmailTemplateRepository,
   EMAIL_TEMPLATE_REPOSITORY,
 } from '../../../ports/repositories/email-template.repository';
-import { EmailTemplate } from '../../../../../domain/bounded-contexts/messaging/email-template.aggregate';
-import { UserId } from '../../../../../domain/shared/value-objects/ids';
-import { Result, makeResult } from '../../../../../domain/shared/result';
+import { EmailTemplate } from '../../../../domain/bounded-contexts/messaging/email-template.aggregate';
+import { UserId } from '../../../../domain/shared/value-objects/ids';
+import { Result, makeResult } from '../../../../domain/shared/result';
 import { ValidationError } from '../../../exceptions/application-error';
 import { CreateTemplateInput, CreateTemplateOutput } from './create-template.dto';
 

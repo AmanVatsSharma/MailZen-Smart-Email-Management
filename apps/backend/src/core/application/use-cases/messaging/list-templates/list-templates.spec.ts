@@ -6,9 +6,9 @@
  * Last-updated: 2026-06-13
  */
 import { ListTemplatesHandler } from './list-templates.handler';
-import { InMemoryEmailTemplateRepository } from '../../../../../testing/in-memory-email-template.repository';
-import { EmailTemplate } from '../../../../../domain/bounded-contexts/messaging/email-template.aggregate';
-import { UserId } from '../../../../../domain/shared/value-objects/ids';
+import { InMemoryEmailTemplateRepository } from '../../../../testing/in-memory-email-template.repository';
+import { EmailTemplate } from '../../../../domain/bounded-contexts/messaging/email-template.aggregate';
+import { UserId } from '../../../../domain/shared/value-objects/ids';
 
 describe('ListTemplatesHandler', () => {
   it('returns owned templates', async () => {

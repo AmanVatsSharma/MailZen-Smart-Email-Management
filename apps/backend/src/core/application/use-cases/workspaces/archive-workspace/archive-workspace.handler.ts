@@ -7,9 +7,9 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { WORKSPACE_REPOSITORY, IWorkspaceRepository } from '../../ports/repositories/workspace.repository';
+import { WORKSPACE_REPOSITORY, IWorkspaceRepository } from '../../../ports/repositories/workspace.repository';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { ArchiveWorkspaceCommand } from './archive-workspace.command';
 
 @Injectable()

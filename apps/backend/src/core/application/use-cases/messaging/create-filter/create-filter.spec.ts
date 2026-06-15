@@ -6,7 +6,7 @@
  * Last-updated: 2026-06-13
  */
 import { CreateFilterHandler } from './create-filter.handler';
-import { InMemoryEmailFilterRepository } from '../../../../../testing/in-memory-email-filter.repository';
+import { InMemoryEmailFilterRepository } from '../../../../testing/in-memory-email-filter.repository';
 
 describe('CreateFilterHandler', () => {
   it('creates a filter with one rule', async () => {

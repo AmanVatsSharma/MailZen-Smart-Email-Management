@@ -6,7 +6,7 @@
  * Author:      AmanVatsSharma
  * Last-updated: 2026-06-13
  */
-import { FilterAction } from '../../../../../domain/bounded-contexts/messaging/email-filter.specification';
+import { FilterAction } from '../../../../domain/bounded-contexts/messaging/email-filter.specification';
 
 export interface EvaluateFilterInput {
   filterId: string;

@@ -7,9 +7,9 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { AUTOMATION_REPOSITORY, IAutomationRepository } from '../../ports/repositories/automation.repository';
+import { AUTOMATION_REPOSITORY, IAutomationRepository } from '../../../ports/repositories/automation.repository';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { Automation } from '../../../../domain/bounded-contexts/automation/automation.aggregate';
 import { ListAutomationsCommand } from './list-automations.command';
 

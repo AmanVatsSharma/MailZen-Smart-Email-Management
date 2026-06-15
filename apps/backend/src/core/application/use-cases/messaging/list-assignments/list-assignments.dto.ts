@@ -5,7 +5,7 @@
  * Author:      AmanVatsSharma
  * Last-updated: 2026-06-13
  */
-import { EmailAssignmentStatus } from '../../../../../domain/bounded-contexts/messaging/email-assignment.aggregate';
+import { EmailAssignmentStatus } from '../../../../domain/bounded-contexts/messaging/email-assignment.aggregate';
 
 export interface ListAssignmentsInput {
   workspaceId: string;

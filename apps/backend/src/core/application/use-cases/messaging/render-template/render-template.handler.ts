@@ -10,7 +10,7 @@ import {
   IEmailTemplateRepository,
   EMAIL_TEMPLATE_REPOSITORY,
 } from '../../../ports/repositories/email-template.repository';
-import { Result, makeResult } from '../../../../../domain/shared/result';
+import { Result, makeResult } from '../../../../domain/shared/result';
 import { NotFoundError } from '../../../exceptions/application-error';
 import { RenderTemplateInput, RenderTemplateOutput } from './render-template.dto';
 

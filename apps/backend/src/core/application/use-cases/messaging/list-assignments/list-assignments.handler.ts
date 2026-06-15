@@ -10,8 +10,8 @@ import {
   IEmailAssignmentRepository,
   EMAIL_ASSIGNMENT_REPOSITORY,
 } from '../../../ports/repositories/email-assignment.repository';
-import { WorkspaceId } from '../../../../../domain/shared/value-objects/ids';
-import { Result, makeResult } from '../../../../../domain/shared/result';
+import { WorkspaceId } from '../../../../domain/shared/value-objects/ids';
+import { Result, makeResult } from '../../../../domain/shared/result';
 import { ListAssignmentsInput, ListAssignmentsOutput } from './list-assignments.dto';
 
 export const LIST_ASSIGNMENTS_HANDLER = Symbol('ListAssignmentsHandler');

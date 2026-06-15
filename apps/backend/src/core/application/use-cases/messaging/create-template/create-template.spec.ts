@@ -6,7 +6,7 @@
  * Last-updated: 2026-06-13
  */
 import { CreateTemplateHandler } from './create-template.handler';
-import { InMemoryEmailTemplateRepository } from '../../../../../testing/in-memory-email-template.repository';
+import { InMemoryEmailTemplateRepository } from '../../../../testing/in-memory-email-template.repository';
 
 describe('CreateTemplateHandler', () => {
   it('creates a template', async () => {

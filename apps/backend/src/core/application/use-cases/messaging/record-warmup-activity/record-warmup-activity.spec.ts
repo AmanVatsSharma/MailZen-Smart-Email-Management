@@ -6,8 +6,8 @@
  * Last-updated: 2026-06-13
  */
 import { RecordWarmupActivityHandler } from './record-warmup-activity.handler';
-import { InMemoryEmailWarmupRepository } from '../../../../../testing/in-memory-email-warmup.repository';
-import { EmailWarmup } from '../../../../../domain/bounded-contexts/messaging/warmup.aggregate';
+import { InMemoryEmailWarmupRepository } from '../../../../testing/in-memory-email-warmup.repository';
+import { EmailWarmup } from '../../../../domain/bounded-contexts/messaging/warmup.aggregate';
 
 describe('RecordWarmupActivityHandler', () => {
   it('records activity and persists the updated warmup', async () => {

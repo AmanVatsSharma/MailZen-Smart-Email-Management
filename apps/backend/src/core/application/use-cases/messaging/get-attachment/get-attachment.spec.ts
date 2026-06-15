@@ -6,9 +6,9 @@
  * Last-updated: 2026-06-13
  */
 import { GetAttachmentHandler } from './get-attachment.handler';
-import { InMemoryAttachmentRepository } from '../../../../../testing/in-memory-attachment.repository';
-import { Attachment } from '../../../../../domain/bounded-contexts/messaging/attachment.entity';
-import { EmailId } from '../../../../../domain/shared/value-objects/ids';
+import { InMemoryAttachmentRepository } from '../../../../testing/in-memory-attachment.repository';
+import { Attachment } from '../../../../domain/bounded-contexts/messaging/attachment.entity';
+import { EmailId } from '../../../../domain/shared/value-objects/ids';
 
 describe('GetAttachmentHandler', () => {
   it('returns a stored attachment', async () => {

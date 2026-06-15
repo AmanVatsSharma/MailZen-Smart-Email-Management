@@ -11,8 +11,8 @@ import {
   IEmailFilterRepository,
   EMAIL_FILTER_REPOSITORY,
 } from '../../../ports/repositories/email-filter.repository';
-import { UserId } from '../../../../../domain/shared/value-objects/ids';
-import { Result, makeResult } from '../../../../../domain/shared/result';
+import { UserId } from '../../../../domain/shared/value-objects/ids';
+import { Result, makeResult } from '../../../../domain/shared/result';
 import { NotFoundError, ValidationError } from '../../../exceptions/application-error';
 import { UpdateFilterInput, UpdateFilterOutput } from './update-filter.dto';
 

@@ -11,9 +11,9 @@ import {
   IEmailAssignmentRepository,
   EMAIL_ASSIGNMENT_REPOSITORY,
 } from '../../../ports/repositories/email-assignment.repository';
-import { EmailAssignment } from '../../../../../domain/bounded-contexts/messaging/email-assignment.aggregate';
-import { EmailId, UserId, WorkspaceId } from '../../../../../domain/shared/value-objects/ids';
-import { Result, makeResult } from '../../../../../domain/shared/result';
+import { EmailAssignment } from '../../../../domain/bounded-contexts/messaging/email-assignment.aggregate';
+import { EmailId, UserId, WorkspaceId } from '../../../../domain/shared/value-objects/ids';
+import { Result, makeResult } from '../../../../domain/shared/result';
 import { ValidationError } from '../../../exceptions/application-error';
 import { AssignEmailInput, AssignEmailOutput } from './assign-email.dto';
 

@@ -7,10 +7,10 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { SUBSCRIPTION_REPOSITORY, ISubscriptionRepository } from '../../ports/repositories/subscription.repository';
-import { PLAN_REPOSITORY, IPlanRepository } from '../../ports/repositories/plan.repository';
+import { SUBSCRIPTION_REPOSITORY, ISubscriptionRepository } from '../../../ports/repositories/subscription.repository';
+import { PLAN_REPOSITORY, IPlanRepository } from '../../../ports/repositories/plan.repository';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { ChangePlanCommand } from './change-plan.command';
 
 @Injectable()

@@ -7,10 +7,10 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { WORKSPACE_REPOSITORY, IWorkspaceRepository } from '../../ports/repositories/workspace.repository';
-import { MEMBERSHIP_REPOSITORY, IMembershipRepository } from '../../ports/repositories/membership.repository';
+import { WORKSPACE_REPOSITORY, IWorkspaceRepository } from '../../../ports/repositories/workspace.repository';
+import { MEMBERSHIP_REPOSITORY, IMembershipRepository } from '../../../ports/repositories/membership.repository';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { Membership } from '../../../../domain/bounded-contexts/workspaces/membership.aggregate';
 import { AddMemberCommand } from './add-member.command';
 

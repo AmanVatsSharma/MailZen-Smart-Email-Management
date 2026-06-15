@@ -9,7 +9,7 @@ import {
   IAttachmentRepository,
   ATTACHMENT_REPOSITORY,
 } from '../../../ports/repositories/attachment.repository';
-import { Result, makeResult } from '../../../../../domain/shared/result';
+import { Result, makeResult } from '../../../../domain/shared/result';
 import { NotFoundError } from '../../../exceptions/application-error';
 import { GetAttachmentInput, GetAttachmentOutput } from './get-attachment.dto';
 

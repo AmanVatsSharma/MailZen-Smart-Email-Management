@@ -5,7 +5,7 @@
  * Author:      AmanVatsSharma
  * Last-updated: 2026-06-13
  */
-import { EmailFilterRule } from '../../../../../domain/bounded-contexts/messaging/email-filter.specification';
+import { EmailFilterRule } from '../../../../domain/bounded-contexts/messaging/email-filter.specification';
 
 export interface UpdateFilterInput {
   id: string;

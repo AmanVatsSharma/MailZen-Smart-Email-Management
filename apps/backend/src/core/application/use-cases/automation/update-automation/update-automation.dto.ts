@@ -6,9 +6,9 @@
  * Last-updated: 2026-06-14
  */
 
-import { AutomationTrigger } from '../../../../../domain/bounded-contexts/automation/value-objects/automation-trigger.vo';
-import { AutomationCondition } from '../../../../../domain/bounded-contexts/automation/value-objects/automation-condition.vo';
-import { AutomationStep } from '../../../../../domain/bounded-contexts/automation/value-objects/automation-step.vo';
+import { AutomationTrigger } from '../../../../domain/bounded-contexts/automation/value-objects/automation-trigger.vo';
+import { AutomationCondition } from '../../../../domain/bounded-contexts/automation/value-objects/automation-condition.vo';
+import { AutomationStep } from '../../../../domain/bounded-contexts/automation/value-objects/automation-step.vo';
 
 export interface UpdateAutomationDto {
   workflowId: string;

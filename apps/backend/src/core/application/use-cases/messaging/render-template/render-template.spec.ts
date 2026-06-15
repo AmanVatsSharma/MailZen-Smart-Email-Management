@@ -6,9 +6,9 @@
  * Last-updated: 2026-06-13
  */
 import { RenderTemplateHandler } from './render-template.handler';
-import { InMemoryEmailTemplateRepository } from '../../../../../testing/in-memory-email-template.repository';
-import { EmailTemplate } from '../../../../../domain/bounded-contexts/messaging/email-template.aggregate';
-import { UserId } from '../../../../../domain/shared/value-objects/ids';
+import { InMemoryEmailTemplateRepository } from '../../../../testing/in-memory-email-template.repository';
+import { EmailTemplate } from '../../../../domain/bounded-contexts/messaging/email-template.aggregate';
+import { UserId } from '../../../../domain/shared/value-objects/ids';
 
 describe('RenderTemplateHandler', () => {
   it('interpolates variables', async () => {

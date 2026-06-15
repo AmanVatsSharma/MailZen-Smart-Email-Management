@@ -10,7 +10,7 @@ import {
   IEmailWarmupRepository,
   EMAIL_WARMUP_REPOSITORY,
 } from '../../../ports/repositories/email-warmup.repository';
-import { Result, makeResult } from '../../../../../domain/shared/result';
+import { Result, makeResult } from '../../../../domain/shared/result';
 import { NotFoundError, ValidationError } from '../../../exceptions/application-error';
 import { RecordWarmupActivityInput, RecordWarmupActivityOutput } from './record-warmup-activity.dto';
 

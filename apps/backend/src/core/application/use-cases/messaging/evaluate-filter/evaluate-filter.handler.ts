@@ -12,9 +12,9 @@ import {
   EMAIL_FILTER_REPOSITORY,
 } from '../../../ports/repositories/email-filter.repository';
 import { IEmailRepository, EMAIL_REPOSITORY } from '../../../ports/repositories/email.repository';
-import { buildEmailFilter } from '../../../../../domain/bounded-contexts/messaging/email-filter.specification';
-import { EmailId } from '../../../../../domain/shared/value-objects/ids';
-import { Result, makeResult } from '../../../../../domain/shared/result';
+import { buildEmailFilter } from '../../../../domain/bounded-contexts/messaging/email-filter.specification';
+import { EmailId } from '../../../../domain/shared/value-objects/ids';
+import { Result, makeResult } from '../../../../domain/shared/result';
 import { NotFoundError } from '../../../exceptions/application-error';
 import { EvaluateFilterInput, EvaluateFilterOutput } from './evaluate-filter.dto';
 

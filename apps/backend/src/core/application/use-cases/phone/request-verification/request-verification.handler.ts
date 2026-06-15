@@ -8,10 +8,10 @@
 
 import { Injectable, Inject } from '@nestjs/common';
 import { createHash } from 'crypto';
-import { PHONE_VERIFICATION_REPOSITORY, IPhoneVerificationRepository } from '../../ports/repositories/phone-verification.repository';
-import { SMS_GATEWAY, ISmsGateway } from '../../ports/gateways/sms.gateway';
+import { PHONE_VERIFICATION_REPOSITORY, IPhoneVerificationRepository } from '../../../ports/repositories/phone-verification.repository';
+import { SMS_GATEWAY, ISmsGateway } from '../../../ports/gateways/sms.gateway';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { PhoneVerification } from '../../../../domain/bounded-contexts/phone/phone-verification.aggregate';
 import { RequestVerificationCommand } from './request-verification.command';
 

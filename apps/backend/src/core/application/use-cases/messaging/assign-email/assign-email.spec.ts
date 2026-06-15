@@ -6,7 +6,7 @@
  * Last-updated: 2026-06-13
  */
 import { AssignEmailHandler } from './assign-email.handler';
-import { InMemoryEmailAssignmentRepository } from '../../../../../testing/in-memory-email-assignment.repository';
+import { InMemoryEmailAssignmentRepository } from '../../../../testing/in-memory-email-assignment.repository';
 
 describe('AssignEmailHandler', () => {
   it('creates an open assignment', async () => {

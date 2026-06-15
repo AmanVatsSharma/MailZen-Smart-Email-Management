@@ -7,9 +7,9 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { LABEL_REPOSITORY, ILabelRepository } from '../../ports/repositories/label.repository';
+import { LABEL_REPOSITORY, ILabelRepository } from '../../../ports/repositories/label.repository';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { DeleteLabelCommand } from './delete-label.command';
 
 @Injectable()

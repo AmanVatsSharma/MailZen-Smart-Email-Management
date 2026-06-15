@@ -7,9 +7,9 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { PLAN_REPOSITORY, IPlanRepository } from '../../ports/repositories/plan.repository';
+import { PLAN_REPOSITORY, IPlanRepository } from '../../../ports/repositories/plan.repository';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { Plan } from '../../../../domain/bounded-contexts/billing/plan.aggregate';
 import { ListPlansCommand } from './list-plans.command';
 

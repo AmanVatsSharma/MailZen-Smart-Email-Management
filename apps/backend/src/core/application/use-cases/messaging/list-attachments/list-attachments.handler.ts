@@ -10,8 +10,8 @@ import {
   IAttachmentRepository,
   ATTACHMENT_REPOSITORY,
 } from '../../../ports/repositories/attachment.repository';
-import { EmailId } from '../../../../../domain/shared/value-objects/ids';
-import { Result, makeResult } from '../../../../../domain/shared/result';
+import { EmailId } from '../../../../domain/shared/value-objects/ids';
+import { Result, makeResult } from '../../../../domain/shared/result';
 import { ListAttachmentsInput, ListAttachmentsOutput } from './list-attachments.dto';
 
 export const LIST_ATTACHMENTS_HANDLER = Symbol('ListAttachmentsHandler');

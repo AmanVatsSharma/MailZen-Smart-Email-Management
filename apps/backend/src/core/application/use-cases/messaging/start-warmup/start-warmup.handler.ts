@@ -11,8 +11,8 @@ import {
   IEmailWarmupRepository,
   EMAIL_WARMUP_REPOSITORY,
 } from '../../../ports/repositories/email-warmup.repository';
-import { EmailWarmup } from '../../../../../domain/bounded-contexts/messaging/warmup.aggregate';
-import { Result, makeResult } from '../../../../../domain/shared/result';
+import { EmailWarmup } from '../../../../domain/bounded-contexts/messaging/warmup.aggregate';
+import { Result, makeResult } from '../../../../domain/shared/result';
 import { ConflictError, ValidationError } from '../../../exceptions/application-error';
 import { StartWarmupInput, StartWarmupOutput } from './start-warmup.dto';
 

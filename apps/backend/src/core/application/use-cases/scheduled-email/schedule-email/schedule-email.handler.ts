@@ -7,9 +7,9 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { SCHEDULED_EMAIL_REPOSITORY, IScheduledEmailRepository } from '../../ports/repositories/scheduled-email.repository';
+import { SCHEDULED_EMAIL_REPOSITORY, IScheduledEmailRepository } from '../../../ports/repositories/scheduled-email.repository';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { ScheduledEmail } from '../../../../domain/bounded-contexts/scheduled-email/scheduled-email.aggregate';
 import { EmailId, UserId, WorkspaceId } from '../../../../domain/shared/value-objects/ids';
 import { ScheduleEmailCommand } from './schedule-email.command';

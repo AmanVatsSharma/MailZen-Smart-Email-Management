@@ -7,9 +7,9 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { AI_CREDIT_BURNER, AiCreditBurner } from '../../ports/gateways/ai-credit-burner.gateway';
+import { AI_CREDIT_BURNER, AiCreditBurner } from '../../../ports/gateways/ai-credit-burner.gateway';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { ConsumeAiCreditsCommand } from './consume-ai-credits.command';
 
 @Injectable()

@@ -7,9 +7,9 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { NOTIFICATION_REPOSITORY, INotificationRepository } from '../../ports/repositories/notification.repository';
+import { NOTIFICATION_REPOSITORY, INotificationRepository } from '../../../ports/repositories/notification.repository';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { MarkNotificationReadCommand } from './mark-read.command';
 
 @Injectable()

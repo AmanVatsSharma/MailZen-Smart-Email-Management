@@ -7,9 +7,9 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { UNIFIED_THREAD_REPOSITORY, IUnifiedThreadRepository } from '../../ports/repositories/unified-inbox.repository';
+import { UNIFIED_THREAD_REPOSITORY, IUnifiedThreadRepository } from '../../../ports/repositories/unified-inbox.repository';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { UnifiedThread } from '../../../../domain/bounded-contexts/unified-inbox/unified-thread.aggregate';
 import { UserId, WorkspaceId } from '../../../../domain/shared/value-objects/ids';
 import { ListThreadsCommand } from './list-threads.command';

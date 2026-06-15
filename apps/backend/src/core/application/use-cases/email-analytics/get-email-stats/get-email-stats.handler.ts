@@ -7,9 +7,9 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { TRACKING_EVENT_REPOSITORY, ITrackingEventRepository } from '../../ports/repositories/tracking-event.repository';
+import { TRACKING_EVENT_REPOSITORY, ITrackingEventRepository } from '../../../ports/repositories/tracking-event.repository';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { GetEmailStatsCommand } from './get-email-stats.command';
 
 export interface EmailStatsResult {

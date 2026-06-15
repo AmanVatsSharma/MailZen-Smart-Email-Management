@@ -10,8 +10,8 @@ import {
   IEmailAssignmentRepository,
   EMAIL_ASSIGNMENT_REPOSITORY,
 } from '../../../ports/repositories/email-assignment.repository';
-import { EmailId } from '../../../../../domain/shared/value-objects/ids';
-import { Result, makeResult } from '../../../../../domain/shared/result';
+import { EmailId } from '../../../../domain/shared/value-objects/ids';
+import { Result, makeResult } from '../../../../domain/shared/result';
 import { NotFoundError } from '../../../exceptions/application-error';
 import { UnassignEmailInput, UnassignEmailOutput } from './unassign-email.dto';
 

@@ -7,9 +7,9 @@
  */
 
 import { Injectable, Inject } from '@nestjs/common';
-import { TRACKING_EVENT_REPOSITORY, ITrackingEventRepository } from '../../ports/repositories/tracking-event.repository';
+import { TRACKING_EVENT_REPOSITORY, ITrackingEventRepository } from '../../../ports/repositories/tracking-event.repository';
 import { Result } from '../../../../domain/shared/result';
-import { ApplicationError } from '../../exceptions/application-error';
+import { ApplicationError } from '../../../exceptions/application-error';
 import { TrackingEvent } from '../../../../domain/bounded-contexts/email-analytics/tracking-event.aggregate';
 import { RecordEventCommand } from './record-event.command';
 

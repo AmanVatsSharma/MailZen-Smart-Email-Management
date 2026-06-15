@@ -5,7 +5,7 @@
  * Author:      AmanVatsSharma
  * Last-updated: 2026-06-13
  */
-import { WarmupConfig } from '../../../../../domain/bounded-contexts/messaging/warmup.aggregate';
+import { WarmupConfig } from '../../../../domain/bounded-contexts/messaging/warmup.aggregate';
 
 export interface StartWarmupInput {
   providerId: string;
