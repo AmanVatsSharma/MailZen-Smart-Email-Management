@@ -4,9 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@apollo/client';
 import { Loader2, Mail } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   AUTH_ME_QUERY,
@@ -110,14 +108,14 @@ export default function AliasSelectPage() {
   };
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle>Choose your MailZen address</CardTitle>
-        <CardDescription>
+    <div className="w-full max-w-md rounded-lg border border-border-subtle bg-surface-1 p-4">
+      <div>
+        <h1 className="text-base font-semibold leading-none tracking-tight">Choose your MailZen address</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           You must create your unique <strong>@mailzen.com</strong> address before entering the dashboard.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+        </p>
+      </div>
+      <div className="space-y-4 pt-4">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="mailzen-handle" className="text-sm font-medium">
@@ -144,9 +142,12 @@ export default function AliasSelectPage() {
           </div>
 
           {errorMessage ? (
-            <Alert variant="destructive">
-              <AlertDescription>{errorMessage}</AlertDescription>
-            </Alert>
+            <div
+              role="alert"
+              className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-900"
+            >
+              {errorMessage}
+            </div>
           ) : null}
 
           <Button type="submit" className="w-full" disabled={createMailboxLoading || loading}>
@@ -160,7 +161,7 @@ export default function AliasSelectPage() {
             )}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

@@ -14,7 +14,6 @@ import {
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
@@ -109,26 +108,24 @@ function StatCard({
   color?: string;
 }) {
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            {loading ? (
-              <Skeleton className="mt-1 h-8 w-20" />
-            ) : (
-              <p className={cn('mt-1 text-3xl font-bold', color)}>{value}</p>
-            )}
-            {sub && !loading && (
-              <p className="mt-1 text-xs text-muted-foreground">{sub}</p>
-            )}
-          </div>
-          <div className="rounded-lg bg-primary/10 p-2">
-            <Icon className="h-5 w-5 text-primary" />
-          </div>
+    <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          {loading ? (
+            <Skeleton className="mt-1 h-8 w-20" />
+          ) : (
+            <p className={cn('mt-1 text-3xl font-bold', color)}>{value}</p>
+          )}
+          {sub && !loading && (
+            <p className="mt-1 text-xs text-muted-foreground">{sub}</p>
+          )}
         </div>
-      </CardContent>
-    </Card>
+        <div className="rounded-lg bg-primary/10 p-2">
+          <Icon className="h-5 w-5 text-primary" />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -334,9 +331,9 @@ export default function MailboxHealthPage() {
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Sync Run Health</CardTitle>
+          <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+            <div className="flex flex-row items-center justify-between pb-2">
+              <h3 className="text-sm font-medium">Sync Run Health</h3>
               <Button
                 variant="outline"
                 size="sm"
@@ -346,8 +343,8 @@ export default function MailboxHealthPage() {
                 <Download className="mr-1 h-3 w-3" />
                 Export
               </Button>
-            </CardHeader>
-            <CardContent>
+            </div>
+            <div className="pt-2">
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={syncChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -360,12 +357,12 @@ export default function MailboxHealthPage() {
                   <Area type="monotone" dataKey="failed" stackId="1" stroke="hsl(0 84% 60%)" fill="hsl(0 84% 60% / 0.2)" name="Failed" />
                 </AreaChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Inbound Events</CardTitle>
+          <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+            <div className="flex flex-row items-center justify-between pb-2">
+              <h3 className="text-sm font-medium">Inbound Events</h3>
               <Button
                 variant="outline"
                 size="sm"
@@ -375,8 +372,8 @@ export default function MailboxHealthPage() {
                 <Download className="mr-1 h-3 w-3" />
                 Export
               </Button>
-            </CardHeader>
-            <CardContent>
+            </div>
+            <div className="pt-2">
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={inboundChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -389,14 +386,14 @@ export default function MailboxHealthPage() {
                   <Bar dataKey="deduplicated" fill="hsl(262 83% 58%)" name="Deduplicated" radius={[2, 2, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
         {/* Incident Alerts Table */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium">Sync Incident Alerts</CardTitle>
+        <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+          <div className="flex flex-row items-center justify-between">
+            <h3 className="text-sm font-medium">Sync Incident Alerts</h3>
             <Button
               variant="outline"
               size="sm"
@@ -406,8 +403,8 @@ export default function MailboxHealthPage() {
               <Download className="mr-1 h-3 w-3" />
               Export Incidents
             </Button>
-          </CardHeader>
-          <CardContent className="p-0">
+          </div>
+          <div className="p-0 pt-4">
             {alertsLoading ? (
               <div className="space-y-2 p-4">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -467,15 +464,13 @@ export default function MailboxHealthPage() {
                 </TableBody>
               </Table>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Manual Controls */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Manual Controls</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-3">
+        <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+          <h3 className="text-sm font-medium">Manual Controls</h3>
+          <div className="flex flex-wrap gap-3 pt-4">
             <Button
               variant="outline"
               size="sm"
@@ -503,8 +498,8 @@ export default function MailboxHealthPage() {
               <Trash2 className="mr-1.5 h-3.5 w-3.5" />
               Purge Old Logs
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       {/* Alert Check Dialog */}

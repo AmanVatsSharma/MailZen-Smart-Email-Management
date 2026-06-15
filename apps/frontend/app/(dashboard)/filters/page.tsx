@@ -35,13 +35,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -251,26 +244,24 @@ const FiltersPage = () => {
       )}
       contentClassName="space-y-4"
     >
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <CardTitle>Rules</CardTitle>
-              <CardDescription>
-                {filteredFilters.length} filter{filteredFilters.length === 1 ? '' : 's'}
-              </CardDescription>
-            </div>
-            <div className="w-full max-w-sm">
-              <Input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search filters..."
-                prefix={<Search className="h-4 w-4 text-muted-foreground" />}
-              />
-            </div>
+      <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold leading-none tracking-tight">Rules</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              {filteredFilters.length} filter{filteredFilters.length === 1 ? '' : 's'}
+            </p>
           </div>
-        </CardHeader>
-        <CardContent>
+          <div className="w-full max-w-sm">
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search filters..."
+              prefix={<Search className="h-4 w-4 text-muted-foreground" />}
+            />
+          </div>
+        </div>
+        <div className="mt-4">
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading filters...</p>
           ) : error ? (
@@ -316,8 +307,8 @@ const FiltersPage = () => {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="sm:max-w-[540px]">

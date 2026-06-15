@@ -4,15 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { Play, Pause, Mail, Activity, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -210,26 +202,26 @@ const WarmupPage = () => {
     >
 
       {loadingProviders || loadingWarmup ? (
-        <Card>
-          <CardContent className="py-8 text-sm text-muted-foreground">
+        <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+          <div className="py-8 text-sm text-muted-foreground">
             Loading warmup status...
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : warmupError ? (
-        <Card>
-          <CardContent className="py-8 text-sm text-destructive">
+        <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+          <div className="py-8 text-sm text-destructive">
             Failed to load warmup status: {warmupError.message}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : !selectedProvider ? (
-        <Card>
-          <CardContent className="py-8 text-sm text-muted-foreground">
+        <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+          <div className="py-8 text-sm text-muted-foreground">
             Connect an email provider first, then return to start warmup.
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : !warmup ? (
-        <Card>
-          <CardContent className="py-8">
+        <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+          <div className="py-8">
             <div className="flex items-center gap-2 mb-2">
               <Mail className="h-4 w-4 text-muted-foreground" />
               <p className="font-medium">No warmup active for {selectedProvider.email}</p>
@@ -237,50 +229,61 @@ const WarmupPage = () => {
             <p className="text-sm text-muted-foreground">
               Start warmup to gradually build sender reputation and improve inbox placement.
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Warmup Status</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+            <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+              <div className="pb-2">
+                <h3 className="text-sm font-medium">Warmup Status</h3>
+              </div>
+              <div className="space-y-2">
                 <Badge variant={warmup.status === 'ACTIVE' ? 'default' : 'secondary'}>
                   {warmup.status}
                 </Badge>
                 <p className="text-xs text-muted-foreground">{selectedProvider.email}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Daily Limit</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+              </div>
+            </div>
+            <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+              <div className="pb-2">
+                <h3 className="text-sm font-medium">Daily Limit</h3>
+              </div>
+              <div className="space-y-2">
                 <div className="text-2xl font-bold">{warmup.currentDailyLimit}</div>
-                <Progress value={progress} className="h-2" />
+                <div
+                  role="progressbar"
+                  aria-valuenow={progress}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  className="h-2 w-full rounded-full bg-surface-3 overflow-hidden"
+                >
+                  <div
+                    className="h-full bg-brand-500"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Target max: {warmup.maxDailyEmails}
                 </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Open Rate Target</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+              </div>
+            </div>
+            <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+              <div className="pb-2">
+                <h3 className="text-sm font-medium">Open Rate Target</h3>
+              </div>
+              <div className="space-y-2">
                 <div className="text-2xl font-bold">{warmup.targetOpenRate}%</div>
                 <p className="text-xs text-muted-foreground">
                   Current average: {metrics ? metrics.averageOpenRate.toFixed(1) : '--'}%
                 </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Last Run</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+              </div>
+            </div>
+            <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+              <div className="pb-2">
+                <h3 className="text-sm font-medium">Last Run</h3>
+              </div>
+              <div className="space-y-2">
                 <div className="inline-flex items-center gap-1 text-sm">
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   {warmup.lastRunAt ? new Date(warmup.lastRunAt).toLocaleString() : 'Not run yet'}
@@ -288,17 +291,17 @@ const WarmupPage = () => {
                 <p className="text-xs text-muted-foreground">
                   Interval: every {warmup.minimumInterval} minutes
                 </p>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Recent Warmup Activity</CardTitle>
-                <CardDescription>Latest activity records from backend warmup jobs.</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <div className="rounded-lg border border-border-subtle bg-surface-1 p-4 lg:col-span-2">
+              <div>
+                <h3 className="text-base font-semibold leading-none tracking-tight">Recent Warmup Activity</h3>
+                <p className="text-sm text-muted-foreground mt-1">Latest activity records from backend warmup jobs.</p>
+              </div>
+              <div className="pt-4">
                 {warmup.activities.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No activity records yet.</p>
                 ) : (
@@ -315,15 +318,15 @@ const WarmupPage = () => {
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Performance Snapshot</CardTitle>
-                <CardDescription>Computed warmup metrics.</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+              <div>
+                <h3 className="text-base font-semibold leading-none tracking-tight">Performance Snapshot</h3>
+                <p className="text-sm text-muted-foreground mt-1">Computed warmup metrics.</p>
+              </div>
+              <div className="pt-4">
                 {loadingMetrics ? (
                   <p className="text-sm text-muted-foreground">Loading metrics...</p>
                 ) : metrics ? (
@@ -343,8 +346,8 @@ const WarmupPage = () => {
                     Metrics appear after warmup activity starts.
                   </p>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         </>
       )}

@@ -27,8 +27,7 @@
 import { Metadata } from 'next';
 import { ProviderManagement } from '@/components/providers/ProviderManagement';
 import { SharedMailboxSettings } from '@/components/providers/SharedMailboxSettings';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 
 export const metadata: Metadata = {
@@ -48,11 +47,11 @@ interface EmailProvidersPageProps {
 export default async function EmailProvidersPage({ searchParams }: EmailProvidersPageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const { provider, success, error } = resolvedSearchParams;
-  
+
   // Determine if we have a success or error message to display
   const showSuccess = success === 'true' && provider;
   const showError = !!error;
-  
+
   return (
     <DashboardPageShell
       title="Email Providers"
@@ -60,33 +59,35 @@ export default async function EmailProvidersPage({ searchParams }: EmailProvider
       contentClassName="space-y-6"
     >
       {showSuccess && (
-        <Alert
-          variant="default"
-          className="border-emerald-200/60 bg-emerald-50 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-50"
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-lg border border-emerald-200/60 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-50"
         >
-          <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-          <AlertTitle>Success!</AlertTitle>
-          <AlertDescription>
-            Your {provider === 'gmail' ? 'Gmail' : provider === 'outlook' ? 'Outlook' : 'email'} account 
-            has been successfully connected.
-          </AlertDescription>
-        </Alert>
+          <CheckCircle className="h-4 w-4 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+          <div>
+            <p className="font-medium">Success!</p>
+            <p>
+              Your {provider === 'gmail' ? 'Gmail' : provider === 'outlook' ? 'Outlook' : 'email'} account
+              has been successfully connected.
+            </p>
+          </div>
+        </div>
       )}
-      
+
       {showError && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            {decodeURIComponent(error)}
-          </AlertDescription>
-        </Alert>
+        <div
+          role="alert"
+          className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-900"
+        >
+          <p className="font-medium">Error</p>
+          <p>{decodeURIComponent(error)}</p>
+        </div>
       )}
-      
+
       <div className="grid grid-cols-1 gap-6">
         <ProviderManagement />
         <SharedMailboxSettings />
       </div>
     </DashboardPageShell>
   );
-} 
+}

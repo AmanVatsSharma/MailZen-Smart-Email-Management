@@ -26,7 +26,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import {
   GET_EMAIL_TEMPLATES,
@@ -56,20 +55,20 @@ const VARIABLE_HINTS = [
 
 function TemplateSkeleton() {
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-2">
+    <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-1 p-4">
+      <div className="pb-2 space-y-2">
         <Skeleton className="h-5 w-2/3" />
         <Skeleton className="h-3.5 w-1/2" />
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div className="pt-2">
         <Skeleton className="h-16 w-full" />
-      </CardContent>
-      <CardFooter className="gap-2">
+      </div>
+      <div className="flex gap-2 pt-4">
         <Skeleton className="h-8 w-20" />
         <Skeleton className="h-8 w-20" />
         <Skeleton className="h-8 w-20" />
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -202,8 +201,8 @@ export default function TemplatesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {templates.map((t) => (
-            <Card key={t.id} className="flex flex-col overflow-hidden">
-              <CardHeader className="pb-2">
+            <div key={t.id} className="flex flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-1 p-4">
+              <div className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-semibold leading-tight">{t.name}</p>
                   <Badge variant="secondary" className="shrink-0 text-xs">
@@ -211,13 +210,13 @@ export default function TemplatesPage() {
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground truncate">Subject: {t.subject}</p>
-              </CardHeader>
-              <CardContent className="flex-1">
+              </div>
+              <div className="flex-1 pt-2">
                 <p className="line-clamp-3 text-xs text-muted-foreground font-mono leading-relaxed bg-muted/30 rounded p-2">
                   {t.body}
                 </p>
-              </CardContent>
-              <CardFooter className="gap-2 pt-0">
+              </div>
+              <div className="flex gap-2 pt-4">
                 <Button
                   variant="outline"
                   size="sm"
@@ -245,8 +244,8 @@ export default function TemplatesPage() {
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
-              </CardFooter>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
       )}
