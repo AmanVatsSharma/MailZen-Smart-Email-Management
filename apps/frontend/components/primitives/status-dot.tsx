@@ -4,14 +4,14 @@ import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 type StatusType = 'online' | 'offline' | 'syncing' | 'error' | 'pending' | 'success' | 'warning' | 'info' | 'neutral';
 
 const STATUS_COLORS: Record<StatusType, string> = {
-  online: 'bg-green-500',
+  online: 'bg-success-500',
   offline: 'bg-gray-400',
-  syncing: 'bg-blue-500',
-  error: 'bg-red-500',
-  pending: 'bg-yellow-500',
-  success: 'bg-green-500',
-  warning: 'bg-yellow-500',
-  info: 'bg-blue-500',
+  syncing: 'bg-info-500',
+  error: 'bg-danger-500',
+  pending: 'bg-warning-500',
+  success: 'bg-success-500',
+  warning: 'bg-warning-500',
+  info: 'bg-info-500',
   neutral: 'bg-gray-400',
 };
 
