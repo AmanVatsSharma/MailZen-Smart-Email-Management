@@ -1,7 +1,7 @@
 import { cn } from '@/lib/tokens/cn';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 
-type StatusType = 'online' | 'offline' | 'syncing' | 'error' | 'pending' | 'success' | 'warning' | 'info';
+type StatusType = 'online' | 'offline' | 'syncing' | 'error' | 'pending' | 'success' | 'warning' | 'info' | 'neutral';
 
 const STATUS_COLORS: Record<StatusType, string> = {
   online: 'bg-green-500',
@@ -12,6 +12,7 @@ const STATUS_COLORS: Record<StatusType, string> = {
   success: 'bg-green-500',
   warning: 'bg-yellow-500',
   info: 'bg-blue-500',
+  neutral: 'bg-gray-400',
 };
 
 type StatusDotProps = {

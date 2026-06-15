@@ -13,6 +13,12 @@ describe('Status primitives', () => {
     expect(screen.getByText('Sent')).toBeInTheDocument();
   });
 
+  it('StatusBadge supports neutral status', () => {
+    const { container } = render(<StatusBadge status="neutral" label="Draft" />);
+    expect(screen.getByText('Draft')).toBeInTheDocument();
+    expect(container.querySelector('[role="status"]')).toHaveClass('bg-gray-400');
+  });
+
   it('Spinner has aria-busy', () => {
     render(<Spinner size="sm" />);
     expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');

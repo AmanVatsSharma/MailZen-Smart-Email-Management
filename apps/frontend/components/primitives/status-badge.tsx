@@ -1,7 +1,7 @@
 import { cn } from '@/lib/tokens/cn';
 import { StatusDot } from './status-dot';
 
-type StatusType = 'online' | 'offline' | 'syncing' | 'error' | 'pending' | 'success' | 'warning' | 'info';
+type StatusType = 'online' | 'offline' | 'syncing' | 'error' | 'pending' | 'success' | 'warning' | 'info' | 'neutral';
 
 type StatusBadgeProps = {
   status: StatusType;
