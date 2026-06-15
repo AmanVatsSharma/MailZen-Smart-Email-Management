@@ -4,18 +4,11 @@ import React, { useState } from 'react';
 import { useLazyQuery, useMutation, useQuery } from '@apollo/client';
 import { Download, Phone, Plus, RefreshCw, UserPlus, Users } from 'lucide-react';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
+import { StatusBadge } from '@/components/primitives/status-badge';
+import { InlineError } from '@/components/primitives/inline-error';
 import {
   CREATE_WORKSPACE,
   GET_MY_ACTIVE_WORKSPACE,
@@ -178,30 +171,25 @@ const WorkspaceSettingsPage = () => {
       description="Create workspaces, review members, and invite collaborators."
       contentClassName="max-w-5xl space-y-6"
     >
-      <Alert className="border-primary/20 bg-primary/5">
-        <Users className="h-4 w-4 text-primary" />
-        <AlertTitle>Workspace RBAC foundation</AlertTitle>
-        <AlertDescription>
-          This is the first collaboration layer to support multi-team MailZen
-          deployments.
-        </AlertDescription>
-      </Alert>
+      <div role="alert" className="rounded-lg border border-primary/20 bg-primary/5">
+        <h4 className="font-medium mb-1">Workspace RBAC foundation</h4>
+        <p className="text-sm">
+          This is the first collaboration layer to support multi-team MailZen deployments.
+        </p>
+      </div>
 
       {workspaceError && (
-        <p className="text-sm text-destructive">
-          Failed to load workspaces: {workspaceError.message}
-        </p>
+        <InlineError error={new Error(workspaceError.message)} />
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Create workspace</CardTitle>
-          <CardDescription>
-            Team workspaces separate billing, inbox ownership, and automation
-            boundaries.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
+      <div className="rounded-lg border border-border-subtle bg-surface-1">
+        <div className="flex flex-col gap-1.5 p-6 relative z-10">
+          <h3 className="leading-none font-semibold">Create workspace</h3>
+          <p className="text-sm text-muted-foreground">
+            Team workspaces separate billing, inbox ownership, and automation boundaries.
+          </p>
+        </div>
+        <div className="p-6 flex flex-wrap gap-2">
           <Input
             value={newWorkspaceName}
             onChange={(event) => setNewWorkspaceName(event.target.value)}
@@ -224,18 +212,18 @@ const WorkspaceSettingsPage = () => {
               </>
             )}
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>My workspaces</CardTitle>
-            <CardDescription>
+        <div className="rounded-lg border border-border-subtle bg-surface-1">
+          <div className="flex flex-col gap-1.5 p-6 relative z-10">
+            <h3 className="leading-none font-semibold">My workspaces</h3>
+            <p className="text-sm text-muted-foreground">
               Select workspace to inspect members and manage invites.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
+            </p>
+          </div>
+          <div className="p-6 space-y-2">
             {workspaces.map((workspace) => (
               <div
                 key={workspace.id}
@@ -253,8 +241,8 @@ const WorkspaceSettingsPage = () => {
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium">{workspace.name}</p>
                     <div className="flex items-center gap-1">
-                      {workspace.isPersonal && <Badge variant="outline">Personal</Badge>}
-                      {workspace.id === activeWorkspaceId && <Badge>Active</Badge>}
+                      {workspace.isPersonal && <StatusBadge status="info" label="Personal" />}
+                      {workspace.id === activeWorkspaceId && <StatusBadge status="success" label="Active" />}
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">slug: {workspace.slug}</p>
@@ -273,19 +261,19 @@ const WorkspaceSettingsPage = () => {
                 </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Workspace members</CardTitle>
-            <CardDescription>
+        <div className="rounded-lg border border-border-subtle bg-surface-1">
+          <div className="flex flex-col gap-1.5 p-6 relative z-10">
+            <h3 className="leading-none font-semibold">Workspace members</h3>
+            <p className="text-sm text-muted-foreground">
               {selectedWorkspace
                 ? `Members for ${selectedWorkspace.name}`
                 : 'Select a workspace to manage members'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
+            </p>
+          </div>
+          <div className="p-6 space-y-3">
             {selectedWorkspace && (
               <div className="flex flex-wrap gap-2">
                 <Input
@@ -335,24 +323,24 @@ const WorkspaceSettingsPage = () => {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">{member.role}</Badge>
-                  <Badge>{member.status}</Badge>
+                  <StatusBadge status="info" label={member.role} />
+                  <StatusBadge status="success" label={member.status} />
                 </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       {/* Phone Verification */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Phone Verification</CardTitle>
-          <CardDescription>
+      <div className="rounded-lg border border-border-subtle bg-surface-1">
+        <div className="flex flex-col gap-1.5 p-6 relative z-10">
+          <h3 className="leading-none font-semibold">Phone Verification</h3>
+          <p className="text-sm text-muted-foreground">
             Add phone verification to strengthen account security. Required for enterprise SSO and MFA.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </p>
+        </div>
+        <div className="p-6">
           <Button
             variant="outline"
             size="sm"
@@ -362,8 +350,8 @@ const WorkspaceSettingsPage = () => {
             <Phone className="h-3.5 w-3.5" />
             Verify Phone Number
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <PhoneVerificationDialog
         open={phoneDialogOpen}
@@ -375,4 +363,3 @@ const WorkspaceSettingsPage = () => {
 };
 
 export default WorkspaceSettingsPage;
-

@@ -56,9 +56,8 @@ import {
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/primitives/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import {
   GET_AUTOMATION_RUN,
@@ -110,13 +109,13 @@ const RUN_STEP_STATUS_ICON: Record<StepStatus, React.ReactNode> = {
   SKIPPED:   <SkipForward className="h-4 w-4 text-muted-foreground shrink-0" />,
 };
 
-const RUN_STATUS_BADGE_CLASS: Record<RunStatus, string> = {
-  SUCCEEDED:           'bg-green-500/15 text-green-700 border-green-200 dark:text-green-400',
-  FAILED:              'bg-destructive/15 text-destructive border-destructive/20',
-  RUNNING:             'bg-blue-500/15 text-blue-700 border-blue-200 dark:text-blue-400',
-  QUEUED:              'text-muted-foreground',
-  CANCELED:            'text-muted-foreground',
-  SKIPPED_CONDITIONS:  'bg-yellow-500/15 text-yellow-700 border-yellow-200 dark:text-yellow-400',
+const RUN_STATUS_BADGE: Record<RunStatus, { status: 'success' | 'error' | 'info' | 'warning' | 'pending' | 'online' | 'offline' | 'syncing' }> = {
+  SUCCEEDED:           { status: 'success' },
+  FAILED:              { status: 'error' },
+  RUNNING:             { status: 'info' },
+  QUEUED:              { status: 'pending' },
+  CANCELED:            { status: 'offline' },
+  SKIPPED_CONDITIONS:  { status: 'warning' },
 };
 
 const RUN_STATUS_LABEL: Record<RunStatus, string> = {
@@ -171,7 +170,7 @@ function StepRunRow({ step }: { step: StepRun }) {
           </div>
           <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
             {step.attempt > 1 && (
-              <Badge variant="outline" className="text-xs px-1.5 py-0.5">attempt {step.attempt}</Badge>
+              <span className="text-xs px-1.5 py-0.5 rounded border border-border-subtle">attempt {step.attempt}</span>
             )}
             {duration !== null && <span>{duration}s</span>}
             {step.startedAt && (
@@ -299,17 +298,16 @@ export default function AutomationRunDetailPage() {
     >
       <div className="space-y-5 max-w-2xl">
         {/* Run summary */}
-        <Card>
-          <CardContent className="pt-4 pb-4 space-y-3">
+        <div className="rounded-lg border border-border-subtle bg-surface-1">
+          <div className="p-6 pt-4 pb-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-purple-500" />
-                <Badge
-                  variant="outline"
-                  className={`text-xs font-medium ${RUN_STATUS_BADGE_CLASS[run.status]}`}
-                >
-                  {RUN_STATUS_LABEL[run.status]}
-                </Badge>
+                <StatusBadge
+                  status={RUN_STATUS_BADGE[run.status].status}
+                  label={RUN_STATUS_LABEL[run.status]}
+                  className="text-xs font-medium"
+                />
               </div>
               <span className="text-xs text-muted-foreground">
                 {formatDistanceToNow(parseISO(run.createdAt), { addSuffix: true })}
@@ -340,8 +338,8 @@ export default function AutomationRunDetailPage() {
                 {run.finishedAt && ` · finished ${format(parseISO(run.finishedAt), 'HH:mm:ss')}`}
               </p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Step audit timeline */}
         <div>
@@ -352,16 +350,14 @@ export default function AutomationRunDetailPage() {
               <span className="text-sm">No steps recorded yet.</span>
             </div>
           ) : (
-            <Card>
-              <CardContent className="p-0 divide-y divide-border">
-                {run.steps
-                  .slice()
-                  .sort((a, b) => a.stepIndex - b.stepIndex || a.attempt - b.attempt)
-                  .map((step) => (
-                    <StepRunRow key={step.id} step={step} />
-                  ))}
-              </CardContent>
-            </Card>
+            <div className="rounded-lg border border-border-subtle bg-surface-1 p-0 divide-y divide-border">
+              {run.steps
+                .slice()
+                .sort((a, b) => a.stepIndex - b.stepIndex || a.attempt - b.attempt)
+                .map((step) => (
+                  <StepRunRow key={step.id} step={step} />
+                ))}
+            </div>
           )}
         </div>
       </div>

@@ -51,11 +51,10 @@ import {
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/primitives/status-badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -95,19 +94,17 @@ type Automation = {
 
 // ─── StatusPill ───────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<AutomationStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
-  ENABLED:  { label: 'Enabled',  variant: 'default',     className: 'bg-green-500/15 text-green-700 border-green-200 dark:text-green-400' },
-  DISABLED: { label: 'Disabled', variant: 'outline',     className: 'text-muted-foreground' },
-  DRAFT:    { label: 'Draft',    variant: 'secondary',   className: 'bg-yellow-500/15 text-yellow-700 border-yellow-200 dark:text-yellow-400' },
-  ARCHIVED: { label: 'Archived', variant: 'destructive', className: 'bg-muted text-muted-foreground border-transparent' },
+const STATUS_CONFIG: Record<AutomationStatus, { label: string; status: 'success' | 'info' | 'warning' | 'error' | 'pending' | 'online' | 'offline' | 'syncing' }> = {
+  ENABLED:  { label: 'Enabled',  status: 'success' },
+  DISABLED: { label: 'Disabled', status: 'offline' },
+  DRAFT:    { label: 'Draft',    status: 'warning' },
+  ARCHIVED: { label: 'Archived', status: 'error' },
 };
 
 function AutomationStatusPill({ status }: { status: AutomationStatus }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.DISABLED;
   return (
-    <Badge variant={cfg.variant} className={`text-xs font-medium ${cfg.className}`}>
-      {cfg.label}
-    </Badge>
+    <StatusBadge status={cfg.status} label={cfg.label} className="text-xs font-medium" />
   );
 }
 
@@ -127,21 +124,21 @@ function RunStatusIcon({ status }: { status: AutomationRunStatus }) {
 
 function AutomationCardSkeleton() {
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-3">
+    <div className="rounded-lg border border-border-subtle bg-surface-1 overflow-hidden">
+      <div className="flex flex-col gap-1.5 p-6 pb-3 relative z-10">
         <div className="flex items-start justify-between gap-3">
           <Skeleton className="h-5 w-48" />
           <Skeleton className="h-5 w-16 rounded-full" />
         </div>
         <Skeleton className="h-4 w-64 mt-1" />
-      </CardHeader>
-      <CardContent className="pt-0 pb-3">
+      </div>
+      <div className="p-6 pt-0 pb-3">
         <div className="flex items-center justify-between">
           <Skeleton className="h-4 w-32" />
           <Skeleton className="h-6 w-10 rounded-full" />
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -159,8 +156,8 @@ function AutomationCard({ automation, workspaceId, onToggle, onArchive, toggling
   const canToggle = automation.status === 'ENABLED' || automation.status === 'DISABLED' || automation.status === 'DRAFT';
 
   return (
-    <Card className="overflow-hidden transition-shadow hover:shadow-md group">
-      <CardHeader className="pb-2">
+    <div className="rounded-lg border border-border-subtle bg-surface-1 overflow-hidden transition-shadow hover:shadow-md group">
+      <div className="flex flex-col gap-1.5 p-6 pb-2 relative z-10">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <Zap className="h-4 w-4 text-purple-500 shrink-0" />
@@ -203,8 +200,8 @@ function AutomationCard({ automation, workspaceId, onToggle, onArchive, toggling
             {automation.description}
           </p>
         )}
-      </CardHeader>
-      <CardContent className="pt-0 pb-3">
+      </div>
+      <div className="p-6 pt-0 pb-3">
         <div className="flex items-center justify-between pl-6">
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             {lastRun ? (
@@ -231,8 +228,8 @@ function AutomationCard({ automation, workspaceId, onToggle, onArchive, toggling
             />
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 

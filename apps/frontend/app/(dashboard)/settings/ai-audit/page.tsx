@@ -5,7 +5,7 @@ import { useQuery } from '@apollo/client';
 import { Bot, Download, ShieldCheck } from 'lucide-react';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/primitives/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
@@ -22,14 +22,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   GET_MY_AGENT_ACTION_AUDITS,
   GET_MY_AGENT_ACTION_DATA_EXPORT,
 } from '@/lib/apollo/queries/agent-audit';
 import { useDataExport } from '@/lib/hooks/useDataExport';
 import { format, parseISO, subHours } from 'date-fns';
-import { cn } from '@/lib/tokens/cn';
 
 const SKILL_OPTIONS = [
   { value: 'ALL', label: 'All skills' },
@@ -152,68 +150,58 @@ export default function AiAuditPage() {
         </div>
 
         {/* Table */}
-        <Card>
-          <CardContent className="p-0">
-            {loading && audits.length === 0 ? (
-              <div className="space-y-2 p-4">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-10 w-full" />
-                ))}
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <ShieldCheck className="mb-3 h-10 w-10 opacity-40" />
-                <p className="text-sm font-medium">No audit records found</p>
-                <p className="text-xs">AI actions will appear here as the platform operates</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Timestamp</TableHead>
-                    <TableHead>Skill</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Message</TableHead>
-                    <TableHead>Status</TableHead>
+        <div className="rounded-lg border border-border-subtle bg-surface-1 p-0">
+          {loading && audits.length === 0 ? (
+            <div className="space-y-2 p-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <ShieldCheck className="mb-3 h-10 w-10 opacity-40" />
+              <p className="text-sm font-medium">No audit records found</p>
+              <p className="text-xs">AI actions will appear here as the platform operates</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Timestamp</TableHead>
+                  <TableHead>Skill</TableHead>
+                  <TableHead>Action</TableHead>
+                  <TableHead>Message</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((audit) => (
+                  <TableRow key={audit.id}>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {format(parseISO(audit.createdAt), 'MMM d, HH:mm:ss')}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status="info" label={audit.skill} className="text-xs font-mono" />
+                    </TableCell>
+                    <TableCell className="text-sm font-medium">{audit.action}</TableCell>
+                    <TableCell className="max-w-xs">
+                      <p className="truncate text-xs text-muted-foreground">{audit.message}</p>
+                    </TableCell>
+                    <TableCell>
+                      {audit.executed ? (
+                        <StatusBadge status="success" label="Executed" className="text-xs" />
+                      ) : audit.approvalRequired ? (
+                        <StatusBadge status="warning" label="Pending" className="text-xs" />
+                      ) : (
+                        <StatusBadge status="info" label="Skipped" className="text-xs" />
+                      )}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((audit) => (
-                    <TableRow key={audit.id}>
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        {format(parseISO(audit.createdAt), 'MMM d, HH:mm:ss')}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs font-mono">
-                          {audit.skill}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">{audit.action}</TableCell>
-                      <TableCell className="max-w-xs">
-                        <p className="truncate text-xs text-muted-foreground">{audit.message}</p>
-                      </TableCell>
-                      <TableCell>
-                        {audit.executed ? (
-                          <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 text-xs border-0">
-                            Executed
-                          </Badge>
-                        ) : audit.approvalRequired ? (
-                          <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 text-xs border-0">
-                            Pending
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-xs">
-                            Skipped
-                          </Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
 
         {/* Load more */}
         {audits.length >= limit && (

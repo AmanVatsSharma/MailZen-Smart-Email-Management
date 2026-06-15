@@ -35,13 +35,8 @@ import { useMutation, useQuery } from '@apollo/client';
 import { BookUser, Mail, Pencil, Phone, Plus, Search, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/primitives/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -212,15 +207,13 @@ const ContactsPage = () => {
       }
       contentClassName="space-y-4"
     >
-      <Card>
-        <CardHeader className="pb-3">
+      <div className="rounded-lg border border-border-subtle bg-surface-1">
+        <div className="flex flex-col gap-1.5 p-6 relative z-10">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Address Book</span>
               {!loading && (
-                <Badge variant="secondary" className="text-xs">
-                  {contacts.length}
-                </Badge>
+                <StatusBadge status="info" label={`${contacts.length}`} className="text-xs" />
               )}
             </div>
             <div className="relative w-full max-w-xs">
@@ -233,8 +226,8 @@ const ContactsPage = () => {
               />
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="pt-0 px-0">
+        </div>
+        <div className="pt-0 px-0">
           {loading ? (
             <div className="divide-y">
               {Array.from({ length: 4 }).map((_, i) => <ContactSkeleton key={i} />)}
@@ -318,8 +311,8 @@ const ContactsPage = () => {
               })}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Create / Edit dialog */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>

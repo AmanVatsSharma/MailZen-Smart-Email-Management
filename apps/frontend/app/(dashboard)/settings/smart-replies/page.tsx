@@ -19,24 +19,10 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
+import { StatusBadge } from '@/components/primitives/status-badge';
+import { InlineError } from '@/components/primitives/inline-error';
 import {
   GET_SMART_REPLY_SETTINGS,
   UPDATE_SMART_REPLY_SETTINGS,
@@ -292,24 +278,19 @@ const SmartRepliesSettingsPage = () => {
       contentClassName="max-w-4xl space-y-6"
     >
 
-      <Alert className="bg-primary/5 border-primary/20">
-        <Sparkles className="h-4 w-4 text-primary" />
-        <AlertTitle>Live Settings</AlertTitle>
-        <AlertDescription>
-          These controls are now backed by GraphQL settings resolvers.
-        </AlertDescription>
-      </Alert>
+      <div role="alert" className="rounded-lg border border-primary/20 bg-primary/5">
+        <h4 className="font-medium mb-1">Live Settings</h4>
+        <p className="text-sm">These controls are now backed by GraphQL settings resolvers.</p>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>General</CardTitle>
-          <CardDescription>Core smart reply defaults and generation behavior.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      <div className="rounded-lg border border-border-subtle bg-surface-1">
+        <div className="flex flex-col gap-1.5 p-6 relative z-10">
+          <h3 className="leading-none font-semibold">General</h3>
+          <p className="text-sm text-muted-foreground">Core smart reply defaults and generation behavior.</p>
+        </div>
+        <div className="p-6 space-y-6">
           {error && (
-            <p className="text-sm text-destructive">
-              Failed to load settings: {error.message}
-            </p>
+            <InlineError error={new Error(error.message)} />
           )}
 
           <div className="flex items-center justify-between">
@@ -434,8 +415,8 @@ const SmartRepliesSettingsPage = () => {
               }
             />
           </div>
-        </CardContent>
-        <CardFooter className="border-t flex items-center justify-between pt-4">
+        </div>
+        <div className="border-t flex items-center justify-between p-6 pt-4">
           <div className="flex items-center gap-2">
             <Switch
               checked={settings.includeSignature}
@@ -454,15 +435,15 @@ const SmartRepliesSettingsPage = () => {
             />
             <span className="text-sm">Keep reply history</span>
           </div>
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Advanced</CardTitle>
-          <CardDescription>Custom instructions and retention preferences.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <div className="rounded-lg border border-border-subtle bg-surface-1">
+        <div className="flex flex-col gap-1.5 p-6 relative z-10">
+          <h3 className="leading-none font-semibold">Advanced</h3>
+          <p className="text-sm text-muted-foreground">Custom instructions and retention preferences.</p>
+        </div>
+        <div className="p-6 space-y-4">
           <div>
             <label className="text-sm font-medium">History duration (days)</label>
             <Select
@@ -499,31 +480,29 @@ const SmartRepliesSettingsPage = () => {
               className="mt-1 min-h-[120px]"
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
+      <div className="rounded-lg border border-border-subtle bg-surface-1">
+        <div className="flex flex-col gap-1.5 p-6 relative z-10">
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-primary" />
             <div>
-              <CardTitle>Smart reply provider status</CardTitle>
-              <CardDescription className="mt-1">
+              <h3 className="leading-none font-semibold">Smart reply provider status</h3>
+              <p className="text-sm text-muted-foreground mt-1">
                 Routing mode and which LLM backends are configured. Useful when you only see template replies.
-              </CardDescription>
+              </p>
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div className="p-6">
           {healthLoading ? (
             <p className="text-sm text-muted-foreground">Loading provider health…</p>
           ) : healthData?.mySmartReplyProviderHealth ? (
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2 text-sm">
-                <Badge variant="outline">Mode: {healthData.mySmartReplyProviderHealth.mode}</Badge>
-                <Badge variant="outline">
-                  Hybrid primary: {healthData.mySmartReplyProviderHealth.hybridPrimary}
-                </Badge>
+                <StatusBadge status="info" label={`Mode: ${healthData.mySmartReplyProviderHealth.mode}`} />
+                <StatusBadge status="info" label={`Hybrid primary: ${healthData.mySmartReplyProviderHealth.hybridPrimary}`} />
                 <span className="text-xs text-muted-foreground">
                   Checked {new Date(healthData.mySmartReplyProviderHealth.executedAtIso).toLocaleString()}
                 </span>
@@ -546,22 +525,22 @@ const SmartRepliesSettingsPage = () => {
           ) : (
             <p className="text-sm text-muted-foreground">Provider health unavailable.</p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
+      <div className="rounded-lg border border-border-subtle bg-surface-1">
+        <div className="flex flex-col gap-1.5 p-6 relative z-10">
           <div className="flex items-center gap-2">
             <History className="h-5 w-5 text-primary" />
             <div>
-              <CardTitle>Generation history</CardTitle>
-              <CardDescription className="mt-1">
+              <h3 className="leading-none font-semibold">Generation history</h3>
+              <p className="text-sm text-muted-foreground mt-1">
                 Recent smart-reply generations stored for your account. Export or clear for privacy.
-              </CardDescription>
+              </p>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        </div>
+        <div className="p-6 space-y-4">
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -639,31 +618,31 @@ const SmartRepliesSettingsPage = () => {
                       <span>{new Date(row.createdAt).toLocaleString()}</span>
                       <span>·</span>
                       <span>{row.source}</span>
-                      {row.fallbackUsed ? <Badge variant="secondary">fallback</Badge> : null}
-                      {row.blockedSensitive ? <Badge variant="destructive">blocked</Badge> : null}
+                      {row.fallbackUsed ? <StatusBadge status="warning" label="fallback" /> : null}
+                      {row.blockedSensitive ? <StatusBadge status="error" label="blocked" /> : null}
                     </div>
                   </li>
                 ))
               )}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Auto-Send Trust Tier */}
-      <Card>
-        <CardHeader>
+      <div className="rounded-lg border border-border-subtle bg-surface-1">
+        <div className="flex flex-col gap-1.5 p-6 relative z-10">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-primary" />
             <div>
-              <CardTitle>AI Draft Auto-Send Tier</CardTitle>
-              <CardDescription className="mt-1">
+              <h3 className="leading-none font-semibold">AI Draft Auto-Send Tier</h3>
+              <p className="text-sm text-muted-foreground mt-1">
                 Control how much trust you grant to AI-composed reply drafts. Higher tiers reduce friction for low-stakes conversations.
-              </CardDescription>
+              </p>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
+        </div>
+        <div className="p-6 space-y-3">
           {AUTO_SEND_TIERS.map((tier) => {
             const isSelected = autoSendTier === tier.value;
             return (
@@ -686,9 +665,7 @@ const SmartRepliesSettingsPage = () => {
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">{tier.label}</span>
                         {tier.badge && (
-                          <Badge variant="outline" className="text-[10px]">
-                            {tier.badge}
-                          </Badge>
+                          <StatusBadge status="info" label={tier.badge} className="text-[10px]" />
                         )}
                       </div>
                       <p className="mt-0.5 text-xs text-muted-foreground">{tier.description}</p>
@@ -701,16 +678,15 @@ const SmartRepliesSettingsPage = () => {
           })}
 
           {autoSendTier === 'AUTO' && (
-            <Alert className="border-yellow-500/30 bg-yellow-500/5">
-              <Zap className="h-4 w-4 text-yellow-500" />
-              <AlertTitle className="text-yellow-600 dark:text-yellow-400">Heads up</AlertTitle>
-              <AlertDescription className="text-xs">
+            <div role="alert" className="rounded-lg border border-yellow-500/30 bg-yellow-500/5">
+              <h4 className="font-medium mb-1 text-yellow-600 dark:text-yellow-400">Heads up</h4>
+              <p className="text-xs">
                 Fully Automatic mode auto-approves every AI draft. Make sure your AI is well-calibrated before enabling this.
-              </AlertDescription>
-            </Alert>
+              </p>
+            </div>
           )}
-        </CardContent>
-        <CardFooter>
+        </div>
+        <div className="p-6 border-t">
           <Button
             onClick={() => updateAutoSendTierMutation({ variables: { tier: autoSendTier } })}
             disabled={savingTier}
@@ -724,8 +700,8 @@ const SmartRepliesSettingsPage = () => {
             )}
             Save Auto-Send Tier
           </Button>
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
     </DashboardPageShell>
   );
 };

@@ -34,7 +34,7 @@ import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/primitives/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
@@ -68,13 +68,12 @@ function LabelCard({ label }: { label: OrgLabel }) {
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-sm">{label.name}</p>
       </div>
-      <Badge
-        variant="outline"
-        className="shrink-0 border-0 text-xs font-semibold"
+      <span
+        className="shrink-0 text-xs font-semibold rounded-md border border-border-subtle px-1.5 py-0.5"
         style={{ background: `${color}22`, color }}
       >
         {color}
-      </Badge>
+      </span>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { useMutation, useQuery } from '@apollo/client';
 import { Plus, Shield, Trash2 } from 'lucide-react';
 import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/primitives/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,7 +41,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import {
   GET_ALL_FEATURES,
@@ -147,66 +146,64 @@ export default function FeatureFlagsPage() {
         </Button>
       }
     >
-      <Card>
-        <CardContent className="p-0">
-          {loading && features.length === 0 ? (
-            <div className="space-y-2 p-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          ) : features.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <Shield className="mb-3 h-10 w-10 opacity-30" />
-              <p className="text-sm font-medium">No feature flags configured</p>
-              <p className="text-xs">Create flags to control feature rollouts</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Target Type</TableHead>
-                  <TableHead>Target Value</TableHead>
-                  <TableHead>Rollout %</TableHead>
-                  <TableHead>Active</TableHead>
-                  <TableHead />
+      <div className="rounded-lg border border-border-subtle bg-surface-1 p-0">
+        {loading && features.length === 0 ? (
+          <div className="space-y-2 p-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        ) : features.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+            <Shield className="mb-3 h-10 w-10 opacity-30" />
+            <p className="text-sm font-medium">No feature flags configured</p>
+            <p className="text-xs">Create flags to control feature rollouts</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Target Type</TableHead>
+                <TableHead>Target Value</TableHead>
+                <TableHead>Rollout %</TableHead>
+                <TableHead>Active</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {features.map((f) => (
+                <TableRow key={f.id}>
+                  <TableCell className="font-medium font-mono text-sm">{f.name}</TableCell>
+                  <TableCell>
+                    <StatusBadge status="info" label={f.targetType} className="text-xs" />
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {f.targetValue ?? '—'}
+                  </TableCell>
+                  <TableCell className="text-sm">{f.rolloutPercentage}%</TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={f.isActive}
+                      onCheckedChange={() => toggleActive(f)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => setDeleteTarget(f)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {features.map((f) => (
-                  <TableRow key={f.id}>
-                    <TableCell className="font-medium font-mono text-sm">{f.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">{f.targetType}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {f.targetValue ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-sm">{f.rolloutPercentage}%</TableCell>
-                    <TableCell>
-                      <Switch
-                        checked={f.isActive}
-                        onCheckedChange={() => toggleActive(f)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        onClick={() => setDeleteTarget(f)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
 
       {/* Create Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>

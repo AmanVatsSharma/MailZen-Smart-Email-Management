@@ -7,16 +7,8 @@ import { DashboardPageShell } from '@/components/layout/DashboardPageShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
+import { InlineError } from '@/components/primitives/inline-error';
 import {
   GET_NOTIFICATION_PREFERENCES,
   UPDATE_NOTIFICATION_PREFERENCES,
@@ -185,25 +177,21 @@ const NotificationsSettingsPage = () => {
       }
       contentClassName="max-w-3xl space-y-6"
     >
-      <Alert className="border-primary/20 bg-primary/5">
-        <AlertTitle>Backed by live GraphQL preferences</AlertTitle>
-        <AlertDescription>
-          These toggles map directly to your persisted notification preferences.
-        </AlertDescription>
-      </Alert>
+      <div role="alert" className="rounded-lg border border-primary/20 bg-primary/5">
+        <h4 className="font-medium mb-1">Backed by live GraphQL preferences</h4>
+        <p className="text-sm">These toggles map directly to your persisted notification preferences.</p>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Channels</CardTitle>
-          <CardDescription>
+      <div className="rounded-lg border border-border-subtle bg-surface-1">
+        <div className="flex flex-col gap-1.5 p-6 relative z-10">
+          <h3 className="leading-none font-semibold">Channels</h3>
+          <p className="text-sm text-muted-foreground">
             Choose which channels MailZen can use to reach you.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
+          </p>
+        </div>
+        <div className="p-6 space-y-5">
           {error && (
-            <p className="text-sm text-destructive">
-              Failed to load preferences: {error.message}
-            </p>
+            <InlineError error={new Error(error.message)} />
           )}
 
           <div className="flex items-center justify-between gap-4">
@@ -250,8 +238,8 @@ const NotificationsSettingsPage = () => {
               }
             />
           </div>
-        </CardContent>
-        <CardFooter className="border-t pt-4">
+        </div>
+        <div className="border-t p-6 pt-4">
           <div className="w-full space-y-5">
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -288,17 +276,17 @@ const NotificationsSettingsPage = () => {
               />
             </div>
           </div>
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Mailbox inbound status alerts</CardTitle>
-          <CardDescription>
+      <div className="rounded-lg border border-border-subtle bg-surface-1">
+        <div className="flex flex-col gap-1.5 p-6 relative z-10">
+          <h3 className="leading-none font-semibold">Mailbox inbound status alerts</h3>
+          <p className="text-sm text-muted-foreground">
             Decide which inbound processing outcomes should notify you.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
+          </p>
+        </div>
+        <div className="p-6 space-y-5">
           <div className="flex items-center justify-between gap-4">
             <div>
               <h3 className="text-sm font-medium">Accepted inbound events</h3>
@@ -352,17 +340,17 @@ const NotificationsSettingsPage = () => {
               }
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Mailbox inbound SLA thresholds</CardTitle>
-          <CardDescription>
+      <div className="rounded-lg border border-border-subtle bg-surface-1">
+        <div className="flex flex-col gap-1.5 p-6 relative z-10">
+          <h3 className="leading-none font-semibold">Mailbox inbound SLA thresholds</h3>
+          <p className="text-sm text-muted-foreground">
             Set success and rejection thresholds used by dashboard and header SLA health indicators.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
+          </p>
+        </div>
+        <div className="p-6 space-y-5">
           <div className="flex items-center justify-between gap-4">
             <div>
               <h3 className="text-sm font-medium">SLA alert notifications</h3>
@@ -473,11 +461,10 @@ const NotificationsSettingsPage = () => {
               </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </DashboardPageShell>
   );
 };
 
 export default NotificationsSettingsPage;
-

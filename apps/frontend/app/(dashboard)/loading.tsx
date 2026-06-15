@@ -1,5 +1,4 @@
 import { Skeleton } from "@/components/ui/skeleton"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
 
 export default function DashboardLoading() {
   return (
@@ -15,17 +14,17 @@ export default function DashboardLoading() {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i} className="overflow-hidden">
-              <CardHeader className="pb-2">
+            <div key={i} className="rounded-lg border border-border-subtle bg-surface-1 overflow-hidden">
+              <div className="flex flex-col gap-1.5 p-6 pb-2 relative z-10">
                 <Skeleton className="h-5 w-24 mb-2" />
                 <Skeleton className="h-4 w-32" />
-              </CardHeader>
-              <CardContent>
+              </div>
+              <div className="p-6">
                 <Skeleton className="h-8 w-16 mb-2" />
                 <Skeleton className="h-4 w-24 mb-4" />
                 <Skeleton className="h-2 w-full" />
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -34,24 +33,24 @@ export default function DashboardLoading() {
 
       <div className="space-y-4">
         <Skeleton className="h-10 w-64" />
-        <Card>
-          <CardHeader>
+        <div className="rounded-lg border border-border-subtle bg-surface-1">
+          <div className="flex flex-col gap-1.5 p-6 relative z-10">
             <Skeleton className="h-6 w-32 mb-2" />
             <Skeleton className="h-4 w-48" />
-          </CardHeader>
-          <CardContent>
+          </div>
+          <div className="p-6">
             <Skeleton className="h-[350px] w-full" />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
-          <CardHeader>
+        <div className="rounded-lg border border-border-subtle bg-surface-1 col-span-4">
+          <div className="flex flex-col gap-1.5 p-6 relative z-10">
             <Skeleton className="h-6 w-32 mb-2" />
             <Skeleton className="h-4 w-48" />
-          </CardHeader>
-          <CardContent>
+          </div>
+          <div className="p-6">
             <div className="space-y-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 p-3">
@@ -63,14 +62,14 @@ export default function DashboardLoading() {
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-        <Card className="col-span-3">
-          <CardHeader>
+          </div>
+        </div>
+        <div className="rounded-lg border border-border-subtle bg-surface-1 col-span-3">
+          <div className="flex flex-col gap-1.5 p-6 relative z-10">
             <Skeleton className="h-6 w-48 mb-2" />
             <Skeleton className="h-4 w-64" />
-          </CardHeader>
-          <CardContent>
+          </div>
+          <div className="p-6">
             <div className="flex justify-center py-4">
               <Skeleton className="h-40 w-40 rounded-full" />
             </div>
@@ -82,8 +81,8 @@ export default function DashboardLoading() {
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   )
