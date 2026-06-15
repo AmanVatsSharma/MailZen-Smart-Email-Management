@@ -54,4 +54,11 @@ describe('StatCard', () => {
     render(<StatCard label="Total emails" value="1,234" />);
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
+
+  it('interactive card has focus-visible ring classes for keyboard nav', () => {
+    render(<StatCard label="Open rate" value="42%" onClick={() => {}} />);
+    const button = screen.getByRole('button');
+    expect(button.className).toMatch(/focus-visible:ring-2/);
+    expect(button.className).toMatch(/focus-visible:ring-brand-500/);
+  });
 });

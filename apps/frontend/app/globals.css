@@ -164,6 +164,23 @@
 }
 
 /* =====================================================
+   Focus styles
+   -----------------------------------------------------
+   Modern focus rings should:
+   - Only show on :focus-visible (skip mouse clicks)
+   - Have 3:1 contrast against adjacent colors (WCAG 2.2 1.4.11)
+   - Wrap the element with a 2px solid ring + 2px offset
+   - Override the browser default outline for visual consistency
+   ===================================================== */
+@layer base {
+  :focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* =====================================================
    Animations
    ===================================================== */
 @layer utilities {
