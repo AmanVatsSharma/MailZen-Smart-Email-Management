@@ -78,14 +78,18 @@
         "metadata": {
           "targetGroups": {
             "NPM Scripts": [
-              "typecheck"
+              "typecheck",
+              "build"
             ]
           },
           "description": "Shared TypeScript types used across backend and frontend",
           "js": {
             "packageName": "@mailzen/shared-types",
             "packageExports": {
-              ".": "./src/index.ts"
+              ".": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.js"
+              }
             }
           }
         },
@@ -98,6 +102,18 @@
             "metadata": {
               "scriptContent": "tsc --noEmit",
               "runCommand": "npm run typecheck"
+            },
+            "configurations": {},
+            "parallelism": true
+          },
+          "build": {
+            "executor": "nx:run-script",
+            "options": {
+              "script": "build"
+            },
+            "metadata": {
+              "scriptContent": "tsc",
+              "runCommand": "npm run build"
             },
             "configurations": {},
             "parallelism": true
@@ -6450,6 +6466,24 @@
         "hash": "sha512-w31dd8HOx3k9vPtcQh5QHP9GwKcgbMp87j58qi6xgiBnFFtKEAgCWnDw4qUT8aHwkCp8bKvb/KGKWWHedP0AAg=="
       }
     },
+    "npm:@tanstack/react-table": {
+      "type": "npm",
+      "name": "npm:@tanstack/react-table",
+      "data": {
+        "version": "8.21.3",
+        "packageName": "@tanstack/react-table",
+        "hash": "sha512-5nNMTSETP4ykGegmVkhjcS8tTLW6Vl4axfEGQN3v0zdHYbK4UfoqfPChclTrJ4EoK9QynqAu9oUf8VEmrpZ5Ww=="
+      }
+    },
+    "npm:@tanstack/table-core": {
+      "type": "npm",
+      "name": "npm:@tanstack/table-core",
+      "data": {
+        "version": "8.21.3",
+        "packageName": "@tanstack/table-core",
+        "hash": "sha512-ldZXEhOBb8Is7xLs01fR3YEc3DERiz5silj8tnGkFZytt1abEvl/GhUmCE0PMLaMPTa3Jk4HbKmRlHmu+gCftg=="
+      }
+    },
     "npm:@testing-library/dom": {
       "type": "npm",
       "name": "npm:@testing-library/dom",
@@ -8707,6 +8741,15 @@
         "version": "4.11.1",
         "packageName": "axe-core",
         "hash": "sha512-BASOg+YwO2C+346x3LZOeoovTIoTrRqEsqMa6fmfAV0P+U9mFr9NsyOEpiYvFjbc64NMrSswhV50WdXzdb/Z5A=="
+      }
+    },
+    "npm:axe-core@4.9.1": {
+      "type": "npm",
+      "name": "npm:axe-core@4.9.1",
+      "data": {
+        "version": "4.9.1",
+        "packageName": "axe-core",
+        "hash": "sha512-QbUdXJVTpvUTHU7871ppZkdOLBeGUKBQWHkHrvN2V9IQWGMt61zf3B45BtzjxEJzYuj0JBjBZP/hmYS/R9pmAw=="
       }
     },
     "npm:axios": {
@@ -12471,6 +12514,33 @@
         "hash": "sha512-NIy3oAFp9shda19hy4HK0HRTWKtPJmGdnvywu01nOqNC2vZg+Z+fvJDxpMQA88eb2I9EcafcdjYgsDthnYTvGw=="
       }
     },
+    "npm:jest-axe": {
+      "type": "npm",
+      "name": "npm:jest-axe",
+      "data": {
+        "version": "9.0.0",
+        "packageName": "jest-axe",
+        "hash": "sha512-Xt7O0+wIpW31lv0SO1wQZUTyJE7DEmnDEZeTt9/S9L5WUywxrv8BrgvTuQEqujtfaQOcJ70p4wg7UUgK1E2F5g=="
+      }
+    },
+    "npm:jest-matcher-utils@29.2.2": {
+      "type": "npm",
+      "name": "npm:jest-matcher-utils@29.2.2",
+      "data": {
+        "version": "29.2.2",
+        "packageName": "jest-matcher-utils",
+        "hash": "sha512-4DkJ1sDPT+UX2MR7Y3od6KtvRi9Im1ZGLGgdLFLm4lPexbTaCgJW5NN3IOXlQHF7NSHY/VHhflQ+WoKtD/vyCw=="
+      }
+    },
+    "npm:jest-matcher-utils": {
+      "type": "npm",
+      "name": "npm:jest-matcher-utils",
+      "data": {
+        "version": "29.7.0",
+        "packageName": "jest-matcher-utils",
+        "hash": "sha512-sBkD+Xi9DtcChsI3L3u0+N0opgPYnCRPtGcQYrgXmR+hmt/fYfWAL0xRXYU8eWOdfuLgBe0YCW3AFtnRLagq/g=="
+      }
+    },
     "npm:jest-changed-files": {
       "type": "npm",
       "name": "npm:jest-changed-files",
@@ -12577,15 +12647,6 @@
         "version": "29.7.0",
         "packageName": "jest-leak-detector",
         "hash": "sha512-kYA8IJcSYtST2BY9I+SMC32nDpBT3J2NvWJx8+JCuCdl/CR1I4EKUJROiP8XtCcxqgTTBGJNdbB1A8XRKbTetw=="
-      }
-    },
-    "npm:jest-matcher-utils": {
-      "type": "npm",
-      "name": "npm:jest-matcher-utils",
-      "data": {
-        "version": "29.7.0",
-        "packageName": "jest-matcher-utils",
-        "hash": "sha512-sBkD+Xi9DtcChsI3L3u0+N0opgPYnCRPtGcQYrgXmR+hmt/fYfWAL0xRXYU8eWOdfuLgBe0YCW3AFtnRLagq/g=="
       }
     },
     "npm:jest-pnp-resolver": {
@@ -17433,6 +17494,11 @@
       },
       {
         "source": "frontend",
+        "target": "npm:jest-axe",
+        "type": "static"
+      },
+      {
+        "source": "frontend",
         "target": "npm:jest-environment-jsdom",
         "type": "static"
       },
@@ -17474,6 +17540,11 @@
       {
         "source": "frontend",
         "target": "npm:@radix-ui/react-accordion",
+        "type": "static"
+      },
+      {
+        "source": "frontend",
+        "target": "npm:@radix-ui/react-alert-dialog",
         "type": "static"
       },
       {
@@ -17564,6 +17635,11 @@
       {
         "source": "frontend",
         "target": "npm:@sentry/nextjs",
+        "type": "static"
+      },
+      {
+        "source": "frontend",
+        "target": "npm:@tanstack/react-table",
         "type": "static"
       },
       {
@@ -26742,6 +26818,23 @@
         "type": "static"
       }
     ],
+    "npm:@tanstack/react-table": [
+      {
+        "source": "npm:@tanstack/react-table",
+        "target": "npm:react",
+        "type": "static"
+      },
+      {
+        "source": "npm:@tanstack/react-table",
+        "target": "npm:react-dom",
+        "type": "static"
+      },
+      {
+        "source": "npm:@tanstack/react-table",
+        "target": "npm:@tanstack/table-core",
+        "type": "static"
+      }
+    ],
     "npm:@testing-library/dom": [
       {
         "source": "npm:@testing-library/dom",
@@ -33425,6 +33518,50 @@
       {
         "source": "npm:jest",
         "target": "npm:jest-cli",
+        "type": "static"
+      }
+    ],
+    "npm:jest-axe": [
+      {
+        "source": "npm:jest-axe",
+        "target": "npm:axe-core@4.9.1",
+        "type": "static"
+      },
+      {
+        "source": "npm:jest-axe",
+        "target": "npm:chalk",
+        "type": "static"
+      },
+      {
+        "source": "npm:jest-axe",
+        "target": "npm:jest-matcher-utils@29.2.2",
+        "type": "static"
+      },
+      {
+        "source": "npm:jest-axe",
+        "target": "npm:lodash.merge",
+        "type": "static"
+      }
+    ],
+    "npm:jest-matcher-utils@29.2.2": [
+      {
+        "source": "npm:jest-matcher-utils@29.2.2",
+        "target": "npm:chalk",
+        "type": "static"
+      },
+      {
+        "source": "npm:jest-matcher-utils@29.2.2",
+        "target": "npm:jest-diff",
+        "type": "static"
+      },
+      {
+        "source": "npm:jest-matcher-utils@29.2.2",
+        "target": "npm:jest-get-type",
+        "type": "static"
+      },
+      {
+        "source": "npm:jest-matcher-utils@29.2.2",
+        "target": "npm:pretty-format",
         "type": "static"
       }
     ],

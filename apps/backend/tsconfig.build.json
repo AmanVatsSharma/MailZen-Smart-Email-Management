@@ -6,6 +6,10 @@
     "dist",
     "**/*.spec.ts",
     "**/*.e2e-spec.ts",
-    "**/*spec.ts"
+    "**/*spec.ts",
+    "src/core",
+    "src/composition",
+    "src/interfaces",
+    "scripts"
   ]
 }
