@@ -10,7 +10,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IAutomationRepository } from '../../../application/ports/repositories/automation.repository';
+import { IAutomationRepository } from '../../../../application/ports/repositories/automation.repository';
 import { Automation } from '../../../../domain/bounded-contexts/automation/automation.aggregate';
 import { AutomationStatus } from '../../../../domain/bounded-contexts/automation/value-objects/automation-status.vo';
 import { AutomationCondition } from '../../../../domain/bounded-contexts/automation/value-objects/automation-condition.vo';

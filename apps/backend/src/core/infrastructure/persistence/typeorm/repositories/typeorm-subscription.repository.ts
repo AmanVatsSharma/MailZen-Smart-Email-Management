@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ISubscriptionRepository } from '../../../application/ports/repositories/subscription.repository';
+import { ISubscriptionRepository } from '../../../../application/ports/repositories/subscription.repository';
 import { Subscription } from '../../../../domain/bounded-contexts/billing/subscription.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { SubscriptionId, WorkspaceId } from '../../../../domain/shared/value-objects/ids';

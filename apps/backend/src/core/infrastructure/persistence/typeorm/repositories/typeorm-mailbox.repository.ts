@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IMailboxRepository } from '../../../application/ports/repositories/mailbox.repository';
+import { IMailboxRepository } from '../../../../application/ports/repositories/mailbox.repository';
 import { Mailbox } from '../../../../domain/bounded-contexts/mailbox/mailbox.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { MailboxId, UserId, WorkspaceId } from '../../../../domain/shared/value-objects/ids';

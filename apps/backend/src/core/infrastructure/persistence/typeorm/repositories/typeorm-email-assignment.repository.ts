@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IEmailAssignmentRepository } from '../../../application/ports/repositories/email-assignment.repository';
+import { IEmailAssignmentRepository } from '../../../../application/ports/repositories/email-assignment.repository';
 import { EmailAssignment } from '../../../../domain/bounded-contexts/messaging/email-assignment.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { EmailId, UserId } from '../../../../domain/shared/value-objects/ids';

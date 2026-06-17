@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThanOrEqual, Repository } from 'typeorm';
-import { IEmailRepository, EmailListFilter, EmailListResult } from '../../../application/ports/repositories/email.repository';
+import { IEmailRepository, EmailListFilter, EmailListResult } from '../../../../application/ports/repositories/email.repository';
 import { Email, EmailStatus } from '../../../../domain/bounded-contexts/messaging/email.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { EmailOrmEntity } from '../entities/email.orm-entity';

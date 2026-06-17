@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IAutomationRunRepository } from '../../../application/ports/repositories/automation-run.repository';
+import { IAutomationRunRepository } from '../../../../application/ports/repositories/automation-run.repository';
 import { Result } from '../../../../domain/shared/result';
 import { AutomationRunOrmEntity } from '../entities/automation-run.orm-entity';
 

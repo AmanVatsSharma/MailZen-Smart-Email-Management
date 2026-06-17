@@ -12,7 +12,7 @@ import { Repository } from 'typeorm';
 import {
   IInboxFolderRepository,
   IUnifiedThreadRepository,
-} from '../../../application/ports/repositories/unified-inbox.repository';
+} from '../../../../application/ports/repositories/unified-inbox.repository';
 import { InboxFolder, UnifiedThread } from '../../../../domain/bounded-contexts/unified-inbox/unified-thread.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { UserId, WorkspaceId } from '../../../../domain/shared/value-objects/ids';

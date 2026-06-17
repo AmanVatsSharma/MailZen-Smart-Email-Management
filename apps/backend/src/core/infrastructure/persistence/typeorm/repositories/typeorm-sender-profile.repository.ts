@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ISenderProfileRepository } from '../../../application/ports/repositories/sender-profile.repository';
+import { ISenderProfileRepository } from '../../../../application/ports/repositories/sender-profile.repository';
 import { SenderProfile } from '../../../../domain/bounded-contexts/ai/sender-profile.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { SenderProfileOrmEntity } from '../entities/sender-profile.orm-entity';

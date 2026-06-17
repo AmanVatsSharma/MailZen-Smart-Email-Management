@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ILabelRepository } from '../../../application/ports/repositories/label.repository';
+import { ILabelRepository } from '../../../../application/ports/repositories/label.repository';
 import { Label } from '../../../../domain/bounded-contexts/organization/label.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { WorkspaceId } from '../../../../domain/shared/value-objects/ids';

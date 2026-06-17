@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
-import { IPhoneVerificationRepository } from '../../../application/ports/repositories/phone-verification.repository';
+import { IPhoneVerificationRepository } from '../../../../application/ports/repositories/phone-verification.repository';
 import { PhoneVerification } from '../../../../domain/bounded-contexts/phone/phone-verification.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { PhoneVerificationOrmEntity } from '../entities/phone-verification.orm-entity';

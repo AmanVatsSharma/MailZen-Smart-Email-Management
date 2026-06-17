@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ITriageResultRepository } from '../../../application/ports/repositories/triage.repository';
+import { ITriageResultRepository } from '../../../../application/ports/repositories/triage.repository';
 import { TriageResult } from '../../../../domain/bounded-contexts/ai/triage-result.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { TriageResultOrmEntity } from '../entities/triage-result.orm-entity';

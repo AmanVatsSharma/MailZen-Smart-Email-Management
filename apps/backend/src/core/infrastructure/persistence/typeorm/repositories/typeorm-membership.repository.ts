@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IMembershipRepository } from '../../../application/ports/repositories/membership.repository';
+import { IMembershipRepository } from '../../../../application/ports/repositories/membership.repository';
 import { Membership } from '../../../../domain/bounded-contexts/workspaces/membership.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { UserId, WorkspaceId } from '../../../../domain/shared/value-objects/ids';

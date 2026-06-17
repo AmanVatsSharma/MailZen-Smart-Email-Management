@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThanOrEqual, Repository } from 'typeorm';
-import { IScheduledEmailRepository } from '../../../application/ports/repositories/scheduled-email.repository';
+import { IScheduledEmailRepository } from '../../../../application/ports/repositories/scheduled-email.repository';
 import { ScheduledEmail } from '../../../../domain/bounded-contexts/scheduled-email/scheduled-email.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { EmailId, UserId, WorkspaceId } from '../../../../domain/shared/value-objects/ids';

@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
-import { IFeatureFlagRepository } from '../../../application/ports/repositories/feature-flag.repository';
+import { IFeatureFlagRepository } from '../../../../application/ports/repositories/feature-flag.repository';
 import { FeatureFlag } from '../../../../domain/bounded-contexts/feature/feature-flag.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { FeatureFlagOrmEntity } from '../entities/feature-flag.orm-entity';

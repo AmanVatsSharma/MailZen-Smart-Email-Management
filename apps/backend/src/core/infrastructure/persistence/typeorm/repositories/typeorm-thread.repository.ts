@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IThreadRepository } from '../../../application/ports/repositories/thread.repository';
+import { IThreadRepository } from '../../../../application/ports/repositories/thread.repository';
 import { Thread } from '../../../../domain/bounded-contexts/messaging/thread.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { ThreadId, WorkspaceId } from '../../../../domain/shared/value-objects/ids';

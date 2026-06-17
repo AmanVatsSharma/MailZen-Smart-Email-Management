@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IAttachmentRepository } from '../../../application/ports/repositories/attachment.repository';
+import { IAttachmentRepository } from '../../../../application/ports/repositories/attachment.repository';
 import { Attachment } from '../../../../domain/bounded-contexts/messaging/attachment.entity';
 import { Result } from '../../../../domain/shared/result';
 import { EmailId } from '../../../../domain/shared/value-objects/ids';

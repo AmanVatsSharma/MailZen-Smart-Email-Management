@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IPlanRepository } from '../../../application/ports/repositories/plan.repository';
+import { IPlanRepository } from '../../../../application/ports/repositories/plan.repository';
 import { Plan } from '../../../../domain/bounded-contexts/billing/plan.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { PlanId } from '../../../../domain/shared/value-objects/ids';

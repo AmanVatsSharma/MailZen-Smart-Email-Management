@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ISessionRepository } from '../../../application/ports/repositories/session.repository';
+import { ISessionRepository } from '../../../../application/ports/repositories/session.repository';
 import { Session } from '../../../../domain/bounded-contexts/identity/session.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { UserId } from '../../../../domain/shared/value-objects/ids';

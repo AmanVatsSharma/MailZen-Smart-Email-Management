@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ITrackingEventRepository } from '../../../application/ports/repositories/tracking-event.repository';
+import { ITrackingEventRepository } from '../../../../application/ports/repositories/tracking-event.repository';
 import { TrackingEvent } from '../../../../domain/bounded-contexts/email-analytics/tracking-event.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { TrackingEventOrmEntity } from '../entities/tracking-event.orm-entity';

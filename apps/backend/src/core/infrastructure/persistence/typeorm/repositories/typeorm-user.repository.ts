@@ -4,7 +4,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IUserRepository } from '../../../application/ports/repositories/user.repository';
+import { IUserRepository } from '../../../../application/ports/repositories/user.repository';
 import { User, UserRole } from '../../../../domain/bounded-contexts/identity/user.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { UserId } from '../../../../domain/shared/value-objects/ids';

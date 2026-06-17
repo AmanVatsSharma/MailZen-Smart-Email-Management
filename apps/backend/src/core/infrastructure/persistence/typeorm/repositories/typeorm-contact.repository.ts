@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
-import { IContactRepository } from '../../../application/ports/repositories/contact.repository';
+import { IContactRepository } from '../../../../application/ports/repositories/contact.repository';
 import { Contact } from '../../../../domain/bounded-contexts/contacts/contact.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { ContactId, WorkspaceId } from '../../../../domain/shared/value-objects/ids';

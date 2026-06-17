@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { INotificationRepository } from '../../../application/ports/repositories/notification.repository';
+import { INotificationRepository } from '../../../../application/ports/repositories/notification.repository';
 import { Notification } from '../../../../domain/bounded-contexts/notifications/notification.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { NotificationOrmEntity } from '../entities/notification.orm-entity';

@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ISmartReplyRepository } from '../../../application/ports/repositories/smart-reply.repository';
+import { ISmartReplyRepository } from '../../../../application/ports/repositories/smart-reply.repository';
 import { SmartReply } from '../../../../domain/bounded-contexts/ai/smart-reply.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { SmartReplyOrmEntity } from '../entities/smart-reply.orm-entity';

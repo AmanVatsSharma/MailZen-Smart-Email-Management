@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IWorkspaceRepository } from '../../../application/ports/repositories/workspace.repository';
+import { IWorkspaceRepository } from '../../../../application/ports/repositories/workspace.repository';
 import { Workspace } from '../../../../domain/bounded-contexts/workspaces/workspace.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { WorkspaceId } from '../../../../domain/shared/value-objects/ids';

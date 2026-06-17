@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IEmailWarmupRepository } from '../../../application/ports/repositories/email-warmup.repository';
+import { IEmailWarmupRepository } from '../../../../application/ports/repositories/email-warmup.repository';
 import { Warmup } from '../../../../domain/bounded-contexts/messaging/warmup.aggregate';
 import { Result } from '../../../../domain/shared/result';
 import { WarmupId, WorkspaceId } from '../../../../domain/shared/value-objects/ids';
