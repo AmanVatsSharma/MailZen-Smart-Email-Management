@@ -7,7 +7,7 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import { IPushGateway, PushPayload } from '../../application/ports/gateways/push.gateway';
+import { IPushGateway, PushPayload } from '../../../application/ports/gateways/push.gateway';
 
 @Injectable()
 export class PushNotificationGateway implements IPushGateway {

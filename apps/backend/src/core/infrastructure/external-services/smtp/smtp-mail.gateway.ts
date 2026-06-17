@@ -4,7 +4,7 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
-import { IMailGateway, OutgoingMail } from '../../application/ports/gateways/mail.gateway';
+import { IMailGateway, OutgoingMail } from '../../../application/ports/gateways/mail.gateway';
 import { Result } from '../../../domain/shared/result';
 
 @Injectable()

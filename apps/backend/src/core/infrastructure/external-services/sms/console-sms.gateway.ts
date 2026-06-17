@@ -8,7 +8,7 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import { ISmsGateway, SmsMessage } from '../../application/ports/gateways/sms.gateway';
+import { ISmsGateway, SmsMessage } from '../../../application/ports/gateways/sms.gateway';
 
 @Injectable()
 export class ConsoleSmsGateway implements ISmsGateway {
