@@ -3,7 +3,7 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { google } from 'googleapis';
-import { IOAuthGateway, OAuthProfile } from '../../application/ports/gateways/oauth.gateway';
+import { IOAuthGateway, OAuthProfile } from '../../../application/ports/gateways/oauth.gateway';
 
 @Injectable()
 export class GoogleOAuthGateway implements IOAuthGateway {

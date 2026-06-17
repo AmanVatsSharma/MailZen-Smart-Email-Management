@@ -50,6 +50,7 @@ export interface EmailFilterProps {
 }
 
 export class EmailFilter {
+  public readonly props: EmailFilterProps;
   public readonly id: string;
   public readonly workspaceId: string;
   public readonly name: string;
@@ -63,6 +64,7 @@ export class EmailFilter {
   public readonly updatedAt: Date;
 
   private constructor(props: EmailFilterProps) {
+    this.props = props;
     this.id = props.id;
     this.workspaceId = props.workspaceId;
     this.name = props.name;

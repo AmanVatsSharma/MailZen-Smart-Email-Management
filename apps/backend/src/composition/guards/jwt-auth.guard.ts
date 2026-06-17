@@ -4,7 +4,7 @@
 
 import { CanActivate, ExecutionContext, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Request } from 'express';
-import { JWT_GATEWAY, IJwtGateway } from '../core/application/ports/gateways/jwt.gateway';
+import { JWT_GATEWAY, IJwtGateway } from '../../core/application/ports/gateways/jwt.gateway';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {

@@ -4,7 +4,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { IAiGateway, SmartReplySuggestion, TriageResult, SenderAnalysis } from '../../application/ports/gateways/ai.gateway';
+import { IAiGateway, SmartReplySuggestion, TriageResult, SenderAnalysis } from '../../../application/ports/gateways/ai.gateway';
 
 @Injectable()
 export class HttpAiGateway implements IAiGateway {

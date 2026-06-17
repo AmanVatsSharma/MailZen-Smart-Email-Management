@@ -9,7 +9,7 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
-import { IJwtGateway, JwtPayload } from '../application/ports/gateways/jwt.gateway';
+import { IJwtGateway, JwtPayload } from '../../../application/ports/gateways/jwt.gateway';
 
 @Injectable()
 export class JwtTokenService implements IJwtGateway {

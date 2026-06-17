@@ -3,7 +3,7 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { Client } from '@microsoft/microsoft-graph-client';
-import { IOAuthGateway, OAuthProfile } from '../../application/ports/gateways/oauth.gateway';
+import { IOAuthGateway, OAuthProfile } from '../../../application/ports/gateways/oauth.gateway';
 
 @Injectable()
 export class MicrosoftOAuthGateway implements IOAuthGateway {
