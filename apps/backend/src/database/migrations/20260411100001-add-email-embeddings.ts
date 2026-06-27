@@ -14,6 +14,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  */
 export class AddEmailEmbeddings20260411100001 implements MigrationInterface {
   name = 'AddEmailEmbeddings20260411100001';
+  public transaction = false;
+
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Install pgvector (no-op if already present)
