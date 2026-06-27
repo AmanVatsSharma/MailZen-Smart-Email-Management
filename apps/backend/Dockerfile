@@ -17,7 +17,11 @@ COPY apps/backend/package.json ./apps/backend/
 COPY libs/ ./libs/
 
 # Install ALL dependencies (including devDeps needed for compilation).
-RUN npm ci --workspace backend --include-workspace-root
+# We install for backend and shared-types to ensure tsc is available for the library.
+RUN npm ci --workspace backend --workspace @mailzen/shared-types --include-workspace-root
+
+# Build the shared-types workspace so the backend can resolve its dist/ imports.
+RUN npm run build --workspace @mailzen/shared-types
 
 # Copy backend source.
 COPY apps/backend/ ./apps/backend/
