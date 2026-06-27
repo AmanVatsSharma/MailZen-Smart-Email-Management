@@ -57,6 +57,7 @@ services:
     build:
       context: .
       dockerfile: services/ai-agent-platform/Dockerfile
+    pull_policy: build
     container_name: mailzen-ai-agent-platform
     restart: unless-stopped
     environment:
@@ -89,6 +90,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+    pull_policy: build
     container_name: mailzen-backend
     restart: unless-stopped
     depends_on:
@@ -186,6 +188,7 @@ services:
         NEXT_PUBLIC_ENABLE_SMART_REPLIES: ${NEXT_PUBLIC_ENABLE_SMART_REPLIES:-true}
         NEXT_PUBLIC_ENABLE_EMAIL_TRACKING: ${NEXT_PUBLIC_ENABLE_EMAIL_TRACKING:-true}
         NEXT_PUBLIC_DEFAULT_THEME: ${NEXT_PUBLIC_DEFAULT_THEME:-system}
+    pull_policy: build
     container_name: mailzen-frontend
     restart: unless-stopped
     depends_on:
@@ -228,6 +231,7 @@ services:
       dockerfile: apps/marketing/Dockerfile
       args:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://app.mailzen.email}
+    pull_policy: build
     container_name: mailzen-marketing
     restart: unless-stopped
     environment:
