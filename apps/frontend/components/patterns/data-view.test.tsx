@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { render, screen, waitFor } from '@testing-library/react';
 import { DataView } from './data-view';
 import { Skeleton } from '@/components/ui/skeleton';

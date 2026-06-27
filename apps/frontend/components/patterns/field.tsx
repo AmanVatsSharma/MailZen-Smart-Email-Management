@@ -34,6 +34,7 @@ export function Field({
       ? {
           ...child,
           props: {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             ...(child as any).props,
             id,
             'aria-describedby': error ? errorId : description ? descriptionId : undefined,
