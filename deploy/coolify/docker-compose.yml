@@ -109,11 +109,12 @@ services:
       AI_AGENT_PLATFORM_REQUIRED: "false"
       MAILZEN_SESSION_COOKIE_SECURE: "true"
       MAILZEN_SESSION_COOKIE_SAMESITE: lax
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:-default_jwt_secret_must_be_at_least_32_characters}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400}
       REFRESH_TTL_SECONDS: ${REFRESH_TTL_SECONDS:-2592000}
-      OAUTH_STATE_SECRET: ${OAUTH_STATE_SECRET}
-      SECRETS_KEY: ${SECRETS_KEY}
+      OAUTH_STATE_SECRET: ${OAUTH_STATE_SECRET:-default_oauth_state_secret_must_be_32_chars}
+      SECRETS_KEY: ${SECRETS_KEY:-default_secrets_key_must_be_at_least_32_characters}
+      PROVIDER_SECRETS_KEY: ${PROVIDER_SECRETS_KEY:-default_provider_secrets_key_must_be_32_chars}
       PROVIDER_SECRETS_KEYRING: ${PROVIDER_SECRETS_KEYRING}
       PROVIDER_SECRETS_ACTIVE_KEY_ID: ${PROVIDER_SECRETS_ACTIVE_KEY_ID:-default}
       TYPEORM_SYNCHRONIZE: "false"
