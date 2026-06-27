@@ -1,22 +1,46 @@
-FROM node:20-bookworm-slim
+# =============================================================================
+# MailZen – backend production container (NestJS / Node 20)
+# Multi-stage build:
+#   builder  → installs ALL deps, compiles TypeScript → dist/
+#   runner   → production image, only prod deps + compiled JS
+# Migrations run via compiled JS (no ts-node at runtime).
+# =============================================================================
 
-# -----------------------------------------------------------------------------
-# MailZen backend production container.
-# - Uses npm workspace-aware install for the backend app.
-# - Builds NestJS output before runtime start.
-# - Runs DB migrations on container start for safer first boot on EC2.
-# -----------------------------------------------------------------------------
+# ─── Stage 1: builder ────────────────────────────────────────────────────────
+FROM node:20-bookworm-slim AS builder
 
 WORKDIR /workspace
 
-# Copy repository (respecting root .dockerignore).
-COPY . .
+# Copy workspace manifests first for better layer caching.
+COPY package.json package-lock.json ./
+COPY apps/backend/package.json ./apps/backend/
+COPY libs/ ./libs/
 
-# Install backend workspace dependencies.
+# Install ALL dependencies (including devDeps needed for compilation).
 RUN npm ci --workspace backend --include-workspace-root
 
-# Build backend into apps/backend/dist.
+# Copy backend source.
+COPY apps/backend/ ./apps/backend/
+
+# Compile TypeScript → dist/ (includes data-source.js and migrations).
 RUN npm run build --workspace backend
+
+# ─── Stage 2: runner ─────────────────────────────────────────────────────────
+FROM node:20-bookworm-slim AS runner
+
+WORKDIR /workspace
+
+# Copy workspace manifests.
+COPY package.json package-lock.json ./
+COPY apps/backend/package.json ./apps/backend/
+COPY libs/ ./libs/
+
+# Install ONLY production dependencies.
+RUN npm ci --workspace backend --include-workspace-root --omit=dev \
+    && npm cache clean --force
+
+# Copy compiled output from builder.
+COPY --from=builder /workspace/apps/backend/dist ./apps/backend/dist
 
 WORKDIR /workspace/apps/backend
 
@@ -25,6 +49,10 @@ ENV PORT=4000
 
 EXPOSE 4000
 
-# Run migrations before starting the API process.
-# This keeps first-time deployment simple for non-technical operators.
-CMD ["bash", "-lc", "npm run migration:run && npm run start:prod"]
+# Run compiled migrations (no ts-node needed) then start the server.
+# data-source.js is the compiled version of src/database/data-source.ts
+# NestJS compiles source into dist/src/ (not dist/ directly).
+# We start the app; TYPEORM_RUN_MIGRATIONS=true tells TypeORM to auto-run
+# migrations on DataSource.initialize() inside the app itself.
+# No ts-node needed at runtime — all JS compiled in builder stage.
+CMD ["node", "dist/src/main.js"]
