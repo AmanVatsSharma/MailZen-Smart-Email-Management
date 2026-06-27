@@ -15,41 +15,6 @@ name: mailzen-coolify
 # =============================================================================
 
 services:
-  # ── Infrastructure ──────────────────────────────────────────────────────────
-
-  postgres:
-    image: postgres:16-alpine
-    container_name: mailzen-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - mailzen-internal
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  redis:
-    image: redis:7-alpine
-    container_name: mailzen-redis
-    restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - redis_data:/data
-    networks:
-      - mailzen-internal
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
   # ── AI Agent Platform (Python / FastAPI) ────────────────────────────────────
 
   ai-agent-platform:
@@ -91,19 +56,16 @@ services:
     container_name: mailzen-backend
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       ai-agent-platform:
         condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: "4000"
       FRONTEND_URL: https://${MAILZEN_DOMAIN}
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       AI_AGENT_PLATFORM_URL: http://ai-agent-platform:8100
       AI_AGENT_PLATFORM_REQUIRED: "false"
       MAILZEN_SESSION_COOKIE_SECURE: "true"
@@ -263,6 +225,3 @@ networks:
   coolify:
     external: true
 
-volumes:
-  postgres_data:
-  redis_data:
