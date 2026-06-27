@@ -410,6 +410,6 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id'],
   });
 
-  await app.listen(process.env.PORT || 4000);
+  await app.listen(process.env.PORT || 4000, '0.0.0.0');
 }
 void bootstrap();

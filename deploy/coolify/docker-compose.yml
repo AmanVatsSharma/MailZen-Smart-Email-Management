@@ -18,7 +18,7 @@ services:
   # ── Infrastructure ──────────────────────────────────────────────────────────
 
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: mailzen-postgres
     restart: unless-stopped
     environment:
@@ -105,6 +105,7 @@ services:
       DATABASE_URL: postgresql://mailzen_user:mailzen_secure_pass_123@postgres:5432/mailzen
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      REDIS_URL: redis://redis:6379
       AI_AGENT_PLATFORM_URL: http://ai-agent-platform:8100
       AI_AGENT_PLATFORM_REQUIRED: "false"
       MAILZEN_SESSION_COOKIE_SECURE: "true"
