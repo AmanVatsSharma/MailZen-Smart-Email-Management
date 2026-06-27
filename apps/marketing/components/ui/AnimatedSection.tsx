@@ -80,3 +80,17 @@ export const staggerItem: Variants = {
     transition: { duration: 0.5, ease: 'easeOut' },
   },
 };
+
+interface StaggerItemProps {
+  children: ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}
+
+export function StaggerItem({ children, className, style }: StaggerItemProps) {
+  return (
+    <motion.div variants={staggerItem} className={className} style={style}>
+      {children}
+    </motion.div>
+  );
+}

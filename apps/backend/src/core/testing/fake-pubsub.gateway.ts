@@ -7,7 +7,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { IPubSubGateway, PubSubHandler, PubSubMessage } from 'application/ports/gateways/pubsub.gateway';
+import { IPubSubGateway, PubSubHandler, PubSubMessage } from '../application/ports/gateways/pubsub.gateway';
 
 export class FakePubSubGateway implements IPubSubGateway {
   subscriptions: Map<string, { topic: string; handler: PubSubHandler }> = new Map();

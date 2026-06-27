@@ -6,8 +6,7 @@ import { Check, Minus, ArrowRight, Zap } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { FAQ } from '@/components/home/FAQ';
-import { AnimatedSection, StaggerContainer, staggerItem } from '@/components/ui/AnimatedSection';
-import { motion } from 'framer-motion';
+import { AnimatedSection, StaggerContainer, StaggerItem } from '@/components/ui/AnimatedSection';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
@@ -177,9 +176,8 @@ export default function PricingPage() {
           <div className="mx-auto w-full max-w-7xl px-5 md:px-8">
             <StaggerContainer className="grid gap-4 lg:grid-cols-3">
               {plans.map((plan) => (
-                <motion.div
+                <StaggerItem
                   key={plan.name}
-                  variants={staggerItem}
                   className="relative flex flex-col rounded-2xl p-7"
                   style={{
                     background: plan.highlighted
@@ -277,7 +275,7 @@ export default function PricingPage() {
                       <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                   </div>
-                </motion.div>
+                </StaggerItem>
               ))}
             </StaggerContainer>
 
@@ -366,3 +364,4 @@ export default function PricingPage() {
     </div>
   );
 }
+

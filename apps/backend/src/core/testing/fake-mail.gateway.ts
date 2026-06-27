@@ -6,7 +6,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { IMailGateway, OutgoingMail } from 'application/ports/gateways/mail.gateway';
+import { IMailGateway, OutgoingMail } from '../application/ports/gateways/mail.gateway';
 import { Result } from '../domain/shared/result';
 
 export class FakeMailGateway implements IMailGateway {

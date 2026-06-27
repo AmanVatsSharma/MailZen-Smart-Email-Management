@@ -6,7 +6,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { IOAuthGateway } from 'application/ports/gateways/oauth.gateway';
+import { IOAuthGateway } from '../application/ports/gateways/oauth.gateway';
 import { OAuthProfile, OAuthProvider } from '../domain/bounded-contexts/identity/value-objects/oauth-profile';
 import { Result } from '../domain/shared/result';
 

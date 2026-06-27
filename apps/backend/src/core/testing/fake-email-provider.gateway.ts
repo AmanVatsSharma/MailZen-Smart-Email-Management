@@ -7,7 +7,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { EmailProviderGateway, EmailMessageSummary, EmailMessageList, RefreshTokenResponse } from 'application/ports/gateways/email-provider.gateway';
+import { EmailProviderGateway, EmailMessageSummary, EmailMessageList, RefreshTokenResponse } from '../application/ports/gateways/email-provider.gateway';
 import { ProviderType } from '../domain/bounded-contexts/mailbox/value-objects/provider-type';
 
 export class FakeEmailProviderGateway implements EmailProviderGateway {

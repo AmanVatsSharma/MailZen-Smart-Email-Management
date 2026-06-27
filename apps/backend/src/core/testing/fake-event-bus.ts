@@ -7,7 +7,7 @@
  */
 
 import { DomainEvent } from '../domain/shared/domain-event';
-import { IEventBus } from 'application/ports/event-bus/event-bus';
+import { IEventBus } from '../application/ports/event-bus/event-bus';
 
 export class FakeEventBus implements IEventBus {
   public events: DomainEvent[] = [];

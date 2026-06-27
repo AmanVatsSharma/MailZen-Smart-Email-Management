@@ -11,7 +11,7 @@ import {
   PaymentGateway,
   StripeCheckoutSession,
   RazorpayCheckoutSession,
-} from 'application/ports/gateways/payment.gateway';
+} from '../application/ports/gateways/payment.gateway';
 
 export class FakePaymentGateway implements PaymentGateway {
   public readonly createdSessions: Array<{ workspaceId: string; planCode: string }> = [];

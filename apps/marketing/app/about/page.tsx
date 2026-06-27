@@ -4,8 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { CTABanner } from '@/components/home/CTABanner';
-import { AnimatedSection, StaggerContainer, staggerItem } from '@/components/ui/AnimatedSection';
-import { motion } from 'framer-motion';
+import { AnimatedSection, StaggerContainer, StaggerItem } from '@/components/ui/AnimatedSection';
 
 export const metadata: Metadata = {
   title: 'About',
@@ -170,9 +169,8 @@ export default function AboutPage() {
             </AnimatedSection>
             <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {values.map((value) => (
-                <motion.div
+                <StaggerItem
                   key={value.title}
-                  variants={staggerItem}
                   className="rounded-2xl border border-white/[0.07] p-6"
                   style={{ background: 'hsl(240 6% 7%)' }}
                 >
@@ -189,7 +187,7 @@ export default function AboutPage() {
                   <p className="text-sm leading-relaxed text-muted-foreground">
                     {value.description}
                   </p>
-                </motion.div>
+                </StaggerItem>
               ))}
             </StaggerContainer>
           </div>
@@ -256,9 +254,8 @@ export default function AboutPage() {
             </AnimatedSection>
             <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {audiences.map((a) => (
-                <motion.div
+                <StaggerItem
                   key={a.who}
-                  variants={staggerItem}
                   className="flex items-start gap-4 rounded-2xl border border-white/[0.07] p-5"
                   style={{ background: 'hsl(240 6% 7%)' }}
                 >
@@ -272,7 +269,7 @@ export default function AboutPage() {
                     </p>
                     <p className="text-sm text-muted-foreground">{a.what}</p>
                   </div>
-                </motion.div>
+                </StaggerItem>
               ))}
             </StaggerContainer>
           </div>

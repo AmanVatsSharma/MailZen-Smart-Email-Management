@@ -7,7 +7,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { IAiGateway, EmailSummary, SmartReplyContext, SmartReplySuggestionDto, TriageResultDto, SenderAnalysisDto } from 'application/ports/gateways/ai.gateway';
+import { IAiGateway, EmailSummary, SmartReplyContext, SmartReplySuggestionDto, TriageResultDto, SenderAnalysisDto } from '../application/ports/gateways/ai.gateway';
 import { TriagePriority, TriageCategory } from '../domain/bounded-contexts/ai/triage-result.aggregate';
 
 export class FakeAiGateway implements IAiGateway {

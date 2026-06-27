@@ -6,7 +6,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { IUnitOfWork } from 'application/ports/persistence/unit-of-work';
+import { IUnitOfWork } from '../application/ports/persistence/unit-of-work';
 
 export class FakeUnitOfWork implements IUnitOfWork {
   async transaction<T>(work: () => Promise<T>): Promise<T> {

@@ -6,7 +6,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { IPasswordHasher } from 'application/ports/gateways/password-hasher.gateway';
+import { IPasswordHasher } from '../application/ports/gateways/password-hasher.gateway';
 
 export class FakePasswordHasher implements IPasswordHasher {
   private hashes: Map<string, string> = new Map();

@@ -7,7 +7,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { ISyncLeaseGateway, SyncLease, SyncLeaseResponse } from 'application/ports/gateways/sync-lease.gateway';
+import { ISyncLeaseGateway, SyncLease, SyncLeaseResponse } from '../application/ports/gateways/sync-lease.gateway';
 
 export class FakeSyncLeaseGateway implements ISyncLeaseGateway {
   private leases: Map<string, { mailboxId: string; expiresAt: Date; userId: string; heartbeatCount: number }> = new Map();

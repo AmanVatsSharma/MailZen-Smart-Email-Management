@@ -6,7 +6,7 @@
  * Last-updated: 2026-06-13
  */
 
-import { IJwtGateway, JwtPayload } from 'application/ports/gateways/jwt.gateway';
+import { IJwtGateway, JwtPayload } from '../application/ports/gateways/jwt.gateway';
 
 export class FakeJwtGateway implements IJwtGateway {
   private counter = 0;

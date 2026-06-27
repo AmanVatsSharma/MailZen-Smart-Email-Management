@@ -18,8 +18,7 @@ import {
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { CTABanner } from '@/components/home/CTABanner';
-import { AnimatedSection, StaggerContainer, staggerItem } from '@/components/ui/AnimatedSection';
-import { motion } from 'framer-motion';
+import { AnimatedSection, StaggerContainer, StaggerItem } from '@/components/ui/AnimatedSection';
 
 export const metadata: Metadata = {
   title: 'Features',
@@ -257,3 +256,4 @@ export default function FeaturesPage() {
     </div>
   );
 }
+

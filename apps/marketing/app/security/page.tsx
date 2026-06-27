@@ -3,8 +3,7 @@ import { ShieldCheck, Lock, Eye, FileText, Server, RefreshCw, Check } from 'luci
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { CTABanner } from '@/components/home/CTABanner';
-import { AnimatedSection, StaggerContainer, staggerItem } from '@/components/ui/AnimatedSection';
-import { motion } from 'framer-motion';
+import { AnimatedSection, StaggerContainer, StaggerItem } from '@/components/ui/AnimatedSection';
 
 export const metadata: Metadata = {
   title: 'Security',
@@ -178,9 +177,8 @@ export default function SecurityPage() {
               {pillars.map((pillar) => {
                 const Icon = pillar.icon;
                 return (
-                  <motion.div
+                  <StaggerItem
                     key={pillar.title}
-                    variants={staggerItem}
                     className="group relative rounded-2xl border border-white/[0.07] p-6 transition-all duration-300 hover:border-white/[0.12]"
                     style={{ background: 'hsl(240 6% 7%)' }}
                   >
@@ -219,7 +217,7 @@ export default function SecurityPage() {
                         ))}
                       </ul>
                     </div>
-                  </motion.div>
+                  </StaggerItem>
                 );
               })}
             </StaggerContainer>
@@ -232,3 +230,4 @@ export default function SecurityPage() {
     </div>
   );
 }
+
