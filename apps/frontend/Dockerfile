@@ -44,23 +44,21 @@ ENV NEXT_PUBLIC_DEFAULT_THEME=${NEXT_PUBLIC_DEFAULT_THEME}
 WORKDIR /workspace/apps/frontend
 RUN npm run build
 
-# ─── Stage 2: runner ─────────────────────────────────────────────────────────
+# ─── Stage 2: runner (Next.js standalone) ────────────────────────────────────
 FROM node:20-bookworm-slim AS runner
-
-WORKDIR /workspace/apps/frontend
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 
-# Copy built output + only what next start needs.
-COPY --from=builder /workspace/apps/frontend/.next ./.next
-COPY --from=builder /workspace/apps/frontend/public ./public
-COPY --from=builder /workspace/apps/frontend/package.json ./package.json
-COPY --from=builder /workspace/apps/frontend/next.config.ts ./next.config.ts
-COPY --from=builder /workspace/apps/frontend/node_modules ./node_modules
-COPY --from=builder /workspace/node_modules /workspace/node_modules
-COPY --from=builder /workspace/package.json /workspace/package.json
+WORKDIR /app
+
+# next.config.ts has output: 'standalone' — copy the self-contained server.
+COPY --from=builder /workspace/apps/frontend/.next/standalone ./
+COPY --from=builder /workspace/apps/frontend/.next/static ./apps/frontend/.next/static
+COPY --from=builder /workspace/apps/frontend/public ./apps/frontend/public
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start", "--", "-H", "0.0.0.0", "-p", "3000"]
+# The standalone server lives at apps/frontend/server.js relative to WORKDIR /app
+CMD ["node", "apps/frontend/server.js"]

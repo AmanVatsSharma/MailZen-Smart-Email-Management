@@ -45,6 +45,7 @@ RUN npm ci --workspace backend --include-workspace-root --omit=dev \
 
 # Copy compiled output from builder.
 COPY --from=builder /workspace/apps/backend/dist ./apps/backend/dist
+COPY --from=builder /workspace/libs/shared-types/dist ./libs/shared-types/dist
 
 WORKDIR /workspace/apps/backend
 
