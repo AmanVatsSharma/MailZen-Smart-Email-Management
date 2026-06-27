@@ -23,13 +23,13 @@ export class AddEmailEmbeddings20260411100001 implements MigrationInterface {
 
     // Add embedding column
     await queryRunner.query(
-      `ALTER TABLE "external_email_messages" ADD COLUMN IF NOT EXISTS "embedding" vector(1536)`,
+      `ALTER TABLE "emails" ADD COLUMN IF NOT EXISTS "embedding" vector(1536)`,
     );
 
     // IVFFlat index — tune lists = sqrt(row_count); start conservatively
     await queryRunner.query(
       `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_email_embedding_ivfflat"
-       ON "external_email_messages" USING ivfflat ("embedding" vector_cosine_ops)
+       ON "emails" USING ivfflat ("embedding" vector_cosine_ops)
        WITH (lists = 100)`,
     );
   }
@@ -39,7 +39,7 @@ export class AddEmailEmbeddings20260411100001 implements MigrationInterface {
       `DROP INDEX CONCURRENTLY IF EXISTS "idx_email_embedding_ivfflat"`,
     );
     await queryRunner.query(
-      `ALTER TABLE "external_email_messages" DROP COLUMN IF EXISTS "embedding"`,
+      `ALTER TABLE "emails" DROP COLUMN IF EXISTS "embedding"`,
     );
   }
 }
