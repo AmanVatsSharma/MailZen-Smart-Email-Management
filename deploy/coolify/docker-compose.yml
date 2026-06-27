@@ -27,7 +27,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mailzen_secure_pass_123}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_v2:/var/lib/postgresql/data
     networks:
       - mailzen-internal
     healthcheck:
@@ -271,5 +271,5 @@ networks:
     external: true
 
 volumes:
-  postgres_data:
+  postgres_data_v2:
   redis_data:
