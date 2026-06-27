@@ -22,15 +22,16 @@ services:
     container_name: mailzen-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-mailzen}
-      POSTGRES_USER: ${POSTGRES_USER:-mailzen_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mailzen_secure_pass_123}
+      POSTGRES_DB: mailzen
+      POSTGRES_USER: mailzen_user
+      POSTGRES_PASSWORD: mailzen_secure_pass_123
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - mailzen-internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mailzen_user} -d ${POSTGRES_DB:-mailzen}"]
+      test: ["CMD-SHELL", "pg_isready -U mailzen_user -d mailzen"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -101,7 +102,7 @@ services:
       NODE_ENV: production
       PORT: "4000"
       FRONTEND_URL: https://${MAILZEN_DOMAIN}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-mailzen_user}:${POSTGRES_PASSWORD:-mailzen_secure_pass_123}@postgres:5432/${POSTGRES_DB:-mailzen}
+      DATABASE_URL: postgresql://mailzen_user:mailzen_secure_pass_123@postgres:5432/mailzen
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       AI_AGENT_PLATFORM_URL: http://ai-agent-platform:8100
