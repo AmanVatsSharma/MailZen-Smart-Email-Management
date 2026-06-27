@@ -9,6 +9,9 @@ name: mailzen-coolify
 #   • Services use Traefik labels for domain routing instead of Caddy config.
 #   • Ports are NOT bound to host (only Traefik accesses them via the network).
 #   • NEXT_PUBLIC_* vars passed as build.args so Next.js bakes them in.
+#   • context: . (repo root) — Coolify sets --project-directory to repo root,
+#     so relative paths must be from repo root, NOT from this file's location.
+#   • No env_file — Coolify injects all env vars directly at runtime.
 # =============================================================================
 
 services:
@@ -51,16 +54,19 @@ services:
 
   ai-agent-platform:
     build:
-      context: ../..
+      context: .
       dockerfile: services/ai-agent-platform/Dockerfile
     container_name: mailzen-ai-agent-platform
     restart: unless-stopped
-    env_file:
-      - ./.env.coolify
     environment:
       AGENT_PLATFORM_INBOUND_API_KEY: ${AI_AGENT_PLATFORM_KEY}
       AGENT_PLATFORM_SERVICE_NAME: ai-agent-platform
       AGENT_PLATFORM_API_VERSION: v1
+      AGENT_PLATFORM_DEFAULT_LOCALE: ${AGENT_PLATFORM_DEFAULT_LOCALE:-en-IN}
+      AGENT_PLATFORM_MAX_MESSAGE_CHARS: ${AGENT_PLATFORM_MAX_MESSAGE_CHARS:-3000}
+      AGENT_PLATFORM_AGENT_LLM_PROVIDER: ${AGENT_PLATFORM_AGENT_LLM_PROVIDER:-rule_based}
+      AGENT_PLATFORM_AGENT_LLM_API_KEY: ${AGENT_PLATFORM_AGENT_LLM_API_KEY:-}
+      AGENT_PLATFORM_AGENT_LLM_MODEL: ${AGENT_PLATFORM_AGENT_LLM_MODEL:-}
     networks:
       - mailzen-internal
     healthcheck:
@@ -80,7 +86,7 @@ services:
 
   backend:
     build:
-      context: ../..
+      context: .
       dockerfile: apps/backend/Dockerfile
     container_name: mailzen-backend
     restart: unless-stopped
@@ -91,8 +97,6 @@ services:
         condition: service_healthy
       ai-agent-platform:
         condition: service_healthy
-    env_file:
-      - ./.env.coolify
     environment:
       NODE_ENV: production
       PORT: "4000"
@@ -104,9 +108,43 @@ services:
       AI_AGENT_PLATFORM_REQUIRED: "false"
       MAILZEN_SESSION_COOKIE_SECURE: "true"
       MAILZEN_SESSION_COOKIE_SAMESITE: lax
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400}
+      REFRESH_TTL_SECONDS: ${REFRESH_TTL_SECONDS:-2592000}
+      OAUTH_STATE_SECRET: ${OAUTH_STATE_SECRET}
+      SECRETS_KEY: ${SECRETS_KEY}
+      PROVIDER_SECRETS_KEYRING: ${PROVIDER_SECRETS_KEYRING}
+      PROVIDER_SECRETS_ACTIVE_KEY_ID: ${PROVIDER_SECRETS_ACTIVE_KEY_ID:-default}
+      TYPEORM_SYNCHRONIZE: "false"
+      TYPEORM_RUN_MIGRATIONS: "true"
+      TYPEORM_POOL_MAX: ${TYPEORM_POOL_MAX:-20}
+      TYPEORM_IDLE_TIMEOUT_MS: ${TYPEORM_IDLE_TIMEOUT_MS:-30000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
+      GOOGLE_PROVIDER_REDIRECT_URI: ${GOOGLE_PROVIDER_REDIRECT_URI:-}
+      OUTLOOK_CLIENT_ID: ${OUTLOOK_CLIENT_ID:-}
+      OUTLOOK_CLIENT_SECRET: ${OUTLOOK_CLIENT_SECRET:-}
+      OUTLOOK_REDIRECT_URI: ${OUTLOOK_REDIRECT_URI:-}
+      OUTLOOK_PROVIDER_REDIRECT_URI: ${OUTLOOK_PROVIDER_REDIRECT_URI:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMART_REPLY_USE_OPENAI: ${SMART_REPLY_USE_OPENAI:-false}
+      SMART_REPLY_OPENAI_API_KEY: ${SMART_REPLY_OPENAI_API_KEY:-}
+      SMART_REPLY_USE_ANTHROPIC: ${SMART_REPLY_USE_ANTHROPIC:-false}
+      SMART_REPLY_ANTHROPIC_API_KEY: ${SMART_REPLY_ANTHROPIC_API_KEY:-}
+      ENABLE_AI_AUTO_CLASSIFY: ${ENABLE_AI_AUTO_CLASSIFY:-false}
+      MAILZEN_SMS_PROVIDER: ${MAILZEN_SMS_PROVIDER:-console}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      AI_AGENT_PLATFORM_KEY: ${AI_AGENT_PLATFORM_KEY}
     networks:
       - mailzen-internal
-      - coolify   # Traefik needs to reach backend for /graphql routing
+      - coolify
     healthcheck:
       test:
         [
@@ -122,23 +160,23 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=coolify"
-      # Route API/auth/webhook paths to backend on the main domain
       - "traefik.http.routers.mailzen-api.rule=Host(`${MAILZEN_DOMAIN}`) && (PathPrefix(`/graphql`) || PathPrefix(`/auth`) || PathPrefix(`/email-integration`) || PathPrefix(`/notifications`) || PathPrefix(`/mailbox`) || PathPrefix(`/gmail-sync`) || PathPrefix(`/outlook-sync`) || PathPrefix(`/billing`) || PathPrefix(`/phone`) || PathPrefix(`/health`))"
       - "traefik.http.routers.mailzen-api.entrypoints=https"
       - "traefik.http.routers.mailzen-api.tls=true"
       - "traefik.http.routers.mailzen-api.tls.certresolver=letsencrypt"
       - "traefik.http.routers.mailzen-api.service=mailzen-api-svc"
       - "traefik.http.services.mailzen-api-svc.loadbalancer.server.port=4000"
+      - "traefik.http.routers.mailzen-api.priority=10"
 
   # ── Frontend (Next.js dashboard) ─────────────────────────────────────────────
 
   frontend:
     build:
-      context: ../..
+      context: .
       dockerfile: apps/frontend/Dockerfile
       args:
-        # These are BAKED INTO the Next.js bundle at build time.
-        # In Coolify: set these as Build Variables (not just env vars).
+        # IMPORTANT: Set these as Build Variables in Coolify UI (not just env vars).
+        # Next.js bakes NEXT_PUBLIC_* into the JS bundle at build time.
         NEXT_PUBLIC_GRAPHQL_ENDPOINT: ${NEXT_PUBLIC_GRAPHQL_ENDPOINT}
         NEXT_PUBLIC_AUTH_ENABLED: ${NEXT_PUBLIC_AUTH_ENABLED:-true}
         NEXT_PUBLIC_ENABLE_EMAIL_WARMUP: ${NEXT_PUBLIC_ENABLE_EMAIL_WARMUP:-true}
@@ -150,8 +188,6 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-    env_file:
-      - ./.env.coolify
     environment:
       NODE_ENV: production
       PORT: "3000"
@@ -173,13 +209,11 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=coolify"
-      # All remaining traffic on the main domain goes to frontend
       - "traefik.http.routers.mailzen-frontend.rule=Host(`${MAILZEN_DOMAIN}`)"
       - "traefik.http.routers.mailzen-frontend.entrypoints=https"
       - "traefik.http.routers.mailzen-frontend.tls=true"
       - "traefik.http.routers.mailzen-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.mailzen-frontend.service=mailzen-frontend-svc"
-      # Lower priority than API router so API paths take precedence
       - "traefik.http.routers.mailzen-frontend.priority=1"
       - "traefik.http.services.mailzen-frontend-svc.loadbalancer.server.port=3000"
 
@@ -187,10 +221,10 @@ services:
 
   marketing:
     build:
-      context: ../..
+      context: .
       dockerfile: apps/marketing/Dockerfile
       args:
-        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://${MAILZEN_DOMAIN}}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://app.mailzen.email}
     container_name: mailzen-marketing
     restart: unless-stopped
     environment:
@@ -214,7 +248,6 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=coolify"
-      # Marketing site served on www subdomain
       - "traefik.http.routers.mailzen-marketing.rule=Host(`www.${MAILZEN_DOMAIN}`)"
       - "traefik.http.routers.mailzen-marketing.entrypoints=https"
       - "traefik.http.routers.mailzen-marketing.tls=true"
@@ -223,12 +256,10 @@ services:
       - "traefik.http.services.mailzen-marketing-svc.loadbalancer.server.port=3001"
 
 networks:
-  # Internal-only network for service-to-service communication.
   mailzen-internal:
     driver: bridge
-  # Coolify's Traefik network — must already exist on the Coolify host.
-  # Coolify creates this network automatically. If deploying manually,
-  # run: docker network create coolify
+  # Coolify's Traefik network — created automatically by Coolify.
+  # If testing manually outside Coolify: docker network create coolify
   coolify:
     external: true
 
