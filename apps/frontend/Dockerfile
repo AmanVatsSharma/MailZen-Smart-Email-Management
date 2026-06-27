@@ -1,43 +1,31 @@
 # =============================================================================
 # MailZen – frontend production container (Next.js 15 / Node 20)
 # Multi-stage build:
-#   deps     → installs prod dependencies
 #   builder  → installs all deps + builds Next.js
-#   runner   → minimal runtime image using Next.js standalone output
+#   runner   → minimal runtime image
 # NOTE:
 #   NEXT_PUBLIC_* values are compiled into the bundle at build time.
 #   Pass them as Docker build-args (--build-arg or Coolify build vars).
 # =============================================================================
 
-# ─── Stage 1: deps ───────────────────────────────────────────────────────────
-FROM node:20-bookworm-slim AS deps
-
-WORKDIR /workspace
-
-COPY package.json package-lock.json ./
-COPY apps/frontend/package.json ./apps/frontend/
-COPY libs/ ./libs/
-
-RUN npm ci --workspace frontend --include-workspace-root --omit=dev \
-    && npm cache clean --force
-
-# ─── Stage 2: builder ────────────────────────────────────────────────────────
+# ─── Stage 1: builder ────────────────────────────────────────────────────────
 FROM node:20-bookworm-slim AS builder
 
 WORKDIR /workspace
 
+# Copy workspace manifests for layer caching.
 COPY package.json package-lock.json ./
 COPY apps/frontend/package.json ./apps/frontend/
 COPY libs/ ./libs/
 
-# Install all deps (dev too, needed for Next.js build).
+# Install all deps (dev included — needed for Next.js + Sentry build).
 RUN npm ci --workspace frontend --include-workspace-root
 
-# Copy source.
+# Copy full frontend source.
 COPY apps/frontend/ ./apps/frontend/
 
-# Build-time public env vars — must be declared as ARG before ENV to allow
-# docker build --build-arg and Coolify build-variable injection.
+# Build-time public env vars — declared as ARG before ENV so
+# docker build --build-arg and Coolify build-variable injection works.
 ARG NEXT_PUBLIC_GRAPHQL_ENDPOINT=https://localhost/graphql
 ARG NEXT_PUBLIC_AUTH_ENABLED=true
 ARG NEXT_PUBLIC_ENABLE_EMAIL_WARMUP=true
@@ -52,9 +40,11 @@ ENV NEXT_PUBLIC_ENABLE_SMART_REPLIES=${NEXT_PUBLIC_ENABLE_SMART_REPLIES}
 ENV NEXT_PUBLIC_ENABLE_EMAIL_TRACKING=${NEXT_PUBLIC_ENABLE_EMAIL_TRACKING}
 ENV NEXT_PUBLIC_DEFAULT_THEME=${NEXT_PUBLIC_DEFAULT_THEME}
 
-RUN npm run build --workspace frontend
+# Build must run from within the app directory so tsconfig @/* paths resolve.
+WORKDIR /workspace/apps/frontend
+RUN npm run build
 
-# ─── Stage 3: runner ─────────────────────────────────────────────────────────
+# ─── Stage 2: runner ─────────────────────────────────────────────────────────
 FROM node:20-bookworm-slim AS runner
 
 WORKDIR /workspace/apps/frontend
@@ -62,14 +52,14 @@ WORKDIR /workspace/apps/frontend
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Copy built output and prod deps.
+# Copy built output + only what next start needs.
 COPY --from=builder /workspace/apps/frontend/.next ./.next
 COPY --from=builder /workspace/apps/frontend/public ./public
 COPY --from=builder /workspace/apps/frontend/package.json ./package.json
 COPY --from=builder /workspace/apps/frontend/next.config.ts ./next.config.ts
-COPY --from=deps /workspace/apps/frontend/node_modules ./node_modules
-COPY --from=deps /workspace/node_modules /workspace/node_modules
-COPY --from=deps /workspace/package.json /workspace/package.json
+COPY --from=builder /workspace/apps/frontend/node_modules ./node_modules
+COPY --from=builder /workspace/node_modules /workspace/node_modules
+COPY --from=builder /workspace/package.json /workspace/package.json
 
 EXPOSE 3000
 
