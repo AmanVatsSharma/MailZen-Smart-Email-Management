@@ -55,7 +55,7 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
     // This keeps `nx serve backend` runnable without additional Express5 adapter packages.
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
+      autoSchemaFile: process.env.NODE_ENV === 'production' ? true : join(process.cwd(), 'src/schema.gql'),
       context: ({ req, res }) => ({ req, res }),
       // Disable landing page in dev to reduce optional dependencies
       playground: true,
