@@ -17,9 +17,9 @@ name: mailzen-coolify
 services:
   # ── Infrastructure ──────────────────────────────────────────────────────────
 
-  postgres:
+  mailzen-db:
     image: pgvector/pgvector:pg16
-    container_name: mailzen-postgres
+    container_name: mailzen-db-container
     restart: unless-stopped
     environment:
       POSTGRES_DB: mailzen
@@ -27,7 +27,7 @@ services:
       POSTGRES_PASSWORD: mailzen_secure_pass_123
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - postgres_data_v2:/var/lib/postgresql/data
+      - mailzen_db_data_v1:/var/lib/postgresql/data
     networks:
       - mailzen-internal
     healthcheck:
@@ -94,7 +94,7 @@ services:
     container_name: mailzen-backend
     restart: unless-stopped
     depends_on:
-      postgres:
+      mailzen-db:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -104,7 +104,7 @@ services:
       NODE_ENV: production
       PORT: "4000"
       FRONTEND_URL: https://${MAILZEN_DOMAIN}
-      DATABASE_URL: postgresql://mailzen_user:mailzen_secure_pass_123@postgres:5432/mailzen
+      DATABASE_URL: postgresql://mailzen_user:mailzen_secure_pass_123@mailzen-db:5432/mailzen
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_URL: redis://redis:6379
@@ -271,5 +271,5 @@ networks:
     external: true
 
 volumes:
-  postgres_data_v2:
+  mailzen_db_data_v1:
   redis_data:
