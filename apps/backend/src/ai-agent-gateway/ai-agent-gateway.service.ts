@@ -1944,11 +1944,16 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
   }
 
   private getRedisUrl(): string {
-    return (
-      process.env.AI_AGENT_GATEWAY_REDIS_URL ||
-      process.env.REDIS_URL ||
-      'redis://localhost:6379'
-    );
+    if (process.env.AI_AGENT_GATEWAY_REDIS_URL || process.env.REDIS_URL) {
+      return process.env.AI_AGENT_GATEWAY_REDIS_URL || process.env.REDIS_URL;
+    }
+    const host = process.env.REDIS_HOST || 'localhost';
+    const port = process.env.REDIS_PORT || 6379;
+    const password = process.env.REDIS_PASSWORD;
+    if (password) {
+      return `redis://:${password}@${host}:${port}`;
+    }
+    return `redis://${host}:${port}`;
   }
 
   private getSkillPolicy(skill: string): SkillPolicy {
