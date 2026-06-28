@@ -1945,7 +1945,7 @@ export class AiAgentGatewayService implements OnModuleInit, OnModuleDestroy {
 
   private getRedisUrl(): string {
     if (process.env.AI_AGENT_GATEWAY_REDIS_URL || process.env.REDIS_URL) {
-      return process.env.AI_AGENT_GATEWAY_REDIS_URL || process.env.REDIS_URL;
+      return (process.env.AI_AGENT_GATEWAY_REDIS_URL || process.env.REDIS_URL) as string;
     }
     const host = process.env.REDIS_HOST || 'localhost';
     const port = process.env.REDIS_PORT || 6379;
