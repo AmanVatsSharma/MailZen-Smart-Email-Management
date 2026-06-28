@@ -52,7 +52,7 @@ export class AddMailboxIsShared20260419120000 implements MigrationInterface {
       `CREATE INDEX IF NOT EXISTS "IDX_f330053612e25cc7638f0fcb0f" ON "email_assignments" ("emailId") `,
     );
     await queryRunner.query(
-      `ALTER TABLE "mailboxes" ADD "isShared" boolean NOT NULL DEFAULT false`,
+      `ALTER TABLE "mailboxes" ADD COLUMN IF NOT EXISTS "isShared" boolean NOT NULL DEFAULT false`,
     );
   }
 

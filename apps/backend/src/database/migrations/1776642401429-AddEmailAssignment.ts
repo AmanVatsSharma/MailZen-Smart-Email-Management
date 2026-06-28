@@ -43,7 +43,7 @@ export class AddEmailAssignment1776642401429 implements MigrationInterface {
         await queryRunner.query(`CREATE TABLE IF NOT EXISTS "email_assignments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "workspaceId" uuid NOT NULL, "emailId" character varying NOT NULL, "assignedToUserId" character varying NOT NULL, "assignedByUserId" character varying NOT NULL, "status" "public"."email_assignments_status_enum" NOT NULL DEFAULT 'open', "notes" text, "dueAt" TIMESTAMP WITH TIME ZONE, "resolvedAt" TIMESTAMP WITH TIME ZONE, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_a9824bf29342cb9056b54a2c7c6" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_ac520da2bbc175ba04af7e0eeb" ON "email_assignments" ("workspaceId") `);
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_f330053612e25cc7638f0fcb0f" ON "email_assignments" ("emailId") `);
-        await queryRunner.query(`ALTER TABLE "mailboxes" ADD "isShared" boolean NOT NULL DEFAULT false`);
+        await queryRunner.query(`ALTER TABLE "mailboxes" ADD COLUMN IF NOT EXISTS "isShared" boolean NOT NULL DEFAULT false`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
