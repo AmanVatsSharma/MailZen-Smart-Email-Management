@@ -21,14 +21,21 @@ export class AddEmailEmbeddings20260411100001 implements MigrationInterface {
     // Install pgvector (no-op if already present)
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS vector`);
 
-    // Add embedding column
-    await queryRunner.query(
-      `DO $$ BEGIN
-         ALTER TABLE "emails" ADD COLUMN "embedding" vector(1536);
-       EXCEPTION WHEN duplicate_column THEN
-         ALTER TABLE "emails" ALTER COLUMN "embedding" TYPE vector(1536) USING "embedding"::text::vector;
-       END $$;`
-    );
+    // Add embedding column or cast it if it exists
+    try {
+      await queryRunner.query(
+        `ALTER TABLE "emails" ADD COLUMN "embedding" vector(1536)`
+      );
+    } catch (error: any) {
+      // 42701 is duplicate_column
+      if (error?.code === '42701' || String(error).includes('already exists')) {
+        await queryRunner.query(
+          `ALTER TABLE "emails" ALTER COLUMN "embedding" TYPE vector(1536) USING "embedding"::text::vector`
+        );
+      } else {
+        throw error;
+      }
+    }
 
     // IVFFlat index — tune lists = sqrt(row_count); start conservatively
     await queryRunner.query(

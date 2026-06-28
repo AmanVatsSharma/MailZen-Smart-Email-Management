@@ -56,13 +56,20 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        redis: {
-          host: configService.get('REDIS_HOST') || 'localhost',
-          port: parseInt(configService.get('REDIS_PORT') || '6379', 10),
-          ...(configService.get('REDIS_PASSWORD') && { password: configService.get('REDIS_PASSWORD') }),
-        },
-      }),
+      useFactory: (configService: ConfigService) => {
+        let password = configService.get<string>('REDIS_PASSWORD');
+        if (password) {
+          // Strip surrounding quotes that Coolify may inject from .env files
+          password = password.replace(/^["']|["']$/g, '');
+        }
+        return {
+          redis: {
+            host: configService.get('REDIS_HOST') || 'localhost',
+            port: parseInt(configService.get('REDIS_PORT') || '6379', 10),
+            ...(password && { password }),
+          },
+        };
+      },
     }),
 
     // NOTE: For local dev we explicitly avoid Apollo Server Express 5 integration requirements.

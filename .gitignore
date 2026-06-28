@@ -2,6 +2,7 @@
 # Dependencies
 # ------------------------------
 node_modules/
+node_modules_backup/
 .venv/
 __pycache__/
 *.pyc
@@ -11,6 +12,7 @@ __pycache__/
 # ------------------------------
 .nx/
 .angular/cache/
+.turbo/
 
 # ------------------------------
 # Build and test outputs
@@ -37,8 +39,15 @@ next-env.d.ts
 # ------------------------------
 .env
 .env.*
+.env.local
+.env.*.local
 !.env.example
 !.env.*.example
+
+# ------------------------------
+# Auto-generated files
+# ------------------------------
+src/schema.gql
 
 # ------------------------------
 # Logs and runtime artifacts
@@ -70,6 +79,11 @@ lerna-debug.log*
 Thumbs.db
 
 # ------------------------------
+# Scratch / temp workspace files
+# ------------------------------
+scratch/
+
+# ------------------------------
 # Cursor local planning artifacts
 # ------------------------------
 .cursor/plans/
@@ -84,10 +98,10 @@ Thumbs.db
 *.sqlite-shm
 *.sqlite-wal
 
+# ------------------------------
 # Beads / Dolt files (added by bd init)
+# ------------------------------
+.beads/
 .dolt/
 *.db
 .beads-credential-key
-
-# Beads / Dolt files (added by bd init)
-.beads/proxieddb/
