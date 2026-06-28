@@ -21,7 +21,7 @@ services:
     image: redis:7-alpine
     container_name: mailzen-redis
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "mailzen_redis_secure_123"]
     volumes:
       - redis_data:/data
     healthcheck:
@@ -77,7 +77,9 @@ services:
       FRONTEND_URL: https://${MAILZEN_DOMAIN}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_HOST: redis
-      REDIS_PORT: 6379
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "mailzen_redis_secure_123"
+      REDIS_URL: redis://:mailzen_redis_secure_123@redis:6379
       AI_AGENT_PLATFORM_URL: http://ai-agent-platform:8100
       AI_AGENT_PLATFORM_REQUIRED: "false"
       MAILZEN_SESSION_COOKIE_SECURE: "true"
