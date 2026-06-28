@@ -4,6 +4,7 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { BullModule } from '@nestjs/bull';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { join } from 'path';
 import { UserModule } from './user/user.module';
@@ -49,6 +50,19 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) =>
         buildTypeOrmModuleOptions(configService),
+    }),
+
+    // Global Redis configuration for Bull Queues
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        redis: {
+          host: configService.get('REDIS_HOST') || 'localhost',
+          port: parseInt(configService.get('REDIS_PORT') || '6379', 10),
+          ...(configService.get('REDIS_PASSWORD') && { password: configService.get('REDIS_PASSWORD') }),
+        },
+      }),
     }),
 
     // NOTE: For local dev we explicitly avoid Apollo Server Express 5 integration requirements.
