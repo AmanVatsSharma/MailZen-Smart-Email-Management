@@ -23,7 +23,11 @@ export class AddEmailEmbeddings20260411100001 implements MigrationInterface {
 
     // Add embedding column
     await queryRunner.query(
-      `ALTER TABLE "emails" ADD COLUMN IF NOT EXISTS "embedding" vector(1536)`,
+      `DO $$ BEGIN
+         ALTER TABLE "emails" ADD COLUMN "embedding" vector(1536);
+       EXCEPTION WHEN duplicate_column THEN
+         ALTER TABLE "emails" ALTER COLUMN "embedding" TYPE vector(1536) USING "embedding"::text::vector;
+       END $$;`
     );
 
     // IVFFlat index — tune lists = sqrt(row_count); start conservatively
