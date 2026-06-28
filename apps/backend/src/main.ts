@@ -157,9 +157,9 @@ async function bootstrap() {
   const dsOptions = buildDataSourceOptionsFromEnv(process.env);
   const ds = new DataSource({ ...dsOptions, synchronize: false, migrationsRun: false });
   await ds.initialize();
-  const tables = await ds.query(`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`);
+  const tables = await ds.query(`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'users'`);
   if (tables.length === 0) {
-    bootstrapLogger.log('Empty database detected. Creating initial baseline schema...');
+    bootstrapLogger.log('Missing baseline tables detected (e.g. users). Creating initial baseline schema...');
     await ds.query(`CREATE EXTENSION IF NOT EXISTS vector`);
     await ds.synchronize();
     bootstrapLogger.log('Initial baseline schema created successfully.');
