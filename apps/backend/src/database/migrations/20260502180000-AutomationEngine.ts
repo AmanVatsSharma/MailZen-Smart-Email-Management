@@ -60,47 +60,47 @@ export class AutomationEngine20260502180000 implements MigrationInterface {
 
     // ── Automation engine tables ───────────────────────────────────────────────
     await queryRunner.query(
-      `CREATE TABLE "workspace_integrations" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "workspaceId" character varying NOT NULL, "provider" character varying NOT NULL, "status" character varying NOT NULL DEFAULT 'ACTIVE', "displayName" text, "encryptedSecret" text NOT NULL, "config" jsonb, "installedByUserId" character varying NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "UQ_8f8001c6ad8c43eb76a09aa1b61" UNIQUE ("workspaceId", "provider"), CONSTRAINT "PK_28e9815605e2f1adafa65df23fd" PRIMARY KEY ("id"))`,
+      `CREATE TABLE IF NOT EXISTS "workspace_integrations" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "workspaceId" character varying NOT NULL, "provider" character varying NOT NULL, "status" character varying NOT NULL DEFAULT 'ACTIVE', "displayName" text, "encryptedSecret" text NOT NULL, "config" jsonb, "installedByUserId" character varying NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "UQ_8f8001c6ad8c43eb76a09aa1b61" UNIQUE ("workspaceId", "provider"), CONSTRAINT "PK_28e9815605e2f1adafa65df23fd" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_ec2e6b5983e8c4198789912633" ON "workspace_integrations" ("workspaceId")`,
-    );
-
-    await queryRunner.query(
-      `CREATE TABLE "automations" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "workspaceId" character varying NOT NULL, "ownerUserId" character varying, "name" character varying NOT NULL, "description" text, "status" character varying NOT NULL DEFAULT 'DRAFT', "currentVersionId" uuid, "createdByUserId" character varying NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_34c2cc382fc780ea36f7c478192" PRIMARY KEY ("id"))`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_42fd873aa9c947616b652df05b" ON "automations" ("workspaceId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_ec2e6b5983e8c4198789912633" ON "workspace_integrations" ("workspaceId")`,
     );
 
     await queryRunner.query(
-      `CREATE TABLE "automation_versions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "automationId" character varying NOT NULL, "version" integer NOT NULL, "trigger" jsonb NOT NULL, "conditions" jsonb, "steps" jsonb NOT NULL, "publishedAt" TIMESTAMP WITH TIME ZONE, "publishedByUserId" character varying NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "UQ_670625268844d3e2d8a96afb242" UNIQUE ("automationId", "version"), CONSTRAINT "PK_fa1aa22126ed3f167f655bc8e81" PRIMARY KEY ("id"))`,
+      `CREATE TABLE IF NOT EXISTS "automations" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "workspaceId" character varying NOT NULL, "ownerUserId" character varying, "name" character varying NOT NULL, "description" text, "status" character varying NOT NULL DEFAULT 'DRAFT', "currentVersionId" uuid, "createdByUserId" character varying NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_34c2cc382fc780ea36f7c478192" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_1a4774f64f5555d6f213fc2aec" ON "automation_versions" ("automationId")`,
-    );
-
-    await queryRunner.query(
-      `CREATE TABLE "automation_step_runs" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "runId" character varying NOT NULL, "stepIndex" integer NOT NULL, "stepType" character varying NOT NULL, "status" character varying NOT NULL DEFAULT 'PENDING', "input" jsonb, "output" jsonb, "attempt" integer NOT NULL DEFAULT '1', "errorCode" text, "errorMessage" text, "startedAt" TIMESTAMP WITH TIME ZONE, "finishedAt" TIMESTAMP WITH TIME ZONE, CONSTRAINT "UQ_83e104edd3811992522f0733f9d" UNIQUE ("runId", "stepIndex", "attempt"), CONSTRAINT "PK_bfe739b260f027ebf9e0c3feb88" PRIMARY KEY ("id"))`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_c50b8ce361c496b0bc2e8df7cf" ON "automation_step_runs" ("runId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_42fd873aa9c947616b652df05b" ON "automations" ("workspaceId")`,
     );
 
     await queryRunner.query(
-      `CREATE TABLE "automation_runs" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "automationId" character varying NOT NULL, "automationVersionId" character varying NOT NULL, "workspaceId" character varying NOT NULL, "status" character varying NOT NULL DEFAULT 'QUEUED', "triggerEvent" jsonb NOT NULL, "context" jsonb, "startedAt" TIMESTAMP WITH TIME ZONE, "finishedAt" TIMESTAMP WITH TIME ZONE, "errorCode" text, "errorMessage" text, "correlationId" character varying NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_273137fa78ff9340128ab98445f" PRIMARY KEY ("id"))`,
+      `CREATE TABLE IF NOT EXISTS "automation_versions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "automationId" character varying NOT NULL, "version" integer NOT NULL, "trigger" jsonb NOT NULL, "conditions" jsonb, "steps" jsonb NOT NULL, "publishedAt" TIMESTAMP WITH TIME ZONE, "publishedByUserId" character varying NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "UQ_670625268844d3e2d8a96afb242" UNIQUE ("automationId", "version"), CONSTRAINT "PK_fa1aa22126ed3f167f655bc8e81" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_4cdbc1a681a31bbe3c73a87971" ON "automation_runs" ("automationId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_1a4774f64f5555d6f213fc2aec" ON "automation_versions" ("automationId")`,
+    );
+
+    await queryRunner.query(
+      `CREATE TABLE IF NOT EXISTS "automation_step_runs" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "runId" character varying NOT NULL, "stepIndex" integer NOT NULL, "stepType" character varying NOT NULL, "status" character varying NOT NULL DEFAULT 'PENDING', "input" jsonb, "output" jsonb, "attempt" integer NOT NULL DEFAULT '1', "errorCode" text, "errorMessage" text, "startedAt" TIMESTAMP WITH TIME ZONE, "finishedAt" TIMESTAMP WITH TIME ZONE, CONSTRAINT "UQ_83e104edd3811992522f0733f9d" UNIQUE ("runId", "stepIndex", "attempt"), CONSTRAINT "PK_bfe739b260f027ebf9e0c3feb88" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_f4e73ddd8257353306b01e87f5" ON "automation_runs" ("workspaceId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_c50b8ce361c496b0bc2e8df7cf" ON "automation_step_runs" ("runId")`,
+    );
+
+    await queryRunner.query(
+      `CREATE TABLE IF NOT EXISTS "automation_runs" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "automationId" character varying NOT NULL, "automationVersionId" character varying NOT NULL, "workspaceId" character varying NOT NULL, "status" character varying NOT NULL DEFAULT 'QUEUED', "triggerEvent" jsonb NOT NULL, "context" jsonb, "startedAt" TIMESTAMP WITH TIME ZONE, "finishedAt" TIMESTAMP WITH TIME ZONE, "errorCode" text, "errorMessage" text, "correlationId" character varying NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_273137fa78ff9340128ab98445f" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_07d594efd64f37eeff766f0667" ON "automation_runs" ("workspaceId", "status", "createdAt")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_4cdbc1a681a31bbe3c73a87971" ON "automation_runs" ("automationId")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_ad5da040cb4f1cf3e587e5b5ea" ON "automation_runs" ("automationId", "createdAt")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_f4e73ddd8257353306b01e87f5" ON "automation_runs" ("workspaceId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_07d594efd64f37eeff766f0667" ON "automation_runs" ("workspaceId", "status", "createdAt")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_ad5da040cb4f1cf3e587e5b5ea" ON "automation_runs" ("automationId", "createdAt")`,
     );
 
     // ── New workspace columns ──────────────────────────────────────────────────

@@ -8,6 +8,8 @@ import axios from 'axios';
 import { randomUUID } from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
+import { DataSource } from 'typeorm';
+import { buildDataSourceOptionsFromEnv } from './database/typeorm.config';
 import {
   resolveCorrelationId,
   serializeStructuredLog,
@@ -150,6 +152,20 @@ async function bootstrap() {
   assertProductionSecrets();
 
   await assertAgentPlatformReadiness();
+
+  // --- START FIX: Force baseline schema creation on fresh databases ---
+  const dsOptions = buildDataSourceOptionsFromEnv(process.env);
+  const ds = new DataSource({ ...dsOptions, synchronize: false, migrationsRun: false });
+  await ds.initialize();
+  const tables = await ds.query(`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`);
+  if (tables.length === 0) {
+    bootstrapLogger.log('Empty database detected. Creating initial baseline schema...');
+    await ds.query(`CREATE EXTENSION IF NOT EXISTS vector`);
+    await ds.synchronize();
+    bootstrapLogger.log('Initial baseline schema created successfully.');
+  }
+  await ds.destroy();
+  // --- END FIX ---
 
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
