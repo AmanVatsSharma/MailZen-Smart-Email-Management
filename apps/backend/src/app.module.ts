@@ -65,7 +65,6 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
           redis: {
             host: configService.get('REDIS_HOST') || 'localhost',
             port: parseInt(configService.get('REDIS_PORT') || '6379', 10),
-            username: configService.get('REDIS_USERNAME'),
             password: password || undefined,
           },
         };
