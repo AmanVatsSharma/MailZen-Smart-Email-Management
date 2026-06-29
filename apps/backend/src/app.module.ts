@@ -57,6 +57,12 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
+        // Use REDIS_URL if available - Bull handles URL parsing internally
+        const redisUrl = configService.get<string>('REDIS_URL');
+        if (redisUrl) {
+          return { redis: redisUrl };
+        }
+        // Fallback to individual config
         let password = configService.get<string>('REDIS_PASSWORD');
         if (password) {
           password = password.replace(/^["']|["']$/g, '');
@@ -65,9 +71,7 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
           redis: {
             host: configService.get('REDIS_HOST') || 'localhost',
             port: parseInt(configService.get('REDIS_PORT') || '6379', 10),
-            // Redis 7.x requires explicit username 'default' along with password
-            // Without username, ioredis sends AUTH <password> which Redis treats as username
-            ...(password && { username: 'default', password }),
+            password: password || undefined,
           },
         };
       },
