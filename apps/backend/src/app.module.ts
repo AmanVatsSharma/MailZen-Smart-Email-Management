@@ -65,7 +65,9 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
           redis: {
             host: configService.get('REDIS_HOST') || 'localhost',
             port: parseInt(configService.get('REDIS_PORT') || '6379', 10),
-            password: password || undefined,
+            // Redis 7.x requires explicit username 'default' along with password
+            // Without username, ioredis sends AUTH <password> which Redis treats as username
+            ...(password && { username: 'default', password }),
           },
         };
       },
