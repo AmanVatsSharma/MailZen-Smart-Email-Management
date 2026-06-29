@@ -66,7 +66,8 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
           redis: {
             host: configService.get('REDIS_HOST') || 'localhost',
             port: parseInt(configService.get('REDIS_PORT') || '6379', 10),
-            ...(password && { password }),
+            // Redis 7.x with ACL requires username 'default' along with password
+            ...(password && { username: 'default', password }),
           },
         };
       },
