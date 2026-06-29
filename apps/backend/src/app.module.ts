@@ -57,14 +57,7 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        // Use REDIS_URL if available (e.g., redis://:pass@host:6379)
-        // This avoids the Redis 7.x username/password parsing issues
-        const redisUrl = configService.get<string>('REDIS_URL');
-        if (redisUrl) {
-          return { redis: redisUrl };
-        }
-        // Fallback to individual config
-        let password = configService.get<string>('REDIS_PASSWORD');
+        const password = configService.get<string>('REDIS_PASSWORD');
         if (password) {
           password = password.replace(/^["']|["']$/g, '');
         }
@@ -72,10 +65,7 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
           redis: {
             host: configService.get('REDIS_HOST') || 'localhost',
             port: parseInt(configService.get('REDIS_PORT') || '6379', 10),
-            ...(password && {
-              username: configService.get('REDIS_USERNAME') || 'default',
-              password
-            }),
+            password: password || undefined,
           },
         };
       },
