@@ -57,7 +57,7 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const password = configService.get<string>('REDIS_PASSWORD');
+        let password = configService.get<string>('REDIS_PASSWORD');
         if (password) {
           password = password.replace(/^["']|["']$/g, '');
         }
