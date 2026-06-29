@@ -9,9 +9,8 @@ name: mailzen-coolify
 #   • Services use Traefik labels for domain routing instead of Caddy config.
 #   • Ports are NOT bound to host (only Traefik accesses them via the network).
 #   • NEXT_PUBLIC_* vars passed as build.args so Next.js bakes them in.
-#   • context: ../.. (repo root) — Build contexts must be repo root because
-#     Dockerfiles live at apps/*/Dockerfile and services/*/Dockerfile.
-#     Relative to this file (deploy/coolify/), repo root is ../..
+#   • context: .. (parent directory) — Build context points to /deploy/ which
+#     contains apps/ and services/ directories where Dockerfiles reside.
 #   • No env_file — Coolify injects all env vars directly at runtime.
 # =============================================================================
 
@@ -56,8 +55,8 @@ services:
 
   ai-agent-platform:
     build:
-      context: ../..
-      dockerfile: services/ai-agent-platform/Dockerfile
+      context: ..
+      dockerfile: ../services/ai-agent-platform/Dockerfile
     pull_policy: build
     container_name: mailzen-ai-agent-platform
     restart: unless-stopped
@@ -89,8 +88,8 @@ services:
 
   backend:
     build:
-      context: ../..
-      dockerfile: apps/backend/Dockerfile
+      context: ..
+      dockerfile: ../apps/backend/Dockerfile
     pull_policy: build
     container_name: mailzen-backend
     restart: unless-stopped
@@ -179,8 +178,8 @@ services:
 
   frontend:
     build:
-      context: ../..
-      dockerfile: apps/frontend/Dockerfile
+      context: ..
+      dockerfile: ../apps/frontend/Dockerfile
       args:
         # IMPORTANT: Set these as Build Variables in Coolify UI (not just env vars).
         # Next.js bakes NEXT_PUBLIC_* into the JS bundle at build time.
@@ -229,8 +228,8 @@ services:
 
   marketing:
     build:
-      context: ../..
-      dockerfile: apps/marketing/Dockerfile
+      context: ..
+      dockerfile: ../apps/marketing/Dockerfile
       args:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://app.mailzen.email}
     pull_policy: build
