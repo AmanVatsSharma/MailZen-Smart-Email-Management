@@ -57,17 +57,25 @@ import { buildTypeOrmModuleOptions } from './database/typeorm.config';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
+        // Use REDIS_URL if available (e.g., redis://default:pass@host:6379)
+        // This avoids the Redis 7.x username/password parsing issues
+        const redisUrl = configService.get<string>('REDIS_URL');
+        if (redisUrl) {
+          return { redis: { url: redisUrl } };
+        }
+        // Fallback to individual config
         let password = configService.get<string>('REDIS_PASSWORD');
         if (password) {
-          // Strip surrounding quotes that Coolify may inject from .env files
           password = password.replace(/^["']|["']$/g, '');
         }
         return {
           redis: {
             host: configService.get('REDIS_HOST') || 'localhost',
             port: parseInt(configService.get('REDIS_PORT') || '6379', 10),
-            // Redis 7.x with ACL requires username 'default' along with password
-            ...(password && { username: 'default', password }),
+            ...(password && {
+              username: configService.get('REDIS_USERNAME') || 'default',
+              password
+            }),
           },
         };
       },
